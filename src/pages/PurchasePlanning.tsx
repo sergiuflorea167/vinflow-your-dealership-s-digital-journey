@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { VehicleIntakeDialog } from "@/components/fleet/VehicleIntakeDialog";
 import { useTopbarSearch } from "@/context/TopbarSearchContext";
+import { DataTableShell } from "@/components/shared/DataTableShell";
 
 type PlanSortKey = "expected_asc" | "expected_desc" | "created_desc" | "price_asc" | "price_desc" | "supplier";
 
