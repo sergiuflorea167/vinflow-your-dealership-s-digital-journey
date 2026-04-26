@@ -17,17 +17,21 @@ import {
   VehicleType,
   vehicleTotalCostsGross,
 } from "@/data/process";
-import { Car, Plus } from "lucide-react";
+import { Car, Megaphone, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { VehicleIntakeDialog } from "@/components/fleet/VehicleIntakeDialog";
 import { cn } from "@/lib/utils";
 import { useTopbarSearch } from "@/context/TopbarSearchContext";
 import { SortableTh, SortState } from "@/components/shared/SortableTh";
 import { DataTableShell } from "@/components/shared/DataTableShell";
+import { Switch } from "@/components/ui/switch";
+import {
+  Tooltip, TooltipContent, TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 type FleetSortKey =
   | "name" | "type" | "year" | "mileage" | "power" | "color"
-  | "location" | "hu" | "stockDays" | "price" | "margin" | "openOffers" | "status";
+  | "location" | "hu" | "stockDays" | "price" | "margin" | "openOffers" | "status" | "listed";
 
 const STATUS_META: Record<VehicleStatus, { label: string; className: string }> = {
   planned:  { label: "Geplant",    className: "bg-info/15 text-info border-info/30" },
@@ -37,6 +41,8 @@ const STATUS_META: Record<VehicleStatus, { label: string; className: string }> =
 };
 
 const STATUS_ORDER: Record<VehicleStatus, number> = { in_stock: 0, reserved: 1, planned: 2, sold: 3 };
+
+type ListedFilter = "all" | "listed" | "not_listed";
 
 const Fleet = () => {
   const navigate = useNavigate();
