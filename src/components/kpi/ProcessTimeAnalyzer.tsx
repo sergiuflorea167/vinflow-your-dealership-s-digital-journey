@@ -1,12 +1,13 @@
-// Konfigurierbare Auswertung von Prozessdauern.
-// User wählt Zeitraum + Von-Schritt + Bis-Schritt und fügt die Messung
-// dauerhaft als Karte hinzu. Jede Karte enthält Statistik + Deutung.
+// Konfigurierbare Auswertung von Prozess- und Lebenszyklus-Zeiten eines Fahrzeugs.
+// Stationen umfassen Pre-Sales-Events (Einkaufsplanung, Bestandszugang, Inseriert)
+// sowie alle Prozess-Schritte. User wählt Zeitraum, Von-/Bis-Station und optional
+// einen Fahrzeugtyp-Filter — die Auswertung läuft live.
 
 import { useMemo, useState } from "react";
 import { format } from "date-fns";
 import { de } from "date-fns/locale";
 import {
-  Calendar as CalendarIcon, Plus, Timer, Trash2, X, Info, ArrowRight,
+  Calendar as CalendarIcon, Plus, Timer, Trash2, Info, ArrowRight, Car,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
@@ -24,8 +25,66 @@ import {
   Tooltip, TooltipContent, TooltipTrigger, TooltipProvider,
 } from "@/components/ui/tooltip";
 import {
-  Process, PROCESS_STEPS, ProcessStepKey,
+  Process, PROCESS_STEPS, ProcessStepKey, Vehicle, PurchasePlan,
+  VehicleType, VEHICLE_TYPE_LABELS,
 } from "@/data/process";
+
+// ---------------------------------------------------------------------------
+// Stationen (Lebenszyklus-Punkte eines Fahrzeugs)
+// ---------------------------------------------------------------------------
+
+type StationKey =
+  | "purchase_planned"   // Plan-Anlage (Einkaufsplanung)
+  | "arrived"            // Bestandszugang im Hof
+  | "listed"             // Online inseriert
+  | ProcessStepKey;      // alle Vorgangs-Schritte
+
+interface Station {
+  key: StationKey;
+  label: string;
+  shortLabel: string;
+  group: "lifecycle" | "process";
+}
+
+const LIFECYCLE_STATIONS: Station[] = [
+  { key: "purchase_planned", label: "Einkaufsplanung",  shortLabel: "Einkauf",   group: "lifecycle" },
+  { key: "arrived",          label: "Bestandszugang",   shortLabel: "Zugang",    group: "lifecycle" },
+  { key: "listed",           label: "Inseriert",        shortLabel: "Inseriert", group: "lifecycle" },
+];
+
+const PROCESS_STATIONS: Station[] = PROCESS_STEPS.map((s) => ({
+  key: s.key,
+  label: s.label,
+  shortLabel: s.shortLabel,
+  group: "process" as const,
+}));
+
+const STATIONS: Station[] = [...LIFECYCLE_STATIONS, ...PROCESS_STATIONS];
+
+const stationIndex = (k: StationKey) => STATIONS.findIndex((s) => s.key === k);
+const stationLabel = (k: StationKey) =>
+  STATIONS.find((s) => s.key === k)?.shortLabel ?? k;
+
+// Findet das relevante Datum einer Station für ein Fahrzeug.
+const stationDate = (
+  station: StationKey,
+  vehicle: Vehicle,
+  process: Process | undefined,
+  purchasePlan: PurchasePlan | undefined,
+): Date | undefined => {
+  switch (station) {
+    case "purchase_planned":
+      return purchasePlan?.createdAt ? new Date(purchasePlan.createdAt) : undefined;
+    case "arrived":
+      return vehicle.arrivedAt ? new Date(vehicle.arrivedAt) : undefined;
+    case "listed":
+      return vehicle.listed?.listedAt ? new Date(vehicle.listed.listedAt) : undefined;
+    default: {
+      const rec = process?.steps[station as ProcessStepKey];
+      return rec?.completedAt ? new Date(rec.completedAt) : undefined;
+    }
+  }
+};
 
 // ---------------------------------------------------------------------------
 // Types
@@ -35,15 +94,18 @@ type RangePreset = "week" | "month" | "quarter" | "year" | "all" | "custom";
 
 interface Measurement {
   id: string;
-  fromStep: ProcessStepKey;
-  toStep: ProcessStepKey;
+  fromStation: StationKey;
+  toStation: StationKey;
   rangePreset: RangePreset;
   customFrom?: string; // ISO
   customTo?: string;   // ISO
+  vehicleType?: VehicleType | "all";
 }
 
 interface Props {
   processes: Process[];
+  vehicles: Vehicle[];
+  purchasePlans: PurchasePlan[];
 }
 
 // ---------------------------------------------------------------------------
@@ -59,7 +121,7 @@ const RANGE_LABELS: Record<RangePreset, string> = {
   custom: "Individuell",
 };
 
-const startOfWeekISO = () => {
+const startOfWeek = () => {
   const now = new Date();
   const day = (now.getDay() + 6) % 7;
   const d = new Date(now);
@@ -67,40 +129,29 @@ const startOfWeekISO = () => {
   d.setHours(0, 0, 0, 0);
   return d;
 };
-
-const startOfMonthISO = () =>
-  new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-
-const startOfQuarterISO = () => {
+const startOfMonth = () => new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+const startOfQuarter = () => {
   const now = new Date();
   const q = Math.floor(now.getMonth() / 3) * 3;
   return new Date(now.getFullYear(), q, 1);
 };
-
-const startOfYearISO = () => new Date(new Date().getFullYear(), 0, 1);
+const startOfYear = () => new Date(new Date().getFullYear(), 0, 1);
 
 const resolveRange = (m: Measurement): { from: Date; to: Date } => {
   const to = new Date();
   switch (m.rangePreset) {
-    case "week":    return { from: startOfWeekISO(),    to };
-    case "month":   return { from: startOfMonthISO(),   to };
-    case "quarter": return { from: startOfQuarterISO(), to };
-    case "year":    return { from: startOfYearISO(),    to };
-    case "all":     return { from: new Date(0),         to };
-    case "custom": {
+    case "week":    return { from: startOfWeek(),    to };
+    case "month":   return { from: startOfMonth(),   to };
+    case "quarter": return { from: startOfQuarter(), to };
+    case "year":    return { from: startOfYear(),    to };
+    case "all":     return { from: new Date(0),      to };
+    case "custom":
       return {
         from: m.customFrom ? new Date(m.customFrom) : new Date(0),
         to:   m.customTo   ? new Date(m.customTo)   : to,
       };
-    }
   }
 };
-
-const stepLabel = (k: ProcessStepKey) =>
-  PROCESS_STEPS.find((s) => s.key === k)?.shortLabel ?? k;
-
-const stepIndex = (k: ProcessStepKey) =>
-  PROCESS_STEPS.findIndex((s) => s.key === k);
 
 interface Stats {
   count: number;
@@ -111,33 +162,32 @@ interface Stats {
 }
 
 const computeStats = (
+  vehicles: Vehicle[],
   processes: Process[],
+  purchasePlans: PurchasePlan[],
   m: Measurement,
 ): Stats => {
   const { from, to } = resolveRange(m);
   const diffs: number[] = [];
 
-  processes.forEach((p) => {
-    const a = p.steps[m.fromStep]?.completedAt;
-    const b = p.steps[m.toStep]?.completedAt;
-    if (!a || !b) return;
-    const aDate = new Date(a);
-    const bDate = new Date(b);
+  vehicles.forEach((v) => {
+    if (m.vehicleType && m.vehicleType !== "all" && v.type !== m.vehicleType) return;
+    const proc = processes.find((p) => p.vehicleId === v.id);
+    const plan = purchasePlans.find((pp) => pp.vin && pp.vin === v.vin);
+    const aDate = stationDate(m.fromStation, v, proc, plan);
+    const bDate = stationDate(m.toStation, v, proc, plan);
+    if (!aDate || !bDate) return;
     if (bDate < aDate) return;
-    // Bezugszeitpunkt: Abschluss des Bis-Schritts liegt im gewählten Zeitraum.
+    // Bezugszeitpunkt: Erreichen der Bis-Station liegt im gewählten Zeitraum.
     if (bDate < from || bDate > to) return;
     diffs.push((bDate.getTime() - aDate.getTime()) / 86400000);
   });
 
-  if (diffs.length === 0) {
-    return { count: 0, avg: 0, median: 0, min: 0, max: 0 };
-  }
+  if (diffs.length === 0) return { count: 0, avg: 0, median: 0, min: 0, max: 0 };
   const sorted = [...diffs].sort((x, y) => x - y);
   const sum = sorted.reduce((s, n) => s + n, 0);
   const mid = Math.floor(sorted.length / 2);
-  const median = sorted.length % 2 === 0
-    ? (sorted[mid - 1] + sorted[mid]) / 2
-    : sorted[mid];
+  const median = sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
   return {
     count: sorted.length,
     avg: sum / sorted.length,
@@ -147,33 +197,31 @@ const computeStats = (
   };
 };
 
-// Deutung der Dauer in Klartext, abhängig von Schritt-Distanz und Wert.
 const interpret = (m: Measurement, s: Stats): string => {
   if (s.count === 0) {
-    return "Keine abgeschlossenen Übergänge in diesem Zeitraum. Sobald in beiden Schritten Belege archiviert wurden, erscheinen hier Werte.";
+    return "Keine Übergänge in diesem Zeitraum gefunden. Sobald für die gewählten Stationen Daten vorliegen (Datum gesetzt) und die Bis-Station im Zeitraum erreicht wurde, erscheinen hier Werte.";
   }
-  const distance = Math.max(1, stepIndex(m.toStep) - stepIndex(m.fromStep));
-  // Heuristische Schwellen pro Schritt-Distanz (Tage)
-  const goodMax = distance * 2;   // z. B. 1 Schritt: ≤ 2 Tage = sehr gut
-  const okMax   = distance * 5;   //                  ≤ 5 Tage = okay
-  const slowMax = distance * 10;  //                  ≤ 10 Tage = langsam
+  const distance = Math.max(1, stationIndex(m.toStation) - stationIndex(m.fromStation));
+  const goodMax = distance * 3;
+  const okMax   = distance * 8;
+  const slowMax = distance * 18;
 
   let verdict: string;
   if (s.avg <= goodMax) {
-    verdict = `Sehr zügig — der Übergang von „${stepLabel(m.fromStep)}“ nach „${stepLabel(m.toStep)}“ läuft schnell und gut organisiert.`;
+    verdict = `Sehr zügig — der Übergang von „${stationLabel(m.fromStation)}" nach „${stationLabel(m.toStation)}" läuft schnell und gut organisiert.`;
   } else if (s.avg <= okMax) {
-    verdict = `Im normalen Rahmen. Optimierungspotenzial besteht meist in der Vorbereitung des Folgeschritts (Dokumente, Termine, Kundenrückmeldungen).`;
+    verdict = `Im normalen Rahmen. Optimierungspotenzial besteht meist in der Vorbereitung der Folge-Station (Dokumente, Termine, Kundenrückmeldungen, Aufbereitung).`;
   } else if (s.avg <= slowMax) {
-    verdict = `Langsam. Häufige Ursachen: fehlende Kunden­rückmeldungen, lange interne Abstimmungen oder Engpässe in der Aufbereitung.`;
+    verdict = `Langsam. Häufige Ursachen: fehlende Kunden­rückmeldungen, lange interne Abstimmungen, Engpässe in der Werkstatt oder verspätetes Inserieren.`;
   } else {
-    verdict = `Sehr langsam. Hier sollte man gezielt nach Engpässen suchen — typische Verdächtige sind Anzahlungseingänge, Werkstatt­termine oder Zulassungs­papiere.`;
+    verdict = `Sehr langsam. Hier sollte gezielt nach Engpässen gesucht werden — typische Verdächtige sind Lieferzeiten beim Einkauf, schleppende Aufbereitung oder verspätete Vermarktung.`;
   }
 
   const spread = s.max - s.min;
-  let consistency = "";
-  if (s.count >= 3 && spread > s.avg * 1.5) {
-    consistency = " Die starke Streuung (Min/Max weit auseinander) deutet zudem auf uneinheitliche Abläufe hin — manche Vorgänge laufen flott, andere bleiben hängen.";
-  }
+  const consistency =
+    s.count >= 3 && spread > s.avg * 1.5
+      ? " Die starke Streuung (Min/Max weit auseinander) deutet zudem auf uneinheitliche Abläufe hin — manche Fahrzeuge laufen flott, andere bleiben hängen."
+      : "";
 
   return verdict + consistency;
 };
@@ -184,32 +232,35 @@ const interpret = (m: Measurement, s: Stats): string => {
 
 const newId = () => Math.random().toString(36).slice(2, 9);
 
-export const ProcessTimeAnalyzer = ({ processes }: Props) => {
-  // Vorbelegung: Ø Anzahlung → Auftragsbestätigung im laufenden Jahr
+export const ProcessTimeAnalyzer = ({ processes, vehicles, purchasePlans }: Props) => {
   const [measurements, setMeasurements] = useState<Measurement[]>([
     {
       id: newId(),
-      fromStep: "offer",
-      toStep: "order_confirmation",
+      fromStation: "arrived",
+      toStation: "listed",
       rangePreset: "year",
+      vehicleType: "all",
     },
     {
       id: newId(),
-      fromStep: "order_confirmation",
-      toStep: "delivery_confirmation",
+      fromStation: "listed",
+      toStation: "delivery_confirmation",
       rangePreset: "year",
+      vehicleType: "all",
     },
   ]);
 
-  // Builder-State (für „neue Messung hinzufügen“)
-  const [draftFrom, setDraftFrom] = useState<ProcessStepKey>("offer");
-  const [draftTo, setDraftTo] = useState<ProcessStepKey>("delivery_confirmation");
-  const [draftRange, setDraftRange] = useState<RangePreset>("month");
+  // Builder-State
+  const [draftFrom, setDraftFrom] = useState<StationKey>("arrived");
+  const [draftTo, setDraftTo] = useState<StationKey>("listed");
+  const [draftRange, setDraftRange] = useState<RangePreset>("year");
   const [draftCustomFrom, setDraftCustomFrom] = useState<Date | undefined>();
   const [draftCustomTo, setDraftCustomTo] = useState<Date | undefined>();
+  const [draftType, setDraftType] = useState<VehicleType | "all">("all");
 
-  const validDraft = stepIndex(draftTo) > stepIndex(draftFrom)
-    && (draftRange !== "custom" || (!!draftCustomFrom && !!draftCustomTo));
+  const validDraft =
+    stationIndex(draftTo) > stationIndex(draftFrom) &&
+    (draftRange !== "custom" || (!!draftCustomFrom && !!draftCustomTo));
 
   const addMeasurement = () => {
     if (!validDraft) return;
@@ -217,11 +268,12 @@ export const ProcessTimeAnalyzer = ({ processes }: Props) => {
       ...prev,
       {
         id: newId(),
-        fromStep: draftFrom,
-        toStep: draftTo,
+        fromStation: draftFrom,
+        toStation: draftTo,
         rangePreset: draftRange,
         customFrom: draftCustomFrom?.toISOString(),
         customTo: draftCustomTo?.toISOString(),
+        vehicleType: draftType,
       },
     ]);
   };
@@ -239,8 +291,9 @@ export const ProcessTimeAnalyzer = ({ processes }: Props) => {
               Prozesszeiten
             </h2>
             <p className="text-sm text-muted-foreground mt-1">
-              Wähle Zeitraum und Schritt-Bereich — die Auswertung wird live
-              berechnet und mit einer Deutung versehen.
+              Stationen umfassen Lebenszyklus-Ereignisse (Einkaufsplanung,
+              Bestandszugang, Inseriert) und alle Prozess-Schritte. Optional
+              nach Fahrzeugtyp filtern.
             </p>
           </div>
         </div>
@@ -255,9 +308,7 @@ export const ProcessTimeAnalyzer = ({ processes }: Props) => {
             <div className="space-y-1">
               <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Zeitraum</label>
               <Select value={draftRange} onValueChange={(v) => setDraftRange(v as RangePreset)}>
-                <SelectTrigger className="h-9 w-[170px] text-xs">
-                  <SelectValue />
-                </SelectTrigger>
+                <SelectTrigger className="h-9 w-[160px] text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {(Object.keys(RANGE_LABELS) as RangePreset[]).map((r) => (
                     <SelectItem key={r} value={r}>{RANGE_LABELS[r]}</SelectItem>
@@ -279,14 +330,7 @@ export const ProcessTimeAnalyzer = ({ processes }: Props) => {
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={draftCustomFrom}
-                        onSelect={setDraftCustomFrom}
-                        locale={de}
-                        initialFocus
-                        className={cn("p-3 pointer-events-auto")}
-                      />
+                      <Calendar mode="single" selected={draftCustomFrom} onSelect={setDraftCustomFrom} locale={de} initialFocus className={cn("p-3 pointer-events-auto")} />
                     </PopoverContent>
                   </Popover>
                 </div>
@@ -300,30 +344,25 @@ export const ProcessTimeAnalyzer = ({ processes }: Props) => {
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={draftCustomTo}
-                        onSelect={setDraftCustomTo}
-                        locale={de}
-                        disabled={(d) => !!draftCustomFrom && d < draftCustomFrom}
-                        initialFocus
-                        className={cn("p-3 pointer-events-auto")}
-                      />
+                      <Calendar mode="single" selected={draftCustomTo} onSelect={setDraftCustomTo} locale={de} disabled={(d) => !!draftCustomFrom && d < draftCustomFrom} initialFocus className={cn("p-3 pointer-events-auto")} />
                     </PopoverContent>
                   </Popover>
                 </div>
               </>
             )}
 
-            {/* Von-Schritt */}
+            {/* Von-Station */}
             <div className="space-y-1">
-              <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Von Schritt</label>
-              <Select value={draftFrom} onValueChange={(v) => setDraftFrom(v as ProcessStepKey)}>
-                <SelectTrigger className="h-9 w-[170px] text-xs">
-                  <SelectValue />
-                </SelectTrigger>
+              <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Von Station</label>
+              <Select value={draftFrom} onValueChange={(v) => setDraftFrom(v as StationKey)}>
+                <SelectTrigger className="h-9 w-[180px] text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {PROCESS_STEPS.slice(0, -1).map((s) => (
+                  <div className="px-2 py-1 text-[10px] uppercase tracking-wider text-muted-foreground">Lebenszyklus</div>
+                  {LIFECYCLE_STATIONS.map((s) => (
+                    <SelectItem key={s.key} value={s.key}>{s.label}</SelectItem>
+                  ))}
+                  <div className="px-2 py-1 mt-1 text-[10px] uppercase tracking-wider text-muted-foreground border-t border-border">Vorgang</div>
+                  {PROCESS_STATIONS.slice(0, -1).map((s) => (
                     <SelectItem key={s.key} value={s.key}>{s.label}</SelectItem>
                   ))}
                 </SelectContent>
@@ -332,29 +371,41 @@ export const ProcessTimeAnalyzer = ({ processes }: Props) => {
 
             <ArrowRight className="size-4 text-muted-foreground mb-2" />
 
-            {/* Bis-Schritt */}
+            {/* Bis-Station */}
             <div className="space-y-1">
-              <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Bis Schritt</label>
-              <Select value={draftTo} onValueChange={(v) => setDraftTo(v as ProcessStepKey)}>
-                <SelectTrigger className="h-9 w-[200px] text-xs">
-                  <SelectValue />
-                </SelectTrigger>
+              <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Bis Station</label>
+              <Select value={draftTo} onValueChange={(v) => setDraftTo(v as StationKey)}>
+                <SelectTrigger className="h-9 w-[200px] text-xs"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {PROCESS_STEPS
-                    .filter((s) => stepIndex(s.key) > stepIndex(draftFrom))
+                  {STATIONS
+                    .filter((s) => stationIndex(s.key) > stationIndex(draftFrom))
                     .map((s) => (
-                      <SelectItem key={s.key} value={s.key}>{s.label}</SelectItem>
+                      <SelectItem key={s.key} value={s.key}>
+                        {s.group === "lifecycle" ? "● " : ""}{s.label}
+                      </SelectItem>
                     ))}
                 </SelectContent>
               </Select>
             </div>
 
-            <Button
-              size="sm"
-              className="h-9 bg-gradient-brand gap-1.5"
-              disabled={!validDraft}
-              onClick={addMeasurement}
-            >
+            {/* Fahrzeugtyp */}
+            <div className="space-y-1">
+              <label className="text-[10px] text-muted-foreground uppercase tracking-wider">Fahrzeugtyp</label>
+              <Select value={draftType} onValueChange={(v) => setDraftType(v as VehicleType | "all")}>
+                <SelectTrigger className="h-9 w-[150px] text-xs">
+                  <Car className="size-3.5 mr-1 inline" />
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Alle Typen</SelectItem>
+                  {(Object.keys(VEHICLE_TYPE_LABELS) as VehicleType[]).map((t) => (
+                    <SelectItem key={t} value={t}>{VEHICLE_TYPE_LABELS[t]}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <Button size="sm" className="h-9 bg-gradient-brand gap-1.5" disabled={!validDraft} onClick={addMeasurement}>
               <Plus className="size-4" /> Hinzufügen
             </Button>
           </div>
@@ -362,7 +413,7 @@ export const ProcessTimeAnalyzer = ({ processes }: Props) => {
             <p className="text-[10px] text-warning">Bitte ein Start- und End-Datum wählen.</p>
           )}
           {!validDraft && draftRange !== "custom" && (
-            <p className="text-[10px] text-warning">„Bis Schritt“ muss nach „Von Schritt“ liegen.</p>
+            <p className="text-[10px] text-warning">„Bis Station" muss nach „Von Station" liegen.</p>
           )}
         </div>
 
@@ -378,6 +429,8 @@ export const ProcessTimeAnalyzer = ({ processes }: Props) => {
                 key={m.id}
                 measurement={m}
                 processes={processes}
+                vehicles={vehicles}
+                purchasePlans={purchasePlans}
                 onRemove={() => removeMeasurement(m.id)}
               />
             ))}
@@ -393,17 +446,21 @@ export const ProcessTimeAnalyzer = ({ processes }: Props) => {
 // ---------------------------------------------------------------------------
 
 const MeasurementCard = ({
-  measurement, processes, onRemove,
+  measurement, processes, vehicles, purchasePlans, onRemove,
 }: {
   measurement: Measurement;
   processes: Process[];
+  vehicles: Vehicle[];
+  purchasePlans: PurchasePlan[];
   onRemove: () => void;
 }) => {
-  const stats = useMemo(() => computeStats(processes, measurement), [processes, measurement]);
+  const stats = useMemo(
+    () => computeStats(vehicles, processes, purchasePlans, measurement),
+    [vehicles, processes, purchasePlans, measurement],
+  );
   const interpretation = useMemo(() => interpret(measurement, stats), [measurement, stats]);
   const { from, to } = resolveRange(measurement);
 
-  // Visualisierung: Avg vs. Max (falls > 0)
   const intensity = stats.max > 0 ? Math.min(100, (stats.avg / Math.max(stats.max, 1)) * 100) : 0;
 
   const rangeText = measurement.rangePreset === "all"
@@ -412,19 +469,29 @@ const MeasurementCard = ({
       ? `${format(from, "dd.MM.yyyy")} – ${format(to, "dd.MM.yyyy")}`
       : RANGE_LABELS[measurement.rangePreset];
 
+  const typeText = !measurement.vehicleType || measurement.vehicleType === "all"
+    ? "Alle Typen"
+    : VEHICLE_TYPE_LABELS[measurement.vehicleType];
+
   return (
     <div className="rounded-xl border border-border bg-background/40 p-4 space-y-3 group relative">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <div className="flex items-center gap-1.5 text-sm font-display font-semibold flex-wrap">
-            <span>{stepLabel(measurement.fromStep)}</span>
+            <span>{stationLabel(measurement.fromStation)}</span>
             <ArrowRight className="size-3.5 text-muted-foreground" />
-            <span>{stepLabel(measurement.toStep)}</span>
+            <span>{stationLabel(measurement.toStation)}</span>
           </div>
-          <Badge variant="outline" className="mt-1.5 text-[10px] gap-1 border-border">
-            <CalendarIcon className="size-2.5" />
-            {rangeText}
-          </Badge>
+          <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+            <Badge variant="outline" className="text-[10px] gap-1 border-border">
+              <CalendarIcon className="size-2.5" />
+              {rangeText}
+            </Badge>
+            <Badge variant="outline" className="text-[10px] gap-1 border-border">
+              <Car className="size-2.5" />
+              {typeText}
+            </Badge>
+          </div>
         </div>
         <Button
           variant="ghost"
@@ -452,7 +519,7 @@ const MeasurementCard = ({
         <Stat label="Median" value={stats.count > 0 ? stats.median.toFixed(1) : "–"} />
         <Stat label="Min" value={stats.count > 0 ? stats.min.toFixed(1) : "–"} />
         <Stat label="Max" value={stats.count > 0 ? stats.max.toFixed(1) : "–"} />
-        <Stat label="Vorgänge" value={String(stats.count)} />
+        <Stat label="Fahrzeuge" value={String(stats.count)} />
       </div>
 
       {/* Deutung */}
@@ -468,9 +535,10 @@ const MeasurementCard = ({
               </button>
             </TooltipTrigger>
             <TooltipContent side="top" className="max-w-xs text-xs leading-relaxed">
-              Berücksichtigt werden Vorgänge, deren Bis-Schritt im gewählten
-              Zeitraum abgeschlossen wurde. Differenz = Tage zwischen Abschluss
-              des Von-Schritts und Abschluss des Bis-Schritts.
+              Berücksichtigt werden Fahrzeuge, deren Bis-Station im gewählten
+              Zeitraum erreicht wurde. Differenz = Tage zwischen den beiden
+              Stations-Zeitpunkten. Lebenszyklus-Stationen kommen vom Fahrzeug
+              bzw. der Einkaufsplanung (per VIN), Vorgangs-Schritte aus dem Vorgang.
             </TooltipContent>
           </Tooltip>
         </div>
