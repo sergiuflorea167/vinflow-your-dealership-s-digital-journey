@@ -48,6 +48,8 @@ interface State {
   todos: Todo[];
   activities: Activity[];
   goals: Goal[];
+  calendarEvents: CalendarEvent[];
+  dayTemplates: DayTemplate[];
   settings: Settings;
 
   // ------- Selectors -------
