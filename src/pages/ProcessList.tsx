@@ -337,11 +337,12 @@ const ProcessList = () => {
 
         <Tabs
           value={tab}
-          onValueChange={(v) => setTab(v as "list" | "offers" | "documents")}
+          onValueChange={(v) => setTab(v as "list" | "archived" | "offers" | "documents")}
           className="space-y-3"
         >
           <TabsList className="shrink-0 self-start">
-            <TabsTrigger value="list">Vorgänge ({processes.length})</TabsTrigger>
+            <TabsTrigger value="list">Aktive Vorgänge ({activeEnriched.length})</TabsTrigger>
+            <TabsTrigger value="archived">Archivierte Vorgänge ({archivedEnriched.length})</TabsTrigger>
             <TabsTrigger value="offers">Angebote ({offers.length})</TabsTrigger>
             <TabsTrigger value="documents">Belege-Archiv ({documents.length})</TabsTrigger>
           </TabsList>
