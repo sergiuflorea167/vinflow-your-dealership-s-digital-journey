@@ -663,6 +663,32 @@ export const useProcessStore = create<State>()(
           set((state) => ({
             settings: { ...state.settings, locations: state.settings.locations.filter((l) => l !== name) },
           })),
+
+        // ------- Partner -------
+        addPartner: (p) => {
+          const id = nextNumericId("P", get().settings.partners ?? []);
+          const partner: Partner = { id, createdAt: new Date().toISOString(), ...p };
+          set((state) => ({
+            settings: { ...state.settings, partners: [partner, ...(state.settings.partners ?? [])] },
+          }));
+          return partner;
+        },
+
+        updatePartner: (id, patch) =>
+          set((state) => ({
+            settings: {
+              ...state.settings,
+              partners: (state.settings.partners ?? []).map((p) => (p.id === id ? { ...p, ...patch } : p)),
+            },
+          })),
+
+        removePartner: (id) =>
+          set((state) => ({
+            settings: {
+              ...state.settings,
+              partners: (state.settings.partners ?? []).filter((p) => p.id !== id),
+            },
+          })),
       };
     },
     {
