@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import { useDashboardStore } from "@/store/dashboardStore";
 import { useProcessStore } from "@/store/processStore";
 import { KpiDef } from "@/lib/kpis";
+import { useKpiRange } from "@/context/KpiRangeContext";
 import { useMemo } from "react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -22,13 +23,14 @@ export const KpiCard = ({ kpi, variant = "catalog", dragHandleProps }: KpiCardPr
   const processes = useProcessStore((s) => s.processes);
   const offers = useProcessStore((s) => s.offers);
   const customers = useProcessStore((s) => s.customers);
+  const { range } = useKpiRange();
 
   const togglePin = useDashboardStore((s) => s.togglePin);
   const pinned = useDashboardStore((s) => s.pinnedKpis.includes(kpi.id));
 
   const result = useMemo(
-    () => kpi.compute({ vehicles, processes, offers, customers }),
-    [kpi, vehicles, processes, offers, customers]
+    () => kpi.compute({ vehicles, processes, offers, customers, range }),
+    [kpi, vehicles, processes, offers, customers, range]
   );
 
   return (
