@@ -56,6 +56,12 @@ const Dashboard = () => {
       }),
     [todos, todayISO]
   );
+  const todayEvents = useMemo(
+    () => calendarEvents
+      .filter((e) => e.date === todayISO)
+      .sort((a, b) => a.startTime.localeCompare(b.startTime)),
+    [calendarEvents, todayISO]
+  );
   const vehicleMap = useMemo(
     () => Object.fromEntries(vehicles.map((v) => [v.id, v])),
     [vehicles]
