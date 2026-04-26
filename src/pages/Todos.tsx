@@ -52,7 +52,15 @@ const SCOPE_META: Record<TodoScope, { label: string; className: string }> = {
 };
 
 type StatusFilter = "all" | "open" | "today" | "overdue" | "done";
+type DueFilter = "any" | "today" | "tomorrow" | "this_week" | "next_7" | "no_date" | "custom";
 type TodoSortKey = "title" | "scope" | "priority" | "dueDate" | "assignee" | "status" | "createdAt";
+
+const toISO = (d: Date) => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+};
 
 // ---------------------------------------------------------------------------
 // Page
