@@ -7,9 +7,10 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { useProcessStore } from "@/store/processStore";
-import { User, Mail, Phone, MapPin, FileText } from "lucide-react";
+import { User, Plus } from "lucide-react";
 import { formatCurrency } from "@/data/process";
 import { useTopbarSearch } from "@/context/TopbarSearchContext";
+import { cn } from "@/lib/utils";
 
 type CustomerSortKey = "name" | "city" | "offers" | "processes" | "value";
 type CustomerFilter = "all" | "with_processes" | "with_offers" | "no_activity";
@@ -61,7 +62,7 @@ const Customers = () => {
       if (filter === "with_processes" && e.processCount === 0) return false;
       if (filter === "with_offers" && e.offerCount === 0) return false;
       if (filter === "no_activity" && (e.offerCount > 0 || e.processCount > 0)) return false;
-      if (!query) return true;
+      if (!query.trim()) return true;
       const q = query.toLowerCase();
       const fields: Record<typeof searchField, string> = {
         all: `${e.customer.name} ${e.customer.email} ${e.customer.city}`,
@@ -82,100 +83,148 @@ const Customers = () => {
     });
   }, [enriched, query, searchField, filter, sortKey]);
 
+  const stats = {
+    total: customers.length,
+    with_processes: enriched.filter((e) => e.processCount > 0).length,
+    with_offers: enriched.filter((e) => e.offerCount > 0).length,
+    no_activity: enriched.filter((e) => e.offerCount === 0 && e.processCount === 0).length,
+  };
+
   return (
     <AppShell>
       <div className="space-y-6 animate-fade-in">
         <div className="flex items-end justify-between gap-4">
           <div>
             <h1 className="font-display text-3xl font-bold tracking-tight">Kunden</h1>
-            <p className="text-sm text-muted-foreground mt-1">{customers.length} Kunden mit Angeboten &amp; Vorgängen.</p>
+            <p className="text-sm text-muted-foreground mt-1">{customers.length} Kunden mit Angeboten &amp; Vorgängen</p>
           </div>
           <Button className="bg-gradient-brand hover:opacity-90 shadow-elegant gap-2">
-            <User className="size-4" /> Neuer Kunde
+            <Plus className="size-4" /> Neuer Kunde
           </Button>
         </div>
 
-        <Card className="p-4 space-y-3">
-          <div className="flex flex-col md:flex-row gap-3 md:items-center">
-            <div className="flex gap-2 items-center flex-wrap">
-              <Select value={filter} onValueChange={(v) => setFilter(v as CustomerFilter)}>
-                <SelectTrigger className="w-[200px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Alle Kunden</SelectItem>
-                  <SelectItem value="with_processes">Mit Vorgang</SelectItem>
-                  <SelectItem value="with_offers">Mit Angebot</SelectItem>
-                  <SelectItem value="no_activity">Ohne Aktivität</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={sortKey} onValueChange={(v) => setSortKey(v as CustomerSortKey)}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="name">Name A-Z</SelectItem>
-                  <SelectItem value="city">Stadt A-Z</SelectItem>
-                  <SelectItem value="value">Auftragswert ↓</SelectItem>
-                  <SelectItem value="processes">Vorgänge ↓</SelectItem>
-                  <SelectItem value="offers">Angebote ↓</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </Card>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {filtered.map(({ customer, offerCount, processCount, value }) => (
-            <Card key={customer.id} className="p-5 hover:shadow-glow transition-smooth">
-              <div className="flex items-start gap-3 mb-4">
-                <div className="size-12 rounded-xl bg-gradient-brand grid place-items-center text-primary-foreground font-display font-bold text-lg shadow-card">
-                  {customer.name.split(" ").map((n) => n[0]).slice(0, 2).join("")}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-display font-semibold text-foreground truncate">{customer.name}</p>
-                  <p className="text-xs text-muted-foreground">{customer.id}</p>
-                </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {[
+            { label: "Gesamt", value: stats.total, accent: "text-primary" },
+            { label: "Mit Vorgang", value: stats.with_processes, accent: "text-success" },
+            { label: "Mit Angebot", value: stats.with_offers, accent: "text-warning" },
+            { label: "Ohne Aktivität", value: stats.no_activity, accent: "text-muted-foreground" },
+          ].map(({ label, value, accent }) => (
+            <Card key={label} className="p-4 flex items-center gap-4">
+              <div className="size-10 rounded-lg bg-secondary grid place-items-center">
+                <User className={`size-5 ${accent}`} />
               </div>
-
-              <div className="space-y-2 text-sm mb-4">
-                <Detail icon={Mail} value={customer.email} />
-                <Detail icon={Phone} value={customer.phone} />
-                <Detail icon={MapPin} value={`${customer.zip ?? ""} ${customer.city}`.trim()} />
-              </div>
-
-              <div className="flex items-center justify-between pt-3 border-t border-border gap-3">
-                <div className="flex gap-2 flex-wrap min-w-0">
-                  <Badge variant="outline" className="border-primary/30 text-primary-glow">
-                    {offerCount} Angebote
-                  </Badge>
-                  {processCount > 0 && (
-                    <Badge variant="outline" className="border-success/30 text-success">
-                      <FileText className="size-3 mr-1" /> {processCount} Vorgang{processCount !== 1 ? "e" : ""}
-                    </Badge>
-                  )}
-                </div>
-                {value > 0 && (
-                  <span className="text-xs font-display font-bold text-foreground shrink-0">{formatCurrency(value)}</span>
-                )}
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wider">{label}</p>
+                <p className="font-display text-2xl font-bold">{value}</p>
               </div>
             </Card>
           ))}
         </div>
 
-        {filtered.length === 0 && (
+        <Card className="p-4 space-y-3">
+          <div className="flex gap-2 items-center flex-wrap">
+            <Select value={sortKey} onValueChange={(v) => setSortKey(v as CustomerSortKey)}>
+              <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="name">Name A-Z</SelectItem>
+                <SelectItem value="city">Stadt A-Z</SelectItem>
+                <SelectItem value="value">Auftragswert ↓</SelectItem>
+                <SelectItem value="processes">Vorgänge ↓</SelectItem>
+                <SelectItem value="offers">Angebote ↓</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex gap-2 flex-wrap">
+            {([
+              { key: "all",            label: `Alle (${stats.total})` },
+              { key: "with_processes", label: `Mit Vorgang (${stats.with_processes})` },
+              { key: "with_offers",    label: `Mit Angebot (${stats.with_offers})` },
+              { key: "no_activity",    label: `Ohne Aktivität (${stats.no_activity})` },
+            ] as const).map((f) => (
+              <Button
+                key={f.key}
+                size="sm"
+                variant={filter === f.key ? "default" : "outline"}
+                onClick={() => setFilter(f.key)}
+              >
+                {f.label}
+              </Button>
+            ))}
+          </div>
+        </Card>
+
+        {filtered.length === 0 ? (
           <Card className="p-12 text-center text-muted-foreground">Keine Kunden gefunden.</Card>
+        ) : (
+          <Card className="bg-card border-border overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border bg-background/30 text-left text-xs uppercase tracking-wider text-muted-foreground">
+                    <th className="px-5 py-3 font-medium">Kunde</th>
+                    <th className="px-5 py-3 font-medium">E-Mail</th>
+                    <th className="px-5 py-3 font-medium">Telefon</th>
+                    <th className="px-5 py-3 font-medium">Stadt</th>
+                    <th className="px-5 py-3 font-medium text-center">Angebote</th>
+                    <th className="px-5 py-3 font-medium text-center">Vorgänge</th>
+                    <th className="px-5 py-3 font-medium text-right">Auftragswert</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map(({ customer, offerCount, processCount, value }) => (
+                    <tr
+                      key={customer.id}
+                      className="border-b border-border/50 hover:bg-surface-elevated/40 transition-smooth"
+                    >
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="size-9 rounded-lg bg-gradient-brand grid place-items-center text-primary-foreground font-display font-bold text-xs shrink-0">
+                            {customer.name.split(" ").map((n) => n[0]).slice(0, 2).join("")}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="font-medium text-foreground truncate">{customer.name}</p>
+                            <p className="font-mono text-[10px] text-muted-foreground truncate">{customer.id}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-5 py-4 text-xs text-muted-foreground truncate max-w-[220px]">{customer.email}</td>
+                      <td className="px-5 py-4 text-xs text-muted-foreground whitespace-nowrap">{customer.phone}</td>
+                      <td className="px-5 py-4 text-xs text-foreground truncate max-w-[160px]">
+                        {`${customer.zip ?? ""} ${customer.city}`.trim()}
+                      </td>
+                      <td className="px-5 py-4 text-center">
+                        {offerCount > 0 ? (
+                          <span className="inline-flex items-center justify-center min-w-6 h-6 px-2 rounded-full bg-primary/15 text-primary-glow text-xs font-semibold">
+                            {offerCount}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">–</span>
+                        )}
+                      </td>
+                      <td className="px-5 py-4 text-center">
+                        {processCount > 0 ? (
+                          <Badge variant="outline" className="border-success/30 text-success">{processCount}</Badge>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">–</span>
+                        )}
+                      </td>
+                      <td className={cn(
+                        "px-5 py-4 text-right font-semibold whitespace-nowrap",
+                        value > 0 ? "text-foreground" : "text-muted-foreground",
+                      )}>
+                        {value > 0 ? formatCurrency(value) : "–"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Card>
         )}
       </div>
     </AppShell>
   );
 };
-
-const Detail = ({ icon: Icon, value }: { icon: any; value: string }) => (
-  <div className="flex items-center gap-2 text-muted-foreground">
-    <Icon className="size-3.5 shrink-0" />
-    <span className="truncate">{value}</span>
-  </div>
-);
 
 export default Customers;
