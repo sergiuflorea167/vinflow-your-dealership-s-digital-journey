@@ -262,6 +262,46 @@ const Todos = () => {
               <SelectItem value="low">Niedrig</SelectItem>
             </SelectContent>
           </Select>
+          <Select
+            value={dueFilter}
+            onValueChange={(v) => {
+              setDueFilter(v as DueFilter);
+              if (v !== "custom") setCustomDue(undefined);
+            }}
+          >
+            <SelectTrigger className="w-[170px] h-8 text-xs gap-1">
+              <CalendarDays className="size-3.5 text-muted-foreground" />
+              <SelectValue placeholder="Fälligkeit" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="any">Alle Fälligkeiten</SelectItem>
+              <SelectItem value="today">Heute fällig</SelectItem>
+              <SelectItem value="tomorrow">Morgen fällig</SelectItem>
+              <SelectItem value="this_week">Diese Woche</SelectItem>
+              <SelectItem value="next_7">Nächste 7 Tage</SelectItem>
+              <SelectItem value="no_date">Ohne Datum</SelectItem>
+              <SelectItem value="custom">Bestimmtes Datum…</SelectItem>
+            </SelectContent>
+          </Select>
+          {dueFilter === "custom" && (
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5">
+                  <Calendar className="size-3.5" />
+                  {customDue ? formatDate(toISO(customDue)) : "Datum wählen"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <CalendarPicker
+                  mode="single"
+                  selected={customDue}
+                  onSelect={setCustomDue}
+                  initialFocus
+                  className={cn("p-3 pointer-events-auto")}
+                />
+              </PopoverContent>
+            </Popover>
+          )}
           <div className="flex gap-1.5 flex-wrap">
             {([
               { key: "open",    label: `Offen (${stats.open})` },
