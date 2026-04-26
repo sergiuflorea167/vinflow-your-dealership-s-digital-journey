@@ -11,10 +11,11 @@ import {
 } from "@/components/ui/select";
 import { useProcessStore } from "@/store/processStore";
 import { formatCurrency, formatDate, PurchasePlanStatus, VEHICLE_TYPE_LABELS, VehicleType } from "@/data/process";
-import { Plus, Search, Truck, CheckCircle2, Clock, Package, Ban } from "lucide-react";
+import { Plus, Truck, CheckCircle2, Clock, Package, Ban } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { VehicleIntakeDialog } from "@/components/fleet/VehicleIntakeDialog";
+import { useTopbarSearch } from "@/context/TopbarSearchContext";
 
 type PlanSortKey = "expected_asc" | "expected_desc" | "created_desc" | "price_asc" | "price_desc" | "supplier";
 
@@ -33,17 +34,38 @@ const PurchasePlanning = () => {
   const locations = useProcessStore((s) => s.settings.locations);
 
   const [query, setQuery] = useState("");
+  const [searchField, setSearchField] = useState<"all" | "make" | "model" | "supplier">("all");
   const [filter, setFilter] = useState<"all" | PurchasePlanStatus>("all");
   const [sortKey, setSortKey] = useState<PlanSortKey>("expected_asc");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [receiveDialog, setReceiveDialog] = useState<{ planId: string } | null>(null);
+
+  useTopbarSearch({
+    placeholder: "Einkaufsplanung durchsuchen…",
+    value: query,
+    onChange: setQuery,
+    field: searchField,
+    onFieldChange: (f) => setSearchField(f as typeof searchField),
+    fields: [
+      { key: "all",      label: "Alle Felder" },
+      { key: "make",     label: "Marke" },
+      { key: "model",    label: "Modell" },
+      { key: "supplier", label: "Lieferant" },
+    ],
+  });
 
   const filtered = useMemo(() => {
     const list = plans.filter((p) => {
       if (filter !== "all" && p.status !== filter) return false;
       if (!query) return true;
       const q = query.toLowerCase();
-      return p.make.toLowerCase().includes(q) || p.model.toLowerCase().includes(q) || p.supplier.toLowerCase().includes(q);
+      const fields: Record<typeof searchField, string> = {
+        all: `${p.make} ${p.model} ${p.supplier}`,
+        make: p.make,
+        model: p.model,
+        supplier: p.supplier,
+      };
+      return fields[searchField].toLowerCase().includes(q);
     });
     return [...list].sort((a, b) => {
       switch (sortKey) {
@@ -55,7 +77,7 @@ const PurchasePlanning = () => {
         case "supplier": return a.supplier.localeCompare(b.supplier);
       }
     });
-  }, [plans, query, filter, sortKey]);
+  }, [plans, query, searchField, filter, sortKey]);
 
   const planForReceive = receiveDialog ? plans.find((p) => p.id === receiveDialog.planId) : undefined;
 
