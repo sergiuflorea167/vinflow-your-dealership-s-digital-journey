@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/select";
 import { useProcessStore } from "@/store/processStore";
 import { ActivityLog } from "@/components/process/ActivityLog";
+import { DataTableShell } from "@/components/shared/DataTableShell";
 import { User, Plus } from "lucide-react";
 import { formatCurrency } from "@/data/process";
 import { useTopbarSearch } from "@/context/TopbarSearchContext";
