@@ -12,6 +12,7 @@ import VehicleDetail from "./pages/VehicleDetail.tsx";
 import PurchasePlanning from "./pages/PurchasePlanning.tsx";
 import Customers from "./pages/Customers.tsx";
 import KPIs from "./pages/KPIs.tsx";
+import Todos from "./pages/Todos.tsx";
 import { TopbarSearchProvider } from "./context/TopbarSearchContext";
 
 const queryClient = new QueryClient();
@@ -40,6 +41,7 @@ const App = () => (
           <Route path="/vorgaenge/:id" element={<ProcessDetail />} />
           <Route path="/kunden" element={<Customers />} />
           <Route path="/kpis" element={<KPIs />} />
+          <Route path="/todos" element={<Todos />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
