@@ -47,8 +47,8 @@ const Dashboard = () => {
                 </Link>
               </Button>
               <Button variant="outline" className="border-border/60" asChild>
-                <Link to="/flotte">
-                  Flotte <ArrowUpRight className="size-4 ml-2" />
+                <Link to="/bestand">
+                  Bestand <ArrowUpRight className="size-4 ml-2" />
                 </Link>
               </Button>
               <Button className="bg-gradient-brand hover:opacity-90 shadow-elegant" asChild>

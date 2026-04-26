@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { AppShell } from "@/components/layout/AppShell";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9,26 +9,51 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { useProcessStore } from "@/store/processStore";
-import { formatCurrency, Vehicle, VehicleStatus, VEHICLE_TYPE_LABELS, VehicleType, vehicleTotalCostsGross } from "@/data/process";
-import { Car, Search, Gauge, Calendar, Palette, Hash, ArrowRight, FileText, ArrowDownAZ, ArrowUpAZ } from "lucide-react";
+import {
+  formatCurrency,
+  VehicleStatus,
+  VEHICLE_TYPE_LABELS,
+  VehicleType,
+  vehicleTotalCostsGross,
+} from "@/data/process";
+import { Car, Search, Plus } from "lucide-react";
+import { toast } from "sonner";
+import { VehicleIntakeDialog } from "@/components/fleet/VehicleIntakeDialog";
+import { cn } from "@/lib/utils";
 
-type FleetSortKey = "newest" | "oldest" | "price_asc" | "price_desc" | "mileage_asc" | "mileage_desc" | "make";
+type FleetSortKey =
+  | "newest" | "oldest"
+  | "price_asc" | "price_desc"
+  | "mileage_asc" | "mileage_desc"
+  | "make";
+
+const STATUS_META: Record<VehicleStatus, { label: string; className: string }> = {
+  planned:  { label: "Geplant",    className: "bg-info/15 text-info border-info/30" },
+  in_stock: { label: "Im Bestand", className: "bg-success/15 text-success border-success/30" },
+  reserved: { label: "Reserviert", className: "bg-warning/15 text-warning border-warning/30" },
+  sold:     { label: "Verkauft",   className: "bg-muted text-muted-foreground border-border" },
+};
 
 const Fleet = () => {
+  const navigate = useNavigate();
   const vehicles = useProcessStore((s) => s.vehicles);
   const offers = useProcessStore((s) => s.offers);
   const processes = useProcessStore((s) => s.processes);
+  const locations = useProcessStore((s) => s.settings.locations);
+  const addVehicle = useProcessStore((s) => s.addVehicle);
+
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<"all" | VehicleStatus>("all");
   const [typeFilter, setTypeFilter] = useState<"all" | VehicleType>("all");
   const [sortKey, setSortKey] = useState<FleetSortKey>("newest");
+  const [intakeOpen, setIntakeOpen] = useState(false);
 
   const data = useMemo(() => {
     return vehicles.map((v) => {
       const vehicleOffers = offers.filter((o) => o.vehicleId === v.id);
       const openOffers = vehicleOffers.filter((o) => o.status === "sent" || o.status === "draft").length;
       const proc = processes.find((p) => p.vehicleId === v.id);
-      return { vehicle: v, openOffers, totalOffers: vehicleOffers.length, processId: proc?.id };
+      return { vehicle: v, openOffers, processId: proc?.id };
     });
   }, [vehicles, offers, processes]);
 
@@ -49,13 +74,13 @@ const Fleet = () => {
     return [...list].sort((a, b) => {
       const va = a.vehicle, vb = b.vehicle;
       switch (sortKey) {
-        case "newest": return (new Date(vb.arrivedAt ?? 0).getTime() - new Date(va.arrivedAt ?? 0).getTime());
-        case "oldest": return (new Date(va.arrivedAt ?? 0).getTime() - new Date(vb.arrivedAt ?? 0).getTime());
-        case "price_asc": return va.listPrice - vb.listPrice;
-        case "price_desc": return vb.listPrice - va.listPrice;
-        case "mileage_asc": return va.mileage - vb.mileage;
+        case "newest":       return (new Date(vb.arrivedAt ?? 0).getTime() - new Date(va.arrivedAt ?? 0).getTime());
+        case "oldest":       return (new Date(va.arrivedAt ?? 0).getTime() - new Date(vb.arrivedAt ?? 0).getTime());
+        case "price_asc":    return va.listPrice - vb.listPrice;
+        case "price_desc":   return vb.listPrice - va.listPrice;
+        case "mileage_asc":  return va.mileage - vb.mileage;
         case "mileage_desc": return vb.mileage - va.mileage;
-        case "make": return `${va.make} ${va.model}`.localeCompare(`${vb.make} ${vb.model}`);
+        case "make":         return `${va.make} ${va.model}`.localeCompare(`${vb.make} ${vb.model}`);
       }
     });
   }, [data, filter, typeFilter, query, sortKey]);
@@ -72,11 +97,14 @@ const Fleet = () => {
       <div className="space-y-6 animate-fade-in">
         <div className="flex items-end justify-between gap-4">
           <div>
-            <h1 className="font-display text-3xl font-bold tracking-tight">Flotte</h1>
+            <h1 className="font-display text-3xl font-bold tracking-tight">Bestand</h1>
             <p className="text-sm text-muted-foreground mt-1">Fahrzeugbestand · VIN-basiert</p>
           </div>
-          <Button className="bg-gradient-brand hover:opacity-90 shadow-elegant gap-2">
-            <Car className="size-4" /> Fahrzeug aufnehmen
+          <Button
+            className="bg-gradient-brand hover:opacity-90 shadow-elegant gap-2"
+            onClick={() => setIntakeOpen(true)}
+          >
+            <Plus className="size-4" /> Fahrzeug aufnehmen
           </Button>
         </div>
 
@@ -112,9 +140,7 @@ const Fleet = () => {
             </div>
             <div className="flex gap-2 items-center flex-wrap">
               <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as "all" | VehicleType)}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue />
-                </SelectTrigger>
+                <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Alle Typen</SelectItem>
                   {Object.entries(VEHICLE_TYPE_LABELS).map(([k, v]) => (
@@ -123,9 +149,7 @@ const Fleet = () => {
                 </SelectContent>
               </Select>
               <Select value={sortKey} onValueChange={(v) => setSortKey(v as FleetSortKey)}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue />
-                </SelectTrigger>
+                <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="newest">Neueste zuerst</SelectItem>
                   <SelectItem value="oldest">Älteste zuerst</SelectItem>
@@ -140,10 +164,10 @@ const Fleet = () => {
           </div>
           <div className="flex gap-2 flex-wrap">
             {([
-              { key: "all", label: `Alle (${stats.total})` },
+              { key: "all",      label: `Alle (${stats.total})` },
               { key: "in_stock", label: `Bestand (${stats.in_stock})` },
               { key: "reserved", label: `Reserviert (${stats.reserved})` },
-              { key: "sold", label: `Verkauft (${stats.sold})` },
+              { key: "sold",     label: `Verkauft (${stats.sold})` },
             ] as const).map((f) => (
               <Button
                 key={f.key}
@@ -160,106 +184,92 @@ const Fleet = () => {
         {filtered.length === 0 ? (
           <Card className="p-12 text-center text-muted-foreground">Keine Fahrzeuge gefunden.</Card>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {filtered.map(({ vehicle, openOffers, processId }) => (
-              <VehicleCardItem
-                key={vehicle.id}
-                vehicle={vehicle}
-                openOffers={openOffers}
-                processId={processId}
-              />
-            ))}
-          </div>
+          <Card className="bg-card border-border overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border bg-background/30 text-left text-xs uppercase tracking-wider text-muted-foreground">
+                    <th className="px-5 py-3 font-medium">Fahrzeug</th>
+                    <th className="px-5 py-3 font-medium">Typ</th>
+                    <th className="px-5 py-3 font-medium">EZ / km</th>
+                    <th className="px-5 py-3 font-medium">Farbe</th>
+                    <th className="px-5 py-3 font-medium">Stellplatz</th>
+                    <th className="px-5 py-3 font-medium text-right">Listenpreis</th>
+                    <th className="px-5 py-3 font-medium text-right">Marge¹</th>
+                    <th className="px-5 py-3 font-medium text-center">Angebote</th>
+                    <th className="px-5 py-3 font-medium">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map(({ vehicle, openOffers }) => {
+                    const meta = STATUS_META[vehicle.status];
+                    const ek = vehicle.purchasePrice + vehicleTotalCostsGross(vehicle);
+                    const margin = vehicle.listPrice - ek;
+                    return (
+                      <tr
+                        key={vehicle.id}
+                        onClick={() => navigate(`/bestand/${vehicle.id}`)}
+                        className="border-b border-border/50 hover:bg-surface-elevated/40 transition-smooth cursor-pointer"
+                      >
+                        <td className="px-5 py-4">
+                          <div className="flex items-center gap-3">
+                            <div className="size-9 rounded-lg bg-gradient-brand grid place-items-center shrink-0">
+                              <Car className="size-4 text-primary-foreground" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-medium text-foreground truncate">{vehicle.make} {vehicle.model}</p>
+                              <p className="font-mono text-[10px] text-muted-foreground truncate">VIN {vehicle.vin}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-5 py-4 text-xs text-muted-foreground">{VEHICLE_TYPE_LABELS[vehicle.type]}</td>
+                        <td className="px-5 py-4 text-xs text-muted-foreground whitespace-nowrap">
+                          <div>{vehicle.year}</div>
+                          <div>{vehicle.mileage.toLocaleString("de-DE")} km</div>
+                        </td>
+                        <td className="px-5 py-4 text-xs text-foreground truncate max-w-[140px]">{vehicle.color}</td>
+                        <td className="px-5 py-4 text-xs text-muted-foreground truncate max-w-[180px]">{vehicle.location.name}</td>
+                        <td className="px-5 py-4 text-right font-semibold whitespace-nowrap">{formatCurrency(vehicle.listPrice)}</td>
+                        <td className={cn(
+                          "px-5 py-4 text-right font-semibold whitespace-nowrap",
+                          margin >= 0 ? "text-success" : "text-destructive"
+                        )}>
+                          {formatCurrency(margin)}
+                        </td>
+                        <td className="px-5 py-4 text-center">
+                          {openOffers > 0 ? (
+                            <span className="inline-flex items-center justify-center min-w-6 h-6 px-2 rounded-full bg-primary/15 text-primary-glow text-xs font-semibold">
+                              {openOffers}
+                            </span>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">–</span>
+                          )}
+                        </td>
+                        <td className="px-5 py-4"><Badge className={meta.className}>{meta.label}</Badge></td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <p className="px-5 py-2 text-[10px] text-muted-foreground border-t border-border/50">
+              ¹ Marge = Listenpreis − (Einkauf + alle Kosten brutto)
+            </p>
+          </Card>
         )}
       </div>
+
+      <VehicleIntakeDialog
+        open={intakeOpen}
+        onOpenChange={setIntakeOpen}
+        locations={locations}
+        onSubmit={(data) => {
+          addVehicle({ ...data, status: "in_stock" });
+          toast.success(`${data.make} ${data.model} in den Bestand aufgenommen.`);
+          setIntakeOpen(false);
+        }}
+      />
     </AppShell>
-  );
-};
-
-const StatusBadge = ({ status }: { status: VehicleStatus }) => {
-  const map: Record<VehicleStatus, { label: string; className: string }> = {
-    planned: { label: "Geplant", className: "bg-info/15 text-info border-info/30" },
-    in_stock: { label: "Im Bestand", className: "bg-success/15 text-success border-success/30" },
-    reserved: { label: "Reserviert", className: "bg-warning/15 text-warning border-warning/30" },
-    sold: { label: "Verkauft", className: "bg-muted text-muted-foreground border-border" },
-  };
-  const { label, className } = map[status];
-  return <Badge className={className}>{label}</Badge>;
-};
-
-const VehicleCardItem = ({
-  vehicle,
-  openOffers,
-  processId,
-}: {
-  vehicle: Vehicle;
-  openOffers: number;
-  processId?: string;
-}) => {
-  return (
-    <Card className="p-5 hover:shadow-glow transition-smooth group flex flex-col">
-      <div className="flex items-start justify-between mb-4">
-        <div className="size-12 rounded-xl bg-gradient-brand grid place-items-center shadow-card">
-          <Car className="size-6 text-primary-foreground" />
-        </div>
-        <StatusBadge status={vehicle.status} />
-      </div>
-
-      <div className="mb-4">
-        <h3 className="font-display font-bold text-lg leading-tight">
-          {vehicle.make} {vehicle.model}
-        </h3>
-        <p className="font-mono text-xs text-muted-foreground mt-1">VIN {vehicle.vin}</p>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3 text-xs mb-4">
-        <div className="flex items-center gap-2 text-muted-foreground">
-          <Calendar className="size-3.5" />
-          <span>{vehicle.year}</span>
-        </div>
-        <div className="flex items-center gap-2 text-muted-foreground">
-          <Gauge className="size-3.5" />
-          <span>{vehicle.mileage.toLocaleString("de-DE")} km</span>
-        </div>
-        <div className="flex items-center gap-2 text-muted-foreground">
-          <Palette className="size-3.5" />
-          <span className="truncate">{vehicle.color}</span>
-        </div>
-        <div className="flex items-center gap-2 text-muted-foreground">
-          <Hash className="size-3.5" />
-          <span className="font-mono truncate">{vehicle.vin.slice(-8)}</span>
-        </div>
-      </div>
-
-      <div className="border-t border-border pt-4 flex items-center justify-between mb-3">
-        <div>
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Listenpreis</p>
-          <p className="font-display font-bold text-foreground">{formatCurrency(vehicle.listPrice)}</p>
-        </div>
-        <div className="text-right">
-          <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Angebote</p>
-          <p className="font-display font-bold text-primary-glow">{openOffers}</p>
-        </div>
-      </div>
-
-      <div className="mt-auto flex gap-2">
-        <Link
-          to={`/flotte/${vehicle.id}`}
-          className="flex-1 inline-flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-medium border border-border text-foreground hover:border-primary/40 transition-smooth"
-        >
-          Details
-          <ArrowRight className="size-3.5" />
-        </Link>
-        {processId && (
-          <Link
-            to={`/vorgaenge/${processId}`}
-            className="flex-1 inline-flex items-center justify-center gap-2 py-2 rounded-lg text-sm font-medium bg-primary/15 text-primary-glow hover:bg-primary/25 transition-smooth"
-          >
-            <FileText className="size-3.5" /> Vorgang
-          </Link>
-        )}
-      </div>
-    </Card>
   );
 };
 
