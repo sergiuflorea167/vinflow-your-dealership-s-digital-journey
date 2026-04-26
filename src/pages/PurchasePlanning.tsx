@@ -33,15 +33,28 @@ const PurchasePlanning = () => {
 
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<"all" | PurchasePlanStatus>("all");
+  const [sortKey, setSortKey] = useState<PlanSortKey>("expected_asc");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [receiveDialog, setReceiveDialog] = useState<{ planId: string } | null>(null);
 
-  const filtered = plans.filter((p) => {
-    if (filter !== "all" && p.status !== filter) return false;
-    if (!query) return true;
-    const q = query.toLowerCase();
-    return p.make.toLowerCase().includes(q) || p.model.toLowerCase().includes(q) || p.supplier.toLowerCase().includes(q);
-  });
+  const filtered = useMemo(() => {
+    const list = plans.filter((p) => {
+      if (filter !== "all" && p.status !== filter) return false;
+      if (!query) return true;
+      const q = query.toLowerCase();
+      return p.make.toLowerCase().includes(q) || p.model.toLowerCase().includes(q) || p.supplier.toLowerCase().includes(q);
+    });
+    return [...list].sort((a, b) => {
+      switch (sortKey) {
+        case "expected_asc": return new Date(a.expectedAt).getTime() - new Date(b.expectedAt).getTime();
+        case "expected_desc": return new Date(b.expectedAt).getTime() - new Date(a.expectedAt).getTime();
+        case "created_desc": return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        case "price_asc": return a.targetPrice - b.targetPrice;
+        case "price_desc": return b.targetPrice - a.targetPrice;
+        case "supplier": return a.supplier.localeCompare(b.supplier);
+      }
+    });
+  }, [plans, query, filter, sortKey]);
 
   const planForReceive = receiveDialog ? plans.find((p) => p.id === receiveDialog.planId) : undefined;
 
