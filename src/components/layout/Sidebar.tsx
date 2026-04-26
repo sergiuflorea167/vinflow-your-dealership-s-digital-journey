@@ -3,7 +3,7 @@ import { NavLink } from "react-router-dom";
 import {
   LayoutDashboard, Workflow, Car, ShoppingCart, ListChecks,
   BarChart3, Settings as SettingsIcon, ChevronLeft, ChevronRight,
-  Database, Sparkles,
+  Database, Sparkles, CalendarDays,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
