@@ -224,22 +224,56 @@ const KPIs = () => {
             {renderKpiGrid(kpisFor("Pipeline"))}
 
             <Card className="p-6 bg-card border-border shadow-card">
-              <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center justify-between mb-2">
                 <div>
                   <h2 className="text-xl font-display font-semibold">Pipeline</h2>
                   <p className="text-sm text-muted-foreground mt-1">Vorgänge je Prozessschritt</p>
                 </div>
                 <Layers className="size-5 text-muted-foreground" />
               </div>
+              <p className="text-xs text-muted-foreground mb-5 max-w-3xl leading-relaxed">
+                Jede Karte zeigt, wie viele Vorgänge gerade in diesem Schritt „hängen" — also dort aktiv,
+                aber noch nicht abgeschlossen sind. Hohe Zahlen weisen auf Engpässe hin, niedrige Zahlen
+                in späten Schritten bedeuten weniger kurzfristig anstehende Übergaben. Halte die Maus
+                auf eine Karte für Details. Tipp: Eine gesunde Pipeline füllt sich vorne und leert sich hinten.
+              </p>
               <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
                 {pipeline.map(({ step, count }, i) => (
-                  <div key={step.key} className="rounded-xl border border-border bg-background/40 p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-[10px] font-mono text-muted-foreground">{String(i + 1).padStart(2, "0")}</span>
-                      <span className="text-2xl font-display font-bold">{count}</span>
-                    </div>
-                    <p className="text-xs font-semibold leading-tight">{step.shortLabel}</p>
-                  </div>
+                  <Tooltip key={step.key} delayDuration={150}>
+                    <TooltipTrigger asChild>
+                      <div className="rounded-xl border border-border bg-background/40 p-4 cursor-help hover:border-primary/40 transition-smooth">
+                        <div className="flex items-center justify-between mb-3">
+                          <span className="text-[10px] font-mono text-muted-foreground">{String(i + 1).padStart(2, "0")}</span>
+                          <span className="text-2xl font-display font-bold">{count}</span>
+                        </div>
+                        <p className="text-xs font-semibold leading-tight">{step.shortLabel}</p>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-xs p-3 text-xs leading-relaxed space-y-2 bg-popover border-border">
+                      <div>
+                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">
+                          Schritt {i + 1}: {step.label}
+                        </p>
+                        <p className="text-foreground">{step.description}</p>
+                      </div>
+                      <div className="border-t border-border pt-2">
+                        <p className="text-[10px] uppercase tracking-wider text-primary-glow font-semibold mb-1">
+                          Bedeutung der Zahl
+                        </p>
+                        <p className="text-foreground">
+                          {count === 0
+                            ? `Aktuell kein Vorgang im Schritt „${step.shortLabel}". Frühe Schritte leer = wenig Neugeschäft, späte Schritte leer = keine kurzfristigen Übergaben.`
+                            : `${count} Vorgang${count !== 1 ? "ä" : ""}${count !== 1 ? "nge" : ""} aktiv im Schritt „${step.shortLabel}", noch nicht abgeschlossen. ${
+                                i <= 1
+                                  ? "Frühe Phase — gut für die Forecast-Pipeline."
+                                  : i >= 4
+                                  ? "Spätphase — diese Vorgänge stehen kurz vor Abschluss / Übergabe."
+                                  : "Mittlere Phase — wichtig für stetigen Durchsatz."
+                              }`}
+                        </p>
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
                 ))}
               </div>
             </Card>
