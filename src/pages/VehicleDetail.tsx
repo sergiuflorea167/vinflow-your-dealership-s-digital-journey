@@ -478,10 +478,10 @@ const Field = ({ label, children, full }: { label: string; children: React.React
 
 const Selectbox = <T extends string>({
   value, onChange, options,
-}: { value: T | undefined; onChange: (v: T) => void; options: readonly T[] }) => (
+}: { value: T | undefined; onChange: (v: T | undefined) => void; options: readonly T[] }) => (
   <select
     value={value ?? ""}
-    onChange={(e) => onChange(e.target.value as T)}
+    onChange={(e) => onChange((e.target.value || undefined) as T | undefined)}
     className="w-full h-10 rounded-md border border-input bg-background/40 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
   >
     <option value="">— bitte wählen —</option>
