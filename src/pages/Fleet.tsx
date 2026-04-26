@@ -244,6 +244,7 @@ const Fleet = () => {
                   <SortableTh label="VK" sortKey="price" state={sort} onChange={setSort} align="right" />
                   <SortableTh label="Marge¹" sortKey="margin" state={sort} onChange={setSort} align="right" />
                   <SortableTh label="Ang." sortKey="openOffers" state={sort} onChange={setSort} align="center" />
+                  <SortableTh label="Inseriert" sortKey="listed" state={sort} onChange={setSort} align="center" />
                   <SortableTh label="Status" sortKey="status" state={sort} onChange={setSort} />
                 </tr>
               </thead>
