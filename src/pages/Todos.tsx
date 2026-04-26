@@ -167,7 +167,7 @@ const Todos = () => {
       }
       return true;
     });
-  }, [todos, statusFilter, scopeFilter, priorityFilter, query, searchField, todayISO]);
+  }, [todos, statusFilter, scopeFilter, priorityFilter, dueFilter, dueRange, query, searchField, todayISO]);
 
   // ---- Sortierung ---------------------------------------------------------
   const sorted = useMemo(() => {
