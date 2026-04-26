@@ -58,7 +58,7 @@ const Fleet = () => {
   };
 
   return (
-    <AppShell title="Flotte" subtitle="Fahrzeugbestand · VIN-basiert">
+    <AppShell>
       <div className="space-y-6">
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
