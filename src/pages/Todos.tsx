@@ -84,6 +84,7 @@ const Todos = () => {
   const [query, setQuery] = useState("");
   const [searchField, setSearchField] = useState<"all" | "title" | "tag" | "assignee">("all");
   const [createOpen, setCreateOpen] = useState(false);
+  const [editTodo, setEditTodo] = useState<Todo | null>(null);
   const [sort, setSort] = useState<SortState<TodoSortKey>>({ key: "dueDate", dir: "asc" });
 
   // ---- Topbar-Suche -------------------------------------------------------
