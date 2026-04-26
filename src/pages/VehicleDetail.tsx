@@ -870,7 +870,7 @@ const NewOfferForm = ({
       <DialogFooter>
         <Button variant="outline" onClick={onCancel}>Abbrechen</Button>
         <Button disabled={!valid} className="bg-gradient-brand" onClick={() => onSubmit({ customerId, price, validUntil })}>
-          <Mail className="size-4 mr-1.5" /> Angebot senden
+          <ArrowRight className="size-4 mr-1.5" /> Anlegen & ausfüllen
         </Button>
       </DialogFooter>
     </>
