@@ -9,9 +9,19 @@ import { ProcessCard } from "@/components/process/ProcessCard";
 import { GoalsPanel } from "@/components/dashboard/GoalsPanel";
 import { PinnedKpiGrid } from "@/components/dashboard/PinnedKpiGrid";
 import { useProcessStore } from "@/store/processStore";
-import { PROCESS_STEPS, TodoPriority } from "@/data/process";
-import { ArrowUpRight, Settings2, CalendarCheck2, Car } from "lucide-react";
+import { PROCESS_STEPS, TodoPriority, CALENDAR_EVENT_TYPE_LABELS, CalendarEventType } from "@/data/process";
+import { ArrowUpRight, Settings2, CalendarCheck2, Car, CalendarDays, Clock, MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+const EVENT_DOT: Record<CalendarEventType, string> = {
+  appointment: "bg-primary",
+  todo:        "bg-warning",
+  block:       "bg-muted-foreground",
+  viewing:     "bg-info",
+  handover:    "bg-success",
+  call:        "bg-accent-foreground",
+  internal:    "bg-secondary-foreground",
+};
 
 const PRIORITY_DOT: Record<TodoPriority, string> = {
   high:   "bg-destructive",
