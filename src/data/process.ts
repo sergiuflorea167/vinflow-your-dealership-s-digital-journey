@@ -195,6 +195,8 @@ export interface Vehicle {
   status: VehicleStatus;
   arrivedAt?: string;
   notes?: string;
+  /** Inseratstatus: ist das Fahrzeug aktiv inseriert (mobile.de, AutoScout24, eigene Website …)? */
+  listed?: { active: boolean; listedAt?: string; portals?: string[] };
   // --- Stellplatz / Standort ---
   location: VehicleLocation;
   locationHistory: VehicleLocation[];
