@@ -402,14 +402,15 @@ const VehicleDetail = () => {
       {/* ---------- Dialoge ---------- */}
       <Dialog open={offerDialog} onOpenChange={setOfferDialog}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Neues Angebot erstellen</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>Neues Angebot anlegen</DialogTitle></DialogHeader>
           <NewOfferForm
             defaultPrice={vehicle.listPrice}
             customers={customers}
             onSubmit={(data) => {
-              addOffer({ ...data, vehicleId: vehicle.id, status: "sent" });
-              toast.success("Angebot erstellt und versendet.");
+              const created = addOffer({ ...data, vehicleId: vehicle.id, status: "draft" });
+              toast.success("Angebot angelegt – jetzt Felder ausfüllen & senden.");
               setOfferDialog(false);
+              navigate(`/angebote/${created.id}`);
             }}
             onCancel={() => setOfferDialog(false)}
           />
