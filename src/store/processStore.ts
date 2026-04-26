@@ -70,6 +70,7 @@ interface State {
 
   // ------- Vehicle -------
   addVehicle: (v: Omit<Vehicle, "id" | "status" | "locationHistory" | "costs"> & { status?: Vehicle["status"]; locationHistory?: VehicleLocation[]; costs?: CostEntry[] }) => Vehicle;
+  updateVehicle: (vehicleId: string, patch: Partial<Vehicle>) => void;
   changeVehicleLocation: (vehicleId: string, location: VehicleLocation) => void;
   addVehicleCost: (vehicleId: string, cost: Omit<CostEntry, "id" | "createdAt" | "createdBy">) => void;
   removeVehicleCost: (vehicleId: string, costId: string) => void;

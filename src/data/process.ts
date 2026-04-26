@@ -301,6 +301,7 @@ export interface Process {
 
 export type ActivityType =
   | "vehicle_added"
+  | "vehicle_updated"
   | "vehicle_location_changed"
   | "vehicle_cost_added"
   | "purchase_planned"
