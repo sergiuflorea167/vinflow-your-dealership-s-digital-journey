@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ProcessCard } from "@/components/process/ProcessCard";
+import { GoalsPanel } from "@/components/dashboard/GoalsPanel";
 import { useProcessStore } from "@/store/processStore";
 import { PROCESS_STEPS, formatCurrency, stepIndex } from "@/data/process";
 import { ArrowUpRight, TrendingUp, Workflow, FileCheck2, Car } from "lucide-react";
@@ -70,6 +71,8 @@ const Dashboard = () => {
           <KpiCard icon={FileCheck2} label="Belege archiviert" value={docsArchived.toString()} />
           <KpiCard icon={TrendingUp} label="Offene Angebote" value={openOffers.toString()} sub={`${inOutbound} in Kontrolle`} />
         </div>
+
+        <GoalsPanel />
 
         <Card className="p-6 bg-card border-border shadow-card">
           <div className="flex items-center justify-between mb-6">

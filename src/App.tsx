@@ -11,6 +11,7 @@ import Fleet from "./pages/Fleet.tsx";
 import VehicleDetail from "./pages/VehicleDetail.tsx";
 import PurchasePlanning from "./pages/PurchasePlanning.tsx";
 import Customers from "./pages/Customers.tsx";
+import KPIs from "./pages/KPIs.tsx";
 
 const queryClient = new QueryClient();
 
@@ -28,6 +29,7 @@ const App = () => (
           <Route path="/vorgaenge" element={<ProcessList />} />
           <Route path="/vorgaenge/:id" element={<ProcessDetail />} />
           <Route path="/kunden" element={<Customers />} />
+          <Route path="/kpis" element={<KPIs />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
