@@ -112,10 +112,6 @@ const PurchasePlanning = () => {
 
         <Card className="p-4 space-y-3">
           <div className="flex flex-col md:flex-row gap-3 md:items-center">
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-              <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Marke, Modell, Lieferant…" className="pl-9" />
-            </div>
             <Select value={sortKey} onValueChange={(v) => setSortKey(v as PlanSortKey)}>
               <SelectTrigger className="w-[200px]">
                 <SelectValue />
