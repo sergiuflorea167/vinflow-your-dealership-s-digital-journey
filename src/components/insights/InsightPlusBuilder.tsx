@@ -139,7 +139,7 @@ const METRICS: MetricDef[] = [
     key: "duration",
     label: "Durchlaufzeit",
     shortLabel: "Durchlaufzeit",
-    description: "Tage zwischen zwei Stationen — z. B. von „Bestandszugang" bis „Inseriert".",
+    description: "Tage zwischen zwei Stationen — z. B. von Bestandszugang bis Inseriert.",
     unit: "days",
     needsTwoStations: true,
     needsOneStation: false,
