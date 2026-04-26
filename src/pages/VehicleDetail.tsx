@@ -18,7 +18,7 @@ import {
   VehicleLocation, LocationKind,
 } from "@/data/process";
 import {
-  ArrowLeft, Car, CheckCircle2, ChevronDown, Edit2, FileText, Mail, MapPin, Plus, Send,
+  ArrowLeft, ArrowRight, Car, CheckCircle2, ChevronDown, Edit2, FileText, Mail, MapPin, Plus, Send,
   Sparkles, X, Save, History, Zap,
 } from "lucide-react";
 import { toast } from "sonner";
