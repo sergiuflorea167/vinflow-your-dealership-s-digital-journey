@@ -216,6 +216,32 @@ const ProcessDetail = () => {
                   <CheckCircle2 className="size-4" /> {isSkipped ? "Übersprungen" : "Beleg erzeugt"} am {formatDate(record.completedAt)}.
                 </p>
               )}
+              {(isCompleted || isSkipped) && (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="outline" className="gap-2 border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive">
+                      <RotateCcw className="size-4" /> Beleg stornieren
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>{selectedStep.documentName} stornieren?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Der Beleg „{selectedStep.documentName}" wird zurückgesetzt und kann erneut bearbeitet werden.
+                        {selectedIdx < currentIdx && (
+                          <> Alle nachfolgenden Schritte werden ebenfalls zurückgesetzt, da der Vorgang sonst inkonsistent wäre.</>
+                        )}
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleCancel} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                        Stornieren
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
               {isCurrent && !isCompleted && !isSkipped && (
                 <>
                   {!validation.ok && (
