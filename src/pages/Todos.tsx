@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import {
   AlertTriangle, Calendar, Car, CheckCircle2, Flag, Inbox,
-  ListChecks, Plus, Trash2, X,
+  Plus, Trash2, X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -488,5 +488,3 @@ const CreateTodoForm = ({
   );
 };
 
-// Unused icon imports kept tidy
-void ListChecks;
