@@ -12,7 +12,12 @@ export interface KpiContext {
   processes: Process[];
   offers: Offer[];
   customers: Customer[];
+  /** Globaler Zeitraum-Filter (zentral via KpiRangeContext). */
+  range: { from: Date; to: Date; label: string };
 }
+
+/** Markiert eine KPI, deren Wert vom globalen Zeitraum-Filter abhängt. */
+export type KpiTimeMode = "range" | "static";
 
 export interface KpiResult {
   value: number;
@@ -32,6 +37,11 @@ export interface KpiDef {
    */
   interpretation: string;
   format: KpiFormat;
+  /**
+   * "range"  → Wert wird über den globalen Zeitraum-Filter gesteuert.
+   * "static" → Stichtagswert (z. B. aktueller Bestand) — Filter zeigt nur „aktuell".
+   */
+  timeMode: KpiTimeMode;
   compute: (ctx: KpiContext) => KpiResult;
 }
 
