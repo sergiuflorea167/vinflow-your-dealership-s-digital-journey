@@ -1,15 +1,23 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useMemo } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { ProcessCard } from "@/components/process/ProcessCard";
 import { GoalsPanel } from "@/components/dashboard/GoalsPanel";
 import { PinnedKpiGrid } from "@/components/dashboard/PinnedKpiGrid";
 import { useProcessStore } from "@/store/processStore";
-import { PROCESS_STEPS } from "@/data/process";
-import { ArrowUpRight, Settings2 } from "lucide-react";
+import { PROCESS_STEPS, TodoPriority } from "@/data/process";
+import { ArrowUpRight, Settings2, CalendarCheck2, Car } from "lucide-react";
+import { cn } from "@/lib/utils";
+
+const PRIORITY_DOT: Record<TodoPriority, string> = {
+  high:   "bg-destructive",
+  medium: "bg-warning",
+  low:    "bg-info",
+};
 
 const Dashboard = () => {
   const processes = useProcessStore((s) => s.processes);
