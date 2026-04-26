@@ -38,7 +38,6 @@ const groups: NavGroup[] = [
     label: "Stammdaten",
     items: [
       { to: "/stammdaten", label: "Stammdaten", icon: Database },
-      { to: "/kunden",     label: "Kunden",     icon: Users },
     ],
   },
 ];
