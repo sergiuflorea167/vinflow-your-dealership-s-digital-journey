@@ -174,12 +174,7 @@ const ProcessDetail = () => {
                   onAdd={(t) => addCT(process.id, t)}
                   onRemove={(id) => removeCT(process.id, id)}
                   placeholder="z. B. AHK montieren, Standheizung nachrüsten…"
-                  disabled={!isCurrent}
-                />
-              </div>
-            )}
-
-            {/* Outbound checklist */}
+                  disabled={!isCurrent || isBooked}
             {selectedKey === "outbound_check" && (
               <div className="mt-6">
                 <TodoList
@@ -190,12 +185,7 @@ const ProcessDetail = () => {
                   onRemove={(id) => removeChk(process.id, id)}
                   onToggle={(id) => toggleChk(process.id, id)}
                   showCheckbox
-                  disabled={!isCurrent}
-                />
-              </div>
-            )}
-
-            {/* Document preview */}
+                  disabled={!isCurrent || isBooked}
             <div className="rounded-xl border border-dashed border-border bg-background/40 p-6 mt-6">
               <div className="flex items-start gap-4">
                 <div className="size-12 rounded-lg bg-primary/10 grid place-items-center border border-primary/20">
