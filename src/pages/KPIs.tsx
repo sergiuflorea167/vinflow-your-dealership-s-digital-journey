@@ -7,10 +7,11 @@ import { GoalsPanel, computeGoalProgress } from "@/components/dashboard/GoalsPan
 import { useProcessStore } from "@/store/processStore";
 import {
   PROCESS_STEPS, VEHICLE_TYPE_LABELS, VehicleType, formatCurrency,
-  vehicleTotalCostsGross, stepIndex,
+  vehicleTotalCostsGross, COST_CATEGORY_LABELS, CostCategory,
 } from "@/data/process";
 import {
   TrendingUp, Car, Workflow, Euro, Timer, Target, Wallet, Layers, Activity as ActivityIcon, FileCheck2,
+  Receipt, Banknote,
 } from "lucide-react";
 
 const daysBetween = (a: string, b: string) =>
