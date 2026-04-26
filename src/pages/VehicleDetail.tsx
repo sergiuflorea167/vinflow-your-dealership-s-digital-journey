@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useParams, Link, Navigate } from "react-router-dom";
 import { AppShell } from "@/components/layout/AppShell";
 import { Card } from "@/components/ui/card";
