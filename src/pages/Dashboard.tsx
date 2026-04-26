@@ -72,6 +72,8 @@ const Dashboard = () => {
           <KpiCard icon={TrendingUp} label="Offene Angebote" value={openOffers.toString()} sub={`${inOutbound} in Kontrolle`} />
         </div>
 
+        <GoalsPanel />
+
         <Card className="p-6 bg-card border-border shadow-card">
           <div className="flex items-center justify-between mb-6">
             <div>
