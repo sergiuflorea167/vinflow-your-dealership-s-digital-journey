@@ -342,10 +342,33 @@ export const useProcessStore = create<State>()(
             costs: v.costs ?? [],
             ...v,
           };
-          set((state) => ({
-            vehicles: [vehicle, ...state.vehicles],
-            activities: logActivity(state, "vehicle_added", `${vehicle.make} ${vehicle.model} aufgenommen`, { vehicleId: id }),
-          }));
+          // Wenn das Fahrzeug noch nicht inseriert ist, auto-To-Do erzeugen.
+          const needsListingTodo = !vehicle.listed?.active;
+          set((state) => {
+            const todoId = `TD-${String(state.todos.length + 1).padStart(3, "0")}`;
+            const autoTodo: Todo | null = needsListingTodo
+              ? {
+                  id: todoId,
+                  title: "Inserat erstellen",
+                  description: `Online-Inserat für ${vehicle.make} ${vehicle.model} (${vehicle.id}) anlegen.`,
+                  priority: "medium",
+                  scope: "internal_fleet",
+                  done: false,
+                  vehicleId: id,
+                  tags: ["inserat", "auto"],
+                  createdAt: new Date().toISOString(),
+                  createdBy: state.settings.userName || "System",
+                }
+              : null;
+            const baseActivities = logActivity(state, "vehicle_added", `${vehicle.make} ${vehicle.model} aufgenommen`, { vehicleId: id });
+            return {
+              vehicles: [vehicle, ...state.vehicles],
+              todos: autoTodo ? [autoTodo, ...state.todos] : state.todos,
+              activities: autoTodo
+                ? logActivity({ ...state, activities: baseActivities }, "todo_created", `To-Do automatisch erstellt: Inserat für ${vehicle.make} ${vehicle.model}`, { vehicleId: id })
+                : baseActivities,
+            };
+          });
           return vehicle;
         },
 
