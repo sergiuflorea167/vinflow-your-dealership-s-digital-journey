@@ -176,6 +176,8 @@ export const useProcessStore = create<State>()(
         todos: MOCK_TODOS,
         activities: MOCK_ACTIVITIES,
         goals: MOCK_GOALS,
+        calendarEvents: MOCK_CALENDAR_EVENTS,
+        dayTemplates: DEFAULT_DAY_TEMPLATES,
         settings: DEFAULT_SETTINGS,
 
         getProcess: (id) => get().processes.find((p) => p.id === id),
