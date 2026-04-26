@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { useProcessStore } from "@/store/processStore";
-import { formatCurrency, formatDate, PurchasePlanStatus } from "@/data/process";
+import { formatCurrency, formatDate, PurchasePlanStatus, VEHICLE_TYPE_LABELS, VehicleType, FuelType, Transmission } from "@/data/process";
 import { Plus, Search, Truck, CheckCircle2, Clock, Package, Ban } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -24,11 +24,12 @@ const PurchasePlanning = () => {
   const addPlan = useProcessStore((s) => s.addPurchasePlan);
   const updateStatus = useProcessStore((s) => s.updatePurchasePlanStatus);
   const convert = useProcessStore((s) => s.convertPlanToVehicle);
+  const locations = useProcessStore((s) => s.settings.locations);
 
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<"all" | PurchasePlanStatus>("all");
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [vinDialog, setVinDialog] = useState<{ planId: string; vin: string } | null>(null);
+  const [receiveDialog, setReceiveDialog] = useState<{ planId: string } | null>(null);
 
   const filtered = plans.filter((p) => {
     if (filter !== "all" && p.status !== filter) return false;
@@ -37,15 +38,15 @@ const PurchasePlanning = () => {
     return p.make.toLowerCase().includes(q) || p.model.toLowerCase().includes(q) || p.supplier.toLowerCase().includes(q);
   });
 
+  const planForReceive = receiveDialog ? plans.find((p) => p.id === receiveDialog.planId) : undefined;
+
   return (
     <AppShell>
       <div className="space-y-6 animate-fade-in">
         <div className="flex items-end justify-between gap-4">
           <div>
             <h1 className="font-display text-3xl font-bold tracking-tight">Einkaufsplanung</h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Plane Fahrzeugankäufe – sobald sie eintreffen, wandern sie automatisch in die Flotte.
-            </p>
+            <p className="text-sm text-muted-foreground mt-1">Plane Fahrzeugankäufe – beim Eintreffen wandern sie automatisch in die Flotte.</p>
           </div>
           <NewPlanDialog open={dialogOpen} onOpenChange={setDialogOpen} onSubmit={(p) => { addPlan(p); toast.success("Einkauf geplant."); setDialogOpen(false); }} />
         </div>
@@ -94,6 +95,7 @@ const PurchasePlanning = () => {
                 <tr className="border-b border-border bg-background/30 text-left text-xs uppercase tracking-wider text-muted-foreground">
                   <th className="px-5 py-3 font-medium">Plan-Nr.</th>
                   <th className="px-5 py-3 font-medium">Fahrzeug</th>
+                  <th className="px-5 py-3 font-medium">Typ</th>
                   <th className="px-5 py-3 font-medium">Lieferant</th>
                   <th className="px-5 py-3 font-medium text-right">Zielpreis</th>
                   <th className="px-5 py-3 font-medium">Erwartet</th>
@@ -111,20 +113,17 @@ const PurchasePlanning = () => {
                         <p className="font-medium text-foreground">{p.make} {p.model}</p>
                         <p className="text-xs text-muted-foreground">{p.year}{p.vin ? ` · VIN ${p.vin}` : ""}</p>
                       </td>
+                      <td className="px-5 py-4 text-xs text-muted-foreground">{VEHICLE_TYPE_LABELS[p.type]}</td>
                       <td className="px-5 py-4 text-foreground">{p.supplier}</td>
                       <td className="px-5 py-4 text-right font-semibold">{formatCurrency(p.targetPrice)}</td>
                       <td className="px-5 py-4 text-muted-foreground text-xs">{formatDate(p.expectedAt)}</td>
-                      <td className="px-5 py-4">
-                        <Badge className={meta.className}>{meta.label}</Badge>
-                      </td>
+                      <td className="px-5 py-4"><Badge className={meta.className}>{meta.label}</Badge></td>
                       <td className="px-5 py-4 text-right">
                         {p.status === "open" && (
-                          <Button size="sm" variant="outline" onClick={() => { updateStatus(p.id, "ordered"); toast.success("Als bestellt markiert."); }}>
-                            Bestellen
-                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => { updateStatus(p.id, "ordered"); toast.success("Als bestellt markiert."); }}>Bestellen</Button>
                         )}
                         {p.status === "ordered" && (
-                          <Button size="sm" className="bg-gradient-brand gap-1.5" onClick={() => setVinDialog({ planId: p.id, vin: "" })}>
+                          <Button size="sm" className="bg-gradient-brand gap-1.5" onClick={() => setReceiveDialog({ planId: p.id })}>
                             <Package className="size-3.5" /> Eingetroffen
                           </Button>
                         )}
@@ -138,7 +137,7 @@ const PurchasePlanning = () => {
                   );
                 })}
                 {filtered.length === 0 && (
-                  <tr><td colSpan={7} className="px-5 py-12 text-center text-muted-foreground text-sm">Keine Einkaufspläne gefunden.</td></tr>
+                  <tr><td colSpan={8} className="px-5 py-12 text-center text-muted-foreground text-sm">Keine Einkaufspläne gefunden.</td></tr>
                 )}
               </tbody>
             </table>
@@ -146,55 +145,32 @@ const PurchasePlanning = () => {
         </Card>
       </div>
 
-      {/* VIN Dialog */}
-      <Dialog open={!!vinDialog} onOpenChange={(o) => !o && setVinDialog(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Fahrzeug in Flotte aufnehmen</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-3 py-2">
-            <Label className="text-xs text-muted-foreground">Fahrzeug-Identifikationsnummer (VIN) *</Label>
-            <Input
-              value={vinDialog?.vin ?? ""}
-              onChange={(e) => setVinDialog((d) => d ? { ...d, vin: e.target.value.toUpperCase() } : d)}
-              placeholder="WBA8E9G50GNT12345"
-              maxLength={17}
-              className="font-mono"
-            />
-            <p className="text-xs text-muted-foreground">Die VIN ist 17-stellig und identifiziert das Fahrzeug eindeutig.</p>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setVinDialog(null)}>Abbrechen</Button>
-            <Button
-              disabled={!vinDialog?.vin || vinDialog.vin.length < 11}
-              onClick={() => {
-                if (!vinDialog) return;
-                convert(vinDialog.planId, vinDialog.vin);
-                toast.success("Fahrzeug in die Flotte aufgenommen.");
-                setVinDialog(null);
-              }}
-              className="bg-gradient-brand"
-            >
-              In Flotte aufnehmen
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ReceiveDialog
+        open={!!receiveDialog}
+        onOpenChange={(o) => !o && setReceiveDialog(null)}
+        planMake={planForReceive?.make ?? ""}
+        planModel={planForReceive?.model ?? ""}
+        planYear={planForReceive?.year ?? new Date().getFullYear()}
+        planType={planForReceive?.type ?? "limousine"}
+        planPrice={planForReceive?.targetPrice ?? 0}
+        locations={locations}
+        onSubmit={(data) => {
+          if (!receiveDialog) return;
+          convert(receiveDialog.planId, data);
+          toast.success("Fahrzeug in die Flotte aufgenommen.");
+          setReceiveDialog(null);
+        }}
+      />
     </AppShell>
   );
 };
 
-const NewPlanDialog = ({
-  open,
-  onOpenChange,
-  onSubmit,
-}: {
+const NewPlanDialog = ({ open, onOpenChange, onSubmit }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
-  onSubmit: (p: { make: string; model: string; year: number; targetPrice: number; supplier: string; expectedAt: string; notes?: string }) => void;
+  onSubmit: (p: { type: VehicleType; make: string; model: string; year: number; targetPrice: number; supplier: string; expectedAt: string; notes?: string }) => void;
 }) => {
-  const [form, setForm] = useState({ make: "", model: "", year: new Date().getFullYear(), targetPrice: 0, supplier: "", expectedAt: "" });
-
+  const [form, setForm] = useState({ type: "limousine" as VehicleType, make: "", model: "", year: new Date().getFullYear(), targetPrice: 0, supplier: "", expectedAt: "" });
   const valid = form.make && form.model && form.year && form.targetPrice > 0 && form.supplier && form.expectedAt;
 
   return (
@@ -205,10 +181,13 @@ const NewPlanDialog = ({
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Neuen Einkauf planen</DialogTitle>
-        </DialogHeader>
+        <DialogHeader><DialogTitle>Neuen Einkauf planen</DialogTitle></DialogHeader>
         <div className="grid grid-cols-2 gap-3 py-2">
+          <FormField label="Fahrzeugtyp *" full>
+            <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value as VehicleType })} className="w-full h-10 rounded-md border border-input bg-background/40 px-3 text-sm">
+              {Object.entries(VEHICLE_TYPE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            </select>
+          </FormField>
           <FormField label="Marke *"><Input value={form.make} onChange={(e) => setForm({ ...form, make: e.target.value })} placeholder="z. B. BMW" /></FormField>
           <FormField label="Modell *"><Input value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} placeholder="z. B. X3 xDrive30d" /></FormField>
           <FormField label="Baujahr *"><Input type="number" value={form.year} onChange={(e) => setForm({ ...form, year: Number(e.target.value) })} /></FormField>
@@ -219,6 +198,79 @@ const NewPlanDialog = ({
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Abbrechen</Button>
           <Button disabled={!valid} className="bg-gradient-brand" onClick={() => onSubmit(form)}>Plan anlegen</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+const ReceiveDialog = ({ open, onOpenChange, planMake, planModel, planYear, planType, planPrice, locations, onSubmit }: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  planMake: string; planModel: string; planYear: number; planType: VehicleType; planPrice: number;
+  locations: string[];
+  onSubmit: (data: any) => void;
+}) => {
+  const [vin, setVin] = useState("");
+  const [color, setColor] = useState("");
+  const [mileage, setMileage] = useState(0);
+  const [fuel, setFuel] = useState<FuelType>("Benzin");
+  const [transmission, setTransmission] = useState<Transmission>("Automatik");
+  const [hp, setHp] = useState(150);
+  const [firstReg, setFirstReg] = useState("");
+  const [hu, setHu] = useState("");
+  const [purchasePrice, setPurchasePrice] = useState(planPrice);
+  const [listPrice, setListPrice] = useState(Math.round(planPrice * 1.2));
+  const [location, setLocation] = useState(locations[0] ?? "Hof A · Platz 01");
+
+  const valid = vin.length >= 11 && color && mileage >= 0 && firstReg && purchasePrice > 0 && listPrice > 0 && location;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader><DialogTitle>{planMake} {planModel} in Flotte aufnehmen</DialogTitle></DialogHeader>
+        <div className="grid grid-cols-2 gap-3 py-2 max-h-[65vh] overflow-y-auto pr-1">
+          <FormField label="VIN (17-stellig) *" full>
+            <Input value={vin} onChange={(e) => setVin(e.target.value.toUpperCase())} placeholder="WBA8E9G50GNT12345" maxLength={17} className="font-mono" />
+          </FormField>
+          <FormField label="Farbe *"><Input value={color} onChange={(e) => setColor(e.target.value)} placeholder="z. B. Mineralweiß" /></FormField>
+          <FormField label="Kilometer *"><Input type="number" value={mileage || ""} onChange={(e) => setMileage(Number(e.target.value))} /></FormField>
+          <FormField label="Kraftstoff *">
+            <select value={fuel} onChange={(e) => setFuel(e.target.value as FuelType)} className="w-full h-10 rounded-md border border-input bg-background/40 px-3 text-sm">
+              {(["Benzin","Diesel","Hybrid","Elektro","Plug-in-Hybrid","Gas"] as FuelType[]).map((f) => <option key={f} value={f}>{f}</option>)}
+            </select>
+          </FormField>
+          <FormField label="Getriebe *">
+            <select value={transmission} onChange={(e) => setTransmission(e.target.value as Transmission)} className="w-full h-10 rounded-md border border-input bg-background/40 px-3 text-sm">
+              {(["Schaltgetriebe","Automatik","DKG","CVT"] as Transmission[]).map((f) => <option key={f} value={f}>{f}</option>)}
+            </select>
+          </FormField>
+          <FormField label="Leistung (PS) *"><Input type="number" value={hp || ""} onChange={(e) => setHp(Number(e.target.value))} /></FormField>
+          <FormField label="Erstzulassung *"><Input type="date" value={firstReg} onChange={(e) => setFirstReg(e.target.value)} /></FormField>
+          <FormField label="HU/TÜV gültig bis"><Input type="date" value={hu} onChange={(e) => setHu(e.target.value)} /></FormField>
+          <FormField label="Einkaufspreis brutto (EUR) *"><Input type="number" value={purchasePrice || ""} onChange={(e) => setPurchasePrice(Number(e.target.value))} /></FormField>
+          <FormField label="Listenpreis brutto (EUR) *"><Input type="number" value={listPrice || ""} onChange={(e) => setListPrice(Number(e.target.value))} /></FormField>
+          <FormField label="Stellplatz *" full>
+            <select value={location} onChange={(e) => setLocation(e.target.value)} className="w-full h-10 rounded-md border border-input bg-background/40 px-3 text-sm">
+              {locations.map((l) => <option key={l} value={l}>{l}</option>)}
+            </select>
+          </FormField>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>Abbrechen</Button>
+          <Button
+            disabled={!valid}
+            className="bg-gradient-brand"
+            onClick={() => onSubmit({
+              vin, type: planType, make: planMake, model: planModel, year: planYear,
+              color, mileage, fuel, transmission, power_hp: hp, power_kw: Math.round(hp * 0.7355),
+              firstRegistration: firstReg, hu: hu || undefined,
+              listPrice, purchasePrice,
+              arrivedAt: new Date().toISOString(),
+              location: { name: location, kind: "lot" as const, since: new Date().toISOString() },
+            })}>
+            In Flotte aufnehmen
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

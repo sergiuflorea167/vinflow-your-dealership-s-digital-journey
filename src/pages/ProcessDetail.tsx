@@ -1,23 +1,19 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useParams, Link, Navigate } from "react-router-dom";
-import { ArrowLeft, FileText, Lock, CheckCircle2, ArrowRight, Download, Archive, AlertCircle } from "lucide-react";
+import { ArrowLeft, FileText, Lock, CheckCircle2, ArrowRight, Download, Archive, AlertCircle, SkipForward } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { ProcessStepper } from "@/components/process/ProcessStepper";
+import { ActivityLog } from "@/components/process/ActivityLog";
+import { TodoList } from "@/components/shared/TodoList";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useProcessStore } from "@/store/processStore";
 import {
-  PROCESS_STEPS,
-  ProcessStepKey,
-  ProcessFields,
-  formatCurrency,
-  formatDate,
-  stepIndex,
+  PROCESS_STEPS, ProcessStepKey, ProcessFields, formatCurrency, formatDate, stepIndex,
 } from "@/data/process";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -29,9 +25,17 @@ const ProcessDetail = () => {
   const vehicle = useProcessStore((s) => process && s.getVehicle(process.vehicleId));
   const customer = useProcessStore((s) => process && s.getCustomer(process.customerId));
   const offer = useProcessStore((s) => process && s.getOffer(process.acceptedOfferId));
+  const activities = useProcessStore((s) => s.activities.filter((a) => a.processId === process?.id));
+  const companyName = useProcessStore((s) => s.settings.companyName);
+
   const completeStep = useProcessStore((s) => s.completeStep);
-  const toggleChecklist = useProcessStore((s) => s.toggleChecklistItem);
+  const skipStep = useProcessStore((s) => s.skipStep);
   const updateFields = useProcessStore((s) => s.updateProcessFields);
+  const toggleChk = useProcessStore((s) => s.toggleOutboundChecklistItem);
+  const addChk = useProcessStore((s) => s.addOutboundChecklistItem);
+  const removeChk = useProcessStore((s) => s.removeOutboundChecklistItem);
+  const addCT = useProcessStore((s) => s.addProcessCustomerTodo);
+  const removeCT = useProcessStore((s) => s.removeProcessCustomerTodo);
 
   const [selected, setSelected] = useState<ProcessStepKey | undefined>(process?.currentStep);
 
@@ -44,26 +48,34 @@ const ProcessDetail = () => {
   const record = process.steps[selectedKey];
   const isCurrent = selectedIdx === currentIdx;
   const isCompleted = record.status === "completed";
+  const isSkipped = record.status === "skipped";
   const isLocked = selectedIdx > currentIdx;
   const nextStep = PROCESS_STEPS[currentIdx + 1];
 
-  const checklistDone = process.checklist.filter((c) => c.done).length;
-  const checklistTotal = process.checklist.length;
+  const checklistDone = process.outboundChecklist.filter((c) => c.done).length;
+  const checklistTotal = process.outboundChecklist.length;
 
-  const validation = validateStep(selectedKey, process.fields, checklistDone, checklistTotal);
+  const validation = useMemo(
+    () => validateStep(selectedKey, process.fields, checklistDone, checklistTotal),
+    [selectedKey, process.fields, checklistDone, checklistTotal]
+  );
 
   const handleComplete = () => {
-    if (!validation.ok) {
-      toast.error(validation.message ?? "Bitte alle Pflichtfelder ausfüllen.");
-      return;
-    }
+    if (!validation.ok) { toast.error(validation.message ?? "Bitte alle Pflichtfelder ausfüllen."); return; }
     completeStep(process.id, selectedKey);
     toast.success(`${selectedStep.documentName} archiviert${nextStep ? ` · Weiter zu ${nextStep.label}` : " · Vorgang abgeschlossen"}`);
     if (nextStep) setSelected(nextStep.key);
   };
 
+  const handleSkip = () => {
+    if (!selectedStep.skippable || !isCurrent) return;
+    skipStep(process.id, selectedKey);
+    toast.message(`${selectedStep.label} übersprungen.`);
+    if (nextStep) setSelected(nextStep.key);
+  };
+
   const handleDownload = (key: ProcessStepKey) => {
-    downloadBelegPdf({ process, vehicle, customer, offer, stepKey: key });
+    downloadBelegPdf({ process, vehicle, customer, offer, stepKey: key, companyName });
     toast.success("PDF heruntergeladen.");
   };
 
@@ -83,9 +95,7 @@ const ProcessDetail = () => {
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
             <div>
               <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Vorgang {process.id}</p>
-              <h1 className="text-3xl font-display font-bold text-foreground">
-                {vehicle.make} {vehicle.model}
-              </h1>
+              <h1 className="text-3xl font-display font-bold text-foreground">{vehicle.make} {vehicle.model}</h1>
               <p className="font-mono text-xs text-muted-foreground mt-2">VIN {vehicle.vin}</p>
             </div>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
@@ -98,7 +108,7 @@ const ProcessDetail = () => {
         </Card>
 
         <Card className="p-6 bg-card border-border shadow-card">
-          <ProcessStepper currentStep={process.currentStep} selectedStep={selectedKey} onSelect={setSelected} />
+          <ProcessStepper currentStep={process.currentStep} selectedStep={selectedKey} onSelect={setSelected} steps={process.steps} />
         </Card>
 
         <div className="grid lg:grid-cols-3 gap-6">
@@ -106,16 +116,11 @@ const ProcessDetail = () => {
             <div className="flex items-start justify-between gap-4 mb-4">
               <div>
                 <div className="flex items-center gap-2 mb-2">
-                  <span className="text-xs font-mono text-muted-foreground">
-                    Schritt {selectedIdx + 1} / {PROCESS_STEPS.length}
-                  </span>
+                  <span className="text-xs font-mono text-muted-foreground">Schritt {selectedIdx + 1} / {PROCESS_STEPS.length}</span>
                   {isCompleted && <Badge className="bg-success text-success-foreground hover:bg-success">Abgeschlossen</Badge>}
-                  {isCurrent && !isCompleted && <Badge className="bg-primary text-primary-foreground hover:bg-primary">Aktiv</Badge>}
-                  {isLocked && (
-                    <Badge variant="outline" className="border-border text-muted-foreground">
-                      <Lock className="size-3 mr-1" /> Gesperrt
-                    </Badge>
-                  )}
+                  {isSkipped && <Badge variant="outline" className="border-muted-foreground/30 text-muted-foreground">Übersprungen</Badge>}
+                  {isCurrent && !isCompleted && !isSkipped && <Badge className="bg-primary text-primary-foreground hover:bg-primary">Aktiv</Badge>}
+                  {isLocked && (<Badge variant="outline" className="border-border text-muted-foreground"><Lock className="size-3 mr-1" /> Gesperrt</Badge>)}
                 </div>
                 <h2 className="text-2xl font-display font-bold text-foreground">{selectedStep.label}</h2>
                 <p className="text-sm text-muted-foreground mt-2">{selectedStep.description}</p>
@@ -124,38 +129,43 @@ const ProcessDetail = () => {
 
             <Separator className="my-6 bg-border/60" />
 
-            {/* Pflichtfelder pro Schritt */}
             {!isLocked && (
               <StepFields
                 stepKey={selectedKey}
                 fields={process.fields}
-                disabled={!isCurrent}
+                disabled={!isCurrent || isSkipped}
                 onChange={(patch) => updateFields(process.id, patch)}
               />
             )}
 
-            {selectedKey === "outbound_check" && isCurrent && (
-              <div className="space-y-3 my-6">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-display font-semibold text-sm">Übergabe-Checkliste</h3>
-                  <span className="text-xs text-muted-foreground">
-                    {checklistDone} / {checklistTotal} erledigt
-                  </span>
-                </div>
-                <div className="space-y-2">
-                  {process.checklist.map((item) => (
-                    <label
-                      key={item.id}
-                      className={cn(
-                        "flex items-center gap-3 p-3 rounded-lg border border-border/60 bg-background/40 cursor-pointer transition-smooth hover:border-primary/40",
-                        item.done && "opacity-60"
-                      )}
-                    >
-                      <Checkbox checked={item.done} onCheckedChange={() => toggleChecklist(process.id, item.id)} />
-                      <span className={cn("text-sm flex-1", item.done && "line-through text-muted-foreground")}>{item.label}</span>
-                    </label>
-                  ))}
-                </div>
+            {/* Customer-To-Dos auf AB */}
+            {selectedKey === "order_confirmation" && (
+              <div className="mt-6">
+                <TodoList
+                  title="Kunden-To-Dos auf AB"
+                  description="Diese Punkte werden auf der Auftragsbestätigung gedruckt – sichtbar für den Kunden."
+                  items={process.customerTodosOC}
+                  onAdd={(t) => addCT(process.id, t)}
+                  onRemove={(id) => removeCT(process.id, id)}
+                  placeholder="z. B. AHK montieren, Standheizung nachrüsten…"
+                  disabled={!isCurrent}
+                />
+              </div>
+            )}
+
+            {/* Outbound checklist */}
+            {selectedKey === "outbound_check" && (
+              <div className="mt-6">
+                <TodoList
+                  title="Übergabe-Checkliste (intern)"
+                  description={`${checklistDone} / ${checklistTotal} erledigt – alle müssen vor dem Abschluss abgehakt sein.`}
+                  items={process.outboundChecklist}
+                  onAdd={(t) => addChk(process.id, t)}
+                  onRemove={(id) => removeChk(process.id, id)}
+                  onToggle={(id) => toggleChk(process.id, id)}
+                  showCheckbox
+                  disabled={!isCurrent}
+                />
               </div>
             )}
 
@@ -168,9 +178,9 @@ const ProcessDetail = () => {
                 <div className="flex-1">
                   <p className="font-display font-semibold text-foreground">Kundenbeleg: {selectedStep.documentName}</p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Wird beim Abschluss als PDF generiert, an den Kunden gesendet und im Vorgangs-Archiv gespeichert.
+                    {isSkipped ? "Schritt wurde übersprungen – kein Beleg." : "Wird beim Abschluss als PDF generiert, an den Kunden gesendet und im Vorgangs-Archiv gespeichert."}
                   </p>
-                  {(isCompleted || isCurrent) && (
+                  {(isCompleted || isCurrent) && !isSkipped && (
                     <div className="flex items-center gap-2 mt-3">
                       <Button size="sm" variant="outline" onClick={() => handleDownload(selectedKey)} className="gap-1.5 h-8">
                         <Download className="size-3.5" /> {isCompleted ? "PDF erneut laden" : "Vorschau-PDF"}
@@ -186,39 +196,35 @@ const ProcessDetail = () => {
               </div>
             </div>
 
-            {/* Action */}
-            <div className="flex items-center justify-end gap-3 mt-6">
-              {isLocked && (
-                <p className="text-xs text-muted-foreground mr-auto">
-                  Vorherige Schritte zuerst abschließen, um diesen freizuschalten.
-                </p>
-              )}
-              {isCompleted && record.completedAt && (
+            {/* Actions */}
+            <div className="flex items-center justify-end gap-3 mt-6 flex-wrap">
+              {isLocked && (<p className="text-xs text-muted-foreground mr-auto">Vorherige Schritte zuerst abschließen.</p>)}
+              {(isCompleted || isSkipped) && record.completedAt && (
                 <p className="text-xs text-success mr-auto inline-flex items-center gap-2">
-                  <CheckCircle2 className="size-4" /> Beleg wurde am {formatDate(record.completedAt)} erzeugt.
+                  <CheckCircle2 className="size-4" /> {isSkipped ? "Übersprungen" : "Beleg erzeugt"} am {formatDate(record.completedAt)}.
                 </p>
               )}
-              {isCurrent && !isCompleted && (
+              {isCurrent && !isCompleted && !isSkipped && (
                 <>
                   {!validation.ok && (
                     <p className="text-xs text-warning mr-auto inline-flex items-center gap-2">
                       <AlertCircle className="size-4" /> {validation.message}
                     </p>
                   )}
-                  <Button
-                    onClick={handleComplete}
-                    disabled={!validation.ok}
-                    className="bg-gradient-brand hover:opacity-90 shadow-elegant gap-2"
-                  >
-                    Beleg erzeugen & {nextStep ? "weiter" : "abschließen"}
-                    <ArrowRight className="size-4" />
+                  {selectedStep.skippable && (
+                    <Button variant="outline" onClick={handleSkip} className="gap-2">
+                      <SkipForward className="size-4" /> Überspringen
+                    </Button>
+                  )}
+                  <Button onClick={handleComplete} disabled={!validation.ok} className="bg-gradient-brand hover:opacity-90 shadow-elegant gap-2">
+                    Beleg erzeugen & {nextStep ? "weiter" : "abschließen"} <ArrowRight className="size-4" />
                   </Button>
                 </>
               )}
             </div>
           </Card>
 
-          {/* Sidebar */}
+          {/* Right column */}
           <div className="space-y-6">
             <Card className="p-6 bg-card border-border shadow-card">
               <h3 className="font-display font-semibold text-sm mb-4">Kunde</h3>
@@ -236,17 +242,19 @@ const ProcessDetail = () => {
                 {PROCESS_STEPS.map((s, i) => {
                   const r = process.steps[s.key];
                   const done = r.status === "completed";
+                  const skipped = r.status === "skipped";
                   return (
-                    <div
-                      key={s.key}
-                      className={cn(
-                        "flex items-center gap-3 p-2 rounded-lg text-xs",
-                        done ? "bg-success/5 border border-success/20" : "opacity-50"
-                      )}
-                    >
+                    <div key={s.key} className={cn(
+                      "flex items-center gap-3 p-2 rounded-lg text-xs",
+                      done && "bg-success/5 border border-success/20",
+                      skipped && "bg-muted/30 border border-border opacity-70",
+                      !done && !skipped && "opacity-50"
+                    )}>
                       <div className={cn(
                         "size-6 rounded-md grid place-items-center text-[10px] font-semibold shrink-0",
-                        done ? "bg-success text-success-foreground" : "bg-muted text-muted-foreground"
+                        done && "bg-success text-success-foreground",
+                        skipped && "bg-muted text-muted-foreground",
+                        !done && !skipped && "bg-muted text-muted-foreground"
                       )}>
                         {i + 1}
                       </div>
@@ -261,6 +269,8 @@ const ProcessDetail = () => {
                 })}
               </div>
             </Card>
+
+            <ActivityLog items={activities} title="Vorgangs-Protokoll" />
           </div>
         </div>
       </div>
@@ -268,26 +278,10 @@ const ProcessDetail = () => {
   );
 };
 
-// ----------- Step-specific fields -----------
+// ---------- Step fields & validation ----------
 
-const StepFields = ({
-  stepKey,
-  fields,
-  onChange,
-  disabled,
-}: {
-  stepKey: ProcessStepKey;
-  fields: ProcessFields;
-  onChange: (patch: Partial<ProcessFields>) => void;
-  disabled?: boolean;
-}) => {
-  if (stepKey === "offer") {
-    return (
-      <FieldGrid title="Angebotsdaten">
-        <NumberField label="Endpreis (EUR) *" value={fields.finalPrice} onChange={(v) => onChange({ finalPrice: v })} disabled={disabled} />
-      </FieldGrid>
-    );
-  }
+const StepFields = ({ stepKey, fields, onChange, disabled }: { stepKey: ProcessStepKey; fields: ProcessFields; onChange: (patch: Partial<ProcessFields>) => void; disabled?: boolean }) => {
+  if (stepKey === "offer") return null;
   if (stepKey === "down_payment") {
     return (
       <FieldGrid title="Anzahlung">
@@ -316,6 +310,16 @@ const StepFields = ({
       </FieldGrid>
     );
   }
+  if (stepKey === "purchase_contract") {
+    return (
+      <FieldGrid title="Kaufvertrag">
+        <TextField label="Vertrags-Nr. *" value={fields.purchaseContract?.contractNumber} onChange={(v) => onChange({ purchaseContract: { ...fields.purchaseContract, contractNumber: v } })} disabled={disabled} placeholder="z. B. KV-2025-0001" />
+        <DateField label="Vertragsdatum *" value={fields.purchaseContract?.contractDate} onChange={(v) => onChange({ purchaseContract: { ...fields.purchaseContract, contractDate: v } })} disabled={disabled} />
+        <NumberField label="Gewährleistung (Monate) *" value={fields.purchaseContract?.warrantyMonths ?? 12} onChange={(v) => onChange({ purchaseContract: { ...fields.purchaseContract, warrantyMonths: v } })} disabled={disabled} />
+        <TextField label="Vertragsort *" value={fields.purchaseContract?.place} onChange={(v) => onChange({ purchaseContract: { ...fields.purchaseContract, place: v } })} disabled={disabled} placeholder="z. B. München" />
+      </FieldGrid>
+    );
+  }
   if (stepKey === "delivery_confirmation") {
     return (
       <FieldGrid title="Übergabe">
@@ -329,6 +333,42 @@ const StepFields = ({
   }
   return null;
 };
+
+const validateStep = (key: ProcessStepKey, f: ProcessFields, chkDone: number, chkTotal: number): { ok: boolean; message?: string } => {
+  if (key === "offer") return { ok: true };
+  if (key === "down_payment") {
+    const d = f.downPayment;
+    if (!d?.amount || !d.dueDate || !d.method) return { ok: false, message: "Anzahlungsbetrag, Fälligkeit und Zahlungsart erforderlich." };
+    return { ok: true };
+  }
+  if (key === "order_confirmation") {
+    const o = f.orderConfirmation;
+    if (!o?.orderDate || !o.deliveryDate) return { ok: false, message: "Auftrags- und Liefertermin erforderlich." };
+    return { ok: true };
+  }
+  if (key === "outbound_check") {
+    if (chkDone < chkTotal) return { ok: false, message: `Noch ${chkTotal - chkDone} Checklisten-Punkte offen.` };
+    return { ok: true };
+  }
+  if (key === "invoicing") {
+    const i = f.invoicing;
+    if (!i?.invoiceNumber || !i.invoiceDate || !i.dueDate) return { ok: false, message: "Rechnungs-Nr., Datum & Fälligkeit erforderlich." };
+    return { ok: true };
+  }
+  if (key === "purchase_contract") {
+    const c = f.purchaseContract;
+    if (!c?.contractNumber || !c.contractDate || !c.place || !c.warrantyMonths) return { ok: false, message: "Vertrags-Nr., Datum, Ort & Gewährleistung erforderlich." };
+    return { ok: true };
+  }
+  if (key === "delivery_confirmation") {
+    const d = f.delivery;
+    if (!d?.handoverDate || !d.handoverLocation || !d.finalMileage || !d.customerSignature) return { ok: false, message: "Alle Übergabe-Daten + Unterschrift erforderlich." };
+    return { ok: true };
+  }
+  return { ok: true };
+};
+
+// ---------- Atoms ----------
 
 const FieldGrid = ({ title, children }: { title: string; children: React.ReactNode }) => (
   <div className="space-y-3 mb-2">
@@ -361,23 +401,16 @@ const DateField = ({ label, value, onChange, disabled }: { label: string; value?
 const SelectField = ({ label, value, options, onChange, disabled }: { label: string; value: string; options: string[]; onChange: (v: string) => void; disabled?: boolean }) => (
   <div className="space-y-1.5">
     <Label className="text-xs text-muted-foreground">{label}</Label>
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      disabled={disabled}
-      className="w-full h-10 rounded-md border border-input bg-background/40 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-    >
+    <select value={value} onChange={(e) => onChange(e.target.value)} disabled={disabled} className="w-full h-10 rounded-md border border-input bg-background/40 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50">
       <option value="">— wählen —</option>
-      {options.map((o) => (
-        <option key={o} value={o}>{o}</option>
-      ))}
+      {options.map((o) => <option key={o} value={o}>{o}</option>)}
     </select>
   </div>
 );
 
 const CheckboxField = ({ label, checked, onChange, disabled }: { label: string; checked: boolean; onChange: (v: boolean) => void; disabled?: boolean }) => (
-  <label className={cn("flex items-center gap-3 p-3 rounded-lg border border-border/60 bg-background/40 cursor-pointer", disabled && "opacity-60 cursor-not-allowed")}>
-    <Checkbox checked={checked} onCheckedChange={(v) => onChange(!!v)} disabled={disabled} />
+  <label className="flex items-center gap-3 p-3 rounded-md border border-input bg-background/40 cursor-pointer hover:border-primary/40 transition-smooth h-10">
+    <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} disabled={disabled} className="size-4 accent-primary" />
     <span className="text-sm">{label}</span>
   </label>
 );
@@ -391,49 +424,10 @@ const Stat = ({ label, value, sub }: { label: string; value: string; sub?: strin
 );
 
 const Row = ({ label, value, mono }: { label: string; value: string; mono?: boolean }) => (
-  <div className="flex justify-between gap-4">
-    <span className="text-muted-foreground">{label}</span>
-    <span className={cn("text-foreground text-right", mono && "font-mono text-xs")}>{value}</span>
+  <div className="flex items-start justify-between gap-3">
+    <span className="text-xs text-muted-foreground shrink-0">{label}</span>
+    <span className={cn("text-foreground text-right truncate", mono && "font-mono text-xs")}>{value}</span>
   </div>
 );
-
-// ---- Validation ----
-
-function validateStep(
-  stepKey: ProcessStepKey,
-  fields: ProcessFields,
-  checklistDone: number,
-  checklistTotal: number
-): { ok: boolean; message?: string } {
-  switch (stepKey) {
-    case "offer":
-      if (!fields.finalPrice || fields.finalPrice <= 0) return { ok: false, message: "Endpreis ist Pflicht." };
-      return { ok: true };
-    case "down_payment":
-      if (!fields.downPayment?.amount) return { ok: false, message: "Anzahlungsbetrag ist Pflicht." };
-      if (!fields.downPayment?.dueDate) return { ok: false, message: "Fälligkeitsdatum ist Pflicht." };
-      if (!fields.downPayment?.method) return { ok: false, message: "Zahlungsart ist Pflicht." };
-      if (!fields.downPayment?.received) return { ok: false, message: "Zahlungseingang muss bestätigt sein." };
-      return { ok: true };
-    case "order_confirmation":
-      if (!fields.orderConfirmation?.orderDate) return { ok: false, message: "Auftragsdatum ist Pflicht." };
-      if (!fields.orderConfirmation?.deliveryDate) return { ok: false, message: "Liefertermin ist Pflicht." };
-      return { ok: true };
-    case "outbound_check":
-      if (checklistDone < checklistTotal) return { ok: false, message: `Noch ${checklistTotal - checklistDone} Checklisten-Punkte offen.` };
-      return { ok: true };
-    case "invoicing":
-      if (!fields.invoicing?.invoiceNumber) return { ok: false, message: "Rechnungs-Nr. ist Pflicht." };
-      if (!fields.invoicing?.invoiceDate) return { ok: false, message: "Rechnungsdatum ist Pflicht." };
-      if (!fields.invoicing?.dueDate) return { ok: false, message: "Fälligkeit ist Pflicht." };
-      return { ok: true };
-    case "delivery_confirmation":
-      if (!fields.delivery?.handoverDate) return { ok: false, message: "Übergabedatum ist Pflicht." };
-      if (!fields.delivery?.handoverLocation) return { ok: false, message: "Übergabeort ist Pflicht." };
-      if (!fields.delivery?.finalMileage) return { ok: false, message: "Kilometerstand ist Pflicht." };
-      if (!fields.delivery?.customerSignature) return { ok: false, message: "Kundenunterschrift muss bestätigt sein." };
-      return { ok: true };
-  }
-}
 
 export default ProcessDetail;
