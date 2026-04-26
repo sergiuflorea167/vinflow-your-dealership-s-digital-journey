@@ -27,6 +27,7 @@ import {
   ActivityType,
   Goal,
   Settings,
+  Partner,
   buildEmptySteps,
   DEFAULT_OUTBOUND_CHECKLIST,
   stepIndex,
