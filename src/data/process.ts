@@ -1180,6 +1180,15 @@ export const MOCK_TODOS: Todo[] = [
   { id: "TD-005", title: "Garantieverlängerung anbieten", priority: "medium", done: false, dueDate: new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10), scope: "internal_fleet", vehicleId: "V-016", createdAt: isoDaysAgo(3), createdBy: "Admin" },
   { id: "TD-006", title: "Cabrio-Verdeck Funktion testen", priority: "high", done: false, dueDate: new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10), scope: "internal_fleet", vehicleId: "V-018", createdAt: isoDaysAgo(2), createdBy: "Admin" },
   { id: "TD-007", title: "TÜV-Termin V-014 vereinbaren", priority: "high", done: false, dueDate: new Date(Date.now() + 4 * 86400000).toISOString().slice(0, 10), scope: "internal_fleet", vehicleId: "V-014", createdAt: isoDaysAgo(1), createdBy: "Admin" },
+  { id: "TD-008", title: "Lamborghini: Probefahrt vorbereiten", priority: "high", done: false, dueDate: new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10), scope: "internal_fleet", vehicleId: "V-026", createdAt: isoDaysAgo(1), createdBy: "Admin" },
+  { id: "TD-009", title: "Polestar 2 in Verkaufsplanung aufnehmen", priority: "low", done: false, scope: "internal_pre_purchase", createdAt: isoDaysAgo(2), createdBy: "Admin" },
+  { id: "TD-010", title: "Sprinter Anlieferung mit Logistik klären", priority: "medium", done: true, scope: "internal_pre_purchase", createdAt: isoDaysAgo(5), createdBy: "Admin" },
+  { id: "TD-011", title: "BMW M5: Detailfotos für Online-Inserat", priority: "medium", done: false, dueDate: new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10), scope: "internal_fleet", vehicleId: "V-021", createdAt: isoDaysAgo(2), createdBy: "Admin" },
+  { id: "TD-012", title: "Honda Civic Type R: Reifen prüfen", priority: "low", done: false, scope: "internal_fleet", vehicleId: "V-023", createdAt: isoDaysAgo(1), createdBy: "Admin" },
+  { id: "TD-013", title: "Mercedes AMG GT: Cabrioverdeck einölen", priority: "high", done: false, dueDate: new Date(Date.now() + 5 * 86400000).toISOString().slice(0, 10), scope: "internal_fleet", vehicleId: "V-036", createdAt: isoDaysAgo(3), createdBy: "Admin" },
+  { id: "TD-014", title: "Polo GTI: Standortwechsel zur Übergabe", priority: "medium", done: false, dueDate: new Date(Date.now() + 6 * 86400000).toISOString().slice(0, 10), scope: "internal_fleet", vehicleId: "V-037", createdAt: isoDaysAgo(1), createdBy: "Admin" },
+  { id: "TD-015", title: "Tucson: Hybrid-Batteriegarantie dokumentieren", priority: "low", done: true, scope: "internal_fleet", vehicleId: "V-030", createdAt: isoDaysAgo(7), createdBy: "Admin" },
+  { id: "TD-016", title: "Multivan: Innenraumreinigung 7-Sitzer", priority: "medium", done: false, dueDate: new Date(Date.now() + 4 * 86400000).toISOString().slice(0, 10), scope: "internal_fleet", vehicleId: "V-033", createdAt: isoDaysAgo(2), createdBy: "Admin" },
 ];
 
 export const MOCK_ACTIVITIES: Activity[] = [
