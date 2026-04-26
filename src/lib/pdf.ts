@@ -426,3 +426,65 @@ export const downloadBelegPdf = (args: GeneratePdfArgs) => {
   const step = PROCESS_STEPS.find((s) => s.key === args.stepKey)!;
   doc.save(`${args.process.id}_${step.documentName.replace(/[^A-Za-z0-9]/g, "_")}.pdf`);
 };
+
+// ---------- Standalone Angebot PDF (vor Vorgangs-Erstellung) ----------
+
+export interface GenerateOfferPdfArgs {
+  offer: Offer;
+  vehicle: Vehicle;
+  customer: Customer;
+  companyName?: string;
+}
+
+export const generateOfferPdf = ({ offer, vehicle, customer, companyName = "VINflow Autohaus GmbH" }: GenerateOfferPdfArgs): jsPDF => {
+  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  const docNumber = `${offer.id} · ANGEBOT`;
+  drawHeader(doc, "Angebot", `Angebots-Nr. ${offer.id}`, docNumber, companyName);
+  drawAddressBlock(doc, customer, 50, "ANGEBOTSEMPFÄNGER");
+  drawMetaBlock(doc, [
+    ["Angebots-Nr.", offer.id],
+    ["Erstellt am", formatDate(offer.createdAt)],
+    ["Gültig bis", formatDate(offer.validUntil)],
+  ], 50);
+  drawVehicleCard(doc, vehicle, 88);
+
+  let cursor = 130;
+  drawSectionTitle(doc, "Angebot", cursor);
+  cursor += 8;
+  cursor = drawTextBlock(doc,
+    `Sehr geehrte/r ${customer.name}, vielen Dank für Ihr Interesse. Wir freuen uns, Ihnen für das oben genannte Fahrzeug folgendes verbindliches Angebot unterbreiten zu dürfen.`,
+    cursor, { muted: true });
+  cursor += 6;
+
+  const items: LineItem[] = [
+    { description: `${vehicle.make} ${vehicle.model} (${vehicle.year})`, qty: "1", unitPrice: offer.price, total: offer.price },
+  ];
+  if (offer.discount && offer.discount > 0) {
+    items.push({ description: "Rabatt", qty: "1", unitPrice: -offer.discount, total: -offer.discount });
+  }
+  cursor = drawTable(doc, items, cursor, "ANGEBOTSPREIS");
+  cursor += 6;
+
+  drawSectionTitle(doc, "Konditionen", cursor); cursor += 6;
+  cursor = drawTextBlock(doc,
+    `Gültigkeit: bis ${formatDate(offer.validUntil)}\nLieferung: nach Vereinbarung\nGewährleistung: 12 Monate gemäß BGB\nPreis inkl. 19% MwSt.`,
+    cursor);
+
+  if (offer.customerTodos.length) {
+    cursor += 6;
+    cursor = drawTodos(doc, offer.customerTodos, cursor, "Vereinbarte Leistungen");
+  }
+  if (offer.notes && offer.notes.trim()) {
+    cursor += 6;
+    drawSectionTitle(doc, "Hinweise", cursor); cursor += 6;
+    cursor = drawTextBlock(doc, offer.notes, cursor, { muted: true });
+  }
+
+  drawFooter(doc, `Angebot · ${offer.id}`, companyName);
+  return doc;
+};
+
+export const downloadOfferPdf = (args: GenerateOfferPdfArgs) => {
+  const doc = generateOfferPdf(args);
+  doc.save(`${args.offer.id}_Angebot.pdf`);
+};
