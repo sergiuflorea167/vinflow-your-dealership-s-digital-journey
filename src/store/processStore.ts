@@ -270,6 +270,7 @@ export const useProcessStore = create<State>()(
             };
           }),
 
+        updateProcessFields: (processId, patch) =>
           set((state) => ({
             processes: state.processes.map((p) =>
               p.id !== processId ? p : { ...p, fields: { ...p.fields, ...patch }, updatedAt: new Date().toISOString() }
