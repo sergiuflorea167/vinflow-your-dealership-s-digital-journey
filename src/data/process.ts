@@ -87,6 +87,9 @@ export const VEHICLE_TYPE_LABELS: Record<VehicleType, string> = {
 
 export type FuelType = "Benzin" | "Diesel" | "Hybrid" | "Elektro" | "Plug-in-Hybrid" | "Gas";
 export type Transmission = "Schaltgetriebe" | "Automatik" | "DKG" | "CVT";
+export type DriveType = "Frontantrieb" | "Heckantrieb" | "Allradantrieb";
+export type EmissionClass = "Euro 4" | "Euro 5" | "Euro 6" | "Euro 6d" | "Euro 6d-TEMP" | "Elektro";
+export type VehicleCondition = "Neu" | "Gebraucht" | "Jahreswagen" | "Vorführwagen" | "Tageszulassung" | "Oldtimer";
 
 export type VehicleStatus = "planned" | "in_stock" | "reserved" | "sold";
 
@@ -138,30 +141,59 @@ export interface CostEntry {
 
 export interface Vehicle {
   id: string;
+  // --- Identifikation ---
   vin: string;
   type: VehicleType;
   make: string;
   model: string;
+  modelDetail?: string;       // z. B. "M-Sport Paket Pro"
   year: number;
-  color: string;
-  mileage: number;
+  condition?: VehicleCondition;
+  hsn?: string;               // Herstellerschlüssel
+  tsn?: string;               // Typschlüssel
+  licensePlate?: string;
+  previousOwners?: number;
+  // --- Technik ---
   fuel: FuelType;
   transmission: Transmission;
+  drive?: DriveType;
   power_kw: number;
   power_hp: number;
+  displacement_ccm?: number;  // Hubraum
+  cylinders?: number;
+  emissionClass?: EmissionClass;
+  co2_g_km?: number;
+  consumption_l_100km?: number;
+  batteryCapacity_kwh?: number;
+  range_km?: number;
+  // --- Innen / Außen ---
+  color: string;              // Außenfarbe (Verkaufsname)
+  paintCode?: string;         // Hersteller-Lackcode
+  metallic?: boolean;
+  interiorColor?: string;
+  interiorMaterial?: string;  // "Leder", "Stoff", "Alcantara"
   doors?: number;
   seats?: number;
+  // --- Zulassung / Historie ---
+  mileage: number;
   firstRegistration?: string;
-  hu?: string;            // nächste HU/TÜV
-  listPrice: number;      // Bruttoverkaufspreis (geplant)
-  purchasePrice: number;  // Brutto-Einkaufspreis
+  hu?: string;                // nächste HU/TÜV
+  serviceBookComplete?: boolean;
+  accidentFree?: boolean;
+  nonSmoker?: boolean;
+  // --- Ausstattung ---
+  features?: string[];        // freie Ausstattungsliste
+  // --- Preis & Status ---
+  listPrice: number;          // Bruttoverkaufspreis (geplant)
+  purchasePrice: number;      // Brutto-Einkaufspreis
+  vatReportable?: boolean;    // MwSt. ausweisbar
   status: VehicleStatus;
   arrivedAt?: string;
   notes?: string;
-  // Stellplatz / Standort
+  // --- Stellplatz / Standort ---
   location: VehicleLocation;
   locationHistory: VehicleLocation[];
-  // Kosten am Fahrzeug
+  // --- Kosten ---
   costs: CostEntry[];
 }
 
@@ -269,6 +301,7 @@ export interface Process {
 
 export type ActivityType =
   | "vehicle_added"
+  | "vehicle_updated"
   | "vehicle_location_changed"
   | "vehicle_cost_added"
   | "purchase_planned"

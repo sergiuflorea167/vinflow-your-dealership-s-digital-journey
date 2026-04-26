@@ -70,6 +70,7 @@ interface State {
 
   // ------- Vehicle -------
   addVehicle: (v: Omit<Vehicle, "id" | "status" | "locationHistory" | "costs"> & { status?: Vehicle["status"]; locationHistory?: VehicleLocation[]; costs?: CostEntry[] }) => Vehicle;
+  updateVehicle: (vehicleId: string, patch: Partial<Vehicle>) => void;
   changeVehicleLocation: (vehicleId: string, location: VehicleLocation) => void;
   addVehicleCost: (vehicleId: string, cost: Omit<CostEntry, "id" | "createdAt" | "createdBy">) => void;
   removeVehicleCost: (vehicleId: string, costId: string) => void;
@@ -83,6 +84,8 @@ interface State {
   addOfferCustomerTodo: (offerId: string, title: string) => void;
   removeOfferCustomerTodo: (offerId: string, todoId: string) => void;
   acceptOffer: (offerId: string) => Process | undefined;
+  /** Direkter Verkauf ohne formelles Angebot. */
+  startProcessForVehicle: (args: { vehicleId: string; customerId: string; price: number }) => Process | undefined;
 
   // ------- Purchase plan -------
   addPurchasePlan: (p: Omit<PurchasePlan, "id" | "createdAt" | "status"> & { status?: PurchasePlan["status"] }) => PurchasePlan;
@@ -346,6 +349,22 @@ export const useProcessStore = create<State>()(
             };
           }),
 
+        updateVehicle: (vehicleId, patch) =>
+          set((state) => {
+            const vehicle = state.vehicles.find((v) => v.id === vehicleId);
+            if (!vehicle) return state;
+            return {
+              ...state,
+              vehicles: state.vehicles.map((v) => (v.id === vehicleId ? { ...v, ...patch } : v)),
+              activities: logActivity(
+                state,
+                "vehicle_updated",
+                `${vehicle.make} ${vehicle.model} aktualisiert`,
+                { vehicleId, meta: { fields: Object.keys(patch).join(", ") } }
+              ),
+            };
+          }),
+
         addVehicleCost: (vehicleId, cost) =>
           set((state) => {
             const vehicle = state.vehicles.find((v) => v.id === vehicleId);
@@ -480,6 +499,52 @@ export const useProcessStore = create<State>()(
             ],
           }));
 
+          return newProcess;
+        },
+
+        startProcessForVehicle: ({ vehicleId, customerId, price }) => {
+          const state = get();
+          const vehicle = state.vehicles.find((v) => v.id === vehicleId);
+          const customer = state.customers.find((c) => c.id === customerId);
+          if (!vehicle || !customer) return undefined;
+
+          const existing = state.processes.find((p) => p.vehicleId === vehicleId);
+          if (existing) return existing;
+
+          const processId = `VF-${new Date().getFullYear()}-${String(state.processes.length + 142).padStart(4, "0")}`;
+          const newProcess: Process = {
+            id: processId,
+            vehicleId,
+            customerId,
+            acceptedOfferId: "",
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            // Angebot wird übersprungen, wir starten direkt bei Anzahlung
+            currentStep: "down_payment",
+            steps: buildEmptySteps("down_payment"),
+            fields: { finalPrice: price },
+            customerTodosOC: [],
+            outboundChecklist: DEFAULT_OUTBOUND_CHECKLIST(),
+          };
+          newProcess.steps.offer = { status: "skipped", completedAt: new Date().toISOString() };
+
+          set((s) => ({
+            processes: [newProcess, ...s.processes],
+            vehicles: s.vehicles.map((v) => (v.id === vehicleId ? { ...v, status: "reserved" } : v)),
+            activities: [
+              {
+                id: randomId("A"),
+                type: "process_created" as ActivityType,
+                message: `Direkter Verkauf ${processId} an ${customer.name} (Angebot übersprungen)`,
+                timestamp: new Date().toISOString(),
+                user: s.settings.userName || "Admin",
+                processId,
+                vehicleId,
+                customerId,
+              },
+              ...s.activities,
+            ],
+          }));
           return newProcess;
         },
 
