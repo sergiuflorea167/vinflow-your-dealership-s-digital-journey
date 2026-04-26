@@ -171,16 +171,6 @@ const KPIs = () => {
 
         <GoalsPanel />
 
-        {/* Suche */}
-        <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-          <Input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="KPI suchen…"
-            className="pl-9 bg-background/40"
-          />
-        </div>
 
         {/* Tabs */}
         <Tabs value={tab} onValueChange={(v) => setTab(v as KpiCategory)} className="space-y-6">
