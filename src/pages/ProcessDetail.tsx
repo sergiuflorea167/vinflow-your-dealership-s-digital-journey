@@ -258,19 +258,39 @@ const ProcessDetail = () => {
               )}
               {isCurrent && !isCompleted && !isSkipped && (
                 <>
-                  {!validation.ok && (
+                  {!isBooked && !validation.ok && (
                     <p className="text-xs text-warning mr-auto inline-flex items-center gap-2">
                       <AlertCircle className="size-4" /> {validation.message}
                     </p>
                   )}
-                  {selectedStep.skippable && (
+                  {isBooked && (
+                    <p className="text-xs text-success mr-auto inline-flex items-center gap-2">
+                      <CheckCircle2 className="size-4" /> Gebucht am {formatDate(record.bookedAt!)} – Felder sind fixiert.
+                    </p>
+                  )}
+                  {selectedStep.skippable && !isBooked && (
                     <Button variant="outline" onClick={handleSkip} className="gap-2">
                       <SkipForward className="size-4" /> Überspringen
                     </Button>
                   )}
-                  <Button onClick={handleComplete} disabled={!validation.ok} className="bg-gradient-brand hover:opacity-90 shadow-elegant gap-2">
-                    Beleg erzeugen & {nextStep ? "weiter" : "abschließen"} <ArrowRight className="size-4" />
-                  </Button>
+                  {!isBooked ? (
+                    <Button
+                      onClick={handleBook}
+                      disabled={!validation.ok}
+                      className="bg-success text-success-foreground hover:bg-success/90 shadow-elegant gap-2"
+                    >
+                      <CheckCircle2 className="size-4" /> Buchen
+                    </Button>
+                  ) : (
+                    <>
+                      <Button variant="outline" onClick={handleUnbook} className="gap-2">
+                        <RotateCcw className="size-4" /> Buchung lösen
+                      </Button>
+                      <Button onClick={handleComplete} className="bg-gradient-brand hover:opacity-90 shadow-elegant gap-2">
+                        Beleg erzeugen & {nextStep ? "weiter" : "abschließen"} <ArrowRight className="size-4" />
+                      </Button>
+                    </>
+                  )}
                 </>
               )}
             </div>
