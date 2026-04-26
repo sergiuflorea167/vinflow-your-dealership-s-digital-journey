@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { AppShell } from "@/components/layout/AppShell";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
+
 import { Button } from "@/components/ui/button";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -16,10 +16,11 @@ import {
   VehicleType,
   vehicleTotalCostsGross,
 } from "@/data/process";
-import { Car, Search, Plus } from "lucide-react";
+import { Car, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { VehicleIntakeDialog } from "@/components/fleet/VehicleIntakeDialog";
 import { cn } from "@/lib/utils";
+import { useTopbarSearch } from "@/context/TopbarSearchContext";
 
 type FleetSortKey =
   | "newest" | "oldest"
@@ -43,10 +44,27 @@ const Fleet = () => {
   const addVehicle = useProcessStore((s) => s.addVehicle);
 
   const [query, setQuery] = useState("");
+  const [searchField, setSearchField] = useState<"all" | "vin" | "make" | "model" | "color" | "location">("all");
   const [filter, setFilter] = useState<"all" | VehicleStatus>("all");
   const [typeFilter, setTypeFilter] = useState<"all" | VehicleType>("all");
   const [sortKey, setSortKey] = useState<FleetSortKey>("newest");
   const [intakeOpen, setIntakeOpen] = useState(false);
+
+  useTopbarSearch({
+    placeholder: "Bestand durchsuchen…",
+    value: query,
+    onChange: setQuery,
+    field: searchField,
+    onFieldChange: (f) => setSearchField(f as typeof searchField),
+    fields: [
+      { key: "all",      label: "Alle Felder" },
+      { key: "vin",      label: "VIN" },
+      { key: "make",     label: "Marke" },
+      { key: "model",    label: "Modell" },
+      { key: "color",    label: "Farbe" },
+      { key: "location", label: "Stellplatz" },
+    ],
+  });
 
   const data = useMemo(() => {
     return vehicles.map((v) => {
@@ -63,12 +81,15 @@ const Fleet = () => {
       if (typeFilter !== "all" && vehicle.type !== typeFilter) return false;
       if (!query.trim()) return true;
       const q = query.toLowerCase();
-      return (
-        vehicle.vin.toLowerCase().includes(q) ||
-        vehicle.make.toLowerCase().includes(q) ||
-        vehicle.model.toLowerCase().includes(q) ||
-        vehicle.color.toLowerCase().includes(q)
-      );
+      const fields: Record<typeof searchField, string> = {
+        all: `${vehicle.vin} ${vehicle.make} ${vehicle.model} ${vehicle.color} ${vehicle.location.name}`,
+        vin: vehicle.vin,
+        make: vehicle.make,
+        model: vehicle.model,
+        color: vehicle.color,
+        location: vehicle.location.name,
+      };
+      return fields[searchField].toLowerCase().includes(q);
     });
 
     return [...list].sort((a, b) => {
@@ -83,7 +104,7 @@ const Fleet = () => {
         case "make":         return `${va.make} ${va.model}`.localeCompare(`${vb.make} ${vb.model}`);
       }
     });
-  }, [data, filter, typeFilter, query, sortKey]);
+  }, [data, filter, typeFilter, query, searchField, sortKey]);
 
   const stats = {
     total: vehicles.length,
@@ -128,39 +149,28 @@ const Fleet = () => {
         </div>
 
         <Card className="p-4 space-y-3">
-          <div className="flex flex-col md:flex-row gap-3 md:items-center">
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-              <Input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="VIN, Marke, Modell oder Farbe…"
-                className="pl-9"
-              />
-            </div>
-            <div className="flex gap-2 items-center flex-wrap">
-              <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as "all" | VehicleType)}>
-                <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Alle Typen</SelectItem>
-                  {Object.entries(VEHICLE_TYPE_LABELS).map(([k, v]) => (
-                    <SelectItem key={k} value={k}>{v}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select value={sortKey} onValueChange={(v) => setSortKey(v as FleetSortKey)}>
-                <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="newest">Neueste zuerst</SelectItem>
-                  <SelectItem value="oldest">Älteste zuerst</SelectItem>
-                  <SelectItem value="price_desc">Preis ↓</SelectItem>
-                  <SelectItem value="price_asc">Preis ↑</SelectItem>
-                  <SelectItem value="mileage_asc">Kilometer ↑</SelectItem>
-                  <SelectItem value="mileage_desc">Kilometer ↓</SelectItem>
-                  <SelectItem value="make">Marke / Modell A-Z</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="flex gap-2 items-center flex-wrap">
+            <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as "all" | VehicleType)}>
+              <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Alle Typen</SelectItem>
+                {Object.entries(VEHICLE_TYPE_LABELS).map(([k, v]) => (
+                  <SelectItem key={k} value={k}>{v}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={sortKey} onValueChange={(v) => setSortKey(v as FleetSortKey)}>
+              <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="newest">Neueste zuerst</SelectItem>
+                <SelectItem value="oldest">Älteste zuerst</SelectItem>
+                <SelectItem value="price_desc">Preis ↓</SelectItem>
+                <SelectItem value="price_asc">Preis ↑</SelectItem>
+                <SelectItem value="mileage_asc">Kilometer ↑</SelectItem>
+                <SelectItem value="mileage_desc">Kilometer ↓</SelectItem>
+                <SelectItem value="make">Marke / Modell A-Z</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div className="flex gap-2 flex-wrap">
             {([

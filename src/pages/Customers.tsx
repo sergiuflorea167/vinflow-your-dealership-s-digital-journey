@@ -1,15 +1,15 @@
 import { useMemo, useState } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { useProcessStore } from "@/store/processStore";
-import { Search, User, Mail, Phone, MapPin, FileText } from "lucide-react";
+import { User, Mail, Phone, MapPin, FileText } from "lucide-react";
 import { formatCurrency } from "@/data/process";
+import { useTopbarSearch } from "@/context/TopbarSearchContext";
 
 type CustomerSortKey = "name" | "city" | "offers" | "processes" | "value";
 type CustomerFilter = "all" | "with_processes" | "with_offers" | "no_activity";
@@ -20,8 +20,23 @@ const Customers = () => {
   const processes = useProcessStore((s) => s.processes);
 
   const [query, setQuery] = useState("");
+  const [searchField, setSearchField] = useState<"all" | "name" | "email" | "city">("all");
   const [filter, setFilter] = useState<CustomerFilter>("all");
   const [sortKey, setSortKey] = useState<CustomerSortKey>("name");
+
+  useTopbarSearch({
+    placeholder: "Kunden durchsuchen…",
+    value: query,
+    onChange: setQuery,
+    field: searchField,
+    onFieldChange: (f) => setSearchField(f as typeof searchField),
+    fields: [
+      { key: "all",   label: "Alle Felder" },
+      { key: "name",  label: "Name" },
+      { key: "email", label: "E-Mail" },
+      { key: "city",  label: "Stadt" },
+    ],
+  });
 
   const enriched = useMemo(
     () =>
@@ -46,11 +61,13 @@ const Customers = () => {
       if (filter === "no_activity" && (e.offerCount > 0 || e.processCount > 0)) return false;
       if (!query) return true;
       const q = query.toLowerCase();
-      return (
-        e.customer.name.toLowerCase().includes(q) ||
-        e.customer.email.toLowerCase().includes(q) ||
-        e.customer.city.toLowerCase().includes(q)
-      );
+      const fields: Record<typeof searchField, string> = {
+        all: `${e.customer.name} ${e.customer.email} ${e.customer.city}`,
+        name: e.customer.name,
+        email: e.customer.email,
+        city: e.customer.city,
+      };
+      return fields[searchField].toLowerCase().includes(q);
     });
     return [...list].sort((a, b) => {
       switch (sortKey) {
@@ -61,7 +78,7 @@ const Customers = () => {
         case "value": return b.value - a.value;
       }
     });
-  }, [enriched, query, filter, sortKey]);
+  }, [enriched, query, searchField, filter, sortKey]);
 
   return (
     <AppShell>
@@ -78,10 +95,6 @@ const Customers = () => {
 
         <Card className="p-4 space-y-3">
           <div className="flex flex-col md:flex-row gap-3 md:items-center">
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-              <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Name, E-Mail oder Stadt…" className="pl-9" />
-            </div>
             <div className="flex gap-2 items-center flex-wrap">
               <Select value={filter} onValueChange={(v) => setFilter(v as CustomerFilter)}>
                 <SelectTrigger className="w-[200px]">

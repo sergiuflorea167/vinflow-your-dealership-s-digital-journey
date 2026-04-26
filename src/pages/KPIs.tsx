@@ -3,7 +3,6 @@ import { AppShell } from "@/components/layout/AppShell";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { GoalsPanel } from "@/components/dashboard/GoalsPanel";
@@ -16,9 +15,10 @@ import {
 } from "@/data/process";
 import { KPI_CATALOG, KpiCategory, KpiDef } from "@/lib/kpis";
 import {
-  Timer, Layers, Activity as ActivityIcon, Wallet, Search, Pin, RotateCcw,
+  Timer, Layers, Activity as ActivityIcon, Wallet, Pin, RotateCcw,
   TrendingUp, Target, Workflow, Car,
 } from "lucide-react";
+import { useTopbarSearch } from "@/context/TopbarSearchContext";
 
 const daysBetween = (a: string, b: string) =>
   Math.max(0, (new Date(b).getTime() - new Date(a).getTime()) / 86400000);
@@ -42,14 +42,33 @@ const KPIs = () => {
   const resetToDefault = useDashboardStore((s) => s.resetToDefault);
 
   const [query, setQuery] = useState("");
+  const [searchField, setSearchField] = useState<"all" | "label" | "description">("all");
   const [tab, setTab] = useState<KpiCategory>("Umsatz");
+
+  useTopbarSearch({
+    placeholder: "KPI suchen…",
+    value: query,
+    onChange: setQuery,
+    field: searchField,
+    onFieldChange: (f) => setSearchField(f as typeof searchField),
+    fields: [
+      { key: "all",         label: "Alle Felder" },
+      { key: "label",       label: "Name" },
+      { key: "description", label: "Beschreibung" },
+    ],
+  });
 
   const kpisFor = (cat: KpiCategory): KpiDef[] =>
     KPI_CATALOG.filter((k) => {
       if (k.category !== cat) return false;
       if (!query.trim()) return true;
       const q = query.toLowerCase();
-      return k.label.toLowerCase().includes(q) || k.description.toLowerCase().includes(q);
+      const fields: Record<typeof searchField, string> = {
+        all: `${k.label} ${k.description}`,
+        label: k.label,
+        description: k.description,
+      };
+      return fields[searchField].toLowerCase().includes(q);
     });
 
   // ---- Sekundäre Visualisierungen ----
@@ -152,16 +171,6 @@ const KPIs = () => {
 
         <GoalsPanel />
 
-        {/* Suche */}
-        <div className="relative max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-          <Input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="KPI suchen…"
-            className="pl-9 bg-background/40"
-          />
-        </div>
 
         {/* Tabs */}
         <Tabs value={tab} onValueChange={(v) => setTab(v as KpiCategory)} className="space-y-6">

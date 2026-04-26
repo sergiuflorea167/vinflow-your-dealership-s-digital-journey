@@ -2,7 +2,6 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { AppShell } from "@/components/layout/AppShell";
 import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -11,9 +10,10 @@ import {
 } from "@/components/ui/select";
 import { useProcessStore } from "@/store/processStore";
 import { PROCESS_STEPS, ProcessStepKey, formatCurrency, formatDate, stepIndex } from "@/data/process";
-import { Search, ChevronRight, FileText, Download, ArrowDownAZ, ArrowUpAZ } from "lucide-react";
+import { ChevronRight, FileText, Download, ArrowDownAZ, ArrowUpAZ } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { downloadBelegPdf } from "@/lib/pdf";
+import { useTopbarSearch } from "@/context/TopbarSearchContext";
 
 type ProcessSortKey = "updated" | "created" | "price" | "id" | "customer";
 
@@ -22,8 +22,12 @@ const ProcessList = () => {
   const getVehicle = useProcessStore((s) => s.getVehicle);
   const getCustomer = useProcessStore((s) => s.getCustomer);
 
+  // ---- Tabs ----
+  const [tab, setTab] = useState<"list" | "documents">("list");
+
   // ---- Liste ----
   const [q, setQ] = useState("");
+  const [qField, setQField] = useState<"all" | "id" | "vin" | "vehicle" | "customer">("all");
   const [filter, setFilter] = useState<string>("all");
   const [sortKey, setSortKey] = useState<ProcessSortKey>("updated");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
@@ -41,13 +45,14 @@ const ProcessList = () => {
       if (filter !== "all" && p.currentStep !== filter) return false;
       if (!q) return true;
       const s = q.toLowerCase();
-      return (
-        p.id.toLowerCase().includes(s) ||
-        vehicle!.vin.toLowerCase().includes(s) ||
-        vehicle!.make.toLowerCase().includes(s) ||
-        vehicle!.model.toLowerCase().includes(s) ||
-        customer!.name.toLowerCase().includes(s)
-      );
+      const fields: Record<typeof qField, string> = {
+        all: `${p.id} ${vehicle!.vin} ${vehicle!.make} ${vehicle!.model} ${customer!.name}`,
+        id: p.id,
+        vin: vehicle!.vin,
+        vehicle: `${vehicle!.make} ${vehicle!.model}`,
+        customer: customer!.name,
+      };
+      return fields[qField].toLowerCase().includes(s);
     });
 
     const sorted = [...list].sort((a, b) => {
@@ -61,12 +66,47 @@ const ProcessList = () => {
       }
     });
     return sorted;
-  }, [enriched, q, filter, sortKey, sortDir]);
+  }, [enriched, q, qField, filter, sortKey, sortDir]);
 
   // ---- Belege ----
   const [docQ, setDocQ] = useState("");
+  const [docQField, setDocQField] = useState<"all" | "id" | "vin" | "vehicle" | "customer" | "doc">("all");
   const [docStep, setDocStep] = useState<"all" | ProcessStepKey>("all");
   const [docSortDir, setDocSortDir] = useState<"asc" | "desc">("desc");
+
+  // ---- Topbar-Suche je nach aktivem Tab ----
+  useTopbarSearch(
+    tab === "list"
+      ? {
+          placeholder: "Vorgänge durchsuchen…",
+          value: q,
+          onChange: setQ,
+          field: qField,
+          onFieldChange: (f) => setQField(f as typeof qField),
+          fields: [
+            { key: "all",      label: "Alle Felder" },
+            { key: "id",       label: "Vorgangs-Nr." },
+            { key: "vin",      label: "VIN" },
+            { key: "vehicle",  label: "Fahrzeug" },
+            { key: "customer", label: "Kunde" },
+          ],
+        }
+      : {
+          placeholder: "Belege durchsuchen…",
+          value: docQ,
+          onChange: setDocQ,
+          field: docQField,
+          onFieldChange: (f) => setDocQField(f as typeof docQField),
+          fields: [
+            { key: "all",      label: "Alle Felder" },
+            { key: "id",       label: "Vorgangs-Nr." },
+            { key: "vin",      label: "VIN" },
+            { key: "vehicle",  label: "Fahrzeug" },
+            { key: "customer", label: "Kunde" },
+            { key: "doc",      label: "Belegart" },
+          ],
+        }
+  );
 
   const documents = useMemo(() => {
     const docs: Array<{
@@ -100,19 +140,21 @@ const ProcessList = () => {
       if (docStep !== "all" && d.step.key !== docStep) return false;
       if (!docQ) return true;
       const s = docQ.toLowerCase();
-      return (
-        d.processId.toLowerCase().includes(s) ||
-        d.vin.toLowerCase().includes(s) ||
-        d.vehicleLabel.toLowerCase().includes(s) ||
-        d.customerName.toLowerCase().includes(s) ||
-        d.step.documentName.toLowerCase().includes(s)
-      );
+      const fields: Record<typeof docQField, string> = {
+        all: `${d.processId} ${d.vin} ${d.vehicleLabel} ${d.customerName} ${d.step.documentName}`,
+        id: d.processId,
+        vin: d.vin,
+        vehicle: d.vehicleLabel,
+        customer: d.customerName,
+        doc: d.step.documentName,
+      };
+      return fields[docQField].toLowerCase().includes(s);
     });
     return list.sort((a, b) => {
       const diff = new Date(a.completedAt).getTime() - new Date(b.completedAt).getTime();
       return docSortDir === "asc" ? diff : -diff;
     });
-  }, [documents, docQ, docStep, docSortDir]);
+  }, [documents, docQ, docQField, docStep, docSortDir]);
 
   const handleDownload = (processId: string, stepKey: ProcessStepKey) => {
     const proc = processes.find((p) => p.id === processId);
@@ -133,7 +175,7 @@ const ProcessList = () => {
           </p>
         </div>
 
-        <Tabs defaultValue="list" className="space-y-6">
+        <Tabs value={tab} onValueChange={(v) => setTab(v as "list" | "documents")} className="space-y-6">
           <TabsList>
             <TabsTrigger value="list">Liste ({processes.length})</TabsTrigger>
             <TabsTrigger value="documents">Belege-Archiv ({documents.length})</TabsTrigger>
@@ -143,16 +185,7 @@ const ProcessList = () => {
           <TabsContent value="list" className="space-y-6 mt-0">
             <Card className="p-4 bg-card border-border">
               <div className="flex flex-col lg:flex-row gap-3">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-                  <Input
-                    placeholder="VIN, Vorgangs-Nr., Modell oder Kunde…"
-                    value={q}
-                    onChange={(e) => setQ(e.target.value)}
-                    className="pl-9 bg-background/40"
-                  />
-                </div>
-                <div className="flex gap-2 items-center">
+                <div className="flex gap-2 items-center flex-wrap">
                   <Select value={sortKey} onValueChange={(v) => setSortKey(v as ProcessSortKey)}>
                     <SelectTrigger className="w-[180px] bg-background/40">
                       <SelectValue />
@@ -260,16 +293,7 @@ const ProcessList = () => {
           <TabsContent value="documents" className="space-y-6 mt-0">
             <Card className="p-4 bg-card border-border">
               <div className="flex flex-col lg:flex-row gap-3">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Vorgangs-Nr., VIN, Kunde, Belegart…"
-                    value={docQ}
-                    onChange={(e) => setDocQ(e.target.value)}
-                    className="pl-9 bg-background/40"
-                  />
-                </div>
-                <div className="flex gap-2 items-center">
+                <div className="flex gap-2 items-center flex-wrap">
                   <Select value={docStep} onValueChange={(v) => setDocStep(v as "all" | ProcessStepKey)}>
                     <SelectTrigger className="w-[200px] bg-background/40">
                       <SelectValue />
