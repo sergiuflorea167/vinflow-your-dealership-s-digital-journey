@@ -86,11 +86,18 @@ const Fleet = () => {
       const openOffers = vehicleOffers.filter((o) => o.status === "sent" || o.status === "draft").length;
       const proc = processes.find((p) => p.vehicleId === v.id);
       const ek = v.purchasePrice + vehicleTotalCostsGross(v);
-      const margin = v.listPrice - ek;
+      // Wunschmarge: Listenpreis − (Einkauf + Kosten). Nur ein Plan-Wert.
+      const desiredMargin = v.listPrice - ek;
+      // Tatsächliche Marge: nur wenn das Auto verkauft wurde und es einen finalen VK-Preis gibt.
+      const isSold = v.status === "sold";
+      const finalPrice = proc?.fields?.finalPrice;
+      const realizedMargin = isSold && typeof finalPrice === "number" && finalPrice > 0
+        ? finalPrice - ek
+        : null;
       const stockDays = v.arrivedAt
         ? Math.max(0, Math.floor((now - new Date(v.arrivedAt).getTime()) / 86400000))
         : 0;
-      return { vehicle: v, openOffers, processId: proc?.id, margin, stockDays };
+      return { vehicle: v, openOffers, processId: proc?.id, desiredMargin, realizedMargin, stockDays };
     });
   }, [vehicles, offers, processes]);
 
@@ -128,7 +135,12 @@ const Fleet = () => {
         case "hu":         cmp = (va.hu ?? "").localeCompare(vb.hu ?? ""); break;
         case "stockDays":  cmp = b.stockDays - a.stockDays; break; // default: ältester zuerst → invertiere unten
         case "price":      cmp = va.listPrice - vb.listPrice; break;
-        case "margin":     cmp = a.margin - b.margin; break;
+        case "margin":     {
+          // Sortierung: realisierte Marge bevorzugen, sonst Wunschmarge.
+          const am = a.realizedMargin ?? a.desiredMargin;
+          const bm = b.realizedMargin ?? b.desiredMargin;
+          cmp = am - bm; break;
+        }
         case "openOffers": cmp = a.openOffers - b.openOffers; break;
         case "status":     cmp = STATUS_ORDER[va.status] - STATUS_ORDER[vb.status]; break;
         case "listed":     cmp = Number(!!va.listed?.active) - Number(!!vb.listed?.active); break;
@@ -229,7 +241,7 @@ const Fleet = () => {
           <Card className="p-12 text-center text-muted-foreground flex-1">Keine Fahrzeuge gefunden.</Card>
         ) : (
           <DataTableShell
-            footer={<>¹ Marge = Listenpreis − (Einkauf + alle Kosten brutto) · {filtered.length} Fahrzeuge</>}
+            footer={<>¹ Wunschmarge = Listenpreis − (Einkauf + Kosten brutto). Echte Marge erst nach Verkauf. · {filtered.length} Fahrzeuge</>}
           >
             <table>
               <thead>
@@ -249,7 +261,7 @@ const Fleet = () => {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map(({ vehicle, openOffers, margin, stockDays }) => {
+                {filtered.map(({ vehicle, openOffers, desiredMargin, realizedMargin, stockDays }) => {
                   const meta = STATUS_META[vehicle.status];
                   const huDate = vehicle.hu ? new Date(vehicle.hu) : null;
                   const huSoon = huDate ? (huDate.getTime() - Date.now()) / 86400000 < 90 : false;
@@ -287,8 +299,31 @@ const Fleet = () => {
                         {stockDays}
                       </td>
                       <td className="text-right font-semibold whitespace-nowrap">{formatCurrency(vehicle.listPrice)}</td>
-                      <td className={cn("text-right font-semibold whitespace-nowrap", margin >= 0 ? "text-success" : "text-destructive")}>
-                        {formatCurrency(margin)}
+                      <td className="text-right whitespace-nowrap">
+                        {realizedMargin !== null ? (
+                          <Tooltip delayDuration={200}>
+                            <TooltipTrigger asChild>
+                              <span className={cn("font-semibold", realizedMargin >= 0 ? "text-success" : "text-destructive")}>
+                                {formatCurrency(realizedMargin)}
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="text-xs max-w-xs">
+                              Realisierte Marge nach Verkauf (finaler VK − Einkauf − Kosten brutto).
+                            </TooltipContent>
+                          </Tooltip>
+                        ) : (
+                          <Tooltip delayDuration={200}>
+                            <TooltipTrigger asChild>
+                              <span className={cn("italic font-medium text-muted-foreground")}>
+                                ~{formatCurrency(desiredMargin)}
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="text-xs max-w-xs">
+                              Wunschmarge — basiert auf dem voraussichtlichen Listenpreis.
+                              Echte Marge wird erst nach dem Verkauf berechnet.
+                            </TooltipContent>
+                          </Tooltip>
+                        )}
                       </td>
                       <td className="text-center">
                         {openOffers > 0 ? (
