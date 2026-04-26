@@ -90,14 +90,22 @@ const Dashboard = () => {
           </div>
         </div>
 
+        {/* Goals zuerst – Morgen-Motivation */}
+        <GoalsPanel />
+
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <KpiCard icon={Workflow} label="Aktive Vorgänge" value={active.length.toString()} accent />
-          <KpiCard icon={Car} label="Bestand (Wert)" value={formatCurrency(fleetValue)} sub={`${vehicles.length} Fahrzeuge`} />
-          <KpiCard icon={FileCheck2} label="Belege archiviert" value={docsArchived.toString()} />
-          <KpiCard icon={TrendingUp} label="Offene Angebote" value={openOffers.toString()} sub={`${inOutbound} in Kontrolle`} />
+          <KpiCard icon={Euro} label="Umsatz (gebucht)" value={formatCurrency(metrics.bookedRevenue)} sub="Anzahlungen + Rechnungen" accent />
+          <KpiCard icon={Receipt} label="Umsatz (Rechnungen)" value={formatCurrency(metrics.invoicedRevenue)} sub={`${processes.filter((p) => p.steps.invoicing?.status === "completed").length} Rechnungen gestellt`} />
+          <KpiCard icon={Wallet} label="Bestand (VK-Wert)" value={formatCurrency(metrics.fleetValue)} sub={`EK ${formatCurrency(metrics.fleetEK)}`} />
+          <KpiCard icon={Workflow} label="Aktive Vorgänge" value={metrics.active.length.toString()} sub={`${metrics.inOutbound} in Kontrolle · ${metrics.openOffers} offene Angebote`} />
         </div>
 
-        <GoalsPanel />
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <KpiCard icon={Car} label="Bestand" value={`${metrics.stockVehicles.length}`} sub={`${vehicles.length} Fahrzeuge gesamt`} />
+          <KpiCard icon={TrendingUp} label="Anzahlungen erhalten" value={formatCurrency(metrics.downPaymentsReceived)} sub="Cashflow im Prozess" />
+          <KpiCard icon={Wallet} label="Bestandskosten" value={formatCurrency(metrics.stockCosts)} sub="Werkstatt + Aufbereitung + Transport" />
+          <KpiCard icon={FileCheck2} label="Belege archiviert" value={metrics.docsArchived.toString()} sub="PDF-Kundenbelege" />
+        </div>
 
         <Card className="p-6 bg-card border-border shadow-card">
           <div className="flex items-center justify-between mb-6">
