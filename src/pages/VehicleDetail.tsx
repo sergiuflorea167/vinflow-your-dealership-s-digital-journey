@@ -10,6 +10,7 @@ import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { useProcessStore } from "@/store/processStore";
+import { ActivityLog } from "@/components/process/ActivityLog";
 import {
   formatCurrency, formatDate, OfferStatus,
   Vehicle, VehicleType, VEHICLE_TYPE_LABELS,
@@ -62,6 +63,8 @@ const VehicleDetail = () => {
   const getCustomer = useProcessStore((s) => s.getCustomer);
   const process = useProcessStore((s) => s.processes.find((p) => p.vehicleId === id));
   const locations = useProcessStore((s) => s.settings.locations);
+  const getActivitiesFor = useProcessStore((s) => s.getActivitiesFor);
+  const vehicleActivities = useMemo(() => getActivitiesFor({ vehicleId: id }), [getActivitiesFor, id]);
 
   const addOffer = useProcessStore((s) => s.addOffer);
   const updateOfferStatus = useProcessStore((s) => s.updateOfferStatus);
@@ -359,6 +362,9 @@ const VehicleDetail = () => {
             <FeaturesEditor vehicle={vehicle} onSave={(p) => { handleSaveSection(p); close(); }} onCancel={close} />
           )}
         />
+
+        {/* ---------- Protokoll / Aktivitäten ---------- */}
+        <ActivityLog items={vehicleActivities} title="Fahrzeug-Protokoll" />
 
       </div>
 

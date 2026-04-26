@@ -7,6 +7,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { useProcessStore } from "@/store/processStore";
+import { ActivityLog } from "@/components/process/ActivityLog";
 import { User, Plus } from "lucide-react";
 import { formatCurrency } from "@/data/process";
 import { useTopbarSearch } from "@/context/TopbarSearchContext";
@@ -19,6 +20,11 @@ const Customers = () => {
   const customers = useProcessStore((s) => s.customers);
   const offers = useProcessStore((s) => s.offers);
   const processes = useProcessStore((s) => s.processes);
+  const allActivities = useProcessStore((s) => s.activities);
+  const customerActivities = useMemo(
+    () => allActivities.filter((a) => !!a.customerId),
+    [allActivities],
+  );
 
   const [query, setQuery] = useState("");
   const [searchField, setSearchField] = useState<"all" | "name" | "email" | "city">("all");
@@ -222,6 +228,9 @@ const Customers = () => {
             </div>
           </Card>
         )}
+
+        {/* ---------- Kunden-Protokoll ---------- */}
+        <ActivityLog items={customerActivities} title="Kunden-Protokoll" maxItems={50} />
       </div>
     </AppShell>
   );
