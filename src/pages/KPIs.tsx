@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { GoalsPanel } from "@/components/dashboard/GoalsPanel";
 import { KpiCard } from "@/components/kpi/KpiCard";
 import { useProcessStore } from "@/store/processStore";
