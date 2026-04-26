@@ -502,6 +502,52 @@ export const useProcessStore = create<State>()(
           return newProcess;
         },
 
+        startProcessForVehicle: ({ vehicleId, customerId, price }) => {
+          const state = get();
+          const vehicle = state.vehicles.find((v) => v.id === vehicleId);
+          const customer = state.customers.find((c) => c.id === customerId);
+          if (!vehicle || !customer) return undefined;
+
+          const existing = state.processes.find((p) => p.vehicleId === vehicleId);
+          if (existing) return existing;
+
+          const processId = `VF-${new Date().getFullYear()}-${String(state.processes.length + 142).padStart(4, "0")}`;
+          const newProcess: Process = {
+            id: processId,
+            vehicleId,
+            customerId,
+            acceptedOfferId: "",
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            // Angebot wird übersprungen, wir starten direkt bei Anzahlung
+            currentStep: "down_payment",
+            steps: buildEmptySteps("down_payment"),
+            fields: { finalPrice: price },
+            customerTodosOC: [],
+            outboundChecklist: DEFAULT_OUTBOUND_CHECKLIST(),
+          };
+          newProcess.steps.offer = { status: "skipped", completedAt: new Date().toISOString() };
+
+          set((s) => ({
+            processes: [newProcess, ...s.processes],
+            vehicles: s.vehicles.map((v) => (v.id === vehicleId ? { ...v, status: "reserved" } : v)),
+            activities: [
+              {
+                id: randomId("A"),
+                type: "process_created" as ActivityType,
+                message: `Direkter Verkauf ${processId} an ${customer.name} (Angebot übersprungen)`,
+                timestamp: new Date().toISOString(),
+                user: s.settings.userName || "Admin",
+                processId,
+                vehicleId,
+                customerId,
+              },
+              ...s.activities,
+            ],
+          }));
+          return newProcess;
+        },
+
         // ------- Purchase plan -------
         addPurchasePlan: (p) => {
           const id = `PP-${new Date().getFullYear()}-${String(get().purchasePlans.length + 1).padStart(3, "0")}`;
