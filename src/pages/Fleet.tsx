@@ -20,6 +20,8 @@ const Fleet = () => {
   const processes = useProcessStore((s) => s.processes);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<"all" | VehicleStatus>("all");
+  const [typeFilter, setTypeFilter] = useState<"all" | VehicleType>("all");
+  const [sortKey, setSortKey] = useState<FleetSortKey>("newest");
 
   const data = useMemo(() => {
     return vehicles.map((v) => {
@@ -30,17 +32,33 @@ const Fleet = () => {
     });
   }, [vehicles, offers, processes]);
 
-  const filtered = data.filter(({ vehicle }) => {
-    if (filter !== "all" && vehicle.status !== filter) return false;
-    if (!query.trim()) return true;
-    const q = query.toLowerCase();
-    return (
-      vehicle.vin.toLowerCase().includes(q) ||
-      vehicle.make.toLowerCase().includes(q) ||
-      vehicle.model.toLowerCase().includes(q) ||
-      vehicle.color.toLowerCase().includes(q)
-    );
-  });
+  const filtered = useMemo(() => {
+    const list = data.filter(({ vehicle }) => {
+      if (filter !== "all" && vehicle.status !== filter) return false;
+      if (typeFilter !== "all" && vehicle.type !== typeFilter) return false;
+      if (!query.trim()) return true;
+      const q = query.toLowerCase();
+      return (
+        vehicle.vin.toLowerCase().includes(q) ||
+        vehicle.make.toLowerCase().includes(q) ||
+        vehicle.model.toLowerCase().includes(q) ||
+        vehicle.color.toLowerCase().includes(q)
+      );
+    });
+
+    return [...list].sort((a, b) => {
+      const va = a.vehicle, vb = b.vehicle;
+      switch (sortKey) {
+        case "newest": return (new Date(vb.arrivedAt ?? 0).getTime() - new Date(va.arrivedAt ?? 0).getTime());
+        case "oldest": return (new Date(va.arrivedAt ?? 0).getTime() - new Date(vb.arrivedAt ?? 0).getTime());
+        case "price_asc": return va.listPrice - vb.listPrice;
+        case "price_desc": return vb.listPrice - va.listPrice;
+        case "mileage_asc": return va.mileage - vb.mileage;
+        case "mileage_desc": return vb.mileage - va.mileage;
+        case "make": return `${va.make} ${va.model}`.localeCompare(`${vb.make} ${vb.model}`);
+      }
+    });
+  }, [data, filter, typeFilter, query, sortKey]);
 
   const stats = {
     total: vehicles.length,
