@@ -374,10 +374,10 @@ const ProcessList = () => {
                 </Button>
                 <div className="flex gap-1.5 overflow-x-auto">
                   <FilterPill active={filter === "all"} onClick={() => setFilter("all")}>
-                    Alle ({processes.length})
+                    Alle ({activeEnriched.length})
                   </FilterPill>
                   {PROCESS_STEPS.map((s) => {
-                    const c = processes.filter((p) => p.currentStep === s.key).length;
+                    const c = activeEnriched.filter((e) => e.p.currentStep === s.key).length;
                     if (c === 0) return null;
                     return (
                       <FilterPill key={s.key} active={filter === s.key} onClick={() => setFilter(s.key)}>
