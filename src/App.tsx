@@ -11,6 +11,7 @@ import Fleet from "./pages/Fleet.tsx";
 import VehicleDetail from "./pages/VehicleDetail.tsx";
 import PurchasePlanning from "./pages/PurchasePlanning.tsx";
 import Customers from "./pages/Customers.tsx";
+import KPIs from "./pages/KPIs.tsx";
 
 const queryClient = new QueryClient();
 
