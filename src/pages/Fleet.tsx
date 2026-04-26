@@ -23,6 +23,7 @@ import { VehicleIntakeDialog } from "@/components/fleet/VehicleIntakeDialog";
 import { cn } from "@/lib/utils";
 import { useTopbarSearch } from "@/context/TopbarSearchContext";
 import { SortableTh, SortState } from "@/components/shared/SortableTh";
+import { DataTableShell } from "@/components/shared/DataTableShell";
 
 type FleetSortKey =
   | "name" | "type" | "year" | "mileage" | "power" | "color"
