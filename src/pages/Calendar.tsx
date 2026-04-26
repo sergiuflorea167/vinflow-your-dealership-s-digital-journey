@@ -486,7 +486,9 @@ const CalendarPage = () => {
                 })}
               </div>
 
-              <div className="grid grid-cols-[60px_repeat(7,minmax(0,1fr))] relative" style={{ height: HOURS.length * HOUR_HEIGHT }}>
+              <div ref={weekGridRef}
+                   className="grid grid-cols-[60px_repeat(7,minmax(0,1fr))] relative"
+                   style={{ height: HOURS.length * HOUR_HEIGHT }}>
                 {/* Hour rail */}
                 <div className="relative border-r border-border">
                   {HOURS.map((h, i) => (
@@ -497,41 +499,32 @@ const CalendarPage = () => {
                   ))}
                 </div>
                 {/* Day columns */}
-                {weekDays.map((d) => {
+                {weekDays.map((d, idx) => {
                   const iso = toISO(d);
                   const dayEvents = eventsByDay[iso] ?? [];
                   return (
-                    <div key={iso} className="relative border-l border-border">
+                    <div
+                      key={iso}
+                      ref={idx === 0 ? dayColRef : undefined}
+                      className="relative border-l border-border"
+                    >
                       {HOURS.map((h, i) => (
                         <div key={h} className="absolute left-0 right-0 border-t border-border/40"
                              style={{ top: i * HOUR_HEIGHT, height: HOUR_HEIGHT }} />
                       ))}
-                      {dayEvents.map((e) => {
-                        const startMin = minutesFromMidnight(e.startTime);
-                        const endMin = minutesFromMidnight(e.endTime);
-                        const top = ((startMin - HOURS[0] * 60) / 60) * HOUR_HEIGHT;
-                        const height = Math.max(20, ((endMin - startMin) / 60) * HOUR_HEIGHT - 2);
-                        const style = TYPE_STYLES[e.type];
-                        return (
-                          <button
-                            key={e.id}
-                            type="button"
-                            onClick={() => setEditEvent(e)}
-                            className={cn(
-                              "absolute left-1 right-1 rounded-md border px-1.5 py-1 text-left text-[11px] leading-tight overflow-hidden hover:shadow-card transition-smooth",
-                              style.className,
-                              e.done && "opacity-60 line-through",
-                            )}
-                            style={{ top, height }}
-                          >
-                            <p className="font-medium truncate">{e.title}</p>
-                            <p className="text-[10px] opacity-80 truncate">
-                              {e.startTime}–{e.endTime}
-                              {e.location && ` · ${e.location}`}
-                            </p>
-                          </button>
-                        );
-                      })}
+                      {dayEvents.map((e) => (
+                        <DraggableEvent
+                          key={e.id}
+                          event={e}
+                          onClick={setEditEvent}
+                          onCommit={handleEventCommit}
+                          containerRef={weekGridRef}
+                          dayColumnWidth={dayColWidth}
+                          weekStartISO={toISO(weekStart)}
+                          dayCount={7}
+                          compact
+                        />
+                      ))}
                     </div>
                   );
                 })}
