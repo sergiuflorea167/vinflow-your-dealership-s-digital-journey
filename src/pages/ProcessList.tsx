@@ -45,13 +45,14 @@ const ProcessList = () => {
       if (filter !== "all" && p.currentStep !== filter) return false;
       if (!q) return true;
       const s = q.toLowerCase();
-      return (
-        p.id.toLowerCase().includes(s) ||
-        vehicle!.vin.toLowerCase().includes(s) ||
-        vehicle!.make.toLowerCase().includes(s) ||
-        vehicle!.model.toLowerCase().includes(s) ||
-        customer!.name.toLowerCase().includes(s)
-      );
+      const fields: Record<typeof qField, string> = {
+        all: `${p.id} ${vehicle!.vin} ${vehicle!.make} ${vehicle!.model} ${customer!.name}`,
+        id: p.id,
+        vin: vehicle!.vin,
+        vehicle: `${vehicle!.make} ${vehicle!.model}`,
+        customer: customer!.name,
+      };
+      return fields[qField].toLowerCase().includes(s);
     });
 
     const sorted = [...list].sort((a, b) => {
@@ -65,12 +66,47 @@ const ProcessList = () => {
       }
     });
     return sorted;
-  }, [enriched, q, filter, sortKey, sortDir]);
+  }, [enriched, q, qField, filter, sortKey, sortDir]);
 
   // ---- Belege ----
   const [docQ, setDocQ] = useState("");
+  const [docQField, setDocQField] = useState<"all" | "id" | "vin" | "vehicle" | "customer" | "doc">("all");
   const [docStep, setDocStep] = useState<"all" | ProcessStepKey>("all");
   const [docSortDir, setDocSortDir] = useState<"asc" | "desc">("desc");
+
+  // ---- Topbar-Suche je nach aktivem Tab ----
+  useTopbarSearch(
+    tab === "list"
+      ? {
+          placeholder: "Vorgänge durchsuchen…",
+          value: q,
+          onChange: setQ,
+          field: qField,
+          onFieldChange: (f) => setQField(f as typeof qField),
+          fields: [
+            { key: "all",      label: "Alle Felder" },
+            { key: "id",       label: "Vorgangs-Nr." },
+            { key: "vin",      label: "VIN" },
+            { key: "vehicle",  label: "Fahrzeug" },
+            { key: "customer", label: "Kunde" },
+          ],
+        }
+      : {
+          placeholder: "Belege durchsuchen…",
+          value: docQ,
+          onChange: setDocQ,
+          field: docQField,
+          onFieldChange: (f) => setDocQField(f as typeof docQField),
+          fields: [
+            { key: "all",      label: "Alle Felder" },
+            { key: "id",       label: "Vorgangs-Nr." },
+            { key: "vin",      label: "VIN" },
+            { key: "vehicle",  label: "Fahrzeug" },
+            { key: "customer", label: "Kunde" },
+            { key: "doc",      label: "Belegart" },
+          ],
+        }
+  );
 
   const documents = useMemo(() => {
     const docs: Array<{
