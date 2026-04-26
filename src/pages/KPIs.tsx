@@ -20,7 +20,8 @@ import {
   TrendingUp, Target, Workflow, Car,
 } from "lucide-react";
 import { useTopbarSearch } from "@/context/TopbarSearchContext";
-import { ProcessTimeAnalyzer } from "@/components/kpi/ProcessTimeAnalyzer";
+import { Link } from "react-router-dom";
+import { Sparkles, ArrowRight } from "lucide-react";
 import { KpiRangePicker } from "@/components/kpi/KpiRangePicker";
 
 
@@ -39,7 +40,7 @@ const KPIs = () => {
   const processes = useProcessStore((s) => s.processes);
   const customers = useProcessStore((s) => s.customers);
   const activities = useProcessStore((s) => s.activities);
-  const purchasePlans = useProcessStore((s) => s.purchasePlans);
+  
 
   const pinnedCount = useDashboardStore((s) => s.pinnedKpis.length);
   const resetToDefault = useDashboardStore((s) => s.resetToDefault);
@@ -280,7 +281,25 @@ const KPIs = () => {
               </div>
             </Card>
 
-            <ProcessTimeAnalyzer processes={processes} vehicles={vehicles} purchasePlans={purchasePlans} />
+            <Card className="p-5 bg-gradient-to-br from-primary/10 via-card to-card border-primary/30 shadow-card">
+              <div className="flex items-center gap-4 flex-wrap">
+                <div className="size-11 rounded-xl bg-gradient-brand grid place-items-center shadow-glow shrink-0">
+                  <Sparkles className="size-5 text-primary-foreground" />
+                </div>
+                <div className="flex-1 min-w-[240px]">
+                  <p className="text-[10px] uppercase tracking-widest text-primary-glow font-semibold">Insight+ · BI-Builder</p>
+                  <h3 className="text-base font-display font-semibold mt-0.5">Tiefenanalyse von Prozesszeiten, Umsatz, Marge &amp; mehr</h3>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Konfiguriere eigene Auswertungen mit beliebigen Stationen, Zeiträumen und Filtern.
+                  </p>
+                </div>
+                <Button asChild size="sm" className="bg-gradient-brand gap-1.5">
+                  <Link to="/insights">
+                    Öffnen <ArrowRight className="size-3.5" />
+                  </Link>
+                </Button>
+              </div>
+            </Card>
           </TabsContent>
 
           {/* Kosten */}
