@@ -625,7 +625,7 @@ export default CalendarPage;
 // ---------------------------------------------------------------------------
 
 const DayStructureView = ({
-  date, setDate, templates, onApplyTemplate, events, onCreate, onEdit, onToggleDone,
+  date, setDate, templates, onApplyTemplate, events, onCreate, onEdit, onToggleDone, onCommit,
 }: {
   date: Date;
   setDate: (d: Date) => void;
@@ -635,8 +635,10 @@ const DayStructureView = ({
   onCreate: () => void;
   onEdit: (e: CalendarEvent) => void;
   onToggleDone: (id: string) => void;
+  onCommit: (id: string, patch: { date?: string; startTime: string; endTime: string }) => void;
 }) => {
   const [selectedTpl, setSelectedTpl] = useState<string>("");
+  const dayGridRef = useRef<HTMLDivElement>(null);
 
   return (
     <div className="space-y-3">
@@ -675,7 +677,9 @@ const DayStructureView = ({
       </Card>
 
       <Card className="overflow-hidden">
-        <div className="grid grid-cols-[60px_minmax(0,1fr)] relative" style={{ height: HOURS.length * HOUR_HEIGHT }}>
+        <div ref={dayGridRef}
+             className="grid grid-cols-[60px_minmax(0,1fr)] relative"
+             style={{ height: HOURS.length * HOUR_HEIGHT }}>
           <div className="relative border-r border-border">
             {HOURS.map((h, i) => (
               <div key={h} className="absolute left-0 right-0 text-[10px] text-muted-foreground px-1.5"
@@ -689,38 +693,23 @@ const DayStructureView = ({
               <div key={h} className="absolute left-0 right-0 border-t border-border/40"
                    style={{ top: i * HOUR_HEIGHT, height: HOUR_HEIGHT }} />
             ))}
-            {events.map((e) => {
-              const startMin = minutesFromMidnight(e.startTime);
-              const endMin = minutesFromMidnight(e.endTime);
-              const top = ((startMin - HOURS[0] * 60) / 60) * HOUR_HEIGHT;
-              const height = Math.max(28, ((endMin - startMin) / 60) * HOUR_HEIGHT - 2);
-              const style = TYPE_STYLES[e.type];
-              return (
-                <div key={e.id}
-                     className={cn(
-                       "absolute left-2 right-2 rounded-md border px-2 py-1 flex items-center gap-2 cursor-pointer hover:shadow-card transition-smooth",
-                       style.className,
-                       e.done && "opacity-60",
-                     )}
-                     style={{ top, height }}
-                     onClick={() => onEdit(e)}>
-                  <span className={cn("size-2 rounded-full shrink-0", style.dot)} />
-                  <div className="min-w-0 flex-1">
-                    <p className={cn("text-sm font-medium truncate", e.done && "line-through")}>{e.title}</p>
-                    <p className="text-[11px] opacity-80 truncate">
-                      {e.startTime}–{e.endTime}
-                      {e.location && ` · ${e.location}`}
-                      {" · "}{CALENDAR_EVENT_TYPE_LABELS[e.type]}
-                    </p>
-                  </div>
+            {events.map((e) => (
+              <DraggableEvent
+                key={e.id}
+                event={e}
+                onClick={onEdit}
+                onCommit={onCommit}
+                containerRef={dayGridRef}
+                rightSlot={
                   <Button variant="ghost" size="icon" className="size-6 shrink-0"
+                    onPointerDown={(ev) => ev.stopPropagation()}
                     onClick={(ev) => { ev.stopPropagation(); onToggleDone(e.id); }}
                     aria-label="Erledigt umschalten">
                     <ListChecks className="size-3.5" />
                   </Button>
-                </div>
-              );
-            })}
+                }
+              />
+            ))}
             {events.length === 0 && (
               <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">
                 Noch keine Blöcke – wähle eine Vorlage oder lege manuell einen Block an.
