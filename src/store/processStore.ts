@@ -346,6 +346,9 @@ export const useProcessStore = create<State>()(
           const needsListingTodo = !vehicle.listed?.active;
           set((state) => {
             const todoId = `TD-${String(state.todos.length + 1).padStart(3, "0")}`;
+            const nowIso = new Date().toISOString();
+            const due = new Date();
+            due.setDate(due.getDate() + 3);
             const autoTodo: Todo | null = needsListingTodo
               ? {
                   id: todoId,
@@ -355,8 +358,9 @@ export const useProcessStore = create<State>()(
                   scope: "internal_fleet",
                   done: false,
                   vehicleId: id,
+                  dueDate: due.toISOString(),
                   tags: ["inserat", "auto"],
-                  createdAt: new Date().toISOString(),
+                  createdAt: nowIso,
                   createdBy: state.settings.userName || "System",
                 }
               : null;
@@ -460,6 +464,8 @@ export const useProcessStore = create<State>()(
               }
             } else {
               if (!findAutoTodo(state.todos)) {
+                const due = new Date();
+                due.setDate(due.getDate() + 3);
                 const newTodo: Todo = {
                   id: `TD-${String(state.todos.length + 1).padStart(3, "0")}`,
                   title: "Inserat erstellen",
@@ -468,6 +474,7 @@ export const useProcessStore = create<State>()(
                   scope: "internal_fleet",
                   done: false,
                   vehicleId,
+                  dueDate: due.toISOString(),
                   tags: ["inserat", "auto"],
                   createdAt: nowIso,
                   createdBy: state.settings.userName || "System",
