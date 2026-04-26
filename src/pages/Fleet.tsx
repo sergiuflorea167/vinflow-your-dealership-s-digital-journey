@@ -55,7 +55,7 @@ const Fleet = () => {
 
   const [query, setQuery] = useState("");
   const [searchField, setSearchField] = useState<"all" | "vin" | "make" | "model" | "color" | "location">("all");
-  const [filter, setFilter] = useState<"all" | VehicleStatus>("all");
+  const [filter, setFilter] = useState<"all" | VehicleStatus>("in_stock");
   const [typeFilter, setTypeFilter] = useState<"all" | VehicleType>("all");
   const [listedFilter, setListedFilter] = useState<ListedFilter>("all");
   const [sort, setSort] = useState<SortState<FleetSortKey>>({ key: "stockDays", dir: "asc" });
