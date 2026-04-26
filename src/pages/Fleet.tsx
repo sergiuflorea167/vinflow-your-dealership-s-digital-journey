@@ -205,20 +205,20 @@ const Fleet = () => {
           <Card className="p-12 text-center text-muted-foreground">Keine Fahrzeuge gefunden.</Card>
         ) : (
           <Card className="bg-card border-border overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border bg-background/30">
+            <div className="overflow-auto max-h-[60vh]">
+              <table className="w-full text-xs">
+                <thead className="sticky top-0 z-10 bg-background/95 backdrop-blur">
+                  <tr className="border-b border-border">
                     <SortableTh label="Fahrzeug" sortKey="name" state={sort} onChange={setSort} />
                     <SortableTh label="Typ" sortKey="type" state={sort} onChange={setSort} />
                     <SortableTh label="EZ / km" sortKey="mileage" state={sort} onChange={setSort} />
-                    <SortableTh label="Leistung" sortKey="power" state={sort} onChange={setSort} align="right" />
+                    <SortableTh label="PS" sortKey="power" state={sort} onChange={setSort} align="right" />
                     <SortableTh label="HU" sortKey="hu" state={sort} onChange={setSort} />
                     <SortableTh label="Stellplatz" sortKey="location" state={sort} onChange={setSort} />
                     <SortableTh label="Tage" sortKey="stockDays" state={sort} onChange={setSort} align="right" />
-                    <SortableTh label="VK-Preis" sortKey="price" state={sort} onChange={setSort} align="right" />
+                    <SortableTh label="VK" sortKey="price" state={sort} onChange={setSort} align="right" />
                     <SortableTh label="Marge¹" sortKey="margin" state={sort} onChange={setSort} align="right" />
-                    <SortableTh label="Angebote" sortKey="openOffers" state={sort} onChange={setSort} align="center" />
+                    <SortableTh label="Ang." sortKey="openOffers" state={sort} onChange={setSort} align="center" />
                     <SortableTh label="Status" sortKey="status" state={sort} onChange={setSort} />
                   </tr>
                 </thead>
@@ -233,63 +233,63 @@ const Fleet = () => {
                         onClick={() => navigate(`/bestand/${vehicle.id}`)}
                         className="border-b border-border/50 hover:bg-surface-elevated/40 transition-smooth cursor-pointer"
                       >
-                        <td className="px-5 py-4">
-                          <div className="flex items-center gap-3">
-                            <div className="size-9 rounded-lg bg-gradient-brand grid place-items-center shrink-0">
-                              <Car className="size-4 text-primary-foreground" />
+                        <td className="px-3 py-2">
+                          <div className="flex items-center gap-2">
+                            <div className="size-7 rounded-md bg-gradient-brand grid place-items-center shrink-0">
+                              <Car className="size-3.5 text-primary-foreground" />
                             </div>
                             <div className="min-w-0">
-                              <p className="font-medium text-foreground truncate">{vehicle.make} {vehicle.model}</p>
-                              <p className="text-[10px] text-muted-foreground truncate">{vehicle.color} · {vehicle.id}</p>
+                              <p className="font-medium text-foreground truncate leading-tight">{vehicle.make} {vehicle.model}</p>
+                              <p className="text-[10px] text-muted-foreground truncate leading-tight">{vehicle.color} · {vehicle.id}</p>
                             </div>
                           </div>
                         </td>
-                        <td className="px-5 py-4 text-xs text-muted-foreground">{VEHICLE_TYPE_LABELS[vehicle.type]}</td>
-                        <td className="px-5 py-4 text-xs text-muted-foreground whitespace-nowrap">
+                        <td className="px-3 py-2 text-muted-foreground">{VEHICLE_TYPE_LABELS[vehicle.type]}</td>
+                        <td className="px-3 py-2 text-muted-foreground whitespace-nowrap leading-tight">
                           <div className="text-foreground">{vehicle.year}</div>
                           <div>{vehicle.mileage.toLocaleString("de-DE")} km</div>
                         </td>
-                        <td className="px-5 py-4 text-xs text-foreground text-right whitespace-nowrap">
-                          {vehicle.power_hp} <span className="text-muted-foreground">PS</span>
+                        <td className="px-3 py-2 text-foreground text-right whitespace-nowrap">
+                          {vehicle.power_hp}
                         </td>
                         <td className={cn(
-                          "px-5 py-4 text-xs whitespace-nowrap",
+                          "px-3 py-2 whitespace-nowrap",
                           huSoon ? "text-warning font-medium" : "text-muted-foreground",
                         )}>
                           {vehicle.hu ? formatDate(vehicle.hu) : "–"}
                         </td>
-                        <td className="px-5 py-4 text-xs text-muted-foreground truncate max-w-[160px]">{vehicle.location.name}</td>
+                        <td className="px-3 py-2 text-muted-foreground truncate max-w-[140px]">{vehicle.location.name}</td>
                         <td className={cn(
-                          "px-5 py-4 text-xs text-right font-medium whitespace-nowrap",
+                          "px-3 py-2 text-right font-medium whitespace-nowrap",
                           stockDays > 90 ? "text-warning" : stockDays > 60 ? "text-foreground" : "text-muted-foreground",
                         )}>
                           {stockDays}
                         </td>
-                        <td className="px-5 py-4 text-right font-semibold whitespace-nowrap">{formatCurrency(vehicle.listPrice)}</td>
+                        <td className="px-3 py-2 text-right font-semibold whitespace-nowrap">{formatCurrency(vehicle.listPrice)}</td>
                         <td className={cn(
-                          "px-5 py-4 text-right font-semibold whitespace-nowrap",
+                          "px-3 py-2 text-right font-semibold whitespace-nowrap",
                           margin >= 0 ? "text-success" : "text-destructive"
                         )}>
                           {formatCurrency(margin)}
                         </td>
-                        <td className="px-5 py-4 text-center">
+                        <td className="px-3 py-2 text-center">
                           {openOffers > 0 ? (
-                            <span className="inline-flex items-center justify-center min-w-6 h-6 px-2 rounded-full bg-primary/15 text-primary-glow text-xs font-semibold">
+                            <span className="inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-primary/15 text-primary-glow text-[10px] font-semibold">
                               {openOffers}
                             </span>
                           ) : (
-                            <span className="text-xs text-muted-foreground">–</span>
+                            <span className="text-muted-foreground">–</span>
                           )}
                         </td>
-                        <td className="px-5 py-4"><Badge className={meta.className}>{meta.label}</Badge></td>
+                        <td className="px-3 py-2"><Badge className={cn(meta.className, "text-[10px] px-1.5 py-0")}>{meta.label}</Badge></td>
                       </tr>
                     );
                   })}
                 </tbody>
               </table>
             </div>
-            <p className="px-5 py-2 text-[10px] text-muted-foreground border-t border-border/50">
-              ¹ Marge = Listenpreis − (Einkauf + alle Kosten brutto)
+            <p className="px-3 py-1.5 text-[10px] text-muted-foreground border-t border-border/50">
+              ¹ Marge = Listenpreis − (Einkauf + alle Kosten brutto) · {filtered.length} Fahrzeuge
             </p>
           </Card>
         )}
