@@ -700,16 +700,58 @@ export const useProcessStore = create<State>()(
         toggleTodo: (id) =>
           set((state) => {
             const todo = state.todos.find((t) => t.id === id);
+            const willBeDone = todo ? !todo.done : false;
+            const nowIso = new Date().toISOString();
+
+            const updatedTodos = state.todos.map((t) =>
+              t.id === id
+                ? { ...t, done: !t.done, completedAt: !t.done ? nowIso : undefined }
+                : t,
+            );
+
+            // Sync: „Inserat erstellen"-Auto-To-Do ↔ Fahrzeug-Inseratstatus
+            const isListingTodo =
+              !!todo &&
+              !!todo.vehicleId &&
+              todo.title === "Inserat erstellen" &&
+              (todo.tags ?? []).includes("auto");
+
+            const updatedVehicles = isListingTodo
+              ? state.vehicles.map((v) =>
+                  v.id !== todo!.vehicleId
+                    ? v
+                    : {
+                        ...v,
+                        listed: willBeDone
+                          ? { active: true, listedAt: nowIso, portals: v.listed?.portals }
+                          : { active: false, listedAt: v.listed?.listedAt, portals: v.listed?.portals },
+                      },
+                )
+              : state.vehicles;
+
+            let activities = state.activities;
+            if (todo && willBeDone) {
+              activities = logActivity(state, "todo_completed", `To-Do erledigt: ${todo.title}`, { vehicleId: todo.vehicleId, processId: todo.processId });
+            }
+            if (isListingTodo) {
+              const veh = state.vehicles.find((v) => v.id === todo!.vehicleId);
+              if (veh) {
+                activities = logActivity(
+                  { ...state, activities },
+                  "vehicle_updated",
+                  willBeDone
+                    ? `${veh.make} ${veh.model} automatisch als inseriert markiert`
+                    : `${veh.make} ${veh.model} nicht mehr inseriert`,
+                  { vehicleId: veh.id, meta: { listed: willBeDone } },
+                );
+              }
+            }
+
             return {
               ...state,
-              todos: state.todos.map((t) =>
-                t.id === id
-                  ? { ...t, done: !t.done, completedAt: !t.done ? new Date().toISOString() : undefined }
-                  : t,
-              ),
-              activities: todo && !todo.done
-                ? logActivity(state, "todo_completed", `To-Do erledigt: ${todo.title}`, { vehicleId: todo.vehicleId, processId: todo.processId })
-                : state.activities,
+              todos: updatedTodos,
+              vehicles: updatedVehicles,
+              activities,
             };
           }),
 
