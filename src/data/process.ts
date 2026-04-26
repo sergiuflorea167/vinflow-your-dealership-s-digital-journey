@@ -279,6 +279,7 @@ export type ActivityType =
   | "process_created"
   | "process_step_completed"
   | "process_step_skipped"
+  | "process_step_cancelled"
   | "process_field_updated"
   | "todo_created"
   | "todo_completed"

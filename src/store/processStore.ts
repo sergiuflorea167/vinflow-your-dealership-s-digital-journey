@@ -56,6 +56,7 @@ interface State {
   // ------- Process -------
   completeStep: (processId: string, stepKey: ProcessStepKey) => void;
   skipStep: (processId: string, stepKey: ProcessStepKey) => void;
+  cancelStep: (processId: string, stepKey: ProcessStepKey) => void;
   updateProcessFields: (processId: string, patch: Partial<ProcessFields>) => void;
 
   // Customer-To-Dos auf AB
@@ -218,6 +219,54 @@ export const useProcessStore = create<State>()(
               ...state,
               processes: updatedProcesses,
               activities: logActivity(state, "process_step_skipped", `Schritt „${PROCESS_STEPS[idx].label}" übersprungen`, { processId, vehicleId: process.vehicleId, meta: { step: stepKey } }),
+            };
+          }),
+
+        cancelStep: (processId, stepKey) =>
+          set((state) => {
+            const process = state.processes.find((p) => p.id === processId);
+            if (!process) return state;
+            const idx = stepIndex(stepKey);
+            // Only allow cancelling steps that were completed or skipped.
+            const record = process.steps[stepKey];
+            if (!record || (record.status !== "completed" && record.status !== "skipped")) return state;
+
+            const updatedProcesses = state.processes.map((p) => {
+              if (p.id !== processId) return p;
+              const newSteps = { ...p.steps };
+              // Reset selected step to active and all later steps to pending.
+              PROCESS_STEPS.forEach((s, i) => {
+                if (i < idx) return; // keep earlier steps as-is
+                if (i === idx) {
+                  newSteps[s.key] = { status: "active" };
+                } else {
+                  newSteps[s.key] = { status: "pending" };
+                }
+              });
+              return {
+                ...p,
+                currentStep: stepKey,
+                updatedAt: new Date().toISOString(),
+                steps: newSteps,
+              };
+            });
+
+            // If the final step had been completed, the vehicle was marked sold.
+            // Reverting any step → vehicle should go back to "reserved".
+            const updatedVehicles = state.vehicles.map((v) =>
+              v.id === process.vehicleId && v.status === "sold" ? { ...v, status: "reserved" as const } : v
+            );
+
+            return {
+              ...state,
+              processes: updatedProcesses,
+              vehicles: updatedVehicles,
+              activities: logActivity(
+                state,
+                "process_step_cancelled",
+                `Beleg „${PROCESS_STEPS[idx].label}" storniert – Schritt zur Bearbeitung freigegeben`,
+                { processId, vehicleId: process.vehicleId, meta: { step: stepKey } }
+              ),
             };
           }),
 

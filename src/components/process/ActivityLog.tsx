@@ -1,7 +1,7 @@
 import { Activity, formatDateTime } from "@/data/process";
 import { Card } from "@/components/ui/card";
 import {
-  CheckCircle2, Plus, Edit, FileText, ShoppingCart, MapPin, Receipt, X, User, Settings as SettingsIcon, Target, Trash2, Workflow, SkipForward,
+  CheckCircle2, Plus, Edit, FileText, ShoppingCart, MapPin, Receipt, X, User, Settings as SettingsIcon, Target, Trash2, Workflow, SkipForward, RotateCcw,
 } from "lucide-react";
 
 const ICONS: Record<Activity["type"], any> = {
@@ -16,6 +16,7 @@ const ICONS: Record<Activity["type"], any> = {
   process_created: Workflow,
   process_step_completed: CheckCircle2,
   process_step_skipped: SkipForward,
+  process_step_cancelled: RotateCcw,
   process_field_updated: Edit,
   todo_created: Plus,
   todo_completed: CheckCircle2,

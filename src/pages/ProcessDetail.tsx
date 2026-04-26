@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useParams, Link, Navigate } from "react-router-dom";
-import { ArrowLeft, FileText, Lock, CheckCircle2, ArrowRight, Download, Archive, AlertCircle, SkipForward } from "lucide-react";
+import { ArrowLeft, FileText, Lock, CheckCircle2, ArrowRight, Download, Archive, AlertCircle, SkipForward, RotateCcw } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { ProcessStepper } from "@/components/process/ProcessStepper";
 import { ActivityLog } from "@/components/process/ActivityLog";
@@ -11,6 +11,10 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { useProcessStore } from "@/store/processStore";
 import {
   PROCESS_STEPS, ProcessStepKey, ProcessFields, formatCurrency, formatDate, stepIndex,
@@ -31,6 +35,7 @@ const ProcessDetail = () => {
 
   const completeStep = useProcessStore((s) => s.completeStep);
   const skipStep = useProcessStore((s) => s.skipStep);
+  const cancelStep = useProcessStore((s) => s.cancelStep);
   const updateFields = useProcessStore((s) => s.updateProcessFields);
   const toggleChk = useProcessStore((s) => s.toggleOutboundChecklistItem);
   const addChk = useProcessStore((s) => s.addOutboundChecklistItem);
@@ -73,6 +78,12 @@ const ProcessDetail = () => {
     skipStep(process.id, selectedKey);
     toast.message(`${selectedStep.label} übersprungen.`);
     if (nextStep) setSelected(nextStep.key);
+  };
+
+  const handleCancel = () => {
+    cancelStep(process.id, selectedKey);
+    toast.success(`${selectedStep.documentName} storniert – Schritt wieder bearbeitbar.`);
+    setSelected(selectedKey);
   };
 
   const handleDownload = (key: ProcessStepKey) => {
@@ -204,6 +215,32 @@ const ProcessDetail = () => {
                 <p className="text-xs text-success mr-auto inline-flex items-center gap-2">
                   <CheckCircle2 className="size-4" /> {isSkipped ? "Übersprungen" : "Beleg erzeugt"} am {formatDate(record.completedAt)}.
                 </p>
+              )}
+              {(isCompleted || isSkipped) && (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="outline" className="gap-2 border-destructive/30 text-destructive hover:bg-destructive/10 hover:text-destructive">
+                      <RotateCcw className="size-4" /> Beleg stornieren
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>{selectedStep.documentName} stornieren?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        Der Beleg „{selectedStep.documentName}" wird zurückgesetzt und kann erneut bearbeitet werden.
+                        {selectedIdx < currentIdx && (
+                          <> Alle nachfolgenden Schritte werden ebenfalls zurückgesetzt, da der Vorgang sonst inkonsistent wäre.</>
+                        )}
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleCancel} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                        Stornieren
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               )}
               {isCurrent && !isCompleted && !isSkipped && (
                 <>
