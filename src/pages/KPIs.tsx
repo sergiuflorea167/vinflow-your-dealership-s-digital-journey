@@ -21,8 +21,7 @@ import {
 import { useTopbarSearch } from "@/context/TopbarSearchContext";
 import { ProcessTimeAnalyzer } from "@/components/kpi/ProcessTimeAnalyzer";
 
-const daysBetween = (a: string, b: string) =>
-  Math.max(0, (new Date(b).getTime() - new Date(a).getTime()) / 86400000);
+
 
 // Reihenfolge nach Wichtigkeit (links = wichtigste)
 const TAB_ORDER: { key: KpiCategory; icon: typeof TrendingUp; short: string }[] = [
@@ -96,19 +95,7 @@ const KPIs = () => {
     [processes]
   );
 
-  const stepDurations = useMemo(() => {
-    return PROCESS_STEPS.slice(0, -1).map((step, i) => {
-      const next = PROCESS_STEPS[i + 1];
-      const diffs: number[] = [];
-      processes.forEach((p) => {
-        const a = p.steps[step.key]?.completedAt;
-        const b = p.steps[next.key]?.completedAt;
-        if (a && b) diffs.push(daysBetween(a, b));
-      });
-      const avg = diffs.length ? diffs.reduce((s, n) => s + n, 0) / diffs.length : 0;
-      return { from: step, to: next, avg, samples: diffs.length };
-    });
-  }, [processes]);
+
 
   const typeBreakdown = useMemo(() => {
     const map = new Map<VehicleType, { count: number; value: number }>();
