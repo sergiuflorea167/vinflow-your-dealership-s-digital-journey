@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useParams, Link, Navigate } from "react-router-dom";
-import { ArrowLeft, FileText, Lock, CheckCircle2, ArrowRight, Download, Archive } from "lucide-react";
+import { ArrowLeft, FileText, Lock, CheckCircle2, ArrowRight, Download, Archive, AlertCircle } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { ProcessStepper } from "@/components/process/ProcessStepper";
 import { Card } from "@/components/ui/card";
@@ -8,20 +8,34 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useProcessStore } from "@/store/processStore";
-import { PROCESS_STEPS, ProcessStepKey, formatCurrency, formatDate, stepIndex } from "@/data/process";
+import {
+  PROCESS_STEPS,
+  ProcessStepKey,
+  ProcessFields,
+  formatCurrency,
+  formatDate,
+  stepIndex,
+} from "@/data/process";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { downloadBelegPdf } from "@/lib/pdf";
 
 const ProcessDetail = () => {
   const { id } = useParams<{ id: string }>();
   const process = useProcessStore((s) => s.processes.find((p) => p.id === id));
+  const vehicle = useProcessStore((s) => process && s.getVehicle(process.vehicleId));
+  const customer = useProcessStore((s) => process && s.getCustomer(process.customerId));
+  const offer = useProcessStore((s) => process && s.getOffer(process.acceptedOfferId));
   const completeStep = useProcessStore((s) => s.completeStep);
   const toggleChecklist = useProcessStore((s) => s.toggleChecklistItem);
+  const updateFields = useProcessStore((s) => s.updateProcessFields);
 
   const [selected, setSelected] = useState<ProcessStepKey | undefined>(process?.currentStep);
 
-  if (!process) return <Navigate to="/vorgaenge" replace />;
+  if (!process || !vehicle || !customer) return <Navigate to="/vorgaenge" replace />;
 
   const selectedKey = selected ?? process.currentStep;
   const selectedStep = PROCESS_STEPS.find((s) => s.key === selectedKey)!;
@@ -29,22 +43,28 @@ const ProcessDetail = () => {
   const currentIdx = stepIndex(process.currentStep);
   const record = process.steps[selectedKey];
   const isCurrent = selectedIdx === currentIdx;
-  const isCompleted = selectedIdx < currentIdx;
+  const isCompleted = record.status === "completed";
   const isLocked = selectedIdx > currentIdx;
   const nextStep = PROCESS_STEPS[currentIdx + 1];
 
   const checklistDone = process.checklist.filter((c) => c.done).length;
   const checklistTotal = process.checklist.length;
-  const canCompleteOutbound = selectedKey !== "outbound_check" || checklistDone === checklistTotal;
+
+  const validation = validateStep(selectedKey, process.fields, checklistDone, checklistTotal);
 
   const handleComplete = () => {
-    if (!canCompleteOutbound) {
-      toast.error("Bitte alle Checklisten-Punkte abhaken.");
+    if (!validation.ok) {
+      toast.error(validation.message ?? "Bitte alle Pflichtfelder ausfüllen.");
       return;
     }
     completeStep(process.id, selectedKey);
-    toast.success(`${selectedStep.documentName} archiviert · ${nextStep ? `Weiter zu ${nextStep.label}` : "Vorgang abgeschlossen"}`);
+    toast.success(`${selectedStep.documentName} archiviert${nextStep ? ` · Weiter zu ${nextStep.label}` : " · Vorgang abgeschlossen"}`);
     if (nextStep) setSelected(nextStep.key);
+  };
+
+  const handleDownload = (key: ProcessStepKey) => {
+    downloadBelegPdf({ process, vehicle, customer, offer, stepKey: key });
+    toast.success("PDF heruntergeladen.");
   };
 
   return (
@@ -59,31 +79,28 @@ const ProcessDetail = () => {
           </Badge>
         </div>
 
-        {/* Header */}
         <Card className="p-6 bg-gradient-surface border-border shadow-card">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
             <div>
               <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Vorgang {process.id}</p>
               <h1 className="text-3xl font-display font-bold text-foreground">
-                {process.vehicle.make} {process.vehicle.model}
+                {vehicle.make} {vehicle.model}
               </h1>
-              <p className="font-mono text-xs text-muted-foreground mt-2">VIN {process.vehicle.vin}</p>
+              <p className="font-mono text-xs text-muted-foreground mt-2">VIN {vehicle.vin}</p>
             </div>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
-              <Stat label="Kunde" value={process.customer.name} sub={process.customer.city} />
-              <Stat label="Preis" value={formatCurrency(process.vehicle.price)} sub={`${process.vehicle.year} · ${process.vehicle.mileage.toLocaleString("de-DE")} km`} />
+              <Stat label="Kunde" value={customer.name} sub={customer.city} />
+              <Stat label="Preis" value={formatCurrency(process.fields.finalPrice ?? vehicle.listPrice)} sub={`${vehicle.year} · ${vehicle.mileage.toLocaleString("de-DE")} km`} />
               <Stat label="Erstellt" value={formatDate(process.createdAt)} />
               <Stat label="Aktualisiert" value={formatDate(process.updatedAt)} />
             </div>
           </div>
         </Card>
 
-        {/* Stepper */}
         <Card className="p-6 bg-card border-border shadow-card">
           <ProcessStepper currentStep={process.currentStep} selectedStep={selectedKey} onSelect={setSelected} />
         </Card>
 
-        {/* Step Detail */}
         <div className="grid lg:grid-cols-3 gap-6">
           <Card className="lg:col-span-2 p-6 bg-card border-border shadow-card">
             <div className="flex items-start justify-between gap-4 mb-4">
@@ -93,7 +110,7 @@ const ProcessDetail = () => {
                     Schritt {selectedIdx + 1} / {PROCESS_STEPS.length}
                   </span>
                   {isCompleted && <Badge className="bg-success text-success-foreground hover:bg-success">Abgeschlossen</Badge>}
-                  {isCurrent && <Badge className="bg-primary text-primary-foreground hover:bg-primary">Aktiv</Badge>}
+                  {isCurrent && !isCompleted && <Badge className="bg-primary text-primary-foreground hover:bg-primary">Aktiv</Badge>}
                   {isLocked && (
                     <Badge variant="outline" className="border-border text-muted-foreground">
                       <Lock className="size-3 mr-1" /> Gesperrt
@@ -107,8 +124,18 @@ const ProcessDetail = () => {
 
             <Separator className="my-6 bg-border/60" />
 
+            {/* Pflichtfelder pro Schritt */}
+            {!isLocked && (
+              <StepFields
+                stepKey={selectedKey}
+                fields={process.fields}
+                disabled={!isCurrent}
+                onChange={(patch) => updateFields(process.id, patch)}
+              />
+            )}
+
             {selectedKey === "outbound_check" && isCurrent && (
-              <div className="space-y-3 mb-6">
+              <div className="space-y-3 my-6">
                 <div className="flex items-center justify-between">
                   <h3 className="font-display font-semibold text-sm">Übergabe-Checkliste</h3>
                   <span className="text-xs text-muted-foreground">
@@ -133,7 +160,7 @@ const ProcessDetail = () => {
             )}
 
             {/* Document preview */}
-            <div className="rounded-xl border border-dashed border-border bg-background/40 p-6">
+            <div className="rounded-xl border border-dashed border-border bg-background/40 p-6 mt-6">
               <div className="flex items-start gap-4">
                 <div className="size-12 rounded-lg bg-primary/10 grid place-items-center border border-primary/20">
                   <FileText className="size-5 text-primary-glow" />
@@ -143,13 +170,16 @@ const ProcessDetail = () => {
                   <p className="text-xs text-muted-foreground mt-1">
                     Wird beim Abschluss als PDF generiert, an den Kunden gesendet und im Vorgangs-Archiv gespeichert.
                   </p>
-                  {record?.documentArchived && (
-                    <div className="flex items-center gap-2 mt-3 text-xs text-success">
-                      <Archive className="size-3" />
-                      <span>Archiviert am {formatDate(record.completedAt!)}</span>
-                      <Button size="sm" variant="ghost" className="h-6 ml-2 text-xs gap-1">
-                        <Download className="size-3" /> PDF
+                  {(isCompleted || isCurrent) && (
+                    <div className="flex items-center gap-2 mt-3">
+                      <Button size="sm" variant="outline" onClick={() => handleDownload(selectedKey)} className="gap-1.5 h-8">
+                        <Download className="size-3.5" /> {isCompleted ? "PDF erneut laden" : "Vorschau-PDF"}
                       </Button>
+                      {isCompleted && record.completedAt && (
+                        <span className="text-xs text-success inline-flex items-center gap-1">
+                          <Archive className="size-3" /> Archiviert am {formatDate(record.completedAt)}
+                        </span>
+                      )}
                     </div>
                   )}
                 </div>
@@ -163,33 +193,40 @@ const ProcessDetail = () => {
                   Vorherige Schritte zuerst abschließen, um diesen freizuschalten.
                 </p>
               )}
-              {isCompleted && (
+              {isCompleted && record.completedAt && (
                 <p className="text-xs text-success mr-auto inline-flex items-center gap-2">
-                  <CheckCircle2 className="size-4" /> Beleg wurde am {formatDate(record.completedAt!)} erzeugt.
+                  <CheckCircle2 className="size-4" /> Beleg wurde am {formatDate(record.completedAt)} erzeugt.
                 </p>
               )}
-              {isCurrent && (
-                <Button
-                  onClick={handleComplete}
-                  disabled={!canCompleteOutbound}
-                  className="bg-gradient-brand hover:opacity-90 shadow-elegant gap-2"
-                >
-                  Beleg erzeugen & {nextStep ? "weiter" : "abschließen"}
-                  <ArrowRight className="size-4" />
-                </Button>
+              {isCurrent && !isCompleted && (
+                <>
+                  {!validation.ok && (
+                    <p className="text-xs text-warning mr-auto inline-flex items-center gap-2">
+                      <AlertCircle className="size-4" /> {validation.message}
+                    </p>
+                  )}
+                  <Button
+                    onClick={handleComplete}
+                    disabled={!validation.ok}
+                    className="bg-gradient-brand hover:opacity-90 shadow-elegant gap-2"
+                  >
+                    Beleg erzeugen & {nextStep ? "weiter" : "abschließen"}
+                    <ArrowRight className="size-4" />
+                  </Button>
+                </>
               )}
             </div>
           </Card>
 
-          {/* Side: Customer + Archive */}
+          {/* Sidebar */}
           <div className="space-y-6">
             <Card className="p-6 bg-card border-border shadow-card">
               <h3 className="font-display font-semibold text-sm mb-4">Kunde</h3>
               <div className="space-y-3 text-sm">
-                <Row label="Name" value={process.customer.name} />
-                <Row label="E-Mail" value={process.customer.email} mono />
-                <Row label="Telefon" value={process.customer.phone} mono />
-                <Row label="Stadt" value={process.customer.city} />
+                <Row label="Name" value={customer.name} />
+                <Row label="E-Mail" value={customer.email} mono />
+                <Row label="Telefon" value={customer.phone} mono />
+                <Row label="Stadt" value={customer.city} />
               </div>
             </Card>
 
@@ -208,14 +245,14 @@ const ProcessDetail = () => {
                       )}
                     >
                       <div className={cn(
-                        "size-6 rounded-md grid place-items-center text-[10px] font-semibold",
+                        "size-6 rounded-md grid place-items-center text-[10px] font-semibold shrink-0",
                         done ? "bg-success text-success-foreground" : "bg-muted text-muted-foreground"
                       )}>
                         {i + 1}
                       </div>
                       <span className="flex-1 truncate font-medium">{s.documentName}</span>
                       {done && (
-                        <Button size="icon" variant="ghost" className="h-6 w-6">
+                        <Button size="icon" variant="ghost" className="h-6 w-6" onClick={() => handleDownload(s.key)}>
                           <Download className="size-3" />
                         </Button>
                       )}
@@ -231,6 +268,120 @@ const ProcessDetail = () => {
   );
 };
 
+// ----------- Step-specific fields -----------
+
+const StepFields = ({
+  stepKey,
+  fields,
+  onChange,
+  disabled,
+}: {
+  stepKey: ProcessStepKey;
+  fields: ProcessFields;
+  onChange: (patch: Partial<ProcessFields>) => void;
+  disabled?: boolean;
+}) => {
+  if (stepKey === "offer") {
+    return (
+      <FieldGrid title="Angebotsdaten">
+        <NumberField label="Endpreis (EUR) *" value={fields.finalPrice} onChange={(v) => onChange({ finalPrice: v })} disabled={disabled} />
+      </FieldGrid>
+    );
+  }
+  if (stepKey === "down_payment") {
+    return (
+      <FieldGrid title="Anzahlung">
+        <NumberField label="Anzahlungsbetrag (EUR) *" value={fields.downPayment?.amount} onChange={(v) => onChange({ downPayment: { ...fields.downPayment, amount: v } })} disabled={disabled} />
+        <DateField label="Fälligkeit *" value={fields.downPayment?.dueDate} onChange={(v) => onChange({ downPayment: { ...fields.downPayment, dueDate: v } })} disabled={disabled} />
+        <SelectField label="Zahlungsart *" value={fields.downPayment?.method ?? ""} options={["Überweisung", "Bar", "EC"]} onChange={(v) => onChange({ downPayment: { ...fields.downPayment, method: v as any } })} disabled={disabled} />
+        <CheckboxField label="Zahlung eingegangen" checked={!!fields.downPayment?.received} onChange={(v) => onChange({ downPayment: { ...fields.downPayment, received: v, receivedDate: v ? new Date().toISOString().slice(0, 10) : undefined } })} disabled={disabled} />
+      </FieldGrid>
+    );
+  }
+  if (stepKey === "order_confirmation") {
+    return (
+      <FieldGrid title="Auftragsbestätigung">
+        <DateField label="Auftragsdatum *" value={fields.orderConfirmation?.orderDate} onChange={(v) => onChange({ orderConfirmation: { ...fields.orderConfirmation, orderDate: v } })} disabled={disabled} />
+        <DateField label="Liefertermin *" value={fields.orderConfirmation?.deliveryDate} onChange={(v) => onChange({ orderConfirmation: { ...fields.orderConfirmation, deliveryDate: v } })} disabled={disabled} />
+        <TextField label="Zahlungsbedingungen" value={fields.orderConfirmation?.paymentTerms} onChange={(v) => onChange({ orderConfirmation: { ...fields.orderConfirmation, paymentTerms: v } })} disabled={disabled} placeholder="z. B. Restzahlung bei Übergabe" full />
+      </FieldGrid>
+    );
+  }
+  if (stepKey === "invoicing") {
+    return (
+      <FieldGrid title="Rechnungsdaten">
+        <TextField label="Rechnungs-Nr. *" value={fields.invoicing?.invoiceNumber} onChange={(v) => onChange({ invoicing: { ...fields.invoicing, invoiceNumber: v } })} disabled={disabled} placeholder="z. B. RE-2025-0001" />
+        <DateField label="Rechnungsdatum *" value={fields.invoicing?.invoiceDate} onChange={(v) => onChange({ invoicing: { ...fields.invoicing, invoiceDate: v } })} disabled={disabled} />
+        <DateField label="Fällig am *" value={fields.invoicing?.dueDate} onChange={(v) => onChange({ invoicing: { ...fields.invoicing, dueDate: v } })} disabled={disabled} />
+      </FieldGrid>
+    );
+  }
+  if (stepKey === "delivery_confirmation") {
+    return (
+      <FieldGrid title="Übergabe">
+        <DateField label="Übergabedatum *" value={fields.delivery?.handoverDate} onChange={(v) => onChange({ delivery: { ...fields.delivery, handoverDate: v } })} disabled={disabled} />
+        <TextField label="Übergabeort *" value={fields.delivery?.handoverLocation} onChange={(v) => onChange({ delivery: { ...fields.delivery, handoverLocation: v } })} disabled={disabled} placeholder="z. B. Filiale München" />
+        <NumberField label="Kilometerstand *" value={fields.delivery?.finalMileage} onChange={(v) => onChange({ delivery: { ...fields.delivery, finalMileage: v } })} disabled={disabled} />
+        <SelectField label="Tankfüllung" value={fields.delivery?.fuelLevel ?? ""} options={["voll", "3/4", "halb", "1/4", "leer"]} onChange={(v) => onChange({ delivery: { ...fields.delivery, fuelLevel: v } })} disabled={disabled} />
+        <CheckboxField label="Kundenunterschrift vorhanden *" checked={!!fields.delivery?.customerSignature} onChange={(v) => onChange({ delivery: { ...fields.delivery, customerSignature: v } })} disabled={disabled} />
+      </FieldGrid>
+    );
+  }
+  return null;
+};
+
+const FieldGrid = ({ title, children }: { title: string; children: React.ReactNode }) => (
+  <div className="space-y-3 mb-2">
+    <h3 className="font-display font-semibold text-sm text-foreground">{title}</h3>
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">{children}</div>
+  </div>
+);
+
+const TextField = ({ label, value, onChange, disabled, placeholder, full }: { label: string; value?: string; onChange: (v: string) => void; disabled?: boolean; placeholder?: string; full?: boolean }) => (
+  <div className={cn("space-y-1.5", full && "md:col-span-2")}>
+    <Label className="text-xs text-muted-foreground">{label}</Label>
+    <Input value={value ?? ""} onChange={(e) => onChange(e.target.value)} disabled={disabled} placeholder={placeholder} className="bg-background/40" />
+  </div>
+);
+
+const NumberField = ({ label, value, onChange, disabled }: { label: string; value?: number; onChange: (v: number | undefined) => void; disabled?: boolean }) => (
+  <div className="space-y-1.5">
+    <Label className="text-xs text-muted-foreground">{label}</Label>
+    <Input type="number" value={value ?? ""} onChange={(e) => onChange(e.target.value === "" ? undefined : Number(e.target.value))} disabled={disabled} className="bg-background/40" />
+  </div>
+);
+
+const DateField = ({ label, value, onChange, disabled }: { label: string; value?: string; onChange: (v: string) => void; disabled?: boolean }) => (
+  <div className="space-y-1.5">
+    <Label className="text-xs text-muted-foreground">{label}</Label>
+    <Input type="date" value={value ?? ""} onChange={(e) => onChange(e.target.value)} disabled={disabled} className="bg-background/40" />
+  </div>
+);
+
+const SelectField = ({ label, value, options, onChange, disabled }: { label: string; value: string; options: string[]; onChange: (v: string) => void; disabled?: boolean }) => (
+  <div className="space-y-1.5">
+    <Label className="text-xs text-muted-foreground">{label}</Label>
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      disabled={disabled}
+      className="w-full h-10 rounded-md border border-input bg-background/40 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+    >
+      <option value="">— wählen —</option>
+      {options.map((o) => (
+        <option key={o} value={o}>{o}</option>
+      ))}
+    </select>
+  </div>
+);
+
+const CheckboxField = ({ label, checked, onChange, disabled }: { label: string; checked: boolean; onChange: (v: boolean) => void; disabled?: boolean }) => (
+  <label className={cn("flex items-center gap-3 p-3 rounded-lg border border-border/60 bg-background/40 cursor-pointer", disabled && "opacity-60 cursor-not-allowed")}>
+    <Checkbox checked={checked} onCheckedChange={(v) => onChange(!!v)} disabled={disabled} />
+    <span className="text-sm">{label}</span>
+  </label>
+);
+
 const Stat = ({ label, value, sub }: { label: string; value: string; sub?: string }) => (
   <div>
     <p className="text-[10px] uppercase tracking-widest text-muted-foreground">{label}</p>
@@ -245,5 +396,44 @@ const Row = ({ label, value, mono }: { label: string; value: string; mono?: bool
     <span className={cn("text-foreground text-right", mono && "font-mono text-xs")}>{value}</span>
   </div>
 );
+
+// ---- Validation ----
+
+function validateStep(
+  stepKey: ProcessStepKey,
+  fields: ProcessFields,
+  checklistDone: number,
+  checklistTotal: number
+): { ok: boolean; message?: string } {
+  switch (stepKey) {
+    case "offer":
+      if (!fields.finalPrice || fields.finalPrice <= 0) return { ok: false, message: "Endpreis ist Pflicht." };
+      return { ok: true };
+    case "down_payment":
+      if (!fields.downPayment?.amount) return { ok: false, message: "Anzahlungsbetrag ist Pflicht." };
+      if (!fields.downPayment?.dueDate) return { ok: false, message: "Fälligkeitsdatum ist Pflicht." };
+      if (!fields.downPayment?.method) return { ok: false, message: "Zahlungsart ist Pflicht." };
+      if (!fields.downPayment?.received) return { ok: false, message: "Zahlungseingang muss bestätigt sein." };
+      return { ok: true };
+    case "order_confirmation":
+      if (!fields.orderConfirmation?.orderDate) return { ok: false, message: "Auftragsdatum ist Pflicht." };
+      if (!fields.orderConfirmation?.deliveryDate) return { ok: false, message: "Liefertermin ist Pflicht." };
+      return { ok: true };
+    case "outbound_check":
+      if (checklistDone < checklistTotal) return { ok: false, message: `Noch ${checklistTotal - checklistDone} Checklisten-Punkte offen.` };
+      return { ok: true };
+    case "invoicing":
+      if (!fields.invoicing?.invoiceNumber) return { ok: false, message: "Rechnungs-Nr. ist Pflicht." };
+      if (!fields.invoicing?.invoiceDate) return { ok: false, message: "Rechnungsdatum ist Pflicht." };
+      if (!fields.invoicing?.dueDate) return { ok: false, message: "Fälligkeit ist Pflicht." };
+      return { ok: true };
+    case "delivery_confirmation":
+      if (!fields.delivery?.handoverDate) return { ok: false, message: "Übergabedatum ist Pflicht." };
+      if (!fields.delivery?.handoverLocation) return { ok: false, message: "Übergabeort ist Pflicht." };
+      if (!fields.delivery?.finalMileage) return { ok: false, message: "Kilometerstand ist Pflicht." };
+      if (!fields.delivery?.customerSignature) return { ok: false, message: "Kundenunterschrift muss bestätigt sein." };
+      return { ok: true };
+  }
+}
 
 export default ProcessDetail;

@@ -12,19 +12,25 @@ import { cn } from "@/lib/utils";
 
 const ProcessList = () => {
   const processes = useProcessStore((s) => s.processes);
+  const getVehicle = useProcessStore((s) => s.getVehicle);
+  const getCustomer = useProcessStore((s) => s.getCustomer);
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<string>("all");
 
-  const filtered = processes.filter((p) => {
+  const enriched = processes
+    .map((p) => ({ p, vehicle: getVehicle(p.vehicleId), customer: getCustomer(p.customerId) }))
+    .filter((e) => e.vehicle && e.customer);
+
+  const filtered = enriched.filter(({ p, vehicle, customer }) => {
     if (filter !== "all" && p.currentStep !== filter) return false;
     if (!q) return true;
     const s = q.toLowerCase();
     return (
       p.id.toLowerCase().includes(s) ||
-      p.vehicle.vin.toLowerCase().includes(s) ||
-      p.vehicle.make.toLowerCase().includes(s) ||
-      p.vehicle.model.toLowerCase().includes(s) ||
-      p.customer.name.toLowerCase().includes(s)
+      vehicle!.vin.toLowerCase().includes(s) ||
+      vehicle!.make.toLowerCase().includes(s) ||
+      vehicle!.model.toLowerCase().includes(s) ||
+      customer!.name.toLowerCase().includes(s)
     );
   });
 
@@ -33,7 +39,9 @@ const ProcessList = () => {
       <div className="space-y-6 animate-fade-in">
         <div>
           <h1 className="text-3xl font-display font-bold">Vorgänge</h1>
-          <p className="text-muted-foreground mt-1">Alle aktiven & abgeschlossenen Verkaufsvorgänge.</p>
+          <p className="text-muted-foreground mt-1">
+            Alle aktiven & abgeschlossenen Verkaufsvorgänge inkl. Belege.
+          </p>
         </div>
 
         <Card className="p-4 bg-card border-border">
@@ -79,7 +87,7 @@ const ProcessList = () => {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map((p) => {
+                {filtered.map(({ p, vehicle, customer }) => {
                   const idx = stepIndex(p.currentStep);
                   const step = PROCESS_STEPS[idx];
                   return (
@@ -90,19 +98,21 @@ const ProcessList = () => {
                         </Link>
                       </td>
                       <td className="px-5 py-4">
-                        <p className="font-medium text-foreground">{p.vehicle.make} {p.vehicle.model}</p>
-                        <p className="font-mono text-xs text-muted-foreground">{p.vehicle.vin}</p>
+                        <p className="font-medium text-foreground">{vehicle!.make} {vehicle!.model}</p>
+                        <p className="font-mono text-xs text-muted-foreground">{vehicle!.vin}</p>
                       </td>
                       <td className="px-5 py-4">
-                        <p className="text-foreground">{p.customer.name}</p>
-                        <p className="text-xs text-muted-foreground">{p.customer.city}</p>
+                        <p className="text-foreground">{customer!.name}</p>
+                        <p className="text-xs text-muted-foreground">{customer!.city}</p>
                       </td>
                       <td className="px-5 py-4">
                         <Badge variant="outline" className="border-primary/30 text-primary-glow">
                           {idx + 1}. {step.shortLabel}
                         </Badge>
                       </td>
-                      <td className="px-5 py-4 text-right font-semibold text-foreground">{formatCurrency(p.vehicle.price)}</td>
+                      <td className="px-5 py-4 text-right font-semibold text-foreground">
+                        {formatCurrency(p.fields.finalPrice ?? vehicle!.listPrice)}
+                      </td>
                       <td className="px-5 py-4 text-muted-foreground text-xs">{formatDate(p.updatedAt)}</td>
                       <td className="px-5 py-4">
                         <Link to={`/vorgaenge/${p.id}`}>
