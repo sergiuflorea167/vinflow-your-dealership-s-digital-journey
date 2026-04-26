@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState, useEffect, useCallback } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -69,6 +69,254 @@ const minutesFromMidnight = (hhmm: string) => {
   return (h ?? 0) * 60 + (m ?? 0);
 };
 
+const minutesToHHMM = (mins: number) => {
+  const m = Math.max(0, Math.min(24 * 60 - 1, Math.round(mins)));
+  const h = Math.floor(m / 60);
+  const mm = m % 60;
+  return `${String(h).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+};
+
+const SNAP_MIN = 15;
+const snap = (mins: number) => Math.round(mins / SNAP_MIN) * SNAP_MIN;
+const PX_PER_MIN = HOUR_HEIGHT / 60;
+const DAY_START_MIN = HOURS[0] * 60;
+const DAY_END_MIN = (HOURS[HOURS.length - 1] + 1) * 60;
+
+const addDaysISO = (iso: string, delta: number) => {
+  const d = fromISO(iso);
+  d.setDate(d.getDate() + delta);
+  return toISO(d);
+};
+
+// ---------------------------------------------------------------------------
+// Draggable / resizable event hook
+// ---------------------------------------------------------------------------
+
+type DragMode = "move" | "resize";
+
+interface UseEventDragOptions {
+  event: CalendarEvent;
+  /** Pixel height of one minute. */
+  pxPerMin: number;
+  /** Container ref the pointer is measured against (for vertical movement). */
+  containerRef: React.RefObject<HTMLElement>;
+  /** Optional: width of one day column in px, enables horizontal day shift. */
+  dayColumnWidth?: number;
+  /** First day shown (used together with dayColumnWidth). */
+  weekStartISO?: string;
+  /** Number of day columns shown (default 1). */
+  dayCount?: number;
+  onCommit: (patch: { date?: string; startTime: string; endTime: string }) => void;
+}
+
+const useEventDrag = ({
+  event, pxPerMin, containerRef, dayColumnWidth, weekStartISO, dayCount = 1, onCommit,
+}: UseEventDragOptions) => {
+  const [preview, setPreview] = useState<{ startMin: number; endMin: number; date: string } | null>(null);
+  const stateRef = useRef<{
+    mode: DragMode;
+    startY: number;
+    startX: number;
+    origStart: number;
+    origEnd: number;
+    origDate: string;
+    moved: boolean;
+  } | null>(null);
+
+  const onPointerDown = (mode: DragMode) => (e: React.PointerEvent) => {
+    if (e.button !== 0) return;
+    e.stopPropagation();
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    stateRef.current = {
+      mode,
+      startY: e.clientY,
+      startX: e.clientX,
+      origStart: minutesFromMidnight(event.startTime),
+      origEnd: minutesFromMidnight(event.endTime),
+      origDate: event.date,
+      moved: false,
+    };
+  };
+
+  const onPointerMove = (e: React.PointerEvent) => {
+    const s = stateRef.current;
+    if (!s) return;
+    const dyMin = (e.clientY - s.startY) / pxPerMin;
+    const dx = e.clientX - s.startX;
+    if (Math.abs(e.clientY - s.startY) > 3 || Math.abs(dx) > 3) s.moved = true;
+
+    let newDate = s.origDate;
+    if (dayColumnWidth && weekStartISO && dayCount > 1 && s.mode === "move") {
+      const dayDelta = Math.round(dx / dayColumnWidth);
+      const baseIdx = Math.round(
+        (fromISO(s.origDate).getTime() - fromISO(weekStartISO).getTime()) / 86400000,
+      );
+      const targetIdx = Math.max(0, Math.min(dayCount - 1, baseIdx + dayDelta));
+      newDate = addDaysISO(weekStartISO, targetIdx);
+    }
+
+    if (s.mode === "move") {
+      const duration = s.origEnd - s.origStart;
+      let newStart = snap(s.origStart + dyMin);
+      newStart = Math.max(DAY_START_MIN, Math.min(DAY_END_MIN - duration, newStart));
+      setPreview({ startMin: newStart, endMin: newStart + duration, date: newDate });
+    } else {
+      let newEnd = snap(s.origEnd + dyMin);
+      newEnd = Math.max(s.origStart + SNAP_MIN, Math.min(DAY_END_MIN, newEnd));
+      setPreview({ startMin: s.origStart, endMin: newEnd, date: s.origDate });
+    }
+  };
+
+  const finish = (e: React.PointerEvent) => {
+    const s = stateRef.current;
+    if (!s) return;
+    try { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId); } catch { /* noop */ }
+    const p = preview;
+    stateRef.current = null;
+    setPreview(null);
+    if (!p || !s.moved) return;
+    const startTime = minutesToHHMM(p.startMin);
+    const endTime = minutesToHHMM(p.endMin);
+    if (
+      startTime === event.startTime &&
+      endTime === event.endTime &&
+      p.date === event.date
+    ) return;
+    onCommit({
+      date: p.date !== event.date ? p.date : undefined,
+      startTime,
+      endTime,
+    });
+  };
+
+  // Suppress click immediately after a drag.
+  const justDraggedRef = useRef(false);
+  useEffect(() => {
+    if (preview) justDraggedRef.current = true;
+    else if (justDraggedRef.current) {
+      const t = setTimeout(() => { justDraggedRef.current = false; }, 50);
+      return () => clearTimeout(t);
+    }
+  }, [preview]);
+
+  return {
+    preview,
+    moveHandlers: {
+      onPointerDown: onPointerDown("move"),
+      onPointerMove,
+      onPointerUp: finish,
+      onPointerCancel: finish,
+    },
+    resizeHandlers: {
+      onPointerDown: onPointerDown("resize"),
+      onPointerMove,
+      onPointerUp: finish,
+      onPointerCancel: finish,
+    },
+    suppressClick: () => justDraggedRef.current,
+  };
+};
+
+// ---------------------------------------------------------------------------
+// Draggable Event Block
+// ---------------------------------------------------------------------------
+
+interface DraggableEventProps {
+  event: CalendarEvent;
+  onClick: (e: CalendarEvent) => void;
+  onCommit: (id: string, patch: { date?: string; startTime: string; endTime: string }) => void;
+  containerRef: React.RefObject<HTMLElement>;
+  dayColumnWidth?: number;
+  weekStartISO?: string;
+  dayCount?: number;
+  /** Visual variant. */
+  compact?: boolean;
+  /** Extra content rendered on the right (e.g. done toggle). */
+  rightSlot?: React.ReactNode;
+}
+
+const DraggableEvent = ({
+  event, onClick, onCommit, containerRef, dayColumnWidth, weekStartISO, dayCount, compact, rightSlot,
+}: DraggableEventProps) => {
+  const { preview, moveHandlers, resizeHandlers, suppressClick } = useEventDrag({
+    event,
+    pxPerMin: PX_PER_MIN,
+    containerRef,
+    dayColumnWidth,
+    weekStartISO,
+    dayCount,
+    onCommit: (patch) => onCommit(event.id, patch),
+  });
+
+  const startMin = preview?.startMin ?? minutesFromMidnight(event.startTime);
+  const endMin = preview?.endMin ?? minutesFromMidnight(event.endTime);
+  const top = (startMin - DAY_START_MIN) * PX_PER_MIN;
+  const minH = compact ? 20 : 28;
+  const height = Math.max(minH, (endMin - startMin) * PX_PER_MIN - 2);
+  const style = TYPE_STYLES[event.type];
+
+  // For week view, when dragging to another day we render at the original column;
+  // a translucent overlay shows the target column position.
+  const dx = preview && weekStartISO && dayColumnWidth
+    ? (Math.round(
+        (fromISO(preview.date).getTime() - fromISO(event.date).getTime()) / 86400000,
+      )) * dayColumnWidth
+    : 0;
+
+  const handleClick = useCallback((e: React.MouseEvent) => {
+    if (suppressClick()) { e.preventDefault(); e.stopPropagation(); return; }
+    onClick(event);
+  }, [event, onClick, suppressClick]);
+
+  return (
+    <div
+      className={cn(
+        "absolute rounded-md border overflow-hidden transition-shadow select-none touch-none",
+        compact ? "left-1 right-1" : "left-2 right-2",
+        style.className,
+        event.done && "opacity-60",
+        preview && "shadow-glow ring-1 ring-primary/40 z-20",
+      )}
+      style={{ top, height, transform: dx ? `translateX(${dx}px)` : undefined }}
+    >
+      {/* drag-to-move surface (covers the whole block, except the resize handle) */}
+      <div
+        {...moveHandlers}
+        onClick={handleClick}
+        className={cn(
+          "h-full w-full cursor-grab active:cursor-grabbing flex items-center gap-2",
+          compact ? "px-1.5 py-1" : "px-2 py-1",
+        )}
+      >
+        {!compact && <span className={cn("size-2 rounded-full shrink-0", style.dot)} />}
+        <div className="min-w-0 flex-1 pointer-events-none">
+          <p className={cn(
+            compact ? "text-[11px] font-medium leading-tight truncate" : "text-sm font-medium truncate",
+            event.done && "line-through",
+          )}>
+            {event.title}
+          </p>
+          <p className={cn(
+            compact ? "text-[10px] opacity-80 truncate leading-tight" : "text-[11px] opacity-80 truncate",
+          )}>
+            {minutesToHHMM(startMin)}–{minutesToHHMM(endMin)}
+            {event.location && ` · ${event.location}`}
+            {!compact && ` · ${CALENDAR_EVENT_TYPE_LABELS[event.type]}`}
+          </p>
+        </div>
+        {rightSlot}
+      </div>
+      {/* resize handle (bottom edge) */}
+      <div
+        {...resizeHandlers}
+        className="absolute left-0 right-0 bottom-0 h-1.5 cursor-ns-resize hover:bg-primary/30"
+        aria-label="Größe ändern"
+      />
+    </div>
+  );
+};
+
+
 // ---------------------------------------------------------------------------
 // Page
 // ---------------------------------------------------------------------------
@@ -113,10 +361,32 @@ const CalendarPage = () => {
 
   const todayISO = toISO(new Date());
 
+  // Refs / measurements for drag & drop on the week grid.
+  const weekGridRef = useRef<HTMLDivElement>(null);
+  const dayColRef = useRef<HTMLDivElement>(null);
+  const [dayColWidth, setDayColWidth] = useState(0);
+  useEffect(() => {
+    if (!dayColRef.current) return;
+    const el = dayColRef.current;
+    const update = () => setDayColWidth(el.getBoundingClientRect().width);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const handleEventCommit = useCallback(
+    (id: string, patch: { date?: string; startTime: string; endTime: string }) => {
+      updateCalendarEvent(id, patch);
+    },
+    [updateCalendarEvent],
+  );
+
   const openCreate = (defaults: { date?: string; type?: CalendarEventType } = {}) => {
     setCreateDefaults(defaults);
     setCreateOpen(true);
   };
+
 
   return (
     <AppShell>
@@ -216,7 +486,9 @@ const CalendarPage = () => {
                 })}
               </div>
 
-              <div className="grid grid-cols-[60px_repeat(7,minmax(0,1fr))] relative" style={{ height: HOURS.length * HOUR_HEIGHT }}>
+              <div ref={weekGridRef}
+                   className="grid grid-cols-[60px_repeat(7,minmax(0,1fr))] relative"
+                   style={{ height: HOURS.length * HOUR_HEIGHT }}>
                 {/* Hour rail */}
                 <div className="relative border-r border-border">
                   {HOURS.map((h, i) => (
@@ -227,41 +499,32 @@ const CalendarPage = () => {
                   ))}
                 </div>
                 {/* Day columns */}
-                {weekDays.map((d) => {
+                {weekDays.map((d, idx) => {
                   const iso = toISO(d);
                   const dayEvents = eventsByDay[iso] ?? [];
                   return (
-                    <div key={iso} className="relative border-l border-border">
+                    <div
+                      key={iso}
+                      ref={idx === 0 ? dayColRef : undefined}
+                      className="relative border-l border-border"
+                    >
                       {HOURS.map((h, i) => (
                         <div key={h} className="absolute left-0 right-0 border-t border-border/40"
                              style={{ top: i * HOUR_HEIGHT, height: HOUR_HEIGHT }} />
                       ))}
-                      {dayEvents.map((e) => {
-                        const startMin = minutesFromMidnight(e.startTime);
-                        const endMin = minutesFromMidnight(e.endTime);
-                        const top = ((startMin - HOURS[0] * 60) / 60) * HOUR_HEIGHT;
-                        const height = Math.max(20, ((endMin - startMin) / 60) * HOUR_HEIGHT - 2);
-                        const style = TYPE_STYLES[e.type];
-                        return (
-                          <button
-                            key={e.id}
-                            type="button"
-                            onClick={() => setEditEvent(e)}
-                            className={cn(
-                              "absolute left-1 right-1 rounded-md border px-1.5 py-1 text-left text-[11px] leading-tight overflow-hidden hover:shadow-card transition-smooth",
-                              style.className,
-                              e.done && "opacity-60 line-through",
-                            )}
-                            style={{ top, height }}
-                          >
-                            <p className="font-medium truncate">{e.title}</p>
-                            <p className="text-[10px] opacity-80 truncate">
-                              {e.startTime}–{e.endTime}
-                              {e.location && ` · ${e.location}`}
-                            </p>
-                          </button>
-                        );
-                      })}
+                      {dayEvents.map((e) => (
+                        <DraggableEvent
+                          key={e.id}
+                          event={e}
+                          onClick={setEditEvent}
+                          onCommit={handleEventCommit}
+                          containerRef={weekGridRef}
+                          dayColumnWidth={dayColWidth}
+                          weekStartISO={toISO(weekStart)}
+                          dayCount={7}
+                          compact
+                        />
+                      ))}
                     </div>
                   );
                 })}
@@ -283,6 +546,7 @@ const CalendarPage = () => {
               onCreate={() => openCreate({ date: toISO(anchorDate), type: "block" })}
               onEdit={setEditEvent}
               onToggleDone={toggleCalendarEventDone}
+              onCommit={handleEventCommit}
             />
           </TabsContent>
 
@@ -361,7 +625,7 @@ export default CalendarPage;
 // ---------------------------------------------------------------------------
 
 const DayStructureView = ({
-  date, setDate, templates, onApplyTemplate, events, onCreate, onEdit, onToggleDone,
+  date, setDate, templates, onApplyTemplate, events, onCreate, onEdit, onToggleDone, onCommit,
 }: {
   date: Date;
   setDate: (d: Date) => void;
@@ -371,8 +635,10 @@ const DayStructureView = ({
   onCreate: () => void;
   onEdit: (e: CalendarEvent) => void;
   onToggleDone: (id: string) => void;
+  onCommit: (id: string, patch: { date?: string; startTime: string; endTime: string }) => void;
 }) => {
   const [selectedTpl, setSelectedTpl] = useState<string>("");
+  const dayGridRef = useRef<HTMLDivElement>(null);
 
   return (
     <div className="space-y-3">
@@ -411,7 +677,9 @@ const DayStructureView = ({
       </Card>
 
       <Card className="overflow-hidden">
-        <div className="grid grid-cols-[60px_minmax(0,1fr)] relative" style={{ height: HOURS.length * HOUR_HEIGHT }}>
+        <div ref={dayGridRef}
+             className="grid grid-cols-[60px_minmax(0,1fr)] relative"
+             style={{ height: HOURS.length * HOUR_HEIGHT }}>
           <div className="relative border-r border-border">
             {HOURS.map((h, i) => (
               <div key={h} className="absolute left-0 right-0 text-[10px] text-muted-foreground px-1.5"
@@ -425,38 +693,23 @@ const DayStructureView = ({
               <div key={h} className="absolute left-0 right-0 border-t border-border/40"
                    style={{ top: i * HOUR_HEIGHT, height: HOUR_HEIGHT }} />
             ))}
-            {events.map((e) => {
-              const startMin = minutesFromMidnight(e.startTime);
-              const endMin = minutesFromMidnight(e.endTime);
-              const top = ((startMin - HOURS[0] * 60) / 60) * HOUR_HEIGHT;
-              const height = Math.max(28, ((endMin - startMin) / 60) * HOUR_HEIGHT - 2);
-              const style = TYPE_STYLES[e.type];
-              return (
-                <div key={e.id}
-                     className={cn(
-                       "absolute left-2 right-2 rounded-md border px-2 py-1 flex items-center gap-2 cursor-pointer hover:shadow-card transition-smooth",
-                       style.className,
-                       e.done && "opacity-60",
-                     )}
-                     style={{ top, height }}
-                     onClick={() => onEdit(e)}>
-                  <span className={cn("size-2 rounded-full shrink-0", style.dot)} />
-                  <div className="min-w-0 flex-1">
-                    <p className={cn("text-sm font-medium truncate", e.done && "line-through")}>{e.title}</p>
-                    <p className="text-[11px] opacity-80 truncate">
-                      {e.startTime}–{e.endTime}
-                      {e.location && ` · ${e.location}`}
-                      {" · "}{CALENDAR_EVENT_TYPE_LABELS[e.type]}
-                    </p>
-                  </div>
+            {events.map((e) => (
+              <DraggableEvent
+                key={e.id}
+                event={e}
+                onClick={onEdit}
+                onCommit={onCommit}
+                containerRef={dayGridRef}
+                rightSlot={
                   <Button variant="ghost" size="icon" className="size-6 shrink-0"
+                    onPointerDown={(ev) => ev.stopPropagation()}
                     onClick={(ev) => { ev.stopPropagation(); onToggleDone(e.id); }}
                     aria-label="Erledigt umschalten">
                     <ListChecks className="size-3.5" />
                   </Button>
-                </div>
-              );
-            })}
+                }
+              />
+            ))}
             {events.length === 0 && (
               <div className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground">
                 Noch keine Blöcke – wähle eine Vorlage oder lege manuell einen Block an.
