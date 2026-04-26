@@ -81,7 +81,7 @@ const ProcessDetail = () => {
   };
 
   const handleComplete = () => {
-    if (!isBooked) { toast.error("Bitte zuerst „Buchen" klicken."); return; }
+    if (!isBooked) { toast.error('Bitte zuerst „Buchen" klicken.'); return; }
     completeStep(process.id, selectedKey);
     toast.success(`${selectedStep.documentName} archiviert${nextStep ? ` · Weiter zu ${nextStep.label}` : " · Vorgang abgeschlossen"}`);
     if (nextStep) setSelected(nextStep.key);
