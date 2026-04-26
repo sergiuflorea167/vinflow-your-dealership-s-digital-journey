@@ -220,18 +220,13 @@ const VehicleDetail = () => {
               <h2 className="text-xl font-display font-semibold">Angebote &amp; Verkauf</h2>
               <p className="text-sm text-muted-foreground mt-1">
                 {offers.length} Angebot{offers.length !== 1 ? "e" : ""}
-                {!process && " · oder direkt zum Vorgang springen, wenn der Kunde mündlich zugesagt hat."}
+                {!process && offers.length === 0 && " · noch keine Verkaufsaktivität"}
               </p>
             </div>
-            {!process && (
-              <div className="flex gap-2 flex-wrap">
-                <Button onClick={() => setOfferDialog(true)} variant="outline" className="gap-2">
-                  <Plus className="size-4" /> Neues Angebot
-                </Button>
-                <Button onClick={() => setDirectDialog(true)} className="bg-gradient-brand gap-2">
-                  <Zap className="size-4" /> Direkt verkaufen
-                </Button>
-              </div>
+            {!process && offers.length > 0 && (
+              <Button onClick={() => setOfferDialog(true)} variant="outline" size="sm" className="gap-1.5">
+                <Plus className="size-3.5" /> Weiteres Angebot
+              </Button>
             )}
           </div>
 
