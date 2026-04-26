@@ -369,14 +369,23 @@ const Todos = () => {
                         />
                       </td>
                       <td className="max-w-[280px]">
-                        <p className={cn("font-medium text-foreground truncate leading-tight", t.done && "line-through text-muted-foreground")}>
-                          {t.title}
-                        </p>
-                        {t.tags && t.tags.length > 0 && (
-                          <p className="text-[10px] text-muted-foreground truncate leading-tight">
-                            {t.tags.map((x) => `#${x}`).join(" ")}
+                        <button
+                          type="button"
+                          onClick={() => setEditTodo(t)}
+                          className="block text-left w-full group/title"
+                        >
+                          <p className={cn(
+                            "font-medium text-foreground truncate leading-tight group-hover/title:text-primary-glow transition-smooth",
+                            t.done && "line-through text-muted-foreground",
+                          )}>
+                            {t.title}
                           </p>
-                        )}
+                          {t.tags && t.tags.length > 0 && (
+                            <p className="text-[10px] text-muted-foreground truncate leading-tight">
+                              {t.tags.map((x) => `#${x}`).join(" ")}
+                            </p>
+                          )}
+                        </button>
                       </td>
                       <td>
                         <Badge variant="outline" className={cn(scope.className, "text-[10px] px-1.5 py-0")}>
