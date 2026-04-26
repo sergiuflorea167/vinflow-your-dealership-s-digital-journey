@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Link as RouterLink } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { AppShell } from "@/components/layout/AppShell";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,11 +15,8 @@ import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import {
-  Tabs, TabsList, TabsTrigger, TabsContent,
-} from "@/components/ui/tabs";
-import {
-  AlertTriangle, Calendar, Car, CheckCircle2, Clock, Flag, Inbox,
-  ListChecks, Plus, Tag as TagIcon, Trash2, User as UserIcon, X,
+  AlertTriangle, Calendar, Car, CheckCircle2, Flag, Inbox,
+  Plus, Trash2, X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -28,15 +25,17 @@ import {
   Todo, TodoPriority, TodoScope, formatDate,
 } from "@/data/process";
 import { useTopbarSearch } from "@/context/TopbarSearchContext";
+import { DataTableShell } from "@/components/shared/DataTableShell";
+import { SortableTh, SortState } from "@/components/shared/SortableTh";
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
-const PRIORITY_META: Record<TodoPriority, { label: string; className: string; dot: string }> = {
-  high:   { label: "Hoch",     className: "bg-destructive/15 text-destructive border-destructive/30", dot: "bg-destructive" },
-  medium: { label: "Mittel",   className: "bg-warning/15 text-warning border-warning/30",             dot: "bg-warning" },
-  low:    { label: "Niedrig",  className: "bg-info/15 text-info border-info/30",                       dot: "bg-info" },
+const PRIORITY_META: Record<TodoPriority, { label: string; className: string; dot: string; weight: number }> = {
+  high:   { label: "Hoch",     className: "bg-destructive/15 text-destructive border-destructive/30", dot: "bg-destructive", weight: 0 },
+  medium: { label: "Mittel",   className: "bg-warning/15 text-warning border-warning/30",             dot: "bg-warning",     weight: 1 },
+  low:    { label: "Niedrig",  className: "bg-info/15 text-info border-info/30",                       dot: "bg-info",        weight: 2 },
 };
 
 const SCOPE_META: Record<TodoScope, { label: string; className: string }> = {
@@ -48,13 +47,15 @@ const SCOPE_META: Record<TodoScope, { label: string; className: string }> = {
   outbound_check:       { label: "Ausgangskontrolle",className: "bg-warning/10 text-warning border-warning/30" },
 };
 
-type FilterTab = "open" | "today" | "overdue" | "done" | "all";
+type StatusFilter = "all" | "open" | "today" | "overdue" | "done";
+type TodoSortKey = "title" | "scope" | "priority" | "dueDate" | "assignee" | "status" | "createdAt";
 
 // ---------------------------------------------------------------------------
 // Page
 // ---------------------------------------------------------------------------
 
 const Todos = () => {
+  const navigate = useNavigate();
   const todos = useProcessStore((s) => s.todos);
   const vehicles = useProcessStore((s) => s.vehicles);
   const processes = useProcessStore((s) => s.processes);
@@ -63,12 +64,13 @@ const Todos = () => {
   const removeTodo = useProcessStore((s) => s.removeTodo);
   const updateTodo = useProcessStore((s) => s.updateTodo);
 
-  const [tab, setTab] = useState<FilterTab>("open");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("open");
   const [scopeFilter, setScopeFilter] = useState<"all" | TodoScope>("all");
   const [priorityFilter, setPriorityFilter] = useState<"all" | TodoPriority>("all");
   const [query, setQuery] = useState("");
   const [searchField, setSearchField] = useState<"all" | "title" | "tag" | "assignee">("all");
   const [createOpen, setCreateOpen] = useState(false);
+  const [sort, setSort] = useState<SortState<TodoSortKey>>({ key: "dueDate", dir: "asc" });
 
   // ---- Topbar-Suche -------------------------------------------------------
   const topbarSearch = useMemo(() => ({
@@ -91,19 +93,17 @@ const Todos = () => {
   const processMap = useMemo(() => Object.fromEntries(processes.map((p) => [p.id, p])), [processes]);
 
   const todayISO = new Date().toISOString().slice(0, 10);
-
   const isOverdue = (t: Todo) => !t.done && !!t.dueDate && t.dueDate < todayISO;
   const isToday   = (t: Todo) => !t.done && t.dueDate === todayISO;
 
-  // ---- Filterung ----------------------------------------------------------
+  // ---- Filter -------------------------------------------------------------
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return todos.filter((t) => {
-      // Tab
-      if (tab === "open"    && t.done) return false;
-      if (tab === "done"    && !t.done) return false;
-      if (tab === "today"   && !isToday(t)) return false;
-      if (tab === "overdue" && !isOverdue(t)) return false;
+      if (statusFilter === "open"    && t.done) return false;
+      if (statusFilter === "done"    && !t.done) return false;
+      if (statusFilter === "today"   && !isToday(t)) return false;
+      if (statusFilter === "overdue" && !isOverdue(t)) return false;
 
       if (scopeFilter !== "all" && t.scope !== scopeFilter) return false;
       if (priorityFilter !== "all" && t.priority !== priorityFilter) return false;
@@ -117,23 +117,36 @@ const Todos = () => {
       }
       return true;
     });
-  }, [todos, tab, scopeFilter, priorityFilter, query, searchField, todayISO]);
+  }, [todos, statusFilter, scopeFilter, priorityFilter, query, searchField, todayISO]);
 
-  // Sortierung: überfällig → heute → datiert (asc) → undatiert; innerhalb prio (high→low)
+  // ---- Sortierung ---------------------------------------------------------
   const sorted = useMemo(() => {
-    const prioWeight: Record<TodoPriority, number> = { high: 0, medium: 1, low: 2 };
+    const dir = sort.dir === "asc" ? 1 : -1;
+    const cmp = (a: string | number | undefined | null, b: string | number | undefined | null) => {
+      const av = a ?? (typeof b === "number" ? Number.POSITIVE_INFINITY : "");
+      const bv = b ?? (typeof a === "number" ? Number.POSITIVE_INFINITY : "");
+      if (av < bv) return -1 * dir;
+      if (av > bv) return 1 * dir;
+      return 0;
+    };
     return [...filtered].sort((a, b) => {
-      if (a.done !== b.done) return a.done ? 1 : -1;
-      const ao = isOverdue(a) ? 0 : isToday(a) ? 1 : a.dueDate ? 2 : 3;
-      const bo = isOverdue(b) ? 0 : isToday(b) ? 1 : b.dueDate ? 2 : 3;
-      if (ao !== bo) return ao - bo;
-      if (a.dueDate && b.dueDate && a.dueDate !== b.dueDate) return a.dueDate < b.dueDate ? -1 : 1;
-      if (prioWeight[a.priority] !== prioWeight[b.priority]) return prioWeight[a.priority] - prioWeight[b.priority];
-      return a.createdAt < b.createdAt ? 1 : -1;
+      switch (sort.key) {
+        case "title":     return cmp(a.title.toLowerCase(), b.title.toLowerCase());
+        case "scope":     return cmp(SCOPE_META[a.scope].label, SCOPE_META[b.scope].label);
+        case "priority":  return cmp(PRIORITY_META[a.priority].weight, PRIORITY_META[b.priority].weight);
+        case "dueDate":   return cmp(a.dueDate ?? "9999-99-99", b.dueDate ?? "9999-99-99");
+        case "assignee":  return cmp((a.assignee ?? "").toLowerCase(), (b.assignee ?? "").toLowerCase());
+        case "status": {
+          const rank = (t: Todo) => t.done ? 3 : isOverdue(t) ? 0 : isToday(t) ? 1 : 2;
+          return cmp(rank(a), rank(b));
+        }
+        case "createdAt": return cmp(a.createdAt, b.createdAt);
+        default: return 0;
+      }
     });
-  }, [filtered]);
+  }, [filtered, sort, todayISO]);
 
-  // ---- Stats für Tab-Badges ----------------------------------------------
+  // ---- Stats --------------------------------------------------------------
   const stats = useMemo(() => ({
     open:    todos.filter((t) => !t.done).length,
     today:   todos.filter((t) => isToday(t)).length,
@@ -145,100 +158,219 @@ const Todos = () => {
   // ---- Render -------------------------------------------------------------
   return (
     <AppShell>
-      <div className="space-y-6 animate-fade-in">
-        {/* Header */}
-        <div className="flex items-start justify-between gap-4 flex-wrap">
-          <div className="flex items-center gap-4">
-            <div className="size-12 rounded-2xl bg-gradient-brand grid place-items-center shadow-glow">
-              <ListChecks className="size-6 text-primary-foreground" />
-            </div>
-            <div>
-              <h1 className="text-3xl font-display font-bold tracking-tight">To-Dos</h1>
-              <p className="text-sm text-muted-foreground mt-1">
-                Eigenständige Aufgaben — unabhängig von Kunden oder Fahrzeugen.
-              </p>
-            </div>
+      <div className="space-y-3 animate-fade-in">
+        {/* Header — kompakt */}
+        <div className="flex items-center justify-between gap-4 shrink-0">
+          <div>
+            <h1 className="font-display text-2xl font-bold tracking-tight">To-Dos</h1>
+            <p className="text-xs text-muted-foreground">Eigenständige Aufgaben · sortier- und filterbar</p>
           </div>
-          <Button onClick={() => setCreateOpen(true)} className="bg-gradient-brand gap-2">
+          <Button
+            size="sm"
+            className="bg-gradient-brand hover:opacity-90 shadow-elegant gap-2"
+            onClick={() => setCreateOpen(true)}
+          >
             <Plus className="size-4" /> Neues To-Do
           </Button>
         </div>
 
-        {/* Quick stats */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <StatCard icon={<Inbox className="size-4 text-info" />}              label="Offen"       value={stats.open}    accent="bg-info/15" />
-          <StatCard icon={<Calendar className="size-4 text-warning" />}        label="Heute fällig" value={stats.today}   accent="bg-warning/15" />
-          <StatCard icon={<AlertTriangle className="size-4 text-destructive" />} label="Überfällig"  value={stats.overdue} accent="bg-destructive/15" />
-          <StatCard icon={<CheckCircle2 className="size-4 text-success" />}    label="Erledigt"    value={stats.done}    accent="bg-success/15" />
+        {/* KPI-Strip kompakt */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 shrink-0">
+          {[
+            { label: "Offen",        value: stats.open,    icon: Inbox,          accent: "text-info" },
+            { label: "Heute fällig", value: stats.today,   icon: Calendar,       accent: "text-warning" },
+            { label: "Überfällig",   value: stats.overdue, icon: AlertTriangle,  accent: "text-destructive" },
+            { label: "Erledigt",     value: stats.done,    icon: CheckCircle2,   accent: "text-success" },
+          ].map(({ label, value, icon: Icon, accent }) => (
+            <Card key={label} className="px-3 py-2 flex items-center gap-3">
+              <Icon className={cn("size-4", accent)} />
+              <div>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider leading-none">{label}</p>
+                <p className="font-display text-lg font-bold leading-tight">{value}</p>
+              </div>
+            </Card>
+          ))}
         </div>
 
-        {/* Tabs + Filter */}
-        <Card className="p-5 bg-card border-border shadow-card">
-          <Tabs value={tab} onValueChange={(v) => setTab(v as FilterTab)}>
-            <div className="flex items-center justify-between gap-4 flex-wrap">
-              <TabsList className="bg-background/40">
-                <TabsTrigger value="open">
-                  Offen <Badge variant="outline" className="ml-2">{stats.open}</Badge>
-                </TabsTrigger>
-                <TabsTrigger value="today">
-                  Heute <Badge variant="outline" className="ml-2">{stats.today}</Badge>
-                </TabsTrigger>
-                <TabsTrigger value="overdue">
-                  Überfällig <Badge variant="outline" className="ml-2">{stats.overdue}</Badge>
-                </TabsTrigger>
-                <TabsTrigger value="done">
-                  Erledigt <Badge variant="outline" className="ml-2">{stats.done}</Badge>
-                </TabsTrigger>
-                <TabsTrigger value="all">
-                  Alle <Badge variant="outline" className="ml-2">{stats.all}</Badge>
-                </TabsTrigger>
-              </TabsList>
-
-              <div className="flex items-center gap-2 flex-wrap">
-                <Select value={scopeFilter} onValueChange={(v) => setScopeFilter(v as typeof scopeFilter)}>
-                  <SelectTrigger className="w-[180px] h-9"><SelectValue placeholder="Bereich" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Alle Bereiche</SelectItem>
-                    {(Object.keys(SCOPE_META) as TodoScope[]).map((s) => (
-                      <SelectItem key={s} value={s}>{SCOPE_META[s].label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select value={priorityFilter} onValueChange={(v) => setPriorityFilter(v as typeof priorityFilter)}>
-                  <SelectTrigger className="w-[150px] h-9"><SelectValue placeholder="Priorität" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Alle Prioritäten</SelectItem>
-                    <SelectItem value="high">Hoch</SelectItem>
-                    <SelectItem value="medium">Mittel</SelectItem>
-                    <SelectItem value="low">Niedrig</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            <TabsContent value={tab} className="mt-5">
-              {sorted.length === 0 ? (
-                <EmptyState onCreate={() => setCreateOpen(true)} />
-              ) : (
-                <ul className="space-y-2">
-                  {sorted.map((t) => (
-                    <TodoRow
-                      key={t.id}
-                      todo={t}
-                      vehicleName={t.vehicleId ? `${vehicleMap[t.vehicleId]?.make ?? ""} ${vehicleMap[t.vehicleId]?.model ?? ""}`.trim() : undefined}
-                      processId={t.processId && processMap[t.processId] ? t.processId : undefined}
-                      overdue={isOverdue(t)}
-                      today={isToday(t)}
-                      onToggle={() => toggleTodo(t.id)}
-                      onDelete={() => { removeTodo(t.id); toast.success("To-Do gelöscht."); }}
-                      onUpdate={(p) => updateTodo(t.id, p)}
-                    />
-                  ))}
-                </ul>
-              )}
-            </TabsContent>
-          </Tabs>
+        {/* Filter-Leiste kompakt */}
+        <Card className="px-3 py-2 flex items-center gap-2 flex-wrap shrink-0">
+          <Select value={scopeFilter} onValueChange={(v) => setScopeFilter(v as typeof scopeFilter)}>
+            <SelectTrigger className="w-[160px] h-8 text-xs"><SelectValue placeholder="Bereich" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Alle Bereiche</SelectItem>
+              {(Object.keys(SCOPE_META) as TodoScope[]).map((s) => (
+                <SelectItem key={s} value={s}>{SCOPE_META[s].label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={priorityFilter} onValueChange={(v) => setPriorityFilter(v as typeof priorityFilter)}>
+            <SelectTrigger className="w-[140px] h-8 text-xs"><SelectValue placeholder="Priorität" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Alle Prioritäten</SelectItem>
+              <SelectItem value="high">Hoch</SelectItem>
+              <SelectItem value="medium">Mittel</SelectItem>
+              <SelectItem value="low">Niedrig</SelectItem>
+            </SelectContent>
+          </Select>
+          <div className="flex gap-1.5 flex-wrap">
+            {([
+              { key: "open",    label: `Offen (${stats.open})` },
+              { key: "today",   label: `Heute (${stats.today})` },
+              { key: "overdue", label: `Überfällig (${stats.overdue})` },
+              { key: "done",    label: `Erledigt (${stats.done})` },
+              { key: "all",     label: `Alle (${stats.all})` },
+            ] as const).map((f) => (
+              <Button
+                key={f.key}
+                size="sm"
+                variant={statusFilter === f.key ? "default" : "outline"}
+                className="h-8 text-xs"
+                onClick={() => setStatusFilter(f.key)}
+              >
+                {f.label}
+              </Button>
+            ))}
+          </div>
         </Card>
+
+        {sorted.length === 0 ? (
+          <Card className="p-12 text-center text-muted-foreground">Keine To-Dos gefunden.</Card>
+        ) : (
+          <DataTableShell footer={<>{sorted.length} {sorted.length === 1 ? "Eintrag" : "Einträge"}</>}>
+            <table>
+              <thead>
+                <tr>
+                  <th className="px-3 py-2 w-8" />
+                  <SortableTh label="Titel" sortKey="title" state={sort} onChange={setSort} />
+                  <SortableTh label="Bereich" sortKey="scope" state={sort} onChange={setSort} />
+                  <SortableTh label="Priorität" sortKey="priority" state={sort} onChange={setSort} />
+                  <SortableTh label="Fällig" sortKey="dueDate" state={sort} onChange={setSort} />
+                  <SortableTh label="Zuständig" sortKey="assignee" state={sort} onChange={setSort} />
+                  <th className="px-3 py-2">Bezug</th>
+                  <SortableTh label="Status" sortKey="status" state={sort} onChange={setSort} />
+                  <SortableTh label="Erstellt" sortKey="createdAt" state={sort} onChange={setSort} />
+                  <th className="px-3 py-2 w-8" />
+                </tr>
+              </thead>
+              <tbody>
+                {sorted.map((t) => {
+                  const overdue = isOverdue(t);
+                  const today = isToday(t);
+                  const prio = PRIORITY_META[t.priority];
+                  const scope = SCOPE_META[t.scope];
+                  const veh = t.vehicleId ? vehicleMap[t.vehicleId] : undefined;
+                  const proc = t.processId && processMap[t.processId] ? processMap[t.processId] : undefined;
+                  return (
+                    <tr
+                      key={t.id}
+                      className={cn(
+                        "transition-smooth hover:bg-surface-elevated/40",
+                        t.done && "opacity-60",
+                        !t.done && overdue && "bg-destructive/5",
+                        !t.done && today && "bg-warning/5",
+                      )}
+                    >
+                      <td>
+                        <Checkbox
+                          checked={t.done}
+                          onCheckedChange={() => toggleTodo(t.id)}
+                          aria-label={t.done ? "Als offen markieren" : "Als erledigt markieren"}
+                        />
+                      </td>
+                      <td className="max-w-[280px]">
+                        <p className={cn("font-medium text-foreground truncate leading-tight", t.done && "line-through text-muted-foreground")}>
+                          {t.title}
+                        </p>
+                        {t.tags && t.tags.length > 0 && (
+                          <p className="text-[10px] text-muted-foreground truncate leading-tight">
+                            {t.tags.map((x) => `#${x}`).join(" ")}
+                          </p>
+                        )}
+                      </td>
+                      <td>
+                        <Badge variant="outline" className={cn(scope.className, "text-[10px] px-1.5 py-0")}>
+                          {scope.label}
+                        </Badge>
+                      </td>
+                      <td>
+                        <Select value={t.priority} onValueChange={(v) => updateTodo(t.id, { priority: v as TodoPriority })}>
+                          <SelectTrigger className={cn("h-6 px-1.5 text-[10px] gap-1 border w-auto", prio.className)}>
+                            <span className={cn("size-1.5 rounded-full", prio.dot)} />
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="high">Hoch</SelectItem>
+                            <SelectItem value="medium">Mittel</SelectItem>
+                            <SelectItem value="low">Niedrig</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </td>
+                      <td className={cn(
+                        "whitespace-nowrap",
+                        overdue ? "text-destructive font-medium" : today ? "text-warning font-medium" : "text-muted-foreground",
+                      )}>
+                        {t.dueDate ? (
+                          <span className="inline-flex items-center gap-1">
+                            <Calendar className="size-3" />
+                            {formatDate(t.dueDate)}
+                            {overdue && <span className="text-[10px]">· überfällig</span>}
+                            {today && <span className="text-[10px]">· heute</span>}
+                          </span>
+                        ) : "–"}
+                      </td>
+                      <td className="text-muted-foreground truncate max-w-[120px]">{t.assignee ?? "–"}</td>
+                      <td>
+                        {veh ? (
+                          <button
+                            type="button"
+                            onClick={() => navigate(`/bestand/${veh.id}`)}
+                            className="inline-flex items-center gap-1 text-primary-glow hover:underline truncate max-w-[160px]"
+                          >
+                            <Car className="size-3 shrink-0" />
+                            <span className="truncate">{veh.make} {veh.model}</span>
+                          </button>
+                        ) : proc ? (
+                          <button
+                            type="button"
+                            onClick={() => navigate(`/vorgaenge/${proc.id}`)}
+                            className="font-mono text-primary-glow hover:underline"
+                          >
+                            {proc.id}
+                          </button>
+                        ) : (
+                          <span className="text-muted-foreground">–</span>
+                        )}
+                      </td>
+                      <td>
+                        {t.done ? (
+                          <Badge className="bg-success/15 text-success border-success/30 text-[10px] px-1.5 py-0">Erledigt</Badge>
+                        ) : overdue ? (
+                          <Badge className="bg-destructive/15 text-destructive border-destructive/30 text-[10px] px-1.5 py-0">Überfällig</Badge>
+                        ) : today ? (
+                          <Badge className="bg-warning/15 text-warning border-warning/30 text-[10px] px-1.5 py-0">Heute</Badge>
+                        ) : (
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0">Offen</Badge>
+                        )}
+                      </td>
+                      <td className="text-muted-foreground whitespace-nowrap text-[10px]">{formatDate(t.createdAt)}</td>
+                      <td>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-6 text-muted-foreground hover:text-destructive"
+                          onClick={() => { removeTodo(t.id); toast.success("To-Do gelöscht."); }}
+                          aria-label="Löschen"
+                        >
+                          <Trash2 className="size-3.5" />
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </DataTableShell>
+        )}
       </div>
 
       {/* Create Dialog */}
@@ -262,155 +394,8 @@ const Todos = () => {
 export default Todos;
 
 // ---------------------------------------------------------------------------
-// Subcomponents
+// Create Form
 // ---------------------------------------------------------------------------
-
-const StatCard = ({ icon, label, value, accent }: { icon: React.ReactNode; label: string; value: number; accent: string }) => (
-  <Card className="p-4 bg-card border-border shadow-card flex items-center gap-3">
-    <div className={cn("size-9 rounded-lg grid place-items-center shrink-0", accent)}>{icon}</div>
-    <div className="min-w-0">
-      <p className="text-[10px] uppercase tracking-widest text-muted-foreground">{label}</p>
-      <p className="text-2xl font-display font-bold leading-tight">{value}</p>
-    </div>
-  </Card>
-);
-
-const EmptyState = ({ onCreate }: { onCreate: () => void }) => (
-  <div className="text-center py-12 border border-dashed border-border rounded-xl">
-    <div className="size-12 rounded-2xl bg-secondary mx-auto grid place-items-center mb-3">
-      <ListChecks className="size-6 text-muted-foreground" />
-    </div>
-    <p className="text-sm text-muted-foreground mb-4">Hier ist gerade nichts zu tun.</p>
-    <Button onClick={onCreate} variant="outline" className="gap-2">
-      <Plus className="size-4" /> To-Do erstellen
-    </Button>
-  </div>
-);
-
-// ---- Row ------------------------------------------------------------------
-
-const TodoRow = ({
-  todo, vehicleName, processId, overdue, today, onToggle, onDelete, onUpdate,
-}: {
-  todo: Todo;
-  vehicleName?: string;
-  processId?: string;
-  overdue: boolean;
-  today: boolean;
-  onToggle: () => void;
-  onDelete: () => void;
-  onUpdate: (p: Partial<Todo>) => void;
-}) => {
-  const prio = PRIORITY_META[todo.priority];
-  const scope = SCOPE_META[todo.scope];
-
-  return (
-    <li
-      className={cn(
-        "group rounded-xl border p-4 transition-smooth flex items-start gap-3",
-        todo.done
-          ? "bg-background/30 border-border opacity-70"
-          : overdue
-            ? "bg-destructive/5 border-destructive/30 hover:border-destructive/50"
-            : today
-              ? "bg-warning/5 border-warning/30 hover:border-warning/50"
-              : "bg-background/40 border-border hover:border-primary/40",
-      )}
-    >
-      <Checkbox
-        checked={todo.done}
-        onCheckedChange={onToggle}
-        className="mt-1 shrink-0"
-        aria-label={todo.done ? "Als offen markieren" : "Als erledigt markieren"}
-      />
-
-      <div className="min-w-0 flex-1">
-        <div className="flex items-start justify-between gap-3 flex-wrap">
-          <div className="min-w-0 flex-1">
-            <p className={cn("font-display font-semibold text-foreground break-words", todo.done && "line-through text-muted-foreground")}>
-              {todo.title}
-            </p>
-            {todo.description && (
-              <p className="text-xs text-muted-foreground mt-1 whitespace-pre-line break-words">{todo.description}</p>
-            )}
-          </div>
-
-          <div className="flex items-center gap-1.5 shrink-0">
-            <Select value={todo.priority} onValueChange={(v) => onUpdate({ priority: v as TodoPriority })}>
-              <SelectTrigger className={cn("h-7 px-2 text-xs gap-1.5 border", prio.className)}>
-                <span className={cn("size-1.5 rounded-full", prio.dot)} />
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="high">Hoch</SelectItem>
-                <SelectItem value="medium">Mittel</SelectItem>
-                <SelectItem value="low">Niedrig</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button variant="ghost" size="icon" className="size-7 text-muted-foreground hover:text-destructive" onClick={onDelete} aria-label="Löschen">
-              <Trash2 className="size-3.5" />
-            </Button>
-          </div>
-        </div>
-
-        {/* Meta-Zeile */}
-        <div className="flex items-center gap-2 mt-2.5 flex-wrap text-xs">
-          <Badge variant="outline" className={scope.className}>{scope.label}</Badge>
-
-          {todo.dueDate && (
-            <span className={cn(
-              "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 border",
-              overdue ? "border-destructive/40 text-destructive bg-destructive/10"
-                : today ? "border-warning/40 text-warning bg-warning/10"
-                : "border-border text-muted-foreground bg-background/40",
-            )}>
-              <Calendar className="size-3" />
-              {formatDate(todo.dueDate)}
-              {overdue && <span className="font-semibold">· überfällig</span>}
-              {today && <span className="font-semibold">· heute</span>}
-            </span>
-          )}
-
-          {todo.assignee && (
-            <span className="inline-flex items-center gap-1 text-muted-foreground">
-              <UserIcon className="size-3" /> {todo.assignee}
-            </span>
-          )}
-
-          {vehicleName && (
-            <RouterLink
-              to={`/bestand/${todo.vehicleId}`}
-              className="inline-flex items-center gap-1 text-primary-glow hover:underline"
-            >
-              <Car className="size-3" /> {vehicleName}
-            </RouterLink>
-          )}
-
-          {processId && (
-            <RouterLink
-              to={`/vorgaenge/${processId}`}
-              className="inline-flex items-center gap-1 text-primary-glow hover:underline font-mono"
-            >
-              {processId}
-            </RouterLink>
-          )}
-
-          {todo.tags?.map((tag) => (
-            <span key={tag} className="inline-flex items-center gap-1 rounded-md bg-secondary text-secondary-foreground px-1.5 py-0.5">
-              <TagIcon className="size-3" /> {tag}
-            </span>
-          ))}
-
-          <span className="ml-auto inline-flex items-center gap-1 text-muted-foreground/70">
-            <Clock className="size-3" /> {formatDate(todo.createdAt)}
-          </span>
-        </div>
-      </div>
-    </li>
-  );
-};
-
-// ---- Create Form ----------------------------------------------------------
 
 const CreateTodoForm = ({
   onSubmit, onCancel,
@@ -502,3 +487,4 @@ const CreateTodoForm = ({
     </div>
   );
 };
+
