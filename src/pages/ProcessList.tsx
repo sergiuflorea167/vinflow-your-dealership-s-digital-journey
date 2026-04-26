@@ -218,6 +218,22 @@ const ProcessList = () => {
         ],
       };
     }
+    if (tab === "archived") {
+      return {
+        placeholder: "Archivierte Vorgänge durchsuchen…",
+        value: archQ,
+        onChange: setArchQ,
+        field: archQField,
+        onFieldChange: (f: string) => setArchQField(f as typeof archQField),
+        fields: [
+          { key: "all",      label: "Alle Felder" },
+          { key: "id",       label: "Vorgangs-Nr." },
+          { key: "vin",      label: "VIN" },
+          { key: "vehicle",  label: "Fahrzeug" },
+          { key: "customer", label: "Kunde" },
+        ],
+      };
+    }
     if (tab === "offers") {
       return {
         placeholder: "Angebote durchsuchen…",
@@ -248,7 +264,7 @@ const ProcessList = () => {
         { key: "doc",      label: "Belegart" },
       ],
     };
-  }, [tab, q, qField, offerQ, offerQField, docQ, docQField]);
+  }, [tab, q, qField, archQ, archQField, offerQ, offerQField, docQ, docQField]);
 
   useTopbarSearch(topbarSearch);
 
