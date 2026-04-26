@@ -205,6 +205,53 @@ export const useProcessStore = create<State>()(
           ),
 
         // ------- Process -------
+        bookStep: (processId, stepKey) =>
+          set((state) => {
+            const process = state.processes.find((p) => p.id === processId);
+            if (!process) return state;
+            const rec = process.steps[stepKey];
+            // Nur den aktuell aktiven Schritt buchen, sofern noch nicht erledigt.
+            if (!rec || rec.status !== "active" || rec.bookedAt) return state;
+            return {
+              ...state,
+              processes: state.processes.map((p) =>
+                p.id !== processId
+                  ? p
+                  : {
+                      ...p,
+                      updatedAt: new Date().toISOString(),
+                      steps: { ...p.steps, [stepKey]: { ...rec, bookedAt: new Date().toISOString() } },
+                    }
+              ),
+              activities: logActivity(
+                state,
+                "process_step_completed",
+                `Schritt „${PROCESS_STEPS[stepIndex(stepKey)].label}" gebucht – bereit zur Belegerzeugung`,
+                { processId, vehicleId: process.vehicleId, meta: { step: stepKey, action: "booked" } }
+              ),
+            };
+          }),
+
+        unbookStep: (processId, stepKey) =>
+          set((state) => {
+            const process = state.processes.find((p) => p.id === processId);
+            if (!process) return state;
+            const rec = process.steps[stepKey];
+            if (!rec || !rec.bookedAt) return state;
+            return {
+              ...state,
+              processes: state.processes.map((p) =>
+                p.id !== processId
+                  ? p
+                  : {
+                      ...p,
+                      updatedAt: new Date().toISOString(),
+                      steps: { ...p.steps, [stepKey]: { ...rec, bookedAt: undefined } },
+                    }
+              ),
+            };
+          }),
+
         completeStep: (processId, stepKey) =>
           set((state) => {
             const process = state.processes.find((p) => p.id === processId);
