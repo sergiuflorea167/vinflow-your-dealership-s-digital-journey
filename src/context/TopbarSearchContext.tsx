@@ -1,37 +1,66 @@
-import { createContext, ReactNode, useContext, useEffect, useMemo, useState } from "react";
+import {
+  createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState,
+} from "react";
 
-export type SearchFieldOption = {
-  /** Stable key, used as <Select> value. Use "all" for the default "search everything" option. */
-  key: string;
-  /** Label shown in the dropdown (e.g. "VIN", "Kunde"). */
-  label: string;
-};
+export type SearchFieldOption = { key: string; label: string };
 
 export type TopbarSearchConfig = {
-  /** Placeholder shown in the input. */
   placeholder: string;
-  /** Available fields to scope the search to. First entry is treated as default. */
   fields: SearchFieldOption[];
-  /** Current search query (controlled by the page). */
   value: string;
-  /** Update the page's search query. */
   onChange: (value: string) => void;
-  /** Currently selected field key. */
   field: string;
-  /** Update the page's selected field. */
   onFieldChange: (field: string) => void;
 };
 
 type Ctx = {
-  config: TopbarSearchConfig | null;
-  setConfig: (cfg: TopbarSearchConfig | null) => void;
+  /** Stable: read the current config (or null). */
+  getConfig: () => TopbarSearchConfig | null;
+  /** Subscribe for re-renders when the config snapshot changes. */
+  subscribe: (cb: () => void) => () => void;
+  /** Register/unregister a config from a page. Returns an unregister fn. */
+  register: (cfg: TopbarSearchConfig) => () => void;
+  /** Bumped on every register/update so consumers can re-render. */
+  version: number;
 };
 
 const TopbarSearchContext = createContext<Ctx | undefined>(undefined);
 
 export const TopbarSearchProvider = ({ children }: { children: ReactNode }) => {
-  const [config, setConfig] = useState<TopbarSearchConfig | null>(null);
-  const value = useMemo(() => ({ config, setConfig }), [config]);
+  const configRef = useRef<TopbarSearchConfig | null>(null);
+  const listenersRef = useRef(new Set<() => void>());
+  const [version, setVersion] = useState(0);
+
+  const notify = useCallback(() => {
+    setVersion((v) => v + 1);
+    listenersRef.current.forEach((l) => l());
+  }, []);
+
+  const getConfig = useCallback(() => configRef.current, []);
+  const subscribe = useCallback((cb: () => void) => {
+    listenersRef.current.add(cb);
+    return () => listenersRef.current.delete(cb) as unknown as void;
+  }, []);
+
+  const register = useCallback(
+    (cfg: TopbarSearchConfig) => {
+      configRef.current = cfg;
+      notify();
+      return () => {
+        if (configRef.current === cfg) {
+          configRef.current = null;
+          notify();
+        }
+      };
+    },
+    [notify]
+  );
+
+  const value = useMemo<Ctx>(
+    () => ({ getConfig, subscribe, register, version }),
+    [getConfig, subscribe, register, version]
+  );
+
   return <TopbarSearchContext.Provider value={value}>{children}</TopbarSearchContext.Provider>;
 };
 
@@ -42,27 +71,33 @@ export const useTopbarSearchContext = () => {
 };
 
 /**
- * Page-side hook: registers a search configuration for the topbar.
- * Automatically clears it on unmount, so navigating away resets the topbar.
+ * Page-side hook. Registers a search config once on mount and keeps the live
+ * values + callbacks in a mutable ref so updates do NOT cause re-registrations
+ * (which would loop the Topbar/Page).
  */
 export const useTopbarSearch = (cfg: TopbarSearchConfig | null) => {
-  const { setConfig } = useTopbarSearchContext();
+  const { register } = useTopbarSearchContext();
 
-  // Stabilize values that are referenced inside the effect.
-  const placeholder = cfg?.placeholder;
-  const value = cfg?.value;
-  const field = cfg?.field;
-  const onChange = cfg?.onChange;
-  const onFieldChange = cfg?.onFieldChange;
-  const fieldsKey = cfg?.fields.map((f) => `${f.key}:${f.label}`).join("|");
+  // Always-fresh ref to the latest cfg (updated every render, no effect needed).
+  const latestRef = useRef(cfg);
+  latestRef.current = cfg;
+
+  // Identity that should trigger re-registration: only structural changes.
+  const fieldsKey = cfg?.fields.map((f) => `${f.key}:${f.label}`).join("|") ?? "";
+  const placeholder = cfg?.placeholder ?? "";
+  const enabled = !!cfg;
 
   useEffect(() => {
-    if (!cfg) {
-      setConfig(null);
-      return () => setConfig(null);
-    }
-    setConfig(cfg);
-    return () => setConfig(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [placeholder, value, field, onChange, onFieldChange, fieldsKey]);
+    if (!enabled) return;
+    // Stable proxy object — methods/values delegate to the latest ref.
+    const proxy: TopbarSearchConfig = {
+      get placeholder() { return latestRef.current?.placeholder ?? ""; },
+      get fields() { return latestRef.current?.fields ?? []; },
+      get value() { return latestRef.current?.value ?? ""; },
+      get field() { return latestRef.current?.field ?? ""; },
+      onChange: (v) => latestRef.current?.onChange(v),
+      onFieldChange: (f) => latestRef.current?.onFieldChange(f),
+    };
+    return register(proxy);
+  }, [enabled, placeholder, fieldsKey, register]);
 };
