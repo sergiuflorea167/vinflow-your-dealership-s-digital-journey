@@ -1204,6 +1204,21 @@ export const MOCK_ACTIVITIES: Activity[] = [
   { id: "A-010", type: "process_step_completed", message: "Übergabe abgeschlossen", timestamp: isoDaysAgo(8), user: "Admin", processId: "VF-2025-0137", meta: { step: "delivery_confirmation" } },
   { id: "A-011", type: "vehicle_cost_added", message: "Kosten Felgen aufbereiten (380,00 € netto)", timestamp: isoDaysAgo(2), user: "Admin", vehicleId: "V-007" },
   { id: "A-012", type: "offer_created", message: "Angebot OFR-2025-0247 für Audi Q7", timestamp: isoDaysAgo(3), user: "Admin", vehicleId: "V-016", customerId: "C-014" },
+  { id: "A-013", type: "vehicle_added", message: "Lamborghini Huracán EVO aufgenommen", timestamp: isoDaysAgo(45), user: "Admin", vehicleId: "V-026" },
+  { id: "A-014", type: "vehicle_added", message: "Mercedes AMG GT C Roadster aufgenommen", timestamp: isoDaysAgo(38), user: "Admin", vehicleId: "V-036" },
+  { id: "A-015", type: "offer_created", message: "Angebot OFR-2025-0252 für Lamborghini Huracán", timestamp: isoDaysAgo(15), user: "Admin", vehicleId: "V-026", customerId: "C-019" },
+  { id: "A-016", type: "offer_accepted", message: "Angebot OFR-2025-0254 angenommen (Cayenne Coupé)", timestamp: isoDaysAgo(72), user: "Admin", vehicleId: "V-028", customerId: "C-019" },
+  { id: "A-017", type: "process_step_completed", message: "Übergabe abgeschlossen (Cayenne Coupé)", timestamp: isoDaysAgo(12), user: "Admin", processId: "VF-2025-0144", meta: { step: "delivery_confirmation" } },
+  { id: "A-018", type: "offer_accepted", message: "Angebot OFR-2025-0255 angenommen (Octavia RS)", timestamp: isoDaysAgo(7), user: "Admin", vehicleId: "V-031", customerId: "C-020" },
+  { id: "A-019", type: "process_created", message: "Vorgang VF-2025-0147 angelegt (Octavia RS)", timestamp: isoDaysAgo(7), user: "Admin", processId: "VF-2025-0147" },
+  { id: "A-020", type: "process_step_completed", message: "Anzahlung erhalten (Octavia RS)", timestamp: isoDaysAgo(5), user: "Admin", processId: "VF-2025-0147", meta: { step: "down_payment" } },
+  { id: "A-021", type: "offer_rejected", message: "Angebot OFR-2025-0260 abgelehnt (AMG GT)", timestamp: isoDaysAgo(18), user: "Admin", vehicleId: "V-036", customerId: "C-019" },
+  { id: "A-022", type: "vehicle_cost_added", message: "Carbon-Politur Lamborghini (1.850,00 € netto)", timestamp: isoDaysAgo(38), user: "Admin", vehicleId: "V-026" },
+  { id: "A-023", type: "vehicle_added", message: "BMW M5 Competition aufgenommen", timestamp: isoDaysAgo(11), user: "Admin", vehicleId: "V-021" },
+  { id: "A-024", type: "customer_added", message: "Auto Müller GmbH als B2B-Kunde angelegt", timestamp: isoDaysAgo(12), user: "Admin", customerId: "C-027" },
+  { id: "A-025", type: "customer_added", message: "Logistik Nord GmbH als B2B-Kunde angelegt", timestamp: isoDaysAgo(14), user: "Admin", customerId: "C-028" },
+  { id: "A-026", type: "vehicle_location_changed", message: "BMW M5 → Showroom", timestamp: isoDaysAgo(11), user: "Admin", vehicleId: "V-021" },
+  { id: "A-027", type: "process_step_completed", message: "Übergabe abgeschlossen (Tesla Model Y P)", timestamp: isoDaysAgo(5), user: "Admin", processId: "VF-2025-0145", meta: { step: "delivery_confirmation" } },
 ];
 
 export const MOCK_GOALS: Goal[] = [
