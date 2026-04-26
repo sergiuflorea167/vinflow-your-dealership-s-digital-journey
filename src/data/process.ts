@@ -235,7 +235,38 @@ export interface Offer {
 
 // ---------- Einkaufsplanung ----------
 
-export type PurchasePlanStatus = "open" | "ordered" | "received" | "cancelled";
+/**
+ * Status eines Einkaufsplans.
+ *  - tracking:  Wird verfolgt (Auktion läuft, Verhandlung mit Privatperson, Beobachtung).
+ *  - won:       Deal abgeschlossen, Fahrzeug noch nicht im Bestand (z. B. Zuschlag erhalten,
+ *               aber noch nicht abgeholt). Bereit zur Überführung in den Bestand.
+ *  - received:  In den Bestand übergegangen.
+ *  - lost:      Zuschlag verpasst / Verkäufer abgesprungen.
+ *  - cancelled: Manuell verworfen.
+ */
+export type PurchasePlanStatus = "tracking" | "won" | "received" | "lost" | "cancelled";
+
+export type PurchasePlanSource =
+  | "auction"          // Auktionsplattform (BCA, Copart, …)
+  | "private_listing"  // Privatinserat (mobile.de, AutoScout, Kleinanzeigen)
+  | "dealer"           // Händler / Großhandel
+  | "tip"              // Tipp / Empfehlung
+  | "other";
+
+export const PURCHASE_PLAN_SOURCE_LABELS: Record<PurchasePlanSource, string> = {
+  auction: "Auktion",
+  private_listing: "Privatinserat",
+  dealer: "Händler",
+  tip: "Tipp",
+  other: "Sonstiges",
+};
+
+export interface PurchasePlanNote {
+  id: string;
+  text: string;
+  createdAt: string;
+  createdBy: string;
+}
 
 export interface PurchasePlan {
   id: string;
@@ -243,12 +274,21 @@ export interface PurchasePlan {
   make: string;
   model: string;
   year: number;
+  /** Geschätzter / Ziel-Einkaufspreis brutto. */
   targetPrice: number;
+  /** Quelle des potenziellen Einkaufs. */
+  source: PurchasePlanSource;
+  /** Anbieter / Plattform / Verkäufer (z. B. „BCA Hamburg", „Privat – Müller"). */
   supplier: string;
-  expectedAt: string;
+  /** Optionaler Direktlink zum Inserat / zur Auktion. */
+  sourceUrl?: string;
+  /** Optional: erwartetes Abschluss-/Auktionsdatum. */
+  expectedAt?: string;
   status: PurchasePlanStatus;
+  /** Sobald bekannt – wird beim Bestandsübergang übernommen. */
   vin?: string;
-  notes?: string;
+  /** Chronologische Notizen mit Zeitstempel. */
+  noteEntries: PurchasePlanNote[];
   createdAt: string;
 }
 
@@ -883,16 +923,34 @@ export const MOCK_VEHICLES: Vehicle[] = [
 ];
 
 export const MOCK_PURCHASE_PLANS: PurchasePlan[] = [
-  { id: "PP-2025-014", type: "suv", make: "BMW", model: "X3 xDrive30d", year: 2024, targetPrice: 48000, supplier: "BMW Auktion München", expectedAt: "2025-05-08", status: "ordered", createdAt: isoDaysAgo(15) },
-  { id: "PP-2025-015", type: "suv", make: "Audi", model: "Q5 50 TFSI e", year: 2024, targetPrice: 52000, supplier: "Audi Großhandel Ingolstadt", expectedAt: "2025-05-15", status: "open", createdAt: isoDaysAgo(8) },
-  { id: "PP-2025-016", type: "suv", make: "Tesla", model: "Model Y Long Range", year: 2025, targetPrice: 44000, supplier: "Direktimport NL", expectedAt: "2025-05-22", status: "open", createdAt: isoDaysAgo(5) },
-  { id: "PP-2025-017", type: "limousine", make: "Mercedes-Benz", model: "S 580", year: 2024, targetPrice: 92000, supplier: "MB Auktion Bremen", expectedAt: "2025-05-30", status: "ordered", createdAt: isoDaysAgo(3) },
-  { id: "PP-2025-018", type: "kleinwagen", make: "Renault", model: "Clio TCe 90", year: 2024, targetPrice: 14500, supplier: "Renault Großhandel", expectedAt: "2025-06-05", status: "open", createdAt: isoDaysAgo(2) },
-  { id: "PP-2025-019", type: "kombi", make: "BMW", model: "M3 Touring Competition", year: 2024, targetPrice: 102000, supplier: "BMW Direktimport", expectedAt: "2025-06-12", status: "open", createdAt: isoDaysAgo(1) },
-  { id: "PP-2025-020", type: "suv", make: "Land Rover", model: "Defender 110 P400e", year: 2024, targetPrice: 84000, supplier: "JLR Auktion Köln", expectedAt: "2025-06-18", status: "ordered", createdAt: isoDaysAgo(4) },
-  { id: "PP-2025-021", type: "limousine", make: "Polestar", model: "Polestar 2 Long Range", year: 2024, targetPrice: 41500, supplier: "Direktimport NL", expectedAt: "2025-06-22", status: "open", createdAt: isoDaysAgo(2) },
-  { id: "PP-2025-022", type: "kleinwagen", make: "Toyota", model: "Yaris GR", year: 2024, targetPrice: 35900, supplier: "Toyota Auktion", expectedAt: "2025-07-01", status: "open", createdAt: isoDaysAgo(1) },
-  { id: "PP-2025-023", type: "transporter", make: "Mercedes-Benz", model: "Sprinter 319 CDI", year: 2024, targetPrice: 48500, supplier: "MB Großhandel", expectedAt: "2025-07-08", status: "ordered", createdAt: isoDaysAgo(6) },
+  { id: "PP-2025-014", type: "suv", make: "BMW", model: "X3 xDrive30d", year: 2024, targetPrice: 48000, source: "auction", supplier: "BCA Hamburg", sourceUrl: "https://bca.com/auctions/12345", expectedAt: "2025-05-08", status: "won", noteEntries: [
+      { id: "n1", text: "Auktion endet 08.05. – Mindestgebot 46k. VIN noch nicht freigegeben.", createdAt: isoDaysAgo(15), createdBy: "Admin" },
+      { id: "n2", text: "Zuschlag erhalten bei 47.500 €. Abholung KW 20.", createdAt: isoDaysAgo(2), createdBy: "Admin" },
+    ], createdAt: isoDaysAgo(15) },
+  { id: "PP-2025-015", type: "suv", make: "Audi", model: "Q5 50 TFSI e", year: 2024, targetPrice: 52000, source: "dealer", supplier: "Audi Großhandel Ingolstadt", expectedAt: "2025-05-15", status: "tracking", noteEntries: [
+      { id: "n1", text: "Erstkontakt – Verkäufer prüft Konditionen, Rückmeldung bis Mittwoch.", createdAt: isoDaysAgo(8), createdBy: "Admin" },
+    ], createdAt: isoDaysAgo(8) },
+  { id: "PP-2025-016", type: "suv", make: "Tesla", model: "Model Y Long Range", year: 2025, targetPrice: 44000, source: "private_listing", supplier: "Privat – mobile.de", sourceUrl: "https://mobile.de/inserate/tesla-model-y", status: "tracking", noteEntries: [
+      { id: "n1", text: "Privatverkäufer aus Stuttgart. Probefahrt Samstag vereinbart.", createdAt: isoDaysAgo(5), createdBy: "Admin" },
+      { id: "n2", text: "Zustand top, 22.000 km. Verhandlungsbasis 45k – Gegenangebot 43k abgegeben.", createdAt: isoDaysAgo(3), createdBy: "Admin" },
+    ], createdAt: isoDaysAgo(5) },
+  { id: "PP-2025-017", type: "limousine", make: "Mercedes-Benz", model: "S 580", year: 2024, targetPrice: 92000, source: "auction", supplier: "MB Auktion Bremen", expectedAt: "2025-05-30", status: "won", noteEntries: [
+      { id: "n1", text: "Limit 95k gesetzt. VIN folgt nach Zuschlag.", createdAt: isoDaysAgo(3), createdBy: "Admin" },
+    ], createdAt: isoDaysAgo(3) },
+  { id: "PP-2025-018", type: "kleinwagen", make: "Renault", model: "Clio TCe 90", year: 2024, targetPrice: 14500, source: "dealer", supplier: "Renault Großhandel", expectedAt: "2025-06-05", status: "tracking", noteEntries: [], createdAt: isoDaysAgo(2) },
+  { id: "PP-2025-019", type: "kombi", make: "BMW", model: "M3 Touring Competition", year: 2024, targetPrice: 102000, source: "private_listing", supplier: "Privat – AutoScout24", sourceUrl: "https://autoscout24.de/inserate/bmw-m3", status: "tracking", noteEntries: [
+      { id: "n1", text: "Verkäufer hat noch 2 weitere Interessenten. Telefonat heute Abend.", createdAt: isoDaysAgo(1), createdBy: "Admin" },
+    ], createdAt: isoDaysAgo(1) },
+  { id: "PP-2025-020", type: "suv", make: "Land Rover", model: "Defender 110 P400e", year: 2024, targetPrice: 84000, source: "auction", supplier: "JLR Auktion Köln", expectedAt: "2025-06-18", status: "won", noteEntries: [
+      { id: "n1", text: "Zuschlag bei 82k. Transport organisiert für KW 25.", createdAt: isoDaysAgo(4), createdBy: "Admin" },
+    ], createdAt: isoDaysAgo(4) },
+  { id: "PP-2025-021", type: "limousine", make: "Polestar", model: "Polestar 2 Long Range", year: 2024, targetPrice: 41500, source: "tip", supplier: "Tipp – Kollege Becker", status: "lost", noteEntries: [
+      { id: "n1", text: "Anderer Händler war schneller – Deal verloren.", createdAt: isoDaysAgo(2), createdBy: "Admin" },
+    ], createdAt: isoDaysAgo(2) },
+  { id: "PP-2025-022", type: "kleinwagen", make: "Toyota", model: "Yaris GR", year: 2024, targetPrice: 35900, source: "private_listing", supplier: "Privat – Kleinanzeigen", sourceUrl: "https://kleinanzeigen.de/toyota-yaris-gr", status: "tracking", noteEntries: [], createdAt: isoDaysAgo(1) },
+  { id: "PP-2025-023", type: "transporter", make: "Mercedes-Benz", model: "Sprinter 319 CDI", year: 2024, targetPrice: 48500, source: "dealer", supplier: "MB Großhandel", expectedAt: "2025-07-08", status: "won", noteEntries: [
+      { id: "n1", text: "Bestellung bestätigt – Liefertermin 08.07.", createdAt: isoDaysAgo(6), createdBy: "Admin" },
+    ], createdAt: isoDaysAgo(6) },
 ];
 
 export const MOCK_OFFERS: Offer[] = [
