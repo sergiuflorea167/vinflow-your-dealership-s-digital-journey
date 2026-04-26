@@ -17,7 +17,7 @@ import {
   VehicleLocation, LocationKind,
 } from "@/data/process";
 import {
-  ArrowLeft, Car, CheckCircle2, Edit2, FileText, Mail, MapPin, Plus, Send,
+  ArrowLeft, Car, CheckCircle2, ChevronDown, Edit2, FileText, Mail, MapPin, Plus, Send,
   Sparkles, X, Save, History, Zap,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -174,106 +174,7 @@ const VehicleDetail = () => {
           </Card>
         )}
 
-        {/* ---------- Daten-Sektionen mit Inline-Edit ---------- */}
-        <Section
-          title="Identifikation"
-          rows={[
-            { label: "Fahrzeugtyp", value: VEHICLE_TYPE_LABELS[vehicle.type] },
-            { label: "Marke", value: vehicle.make },
-            { label: "Modell", value: vehicle.model },
-            { label: "Modell-Details", value: vehicle.modelDetail },
-            { label: "Baujahr", value: vehicle.year },
-            { label: "Zustand", value: vehicle.condition },
-            { label: "VIN", value: vehicle.vin, mono: true },
-            { label: "HSN", value: vehicle.hsn, mono: true },
-            { label: "TSN", value: vehicle.tsn, mono: true },
-            { label: "Kennzeichen", value: vehicle.licensePlate, mono: true },
-            { label: "Vorbesitzer", value: vehicle.previousOwners },
-          ]}
-          renderEditor={(close) => (
-            <IdentificationEditor vehicle={vehicle} onSave={(p) => { handleSaveSection(p); close(); }} onCancel={close} />
-          )}
-        />
-
-        <Section
-          title="Technik & Antrieb"
-          rows={[
-            { label: "Kraftstoff", value: vehicle.fuel },
-            { label: "Getriebe", value: vehicle.transmission },
-            { label: "Antrieb", value: vehicle.drive },
-            { label: "Leistung", value: `${vehicle.power_kw} kW · ${vehicle.power_hp} PS` },
-            { label: "Hubraum", value: vehicle.displacement_ccm ? `${vehicle.displacement_ccm} ccm` : undefined },
-            { label: "Zylinder", value: vehicle.cylinders },
-            { label: "Schadstoffklasse", value: vehicle.emissionClass },
-            { label: "CO₂", value: vehicle.co2_g_km ? `${vehicle.co2_g_km} g/km` : undefined },
-            { label: "Verbrauch", value: vehicle.consumption_l_100km ? `${vehicle.consumption_l_100km} l/100km` : undefined },
-            { label: "Batterie", value: vehicle.batteryCapacity_kwh ? `${vehicle.batteryCapacity_kwh} kWh` : undefined },
-            { label: "Reichweite", value: vehicle.range_km ? `${vehicle.range_km} km` : undefined },
-          ]}
-          renderEditor={(close) => (
-            <TechEditor vehicle={vehicle} onSave={(p) => { handleSaveSection(p); close(); }} onCancel={close} />
-          )}
-        />
-
-        <Section
-          title="Innen & Außen"
-          rows={[
-            { label: "Außenfarbe", value: vehicle.color },
-            { label: "Lackcode", value: vehicle.paintCode, mono: true },
-            { label: "Metallic", value: vehicle.metallic === undefined ? undefined : (vehicle.metallic ? "Ja" : "Nein") },
-            { label: "Innenfarbe", value: vehicle.interiorColor },
-            { label: "Polster", value: vehicle.interiorMaterial },
-            { label: "Türen", value: vehicle.doors },
-            { label: "Sitze", value: vehicle.seats },
-          ]}
-          renderEditor={(close) => (
-            <AppearanceEditor vehicle={vehicle} onSave={(p) => { handleSaveSection(p); close(); }} onCancel={close} />
-          )}
-        />
-
-        <Section
-          title="Zulassung & Historie"
-          rows={[
-            { label: "Kilometerstand", value: `${vehicle.mileage.toLocaleString("de-DE")} km` },
-            { label: "Erstzulassung", value: vehicle.firstRegistration ? formatDate(vehicle.firstRegistration) : undefined },
-            { label: "HU/TÜV bis", value: vehicle.hu ? formatDate(vehicle.hu) : undefined },
-            { label: "Scheckheft", value: vehicle.serviceBookComplete === undefined ? undefined : (vehicle.serviceBookComplete ? "Komplett" : "Unvollständig") },
-            { label: "Unfallfrei", value: vehicle.accidentFree === undefined ? undefined : (vehicle.accidentFree ? "Ja" : "Nein") },
-            { label: "Nichtraucher", value: vehicle.nonSmoker === undefined ? undefined : (vehicle.nonSmoker ? "Ja" : "Nein") },
-          ]}
-          renderEditor={(close) => (
-            <RegistrationEditor vehicle={vehicle} onSave={(p) => { handleSaveSection(p); close(); }} onCancel={close} />
-          )}
-        />
-
-        <Section
-          title="Preis & Status"
-          rows={[
-            { label: "Listenpreis (brutto)", value: formatCurrency(vehicle.listPrice) },
-            { label: "Einkaufspreis (brutto)", value: formatCurrency(vehicle.purchasePrice) },
-            { label: "MwSt. ausweisbar", value: vehicle.vatReportable === undefined ? undefined : (vehicle.vatReportable ? "Ja" : "Nein") },
-            { label: "Status", value: vehicle.status },
-            { label: "Im Bestand seit", value: vehicle.arrivedAt ? formatDate(vehicle.arrivedAt) : undefined },
-            { label: "Notizen", value: vehicle.notes, full: true },
-          ]}
-          renderEditor={(close) => (
-            <PriceEditor vehicle={vehicle} onSave={(p) => { handleSaveSection(p); close(); }} onCancel={close} />
-          )}
-        />
-
-        <Section
-          title="Ausstattung"
-          rows={
-            vehicle.features && vehicle.features.length > 0
-              ? [{ label: "", value: <FeatureChips features={vehicle.features} />, full: true, raw: true }]
-              : [{ label: "", value: "Keine Ausstattungsmerkmale erfasst.", full: true }]
-          }
-          renderEditor={(close) => (
-            <FeaturesEditor vehicle={vehicle} onSave={(p) => { handleSaveSection(p); close(); }} onCancel={close} />
-          )}
-        />
-
-        {/* ---------- Angebote ---------- */}
+        {/* ---------- Angebote & Verkauf (oben für schnellen Zugriff) ---------- */}
         <Card className="p-6 bg-card border-border shadow-card">
           <div className="flex items-center justify-between mb-5 gap-4 flex-wrap">
             <div>
@@ -356,6 +257,109 @@ const VehicleDetail = () => {
             </div>
           )}
         </Card>
+
+        {/* ---------- Daten-Sektionen mit Inline-Edit (einklappbar) ---------- */}
+        <Section
+          title="Identifikation"
+          defaultOpen
+          rows={[
+            { label: "Fahrzeugtyp", value: VEHICLE_TYPE_LABELS[vehicle.type] },
+            { label: "Marke", value: vehicle.make },
+            { label: "Modell", value: vehicle.model },
+            { label: "Modell-Details", value: vehicle.modelDetail },
+            { label: "Baujahr", value: vehicle.year },
+            { label: "Zustand", value: vehicle.condition },
+            { label: "VIN", value: vehicle.vin, mono: true },
+            { label: "HSN", value: vehicle.hsn, mono: true },
+            { label: "TSN", value: vehicle.tsn, mono: true },
+            { label: "Kennzeichen", value: vehicle.licensePlate, mono: true },
+            { label: "Vorbesitzer", value: vehicle.previousOwners },
+            { label: "Kilometerstand", value: `${vehicle.mileage.toLocaleString("de-DE")} km` },
+          ]}
+          renderEditor={(close) => (
+            <IdentificationEditor vehicle={vehicle} onSave={(p) => { handleSaveSection(p); close(); }} onCancel={close} />
+          )}
+        />
+
+
+        <Section
+          title="Technik & Antrieb"
+          rows={[
+            { label: "Kraftstoff", value: vehicle.fuel },
+            { label: "Getriebe", value: vehicle.transmission },
+            { label: "Antrieb", value: vehicle.drive },
+            { label: "Leistung", value: `${vehicle.power_kw} kW · ${vehicle.power_hp} PS` },
+            { label: "Hubraum", value: vehicle.displacement_ccm ? `${vehicle.displacement_ccm} ccm` : undefined },
+            { label: "Zylinder", value: vehicle.cylinders },
+            { label: "Schadstoffklasse", value: vehicle.emissionClass },
+            { label: "CO₂", value: vehicle.co2_g_km ? `${vehicle.co2_g_km} g/km` : undefined },
+            { label: "Verbrauch", value: vehicle.consumption_l_100km ? `${vehicle.consumption_l_100km} l/100km` : undefined },
+            { label: "Batterie", value: vehicle.batteryCapacity_kwh ? `${vehicle.batteryCapacity_kwh} kWh` : undefined },
+            { label: "Reichweite", value: vehicle.range_km ? `${vehicle.range_km} km` : undefined },
+          ]}
+          renderEditor={(close) => (
+            <TechEditor vehicle={vehicle} onSave={(p) => { handleSaveSection(p); close(); }} onCancel={close} />
+          )}
+        />
+
+        <Section
+          title="Innen & Außen"
+          rows={[
+            { label: "Außenfarbe", value: vehicle.color },
+            { label: "Lackcode", value: vehicle.paintCode, mono: true },
+            { label: "Metallic", value: vehicle.metallic === undefined ? undefined : (vehicle.metallic ? "Ja" : "Nein") },
+            { label: "Innenfarbe", value: vehicle.interiorColor },
+            { label: "Polster", value: vehicle.interiorMaterial },
+            { label: "Türen", value: vehicle.doors },
+            { label: "Sitze", value: vehicle.seats },
+          ]}
+          renderEditor={(close) => (
+            <AppearanceEditor vehicle={vehicle} onSave={(p) => { handleSaveSection(p); close(); }} onCancel={close} />
+          )}
+        />
+
+        <Section
+          title="Zulassung & Historie"
+          rows={[
+            { label: "Kilometerstand", value: `${vehicle.mileage.toLocaleString("de-DE")} km` },
+            { label: "Erstzulassung", value: vehicle.firstRegistration ? formatDate(vehicle.firstRegistration) : undefined },
+            { label: "HU/TÜV bis", value: vehicle.hu ? formatDate(vehicle.hu) : undefined },
+            { label: "Scheckheft", value: vehicle.serviceBookComplete === undefined ? undefined : (vehicle.serviceBookComplete ? "Komplett" : "Unvollständig") },
+            { label: "Unfallfrei", value: vehicle.accidentFree === undefined ? undefined : (vehicle.accidentFree ? "Ja" : "Nein") },
+            { label: "Nichtraucher", value: vehicle.nonSmoker === undefined ? undefined : (vehicle.nonSmoker ? "Ja" : "Nein") },
+          ]}
+          renderEditor={(close) => (
+            <RegistrationEditor vehicle={vehicle} onSave={(p) => { handleSaveSection(p); close(); }} onCancel={close} />
+          )}
+        />
+
+        <Section
+          title="Preis & Status"
+          rows={[
+            { label: "Listenpreis (brutto)", value: formatCurrency(vehicle.listPrice) },
+            { label: "Einkaufspreis (brutto)", value: formatCurrency(vehicle.purchasePrice) },
+            { label: "MwSt. ausweisbar", value: vehicle.vatReportable === undefined ? undefined : (vehicle.vatReportable ? "Ja" : "Nein") },
+            { label: "Status", value: vehicle.status },
+            { label: "Im Bestand seit", value: vehicle.arrivedAt ? formatDate(vehicle.arrivedAt) : undefined },
+            { label: "Notizen", value: vehicle.notes, full: true },
+          ]}
+          renderEditor={(close) => (
+            <PriceEditor vehicle={vehicle} onSave={(p) => { handleSaveSection(p); close(); }} onCancel={close} />
+          )}
+        />
+
+        <Section
+          title="Ausstattung"
+          rows={
+            vehicle.features && vehicle.features.length > 0
+              ? [{ label: "", value: <FeatureChips features={vehicle.features} />, full: true, raw: true }]
+              : [{ label: "", value: "Keine Ausstattungsmerkmale erfasst.", full: true }]
+          }
+          renderEditor={(close) => (
+            <FeaturesEditor vehicle={vehicle} onSave={(p) => { handleSaveSection(p); close(); }} onCancel={close} />
+          )}
+        />
+
       </div>
 
       {/* ---------- Dialoge ---------- */}
@@ -423,43 +427,67 @@ const Section = ({
   title,
   rows,
   renderEditor,
+  defaultOpen = false,
 }: {
   title: string;
   rows: Row[];
   renderEditor: (close: () => void) => React.ReactNode;
+  defaultOpen?: boolean;
 }) => {
   const [editing, setEditing] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
 
   return (
-    <Card className="p-6 bg-card border-border shadow-card">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-base font-display font-semibold">{title}</h2>
-        {!editing ? (
-          <Button variant="ghost" size="icon" className="size-8" aria-label={`${title} bearbeiten`} onClick={() => setEditing(true)}>
-            <Edit2 className="size-3.5 text-muted-foreground" />
-          </Button>
-        ) : (
-          <Badge variant="outline" className="border-primary/40 text-primary-glow">Bearbeitungsmodus</Badge>
+    <Card className="bg-card border-border shadow-card overflow-hidden">
+      <div className="flex items-center justify-between px-6 py-4">
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          className="flex items-center gap-2 text-left flex-1 min-w-0 group"
+          aria-expanded={open}
+        >
+          <ChevronDown
+            className={cn(
+              "size-4 text-muted-foreground transition-transform shrink-0",
+              open ? "rotate-0" : "-rotate-90",
+            )}
+          />
+          <h2 className="text-base font-display font-semibold group-hover:text-primary-glow transition-smooth">
+            {title}
+          </h2>
+        </button>
+        {open && (
+          !editing ? (
+            <Button variant="ghost" size="icon" className="size-8" aria-label={`${title} bearbeiten`} onClick={() => setEditing(true)}>
+              <Edit2 className="size-3.5 text-muted-foreground" />
+            </Button>
+          ) : (
+            <Badge variant="outline" className="border-primary/40 text-primary-glow">Bearbeitungsmodus</Badge>
+          )
         )}
       </div>
 
-      {!editing ? (
-        <dl className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-3">
-          {rows.map((r, i) => (
-            <div key={i} className={cn("flex flex-col", r.full && "md:col-span-2 lg:col-span-3")}>
-              {r.label && (
-                <dt className="text-[10px] uppercase tracking-widest text-muted-foreground">{r.label}</dt>
-              )}
-              <dd className={cn("text-sm text-foreground mt-0.5 break-words", r.mono && "font-mono text-xs")}>
-                {r.value === undefined || r.value === null || r.value === ""
-                  ? <span className="text-muted-foreground italic">—</span>
-                  : (r.raw ? r.value : <>{r.value}</>)}
-              </dd>
-            </div>
-          ))}
-        </dl>
-      ) : (
-        renderEditor(() => setEditing(false))
+      {open && (
+        <div className="px-6 pb-6">
+          {!editing ? (
+            <dl className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-3">
+              {rows.map((r, i) => (
+                <div key={i} className={cn("flex flex-col", r.full && "md:col-span-2 lg:col-span-3")}>
+                  {r.label && (
+                    <dt className="text-[10px] uppercase tracking-widest text-muted-foreground">{r.label}</dt>
+                  )}
+                  <dd className={cn("text-sm text-foreground mt-0.5 break-words", r.mono && "font-mono text-xs")}>
+                    {r.value === undefined || r.value === null || r.value === ""
+                      ? <span className="text-muted-foreground italic">—</span>
+                      : (r.raw ? r.value : <>{r.value}</>)}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          ) : (
+            renderEditor(() => setEditing(false))
+          )}
+        </div>
       )}
     </Card>
   );
