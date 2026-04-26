@@ -57,6 +57,9 @@ export interface Todo {
   priority: TodoPriority;
   done: boolean;
   dueDate?: string;
+  /** Optionale Uhrzeit (HH:mm). Nur in Verbindung mit dueDate sinnvoll. */
+  startTime?: string;
+  endTime?: string;
   scope: TodoScope;
   vehicleId?: string;
   processId?: string;
@@ -65,6 +68,67 @@ export interface Todo {
   createdAt: string;
   completedAt?: string;
   createdBy: string;
+  /** Auto-erzeugte Verknüpfung zu einem Calendar-Event (1:1) */
+  calendarEventId?: string;
+}
+
+// ---------- Kalender ----------
+
+export type CalendarEventType =
+  | "appointment"   // klassischer Termin
+  | "todo"          // verlinkt mit einem To-Do
+  | "block"         // Tagesstruktur-Block (Fokus, Pause …)
+  | "viewing"       // Fahrzeug-Besichtigung
+  | "handover"      // Abholung / Übergabe
+  | "call"          // Telefonat
+  | "internal";     // intern / sonstiges
+
+export const CALENDAR_EVENT_TYPE_LABELS: Record<CalendarEventType, string> = {
+  appointment: "Termin",
+  todo:        "To-Do",
+  block:       "Tagesblock",
+  viewing:     "Besichtigung",
+  handover:    "Übergabe",
+  call:        "Telefonat",
+  internal:    "Intern",
+};
+
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  description?: string;
+  /** ISO Datum YYYY-MM-DD */
+  date: string;
+  /** HH:mm */
+  startTime: string;
+  /** HH:mm */
+  endTime: string;
+  type: CalendarEventType;
+  /** Hex- oder Token-Farbe (optional, sonst aus type) */
+  color?: string;
+  location?: string;
+  vehicleId?: string;
+  processId?: string;
+  customerId?: string;
+  /** verlinktes To-Do */
+  todoId?: string;
+  done?: boolean;
+  createdAt: string;
+  createdBy: string;
+}
+
+/** Vorlage für die Tagesstruktur (z. B. „Verkaufstag") */
+export interface DayTemplate {
+  id: string;
+  name: string;
+  description?: string;
+  blocks: Array<{
+    id: string;
+    title: string;
+    startTime: string;   // HH:mm
+    endTime: string;     // HH:mm
+    type: CalendarEventType;
+  }>;
 }
 
 // ---------- Fahrzeug ----------
@@ -1285,6 +1349,104 @@ export const MOCK_GOALS: Goal[] = [
   { id: "G-001", metric: "revenue", period: "month", target: 250000, startDate: new Date(today.getFullYear(), today.getMonth(), 1).toISOString(), endDate: new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString(), label: "Umsatzziel Monat" },
   { id: "G-002", metric: "vehicles_sold", period: "month", target: 8, startDate: new Date(today.getFullYear(), today.getMonth(), 1).toISOString(), endDate: new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString(), label: "Verkaufte Fahrzeuge" },
   { id: "G-003", metric: "profit", period: "quarter", target: 120000, startDate: new Date(today.getFullYear(), Math.floor(today.getMonth()/3)*3, 1).toISOString(), endDate: new Date(today.getFullYear(), Math.floor(today.getMonth()/3)*3 + 3, 0).toISOString(), label: "Gewinnziel Quartal" },
+];
+
+// ---------- Kalender-Mocks ----------
+
+const isoToday = (offset = 0) => {
+  const d = new Date(today);
+  d.setDate(d.getDate() + offset);
+  return d.toISOString().slice(0, 10);
+};
+
+export const MOCK_CALENDAR_EVENTS: CalendarEvent[] = [
+  {
+    id: "EV-001",
+    title: "Besichtigung BMW M5",
+    description: "Kunde Hr. Weber, Probefahrt eingeplant.",
+    date: isoToday(0),
+    startTime: "10:00",
+    endTime: "11:00",
+    type: "viewing",
+    vehicleId: "V-021",
+    location: "Showroom",
+    createdAt: new Date().toISOString(),
+    createdBy: "Admin",
+  },
+  {
+    id: "EV-002",
+    title: "Telefonat Auto Müller GmbH",
+    description: "Rückruf wg. Großabnahme.",
+    date: isoToday(0),
+    startTime: "14:30",
+    endTime: "15:00",
+    type: "call",
+    customerId: "C-027",
+    createdAt: new Date().toISOString(),
+    createdBy: "Admin",
+  },
+  {
+    id: "EV-003",
+    title: "Übergabe Tesla Model Y",
+    date: isoToday(1),
+    startTime: "09:00",
+    endTime: "10:30",
+    type: "handover",
+    location: "Showroom Premium",
+    createdAt: new Date().toISOString(),
+    createdBy: "Admin",
+  },
+  {
+    id: "EV-004",
+    title: "Fokuszeit – Angebote schreiben",
+    date: isoToday(0),
+    startTime: "08:00",
+    endTime: "09:30",
+    type: "block",
+    createdAt: new Date().toISOString(),
+    createdBy: "Admin",
+  },
+];
+
+export const DEFAULT_DAY_TEMPLATES: DayTemplate[] = [
+  {
+    id: "DT-VERKAUF",
+    name: "Verkaufstag",
+    description: "Klassischer Tag mit Kundenfokus.",
+    blocks: [
+      { id: "b1", title: "Posteingang & Anrufe",   startTime: "08:00", endTime: "09:00", type: "call" },
+      { id: "b2", title: "Angebote schreiben",     startTime: "09:00", endTime: "10:30", type: "block" },
+      { id: "b3", title: "Kundenbesichtigungen",   startTime: "10:30", endTime: "13:00", type: "viewing" },
+      { id: "b4", title: "Mittagspause",           startTime: "13:00", endTime: "14:00", type: "block" },
+      { id: "b5", title: "Übergaben",              startTime: "14:00", endTime: "16:00", type: "handover" },
+      { id: "b6", title: "Tagesabschluss / CRM",   startTime: "16:00", endTime: "17:30", type: "internal" },
+    ],
+  },
+  {
+    id: "DT-WERKSTATT",
+    name: "Werkstatt-Tag",
+    description: "Fokus auf Bestand, Aufbereitung, Logistik.",
+    blocks: [
+      { id: "b1", title: "Bestand-Check",          startTime: "08:00", endTime: "09:00", type: "internal" },
+      { id: "b2", title: "Werkstatt-Koordination", startTime: "09:00", endTime: "11:00", type: "internal" },
+      { id: "b3", title: "Aufbereiter abstimmen",  startTime: "11:00", endTime: "12:00", type: "call" },
+      { id: "b4", title: "Mittagspause",           startTime: "12:00", endTime: "13:00", type: "block" },
+      { id: "b5", title: "Inserate & Fotos",       startTime: "13:00", endTime: "16:00", type: "block" },
+      { id: "b6", title: "Tagesabschluss",         startTime: "16:00", endTime: "17:00", type: "internal" },
+    ],
+  },
+  {
+    id: "DT-EINKAUF",
+    name: "Einkaufstag",
+    description: "Plattformen sichten, Auktionen, Verhandlungen.",
+    blocks: [
+      { id: "b1", title: "Plattformen sichten",    startTime: "08:00", endTime: "10:00", type: "block" },
+      { id: "b2", title: "Verhandlungen",          startTime: "10:00", endTime: "12:00", type: "call" },
+      { id: "b3", title: "Mittagspause",           startTime: "12:00", endTime: "13:00", type: "block" },
+      { id: "b4", title: "Auktionen / Bieten",     startTime: "13:00", endTime: "15:00", type: "block" },
+      { id: "b5", title: "Logistik organisieren",  startTime: "15:00", endTime: "17:00", type: "internal" },
+    ],
+  },
 ];
 
 export const DEFAULT_SETTINGS: Settings = {

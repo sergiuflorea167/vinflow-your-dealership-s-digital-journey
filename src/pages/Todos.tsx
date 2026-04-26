@@ -538,6 +538,8 @@ const TodoForm = ({
   const [priority, setPriority] = useState<TodoPriority>(initial?.priority ?? "medium");
   const [scope, setScope] = useState<TodoScope>(initial?.scope ?? "general");
   const [dueDate, setDueDate] = useState(initial?.dueDate ?? "");
+  const [startTime, setStartTime] = useState(initial?.startTime ?? "");
+  const [endTime, setEndTime] = useState(initial?.endTime ?? "");
   const [assignee, setAssignee] = useState(initial?.assignee ?? "");
   const [tagsRaw, setTagsRaw] = useState((initial?.tags ?? []).join(", "));
 
@@ -546,12 +548,22 @@ const TodoForm = ({
       toast.error("Bitte einen Titel eingeben.");
       return;
     }
+    if ((startTime || endTime) && !dueDate) {
+      toast.error("Für Uhrzeiten bitte auch ein Datum angeben.");
+      return;
+    }
+    if (startTime && endTime && endTime <= startTime) {
+      toast.error("Endzeit muss nach Startzeit liegen.");
+      return;
+    }
     onSubmit({
       title: title.trim(),
       description: description.trim() || undefined,
       priority,
       scope,
       dueDate: dueDate || undefined,
+      startTime: startTime || undefined,
+      endTime: endTime || undefined,
       assignee: assignee.trim() || undefined,
       tags: tagsRaw.split(",").map((t) => t.trim()).filter(Boolean),
       vehicleId: initial?.vehicleId,
@@ -606,6 +618,22 @@ const TodoForm = ({
           <Input value={assignee} onChange={(e) => setAssignee(e.target.value)} placeholder="z. B. Max" />
         </div>
       </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+          <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">Von (optional)</Label>
+          <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} disabled={!dueDate} />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">Bis (optional)</Label>
+          <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} disabled={!dueDate} />
+        </div>
+      </div>
+      {dueDate && startTime && endTime && (
+        <p className="text-[10px] text-muted-foreground -mt-2">
+          Bei Speichern wird automatisch ein verknüpfter Kalendereintrag erzeugt.
+        </p>
+      )}
 
       <div className="space-y-1.5">
         <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">Tags (Komma-getrennt)</Label>

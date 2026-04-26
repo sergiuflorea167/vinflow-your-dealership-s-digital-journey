@@ -3,7 +3,7 @@ import { NavLink } from "react-router-dom";
 import {
   LayoutDashboard, Workflow, Car, ShoppingCart, ListChecks,
   BarChart3, Settings as SettingsIcon, ChevronLeft, ChevronRight,
-  Database, Sparkles,
+  Database, Sparkles, CalendarDays,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,7 @@ const groups: NavGroup[] = [
       { to: "/vorgaenge",       label: "Vorgänge",        icon: Workflow },
       { to: "/einkaufsplanung", label: "Einkaufsplanung", icon: ShoppingCart },
       { to: "/todos",           label: "To-Dos",          icon: ListChecks },
+      { to: "/kalender",        label: "Kalender",        icon: CalendarDays },
     ],
   },
   {

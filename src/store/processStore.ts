@@ -9,6 +9,8 @@ import {
   MOCK_TODOS,
   MOCK_ACTIVITIES,
   MOCK_GOALS,
+  MOCK_CALENDAR_EVENTS,
+  DEFAULT_DAY_TEMPLATES,
   DEFAULT_SETTINGS,
   PROCESS_STEPS,
   Process,
@@ -29,6 +31,9 @@ import {
   Goal,
   Settings,
   Partner,
+  CalendarEvent,
+  CalendarEventType,
+  DayTemplate,
   buildEmptySteps,
   DEFAULT_OUTBOUND_CHECKLIST,
   stepIndex,
@@ -43,6 +48,8 @@ interface State {
   todos: Todo[];
   activities: Activity[];
   goals: Goal[];
+  calendarEvents: CalendarEvent[];
+  dayTemplates: DayTemplate[];
   settings: Settings;
 
   // ------- Selectors -------
@@ -106,6 +113,17 @@ interface State {
   updateTodo: (id: string, patch: Partial<Omit<Todo, "id" | "createdAt" | "createdBy">>) => void;
   removeTodo: (id: string) => void;
 
+  // ------- Calendar -------
+  addCalendarEvent: (e: Omit<CalendarEvent, "id" | "createdAt" | "createdBy">) => CalendarEvent;
+  updateCalendarEvent: (id: string, patch: Partial<Omit<CalendarEvent, "id" | "createdAt" | "createdBy">>) => void;
+  removeCalendarEvent: (id: string) => void;
+  toggleCalendarEventDone: (id: string) => void;
+  /** Tagesstruktur aus einem Template erzeugen (überschreibt vorhandene Blöcke des Tages). */
+  applyDayTemplate: (templateId: string, date: string) => void;
+  /** Day-Template anlegen / aktualisieren / löschen. */
+  upsertDayTemplate: (tpl: DayTemplate) => void;
+  removeDayTemplate: (id: string) => void;
+
   // ------- Goals & Settings -------
   addGoal: (g: Omit<Goal, "id">) => Goal;
   updateGoal: (id: string, patch: Partial<Goal>) => void;
@@ -158,6 +176,8 @@ export const useProcessStore = create<State>()(
         todos: MOCK_TODOS,
         activities: MOCK_ACTIVITIES,
         goals: MOCK_GOALS,
+        calendarEvents: MOCK_CALENDAR_EVENTS,
+        dayTemplates: DEFAULT_DAY_TEMPLATES,
         settings: DEFAULT_SETTINGS,
 
         getProcess: (id) => get().processes.find((p) => p.id === id),
@@ -740,9 +760,42 @@ export const useProcessStore = create<State>()(
         // ------- Todos -------
         addTodo: (t) => {
           const id = `TD-${String(get().todos.length + 1).padStart(3, "0")}`;
-          const todo: Todo = { id, createdAt: new Date().toISOString(), createdBy: get().settings.userName || "Admin", done: false, ...t };
+          const nowIso = new Date().toISOString();
+          const createdBy = get().settings.userName || "Admin";
+
+          // Optional: Verlinkten Kalender-Eintrag erzeugen
+          let calendarEventId: string | undefined;
+          let newEvent: CalendarEvent | undefined;
+          if (t.dueDate && t.startTime && t.endTime) {
+            calendarEventId = randomId("EV");
+            newEvent = {
+              id: calendarEventId,
+              title: t.title,
+              description: t.description,
+              date: t.dueDate,
+              startTime: t.startTime,
+              endTime: t.endTime,
+              type: "todo",
+              vehicleId: t.vehicleId,
+              processId: t.processId,
+              todoId: id,
+              done: false,
+              createdAt: nowIso,
+              createdBy,
+            };
+          }
+
+          const todo: Todo = {
+            id,
+            createdAt: nowIso,
+            createdBy,
+            done: false,
+            calendarEventId,
+            ...t,
+          };
           set((state) => ({
             todos: [todo, ...state.todos],
+            calendarEvents: newEvent ? [newEvent, ...state.calendarEvents] : state.calendarEvents,
             activities: logActivity(state, "todo_created", `To-Do: ${todo.title}`, { vehicleId: t.vehicleId, processId: t.processId }),
           }));
           return todo;
@@ -759,6 +812,13 @@ export const useProcessStore = create<State>()(
                 ? { ...t, done: !t.done, completedAt: !t.done ? nowIso : undefined }
                 : t,
             );
+
+            // Verlinktes Kalender-Event mit-aktualisieren
+            const updatedEvents = todo?.calendarEventId
+              ? state.calendarEvents.map((e) =>
+                  e.id === todo.calendarEventId ? { ...e, done: willBeDone } : e,
+                )
+              : state.calendarEvents;
 
             // Sync: „Inserat erstellen"-Auto-To-Do ↔ Fahrzeug-Inseratstatus
             const isListingTodo =
@@ -801,16 +861,75 @@ export const useProcessStore = create<State>()(
             return {
               ...state,
               todos: updatedTodos,
+              calendarEvents: updatedEvents,
               vehicles: updatedVehicles,
               activities,
             };
           }),
 
         updateTodo: (id, patch) =>
-          set((state) => ({
-            ...state,
-            todos: state.todos.map((t) => (t.id === id ? { ...t, ...patch } : t)),
-          })),
+          set((state) => {
+            const prev = state.todos.find((t) => t.id === id);
+            if (!prev) return state;
+            const next: Todo = { ...prev, ...patch };
+            const nowIso = new Date().toISOString();
+            const createdBy = state.settings.userName || "Admin";
+
+            // Kalender-Event synchronisieren / erzeugen / entfernen
+            let calendarEvents = state.calendarEvents;
+            let calendarEventId = next.calendarEventId;
+            const hasSlot = !!(next.dueDate && next.startTime && next.endTime);
+
+            if (hasSlot) {
+              if (calendarEventId && calendarEvents.some((e) => e.id === calendarEventId)) {
+                calendarEvents = calendarEvents.map((e) =>
+                  e.id !== calendarEventId
+                    ? e
+                    : {
+                        ...e,
+                        title: next.title,
+                        description: next.description,
+                        date: next.dueDate!,
+                        startTime: next.startTime!,
+                        endTime: next.endTime!,
+                        vehicleId: next.vehicleId,
+                        processId: next.processId,
+                        done: next.done,
+                      },
+                );
+              } else {
+                calendarEventId = randomId("EV");
+                calendarEvents = [
+                  {
+                    id: calendarEventId,
+                    title: next.title,
+                    description: next.description,
+                    date: next.dueDate!,
+                    startTime: next.startTime!,
+                    endTime: next.endTime!,
+                    type: "todo",
+                    vehicleId: next.vehicleId,
+                    processId: next.processId,
+                    todoId: id,
+                    done: next.done,
+                    createdAt: nowIso,
+                    createdBy,
+                  },
+                  ...calendarEvents,
+                ];
+              }
+            } else if (calendarEventId) {
+              // Slot entfernt → Event löschen
+              calendarEvents = calendarEvents.filter((e) => e.id !== calendarEventId);
+              calendarEventId = undefined;
+            }
+
+            return {
+              ...state,
+              todos: state.todos.map((t) => (t.id === id ? { ...next, calendarEventId } : t)),
+              calendarEvents,
+            };
+          }),
 
         removeTodo: (id) =>
           set((state) => {
@@ -818,11 +937,105 @@ export const useProcessStore = create<State>()(
             return {
               ...state,
               todos: state.todos.filter((t) => t.id !== id),
+              calendarEvents: todo?.calendarEventId
+                ? state.calendarEvents.filter((e) => e.id !== todo.calendarEventId)
+                : state.calendarEvents,
               activities: todo
                 ? logActivity(state, "todo_deleted", `To-Do gelöscht: ${todo.title}`, { vehicleId: todo.vehicleId, processId: todo.processId })
                 : state.activities,
             };
           }),
+
+        // ------- Calendar -------
+        addCalendarEvent: (e) => {
+          const event: CalendarEvent = {
+            id: randomId("EV"),
+            createdAt: new Date().toISOString(),
+            createdBy: get().settings.userName || "Admin",
+            ...e,
+          };
+          set((state) => ({ calendarEvents: [event, ...state.calendarEvents] }));
+          return event;
+        },
+
+        updateCalendarEvent: (id, patch) =>
+          set((state) => ({
+            calendarEvents: state.calendarEvents.map((e) => (e.id === id ? { ...e, ...patch } : e)),
+            // Wenn Event mit To-Do verlinkt: Titel/Beschreibung/Slot zurück synchronisieren
+            todos: state.todos.map((t) => {
+              const ev = state.calendarEvents.find((e) => e.id === id);
+              if (!ev || ev.todoId !== t.id) return t;
+              return {
+                ...t,
+                title: patch.title ?? t.title,
+                description: patch.description ?? t.description,
+                dueDate: patch.date ?? t.dueDate,
+                startTime: patch.startTime ?? t.startTime,
+                endTime: patch.endTime ?? t.endTime,
+              };
+            }),
+          })),
+
+        removeCalendarEvent: (id) =>
+          set((state) => {
+            const ev = state.calendarEvents.find((e) => e.id === id);
+            return {
+              calendarEvents: state.calendarEvents.filter((e) => e.id !== id),
+              // Verlinkung am To-Do entfernen, To-Do selbst bleibt
+              todos: ev?.todoId
+                ? state.todos.map((t) => (t.id === ev.todoId ? { ...t, calendarEventId: undefined, startTime: undefined, endTime: undefined } : t))
+                : state.todos,
+            };
+          }),
+
+        toggleCalendarEventDone: (id) =>
+          set((state) => {
+            const ev = state.calendarEvents.find((e) => e.id === id);
+            if (!ev) return state;
+            const willBeDone = !ev.done;
+            return {
+              ...state,
+              calendarEvents: state.calendarEvents.map((e) => (e.id === id ? { ...e, done: willBeDone } : e)),
+              todos: ev.todoId
+                ? state.todos.map((t) =>
+                    t.id === ev.todoId ? { ...t, done: willBeDone, completedAt: willBeDone ? new Date().toISOString() : undefined } : t,
+                  )
+                : state.todos,
+            };
+          }),
+
+        applyDayTemplate: (templateId, date) =>
+          set((state) => {
+            const tpl = state.dayTemplates.find((t) => t.id === templateId);
+            if (!tpl) return state;
+            const nowIso = new Date().toISOString();
+            const createdBy = state.settings.userName || "Admin";
+            // Nur Block-Events des gewählten Tages entfernen, Termine bleiben unangetastet
+            const cleaned = state.calendarEvents.filter((e) => !(e.date === date && e.type === "block"));
+            const newBlocks: CalendarEvent[] = tpl.blocks.map((b) => ({
+              id: randomId("EV"),
+              title: b.title,
+              date,
+              startTime: b.startTime,
+              endTime: b.endTime,
+              type: "block",
+              createdAt: nowIso,
+              createdBy,
+            }));
+            return { ...state, calendarEvents: [...newBlocks, ...cleaned] };
+          }),
+
+        upsertDayTemplate: (tpl) =>
+          set((state) => ({
+            dayTemplates: state.dayTemplates.some((t) => t.id === tpl.id)
+              ? state.dayTemplates.map((t) => (t.id === tpl.id ? tpl : t))
+              : [...state.dayTemplates, tpl],
+          })),
+
+        removeDayTemplate: (id) =>
+          set((state) => ({
+            dayTemplates: state.dayTemplates.filter((t) => t.id !== id),
+          })),
 
         // ------- Goals -------
         addGoal: (g) => {
@@ -889,8 +1102,8 @@ export const useProcessStore = create<State>()(
       };
     },
     {
-      name: "vinflow-store-v5",
-      version: 5,
+      name: "vinflow-store-v6",
+      version: 6,
       partialize: (s) => ({
         vehicles: s.vehicles,
         customers: s.customers,
@@ -900,10 +1113,16 @@ export const useProcessStore = create<State>()(
         todos: s.todos,
         activities: s.activities,
         goals: s.goals,
+        calendarEvents: s.calendarEvents,
+        dayTemplates: s.dayTemplates,
         settings: s.settings,
       }),
       onRehydrateStorage: () => (state) => {
         if (!state) return;
+
+        // ---- Defaults für neu hinzugefügte Felder (v6) ----
+        if (!Array.isArray(state.calendarEvents)) state.calendarEvents = MOCK_CALENDAR_EVENTS;
+        if (!Array.isArray(state.dayTemplates))   state.dayTemplates   = DEFAULT_DAY_TEMPLATES;
 
         // ---- Migration: PurchasePlan-Schema v5 ----
         // Alte Pläne können noch alte Status-Werte ("open"/"ordered") haben

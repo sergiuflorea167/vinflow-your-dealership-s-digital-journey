@@ -9,9 +9,19 @@ import { ProcessCard } from "@/components/process/ProcessCard";
 import { GoalsPanel } from "@/components/dashboard/GoalsPanel";
 import { PinnedKpiGrid } from "@/components/dashboard/PinnedKpiGrid";
 import { useProcessStore } from "@/store/processStore";
-import { PROCESS_STEPS, TodoPriority } from "@/data/process";
-import { ArrowUpRight, Settings2, CalendarCheck2, Car } from "lucide-react";
+import { PROCESS_STEPS, TodoPriority, CALENDAR_EVENT_TYPE_LABELS, CalendarEventType } from "@/data/process";
+import { ArrowUpRight, Settings2, CalendarCheck2, Car, CalendarDays, Clock, MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+const EVENT_DOT: Record<CalendarEventType, string> = {
+  appointment: "bg-primary",
+  todo:        "bg-warning",
+  block:       "bg-muted-foreground",
+  viewing:     "bg-info",
+  handover:    "bg-success",
+  call:        "bg-accent-foreground",
+  internal:    "bg-secondary-foreground",
+};
 
 const PRIORITY_DOT: Record<TodoPriority, string> = {
   high:   "bg-destructive",
@@ -24,6 +34,7 @@ const Dashboard = () => {
   const processes = useProcessStore((s) => s.processes);
   const todos = useProcessStore((s) => s.todos);
   const vehicles = useProcessStore((s) => s.vehicles);
+  const calendarEvents = useProcessStore((s) => s.calendarEvents);
   const toggleTodo = useProcessStore((s) => s.toggleTodo);
 
   const byStep = useMemo(
@@ -44,6 +55,12 @@ const Dashboard = () => {
         return w[a.priority] - w[b.priority];
       }),
     [todos, todayISO]
+  );
+  const todayEvents = useMemo(
+    () => calendarEvents
+      .filter((e) => e.date === todayISO)
+      .sort((a, b) => a.startTime.localeCompare(b.startTime)),
+    [calendarEvents, todayISO]
   );
   const vehicleMap = useMemo(
     () => Object.fromEntries(vehicles.map((v) => [v.id, v])),
@@ -87,6 +104,61 @@ const Dashboard = () => {
 
         {/* Morgen-Motivation */}
         <GoalsPanel />
+
+        {/* Heutige Termine */}
+        <Card className="p-6 bg-card border-border shadow-card">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="size-9 rounded-lg bg-primary/15 text-primary-glow flex items-center justify-center">
+                <CalendarDays className="size-5" />
+              </div>
+              <div>
+                <h2 className="text-xl font-display font-semibold">Heutige Termine</h2>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  {todayEvents.length === 0
+                    ? "Heute keine Termine eingeplant."
+                    : `${todayEvents.length} Termin${todayEvents.length === 1 ? "" : "e"} im Kalender`}
+                </p>
+              </div>
+            </div>
+            <Button variant="ghost" size="sm" asChild>
+              <Link to="/kalender">Zum Kalender</Link>
+            </Button>
+          </div>
+          {todayEvents.length > 0 && (
+            <ul className="divide-y divide-border/60">
+              {todayEvents.slice(0, 6).map((e) => (
+                <li key={e.id} className="flex items-center gap-3 py-2.5">
+                  <span className={cn("size-2 rounded-full shrink-0", EVENT_DOT[e.type])} />
+                  <span className="font-mono text-xs text-muted-foreground w-[88px] shrink-0">
+                    {e.startTime}–{e.endTime}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => navigate("/kalender")}
+                    className={cn("flex-1 text-left text-sm text-foreground truncate hover:text-primary-glow transition-smooth", e.done && "line-through opacity-60")}
+                  >
+                    {e.title}
+                  </button>
+                  <Badge variant="outline" className="text-[10px] px-1.5 py-0 hidden md:inline-flex">
+                    {CALENDAR_EVENT_TYPE_LABELS[e.type]}
+                  </Badge>
+                  {e.location && (
+                    <span className="hidden lg:inline-flex items-center gap-1 text-xs text-muted-foreground truncate max-w-[160px]">
+                      <MapPin className="size-3 shrink-0" /><span className="truncate">{e.location}</span>
+                    </span>
+                  )}
+                </li>
+              ))}
+              {todayEvents.length > 6 && (
+                <li className="pt-2 text-xs text-muted-foreground">
+                  +{todayEvents.length - 6} weitere –{" "}
+                  <Link to="/kalender" className="text-primary-glow hover:underline">im Kalender anzeigen</Link>
+                </li>
+              )}
+            </ul>
+          )}
+        </Card>
 
         {/* Heute fällige To-Dos */}
         <Card className="p-6 bg-card border-border shadow-card">
