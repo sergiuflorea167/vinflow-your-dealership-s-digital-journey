@@ -56,6 +56,7 @@ interface State {
   // ------- Process -------
   completeStep: (processId: string, stepKey: ProcessStepKey) => void;
   skipStep: (processId: string, stepKey: ProcessStepKey) => void;
+  cancelStep: (processId: string, stepKey: ProcessStepKey) => void;
   updateProcessFields: (processId: string, patch: Partial<ProcessFields>) => void;
 
   // Customer-To-Dos auf AB
