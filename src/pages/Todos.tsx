@@ -106,9 +106,37 @@ const Todos = () => {
   const vehicleMap = useMemo(() => Object.fromEntries(vehicles.map((v) => [v.id, v])), [vehicles]);
   const processMap = useMemo(() => Object.fromEntries(processes.map((p) => [p.id, p])), [processes]);
 
-  const todayISO = new Date().toISOString().slice(0, 10);
+  const todayISO = toISO(new Date());
   const isOverdue = (t: Todo) => !t.done && !!t.dueDate && t.dueDate < todayISO;
   const isToday   = (t: Todo) => !t.done && t.dueDate === todayISO;
+
+  // Fälligkeits-Range basierend auf dueFilter
+  const dueRange = useMemo(() => {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    if (dueFilter === "today") {
+      return { from: toISO(start), to: toISO(start) };
+    }
+    if (dueFilter === "tomorrow") {
+      const t = new Date(start); t.setDate(t.getDate() + 1);
+      return { from: toISO(t), to: toISO(t) };
+    }
+    if (dueFilter === "this_week") {
+      // Mo–So (ISO: Montag = 1)
+      const day = start.getDay() === 0 ? 7 : start.getDay();
+      const monday = new Date(start); monday.setDate(start.getDate() - (day - 1));
+      const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6);
+      return { from: toISO(monday), to: toISO(sunday) };
+    }
+    if (dueFilter === "next_7") {
+      const end = new Date(start); end.setDate(start.getDate() + 6);
+      return { from: toISO(start), to: toISO(end) };
+    }
+    if (dueFilter === "custom" && customDue) {
+      return { from: toISO(customDue), to: toISO(customDue) };
+    }
+    return null;
+  }, [dueFilter, customDue]);
 
   // ---- Filter -------------------------------------------------------------
   const filtered = useMemo(() => {
@@ -121,6 +149,14 @@ const Todos = () => {
 
       if (scopeFilter !== "all" && t.scope !== scopeFilter) return false;
       if (priorityFilter !== "all" && t.priority !== priorityFilter) return false;
+
+      // Fälligkeitsdatum-Filter
+      if (dueFilter === "no_date") {
+        if (t.dueDate) return false;
+      } else if (dueRange) {
+        if (!t.dueDate) return false;
+        if (t.dueDate < dueRange.from || t.dueDate > dueRange.to) return false;
+      }
 
       if (q) {
         const fields: string[] = [];
