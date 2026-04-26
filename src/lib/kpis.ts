@@ -148,7 +148,7 @@ export const KPI_CATALOG: KpiDef[] = [
     category: "Umsatz",
     description: "Tatsächlich gestellte Schlussrechnungen.",
     interpretation:
-      "Buchhalterischer Bruttoumsatz aus formellen Rechnungen — Basis für USt-Voranmeldung & GuV. Differenz zum „Gebucht"-Wert = noch nicht abgerechnete Anzahlungen.",
+      "Buchhalterischer Bruttoumsatz aus formellen Rechnungen — Basis für USt-Voranmeldung & GuV. Differenz zum „Gebucht“-Wert = noch nicht abgerechnete Anzahlungen.",
     format: "currency",
     compute: ({ processes }) => {
       const invoiced = processes.filter((p) => p.steps.invoicing?.status === "completed");
@@ -255,7 +255,7 @@ export const KPI_CATALOG: KpiDef[] = [
     category: "Verkauf & Marge",
     description: "Gewinn aller je übergebenen Fahrzeuge.",
     interpretation:
-      "Lebenslange kumulierte Wertschöpfung. Der Ø-Wert pro Verkauf ist die wichtigere Steuerungsgröße — er zeigt, wie profitabel ein „typischer" Deal ist.",
+      "Lebenslange kumulierte Wertschöpfung. Der Ø-Wert pro Verkauf ist die wichtigere Steuerungsgröße — er zeigt, wie profitabel ein „typischer“ Deal ist.",
     format: "currency",
     compute: ({ processes, vehicles }) => {
       const sold = processes.filter((p) => p.steps.delivery_confirmation?.status === "completed");
@@ -385,7 +385,7 @@ export const KPI_CATALOG: KpiDef[] = [
     category: "Kosten",
     description: "Brutto-Kosten der aktiv im Bestand stehenden Fahrzeuge.",
     interpretation:
-      "Bereits investiertes Geld in Fahrzeuge, die noch nicht verkauft sind — also „gebundenes Aufbereitungskapital". Senkt direkt die Marge bei Verkauf.",
+      "Bereits investiertes Geld in Fahrzeuge, die noch nicht verkauft sind — also „gebundenes Aufbereitungskapital“. Senkt direkt die Marge bei Verkauf.",
     format: "currency",
     compute: ({ vehicles }) => {
       const stock = vehicles.filter((v) => v.status === "in_stock" || v.status === "reserved");
@@ -399,7 +399,7 @@ export const KPI_CATALOG: KpiDef[] = [
     category: "Kosten",
     description: "Durchschnittliche Brutto-Kosten je Fahrzeug.",
     interpretation:
-      "Steuerungsgröße für den Einkauf: Wie viel muss ein „typisches" Fahrzeug zusätzlich verkraften, bevor es marktfähig ist? Hoch → Einkaufsqualität verbessern.",
+      "Steuerungsgröße für den Einkauf: Wie viel muss ein „typisches“ Fahrzeug zusätzlich verkraften, bevor es marktfähig ist? Hoch → Einkaufsqualität verbessern.",
     format: "currency",
     compute: ({ vehicles }) => {
       const total = vehicles.reduce((s, v) => s + vehicleTotalCostsGross(v), 0);
@@ -415,7 +415,7 @@ export const KPI_CATALOG: KpiDef[] = [
     category: "Pipeline",
     description: "Vorgänge ohne abgeschlossene Übergabe.",
     interpretation:
-      "Operative Arbeitslast. Hoher Wert in „in Kontrolle" = Übergaben stehen kurz bevor (gut für Cashflow). Hoher Wert in frühen Phasen = volle Pipeline für die nächsten Wochen.",
+      "Operative Arbeitslast. Hoher Wert in „in Kontrolle“ = Übergaben stehen kurz bevor (gut für Cashflow). Hoher Wert in frühen Phasen = volle Pipeline für die nächsten Wochen.",
     format: "number",
     compute: ({ processes }) => {
       const active = processes.filter((p) => p.steps.delivery_confirmation?.status !== "completed");
