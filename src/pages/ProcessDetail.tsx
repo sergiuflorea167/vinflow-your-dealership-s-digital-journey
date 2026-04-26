@@ -66,10 +66,22 @@ const ProcessDetail = () => {
   const isCompleted = record.status === "completed";
   const isSkipped = record.status === "skipped";
   const isLocked = selectedIdx > currentIdx;
+  const isBooked = !!record.bookedAt && !isCompleted && !isSkipped;
   const nextStep = PROCESS_STEPS[currentIdx + 1];
 
-  const handleComplete = () => {
+  const handleBook = () => {
     if (!validation.ok) { toast.error(validation.message ?? "Bitte alle Pflichtfelder ausfüllen."); return; }
+    bookStep(process.id, selectedKey);
+    toast.success(`${selectedStep.label} gebucht – Beleg kann jetzt erzeugt werden.`);
+  };
+
+  const handleUnbook = () => {
+    unbookStep(process.id, selectedKey);
+    toast.message("Buchung gelöst – Felder wieder bearbeitbar.");
+  };
+
+  const handleComplete = () => {
+    if (!isBooked) { toast.error("Bitte zuerst „Buchen" klicken."); return; }
     completeStep(process.id, selectedKey);
     toast.success(`${selectedStep.documentName} archiviert${nextStep ? ` · Weiter zu ${nextStep.label}` : " · Vorgang abgeschlossen"}`);
     if (nextStep) setSelected(nextStep.key);
