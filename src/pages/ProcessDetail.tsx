@@ -25,7 +25,8 @@ const ProcessDetail = () => {
   const vehicle = useProcessStore((s) => process && s.getVehicle(process.vehicleId));
   const customer = useProcessStore((s) => process && s.getCustomer(process.customerId));
   const offer = useProcessStore((s) => process && s.getOffer(process.acceptedOfferId));
-  const activities = useProcessStore((s) => s.activities.filter((a) => a.processId === process?.id));
+  const allActivities = useProcessStore((s) => s.activities);
+  const activities = useMemo(() => allActivities.filter((a) => a.processId === process?.id), [allActivities, process?.id]);
   const companyName = useProcessStore((s) => s.settings.companyName);
 
   const completeStep = useProcessStore((s) => s.completeStep);
