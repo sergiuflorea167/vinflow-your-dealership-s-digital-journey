@@ -519,22 +519,27 @@ const Todos = () => {
 export default Todos;
 
 // ---------------------------------------------------------------------------
-// Create Form
+// Todo Form (Create + Edit)
 // ---------------------------------------------------------------------------
 
-const CreateTodoForm = ({
-  onSubmit, onCancel,
+type TodoFormData = Omit<Todo, "id" | "createdAt" | "createdBy" | "done">;
+
+const TodoForm = ({
+  initial, submitLabel = "Anlegen", onSubmit, onCancel, onDelete,
 }: {
-  onSubmit: (data: Omit<Todo, "id" | "createdAt" | "createdBy" | "done">) => void;
+  initial?: Todo;
+  submitLabel?: string;
+  onSubmit: (data: TodoFormData) => void;
   onCancel: () => void;
+  onDelete?: () => void;
 }) => {
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [priority, setPriority] = useState<TodoPriority>("medium");
-  const [scope, setScope] = useState<TodoScope>("general");
-  const [dueDate, setDueDate] = useState("");
-  const [assignee, setAssignee] = useState("");
-  const [tagsRaw, setTagsRaw] = useState("");
+  const [title, setTitle] = useState(initial?.title ?? "");
+  const [description, setDescription] = useState(initial?.description ?? "");
+  const [priority, setPriority] = useState<TodoPriority>(initial?.priority ?? "medium");
+  const [scope, setScope] = useState<TodoScope>(initial?.scope ?? "general");
+  const [dueDate, setDueDate] = useState(initial?.dueDate ?? "");
+  const [assignee, setAssignee] = useState(initial?.assignee ?? "");
+  const [tagsRaw, setTagsRaw] = useState((initial?.tags ?? []).join(", "));
 
   const submit = () => {
     if (!title.trim()) {
@@ -549,6 +554,8 @@ const CreateTodoForm = ({
       dueDate: dueDate || undefined,
       assignee: assignee.trim() || undefined,
       tags: tagsRaw.split(",").map((t) => t.trim()).filter(Boolean),
+      vehicleId: initial?.vehicleId,
+      processId: initial?.processId,
     });
   };
 
@@ -605,9 +612,16 @@ const CreateTodoForm = ({
         <Input value={tagsRaw} onChange={(e) => setTagsRaw(e.target.value)} placeholder="büro, dringend, telefon" />
       </div>
 
-      <DialogFooter>
-        <Button variant="outline" onClick={onCancel} className="gap-1.5"><X className="size-3.5" /> Abbrechen</Button>
-        <Button onClick={submit} className="bg-gradient-brand gap-1.5"><Flag className="size-3.5" /> Anlegen</Button>
+      <DialogFooter className="gap-2 sm:justify-between">
+        {onDelete ? (
+          <Button variant="outline" onClick={onDelete} className="gap-1.5 text-destructive hover:text-destructive border-destructive/30 hover:bg-destructive/10">
+            <Trash2 className="size-3.5" /> Löschen
+          </Button>
+        ) : <span />}
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={onCancel} className="gap-1.5"><X className="size-3.5" /> Abbrechen</Button>
+          <Button onClick={submit} className="bg-gradient-brand gap-1.5"><Flag className="size-3.5" /> {submitLabel}</Button>
+        </div>
       </DialogFooter>
     </div>
   );
