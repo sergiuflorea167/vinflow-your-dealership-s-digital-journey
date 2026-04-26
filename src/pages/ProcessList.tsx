@@ -74,15 +74,14 @@ const ProcessList = () => {
   const [docStep, setDocStep] = useState<"all" | ProcessStepKey>("all");
   const [docSortDir, setDocSortDir] = useState<"asc" | "desc">("desc");
 
-  // ---- Topbar-Suche je nach aktivem Tab ----
-  useTopbarSearch(
+  const topbarSearch = useMemo(() => (
     tab === "list"
       ? {
           placeholder: "Vorgänge durchsuchen…",
           value: q,
           onChange: setQ,
           field: qField,
-          onFieldChange: (f) => setQField(f as typeof qField),
+          onFieldChange: (f: string) => setQField(f as typeof qField),
           fields: [
             { key: "all",      label: "Alle Felder" },
             { key: "id",       label: "Vorgangs-Nr." },
@@ -96,7 +95,7 @@ const ProcessList = () => {
           value: docQ,
           onChange: setDocQ,
           field: docQField,
-          onFieldChange: (f) => setDocQField(f as typeof docQField),
+          onFieldChange: (f: string) => setDocQField(f as typeof docQField),
           fields: [
             { key: "all",      label: "Alle Felder" },
             { key: "id",       label: "Vorgangs-Nr." },
@@ -106,7 +105,9 @@ const ProcessList = () => {
             { key: "doc",      label: "Belegart" },
           ],
         }
-  );
+  ), [tab, q, qField, docQ, docQField]);
+
+  useTopbarSearch(topbarSearch);
 
   const documents = useMemo(() => {
     const docs: Array<{

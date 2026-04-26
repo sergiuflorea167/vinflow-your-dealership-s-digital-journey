@@ -40,19 +40,21 @@ const PurchasePlanning = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [receiveDialog, setReceiveDialog] = useState<{ planId: string } | null>(null);
 
-  useTopbarSearch({
+  const topbarSearch = useMemo(() => ({
     placeholder: "Einkaufsplanung durchsuchen…",
     value: query,
     onChange: setQuery,
     field: searchField,
-    onFieldChange: (f) => setSearchField(f as typeof searchField),
+    onFieldChange: (f: string) => setSearchField(f as typeof searchField),
     fields: [
       { key: "all",      label: "Alle Felder" },
       { key: "make",     label: "Marke" },
       { key: "model",    label: "Modell" },
       { key: "supplier", label: "Lieferant" },
     ],
-  });
+  }), [query, searchField]);
+
+  useTopbarSearch(topbarSearch);
 
   const filtered = useMemo(() => {
     const list = plans.filter((p) => {

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useParams, Link, Navigate } from "react-router-dom";
 import { AppShell } from "@/components/layout/AppShell";
 import { Card } from "@/components/ui/card";
@@ -26,7 +26,8 @@ const VehicleDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const vehicle = useProcessStore((s) => s.vehicles.find((v) => v.id === id));
-  const offers = useProcessStore((s) => s.getOffersForVehicle(id ?? ""));
+  const allOffers = useProcessStore((s) => s.offers);
+  const offers = useMemo(() => allOffers.filter((o) => o.vehicleId === (id ?? "")), [allOffers, id]);
   const customers = useProcessStore((s) => s.customers);
   const getCustomer = useProcessStore((s) => s.getCustomer);
   const process = useProcessStore((s) => s.processes.find((p) => p.vehicleId === id));
