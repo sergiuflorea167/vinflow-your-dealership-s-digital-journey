@@ -14,6 +14,7 @@ import Customers from "./pages/Customers.tsx";
 import KPIs from "./pages/KPIs.tsx";
 import Insights from "./pages/Insights.tsx";
 import Todos from "./pages/Todos.tsx";
+import Calendar from "./pages/Calendar.tsx";
 import Stammdaten from "./pages/Stammdaten.tsx";
 import { TopbarSearchProvider } from "./context/TopbarSearchContext";
 import { KpiRangeProvider } from "./context/KpiRangeContext";
