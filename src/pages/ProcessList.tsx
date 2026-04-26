@@ -2,7 +2,6 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { AppShell } from "@/components/layout/AppShell";
 import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -11,9 +10,10 @@ import {
 } from "@/components/ui/select";
 import { useProcessStore } from "@/store/processStore";
 import { PROCESS_STEPS, ProcessStepKey, formatCurrency, formatDate, stepIndex } from "@/data/process";
-import { Search, ChevronRight, FileText, Download, ArrowDownAZ, ArrowUpAZ } from "lucide-react";
+import { ChevronRight, FileText, Download, ArrowDownAZ, ArrowUpAZ } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { downloadBelegPdf } from "@/lib/pdf";
+import { useTopbarSearch } from "@/context/TopbarSearchContext";
 
 type ProcessSortKey = "updated" | "created" | "price" | "id" | "customer";
 
@@ -22,8 +22,12 @@ const ProcessList = () => {
   const getVehicle = useProcessStore((s) => s.getVehicle);
   const getCustomer = useProcessStore((s) => s.getCustomer);
 
+  // ---- Tabs ----
+  const [tab, setTab] = useState<"list" | "documents">("list");
+
   // ---- Liste ----
   const [q, setQ] = useState("");
+  const [qField, setQField] = useState<"all" | "id" | "vin" | "vehicle" | "customer">("all");
   const [filter, setFilter] = useState<string>("all");
   const [sortKey, setSortKey] = useState<ProcessSortKey>("updated");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
