@@ -17,7 +17,7 @@ import {
   VehicleLocation, LocationKind,
 } from "@/data/process";
 import {
-  ArrowLeft, Car, CheckCircle2, Edit2, FileText, Mail, MapPin, Plus, Send,
+  ArrowLeft, Car, CheckCircle2, ChevronDown, Edit2, FileText, Mail, MapPin, Plus, Send,
   Sparkles, X, Save, History, Zap,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -423,43 +423,67 @@ const Section = ({
   title,
   rows,
   renderEditor,
+  defaultOpen = false,
 }: {
   title: string;
   rows: Row[];
   renderEditor: (close: () => void) => React.ReactNode;
+  defaultOpen?: boolean;
 }) => {
   const [editing, setEditing] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
 
   return (
-    <Card className="p-6 bg-card border-border shadow-card">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-base font-display font-semibold">{title}</h2>
-        {!editing ? (
-          <Button variant="ghost" size="icon" className="size-8" aria-label={`${title} bearbeiten`} onClick={() => setEditing(true)}>
-            <Edit2 className="size-3.5 text-muted-foreground" />
-          </Button>
-        ) : (
-          <Badge variant="outline" className="border-primary/40 text-primary-glow">Bearbeitungsmodus</Badge>
+    <Card className="bg-card border-border shadow-card overflow-hidden">
+      <div className="flex items-center justify-between px-6 py-4">
+        <button
+          type="button"
+          onClick={() => setOpen((o) => !o)}
+          className="flex items-center gap-2 text-left flex-1 min-w-0 group"
+          aria-expanded={open}
+        >
+          <ChevronDown
+            className={cn(
+              "size-4 text-muted-foreground transition-transform shrink-0",
+              open ? "rotate-0" : "-rotate-90",
+            )}
+          />
+          <h2 className="text-base font-display font-semibold group-hover:text-primary-glow transition-smooth">
+            {title}
+          </h2>
+        </button>
+        {open && (
+          !editing ? (
+            <Button variant="ghost" size="icon" className="size-8" aria-label={`${title} bearbeiten`} onClick={() => setEditing(true)}>
+              <Edit2 className="size-3.5 text-muted-foreground" />
+            </Button>
+          ) : (
+            <Badge variant="outline" className="border-primary/40 text-primary-glow">Bearbeitungsmodus</Badge>
+          )
         )}
       </div>
 
-      {!editing ? (
-        <dl className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-3">
-          {rows.map((r, i) => (
-            <div key={i} className={cn("flex flex-col", r.full && "md:col-span-2 lg:col-span-3")}>
-              {r.label && (
-                <dt className="text-[10px] uppercase tracking-widest text-muted-foreground">{r.label}</dt>
-              )}
-              <dd className={cn("text-sm text-foreground mt-0.5 break-words", r.mono && "font-mono text-xs")}>
-                {r.value === undefined || r.value === null || r.value === ""
-                  ? <span className="text-muted-foreground italic">—</span>
-                  : (r.raw ? r.value : <>{r.value}</>)}
-              </dd>
-            </div>
-          ))}
-        </dl>
-      ) : (
-        renderEditor(() => setEditing(false))
+      {open && (
+        <div className="px-6 pb-6">
+          {!editing ? (
+            <dl className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-3">
+              {rows.map((r, i) => (
+                <div key={i} className={cn("flex flex-col", r.full && "md:col-span-2 lg:col-span-3")}>
+                  {r.label && (
+                    <dt className="text-[10px] uppercase tracking-widest text-muted-foreground">{r.label}</dt>
+                  )}
+                  <dd className={cn("text-sm text-foreground mt-0.5 break-words", r.mono && "font-mono text-xs")}>
+                    {r.value === undefined || r.value === null || r.value === ""
+                      ? <span className="text-muted-foreground italic">—</span>
+                      : (r.raw ? r.value : <>{r.value}</>)}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          ) : (
+            renderEditor(() => setEditing(false))
+          )}
+        </div>
       )}
     </Card>
   );
