@@ -36,6 +36,8 @@ const ProcessDetail = () => {
   const completeStep = useProcessStore((s) => s.completeStep);
   const skipStep = useProcessStore((s) => s.skipStep);
   const cancelStep = useProcessStore((s) => s.cancelStep);
+  const bookStep = useProcessStore((s) => s.bookStep);
+  const unbookStep = useProcessStore((s) => s.unbookStep);
   const updateFields = useProcessStore((s) => s.updateProcessFields);
   const toggleChk = useProcessStore((s) => s.toggleOutboundChecklistItem);
   const addChk = useProcessStore((s) => s.addOutboundChecklistItem);
@@ -64,10 +66,22 @@ const ProcessDetail = () => {
   const isCompleted = record.status === "completed";
   const isSkipped = record.status === "skipped";
   const isLocked = selectedIdx > currentIdx;
+  const isBooked = !!record.bookedAt && !isCompleted && !isSkipped;
   const nextStep = PROCESS_STEPS[currentIdx + 1];
 
-  const handleComplete = () => {
+  const handleBook = () => {
     if (!validation.ok) { toast.error(validation.message ?? "Bitte alle Pflichtfelder ausfüllen."); return; }
+    bookStep(process.id, selectedKey);
+    toast.success(`${selectedStep.label} gebucht – Beleg kann jetzt erzeugt werden.`);
+  };
+
+  const handleUnbook = () => {
+    unbookStep(process.id, selectedKey);
+    toast.message("Buchung gelöst – Felder wieder bearbeitbar.");
+  };
+
+  const handleComplete = () => {
+    if (!isBooked) { toast.error('Bitte zuerst „Buchen" klicken.'); return; }
     completeStep(process.id, selectedKey);
     toast.success(`${selectedStep.documentName} archiviert${nextStep ? ` · Weiter zu ${nextStep.label}` : " · Vorgang abgeschlossen"}`);
     if (nextStep) setSelected(nextStep.key);
@@ -131,7 +145,8 @@ const ProcessDetail = () => {
                   <span className="text-xs font-mono text-muted-foreground">Schritt {selectedIdx + 1} / {PROCESS_STEPS.length}</span>
                   {isCompleted && <Badge className="bg-success text-success-foreground hover:bg-success">Abgeschlossen</Badge>}
                   {isSkipped && <Badge variant="outline" className="border-muted-foreground/30 text-muted-foreground">Übersprungen</Badge>}
-                  {isCurrent && !isCompleted && !isSkipped && <Badge className="bg-primary text-primary-foreground hover:bg-primary">Aktiv</Badge>}
+                  {isCurrent && !isCompleted && !isSkipped && !isBooked && <Badge className="bg-primary text-primary-foreground hover:bg-primary">Aktiv</Badge>}
+                  {isBooked && <Badge className="bg-success text-success-foreground hover:bg-success gap-1"><CheckCircle2 className="size-3" /> Gebucht</Badge>}
                   {isLocked && (<Badge variant="outline" className="border-border text-muted-foreground"><Lock className="size-3 mr-1" /> Gesperrt</Badge>)}
                 </div>
                 <h2 className="text-2xl font-display font-bold text-foreground">{selectedStep.label}</h2>
@@ -145,7 +160,7 @@ const ProcessDetail = () => {
               <StepFields
                 stepKey={selectedKey}
                 fields={process.fields}
-                disabled={!isCurrent || isSkipped}
+                disabled={!isCurrent || isSkipped || isBooked}
                 onChange={(patch) => updateFields(process.id, patch)}
               />
             )}
@@ -160,7 +175,7 @@ const ProcessDetail = () => {
                   onAdd={(t) => addCT(process.id, t)}
                   onRemove={(id) => removeCT(process.id, id)}
                   placeholder="z. B. AHK montieren, Standheizung nachrüsten…"
-                  disabled={!isCurrent}
+                  disabled={!isCurrent || isBooked}
                 />
               </div>
             )}
@@ -176,7 +191,7 @@ const ProcessDetail = () => {
                   onRemove={(id) => removeChk(process.id, id)}
                   onToggle={(id) => toggleChk(process.id, id)}
                   showCheckbox
-                  disabled={!isCurrent}
+                  disabled={!isCurrent || isBooked}
                 />
               </div>
             )}
@@ -244,19 +259,39 @@ const ProcessDetail = () => {
               )}
               {isCurrent && !isCompleted && !isSkipped && (
                 <>
-                  {!validation.ok && (
+                  {!isBooked && !validation.ok && (
                     <p className="text-xs text-warning mr-auto inline-flex items-center gap-2">
                       <AlertCircle className="size-4" /> {validation.message}
                     </p>
                   )}
-                  {selectedStep.skippable && (
+                  {isBooked && (
+                    <p className="text-xs text-success mr-auto inline-flex items-center gap-2">
+                      <CheckCircle2 className="size-4" /> Gebucht am {formatDate(record.bookedAt!)} – Felder sind fixiert.
+                    </p>
+                  )}
+                  {selectedStep.skippable && !isBooked && (
                     <Button variant="outline" onClick={handleSkip} className="gap-2">
                       <SkipForward className="size-4" /> Überspringen
                     </Button>
                   )}
-                  <Button onClick={handleComplete} disabled={!validation.ok} className="bg-gradient-brand hover:opacity-90 shadow-elegant gap-2">
-                    Beleg erzeugen & {nextStep ? "weiter" : "abschließen"} <ArrowRight className="size-4" />
-                  </Button>
+                  {!isBooked ? (
+                    <Button
+                      onClick={handleBook}
+                      disabled={!validation.ok}
+                      className="bg-success text-success-foreground hover:bg-success/90 shadow-elegant gap-2"
+                    >
+                      <CheckCircle2 className="size-4" /> Buchen
+                    </Button>
+                  ) : (
+                    <>
+                      <Button variant="outline" onClick={handleUnbook} className="gap-2">
+                        <RotateCcw className="size-4" /> Buchung lösen
+                      </Button>
+                      <Button onClick={handleComplete} className="bg-gradient-brand hover:opacity-90 shadow-elegant gap-2">
+                        Beleg erzeugen & {nextStep ? "weiter" : "abschließen"} <ArrowRight className="size-4" />
+                      </Button>
+                    </>
+                  )}
                 </>
               )}
             </div>
