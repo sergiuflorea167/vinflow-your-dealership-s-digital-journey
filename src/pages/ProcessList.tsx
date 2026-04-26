@@ -14,6 +14,7 @@ import { ChevronRight, FileText, Download, ArrowDownAZ, ArrowUpAZ } from "lucide
 import { cn } from "@/lib/utils";
 import { downloadBelegPdf } from "@/lib/pdf";
 import { useTopbarSearch } from "@/context/TopbarSearchContext";
+import { DataTableShell } from "@/components/shared/DataTableShell";
 
 type ProcessSortKey = "updated" | "created" | "price" | "id" | "customer";
 
@@ -168,215 +169,213 @@ const ProcessList = () => {
 
   return (
     <AppShell>
-      <div className="space-y-6 animate-fade-in">
-        <div>
-          <h1 className="text-3xl font-display font-bold">Vorgänge</h1>
-          <p className="text-muted-foreground mt-1">
+      <div className="flex flex-col min-h-0 flex-1 gap-3 animate-fade-in">
+        <div className="shrink-0">
+          <h1 className="text-2xl font-display font-bold">Vorgänge</h1>
+          <p className="text-xs text-muted-foreground">
             Alle aktiven &amp; abgeschlossenen Verkaufsvorgänge inkl. archivierter Belege.
           </p>
         </div>
 
-        <Tabs value={tab} onValueChange={(v) => setTab(v as "list" | "documents")} className="space-y-6">
-          <TabsList>
+        <Tabs
+          value={tab}
+          onValueChange={(v) => setTab(v as "list" | "documents")}
+          className="flex flex-col min-h-0 flex-1 gap-3"
+        >
+          <TabsList className="shrink-0 self-start">
             <TabsTrigger value="list">Liste ({processes.length})</TabsTrigger>
             <TabsTrigger value="documents">Belege-Archiv ({documents.length})</TabsTrigger>
           </TabsList>
 
           {/* -------- Liste -------- */}
-          <TabsContent value="list" className="space-y-6 mt-0">
-            <Card className="p-4 bg-card border-border">
-              <div className="flex flex-col lg:flex-row gap-3">
-                <div className="flex gap-2 items-center flex-wrap">
-                  <Select value={sortKey} onValueChange={(v) => setSortKey(v as ProcessSortKey)}>
-                    <SelectTrigger className="w-[180px] bg-background/40">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="updated">Sort.: Aktualisiert</SelectItem>
-                      <SelectItem value="created">Sort.: Erstellt</SelectItem>
-                      <SelectItem value="price">Sort.: Preis</SelectItem>
-                      <SelectItem value="customer">Sort.: Kunde</SelectItem>
-                      <SelectItem value="id">Sort.: Vorgangs-Nr.</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}
-                    aria-label="Richtung wechseln"
-                  >
-                    {sortDir === "asc" ? <ArrowUpAZ className="size-4" /> : <ArrowDownAZ className="size-4" />}
-                  </Button>
+          <TabsContent value="list" className="flex flex-col min-h-0 flex-1 gap-3 mt-0">
+            <Card className="px-3 py-2 bg-card border-border shrink-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Select value={sortKey} onValueChange={(v) => setSortKey(v as ProcessSortKey)}>
+                  <SelectTrigger className="w-[170px] h-8 text-xs bg-background/40">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="updated">Sort.: Aktualisiert</SelectItem>
+                    <SelectItem value="created">Sort.: Erstellt</SelectItem>
+                    <SelectItem value="price">Sort.: Preis</SelectItem>
+                    <SelectItem value="customer">Sort.: Kunde</SelectItem>
+                    <SelectItem value="id">Sort.: Vorgangs-Nr.</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}
+                  aria-label="Richtung wechseln"
+                >
+                  {sortDir === "asc" ? <ArrowUpAZ className="size-4" /> : <ArrowDownAZ className="size-4" />}
+                </Button>
+                <div className="flex gap-1.5 overflow-x-auto">
+                  <FilterPill active={filter === "all"} onClick={() => setFilter("all")}>
+                    Alle ({processes.length})
+                  </FilterPill>
+                  {PROCESS_STEPS.map((s) => {
+                    const c = processes.filter((p) => p.currentStep === s.key).length;
+                    if (c === 0) return null;
+                    return (
+                      <FilterPill key={s.key} active={filter === s.key} onClick={() => setFilter(s.key)}>
+                        {s.shortLabel} ({c})
+                      </FilterPill>
+                    );
+                  })}
                 </div>
-              </div>
-              <div className="flex gap-2 overflow-x-auto mt-3">
-                <FilterPill active={filter === "all"} onClick={() => setFilter("all")}>
-                  Alle ({processes.length})
-                </FilterPill>
-                {PROCESS_STEPS.map((s) => {
-                  const c = processes.filter((p) => p.currentStep === s.key).length;
-                  if (c === 0) return null;
-                  return (
-                    <FilterPill key={s.key} active={filter === s.key} onClick={() => setFilter(s.key)}>
-                      {s.shortLabel} ({c})
-                    </FilterPill>
-                  );
-                })}
               </div>
             </Card>
 
-            <Card className="bg-card border-border overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border bg-background/30 text-left text-xs uppercase tracking-wider text-muted-foreground">
-                      <th className="px-5 py-3 font-medium">Vorgang</th>
-                      <th className="px-5 py-3 font-medium">Fahrzeug / VIN</th>
-                      <th className="px-5 py-3 font-medium">Kunde</th>
-                      <th className="px-5 py-3 font-medium">Aktueller Schritt</th>
-                      <th className="px-5 py-3 font-medium text-right">Preis</th>
-                      <th className="px-5 py-3 font-medium">Aktualisiert</th>
-                      <th className="px-5 py-3"></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filtered.map(({ p, vehicle, customer }) => {
-                      const idx = stepIndex(p.currentStep);
-                      const step = PROCESS_STEPS[idx];
-                      return (
-                        <tr key={p.id} className="border-b border-border/50 hover:bg-surface-elevated/40 transition-smooth group">
-                          <td className="px-5 py-4">
-                            <Link to={`/vorgaenge/${p.id}`} className="font-display font-semibold text-foreground hover:text-primary-glow">
-                              {p.id}
-                            </Link>
-                          </td>
-                          <td className="px-5 py-4">
-                            <p className="font-medium text-foreground">{vehicle!.make} {vehicle!.model}</p>
-                            <p className="font-mono text-xs text-muted-foreground">{vehicle!.vin}</p>
-                          </td>
-                          <td className="px-5 py-4">
-                            <p className="text-foreground">{customer!.name}</p>
-                            <p className="text-xs text-muted-foreground">{customer!.city}</p>
-                          </td>
-                          <td className="px-5 py-4">
-                            <Badge variant="outline" className="border-primary/30 text-primary-glow">
-                              {idx + 1}. {step.shortLabel}
-                            </Badge>
-                          </td>
-                          <td className="px-5 py-4 text-right font-semibold text-foreground">
-                            {formatCurrency(p.fields.finalPrice ?? vehicle!.listPrice)}
-                          </td>
-                          <td className="px-5 py-4 text-muted-foreground text-xs">{formatDate(p.updatedAt)}</td>
-                          <td className="px-5 py-4">
-                            <Link to={`/vorgaenge/${p.id}`}>
-                              <Button variant="ghost" size="icon" className="opacity-0 group-hover:opacity-100 transition-smooth">
-                                <ChevronRight className="size-4" />
-                              </Button>
-                            </Link>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                    {filtered.length === 0 && (
-                      <tr>
-                        <td colSpan={7} className="px-5 py-12 text-center text-muted-foreground text-sm">
-                          Keine Vorgänge gefunden.
+            <DataTableShell footer={<>{filtered.length} Vorgänge</>}>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Vorgang</th>
+                    <th>Fahrzeug / VIN</th>
+                    <th>Kunde</th>
+                    <th>Aktueller Schritt</th>
+                    <th className="text-right">Preis</th>
+                    <th>Aktualisiert</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map(({ p, vehicle, customer }) => {
+                    const idx = stepIndex(p.currentStep);
+                    const step = PROCESS_STEPS[idx];
+                    return (
+                      <tr key={p.id} className="hover:bg-surface-elevated/40 transition-smooth group">
+                        <td>
+                          <Link to={`/vorgaenge/${p.id}`} className="font-display font-semibold text-foreground hover:text-primary-glow">
+                            {p.id}
+                          </Link>
+                        </td>
+                        <td>
+                          <p className="font-medium text-foreground leading-tight">{vehicle!.make} {vehicle!.model}</p>
+                          <p className="font-mono text-[10px] text-muted-foreground leading-tight">{vehicle!.vin}</p>
+                        </td>
+                        <td>
+                          <p className="text-foreground leading-tight">{customer!.name}</p>
+                          <p className="text-[10px] text-muted-foreground leading-tight">{customer!.city}</p>
+                        </td>
+                        <td>
+                          <Badge variant="outline" className="border-primary/30 text-primary-glow text-[10px] px-1.5 py-0">
+                            {idx + 1}. {step.shortLabel}
+                          </Badge>
+                        </td>
+                        <td className="text-right font-semibold text-foreground whitespace-nowrap">
+                          {formatCurrency(p.fields.finalPrice ?? vehicle!.listPrice)}
+                        </td>
+                        <td className="text-muted-foreground whitespace-nowrap">{formatDate(p.updatedAt)}</td>
+                        <td>
+                          <Link to={`/vorgaenge/${p.id}`}>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-smooth">
+                              <ChevronRight className="size-4" />
+                            </Button>
+                          </Link>
                         </td>
                       </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
+                    );
+                  })}
+                  {filtered.length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="px-3 py-12 text-center text-muted-foreground">
+                        Keine Vorgänge gefunden.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </DataTableShell>
           </TabsContent>
 
           {/* -------- Belege-Archiv -------- */}
-          <TabsContent value="documents" className="space-y-6 mt-0">
-            <Card className="p-4 bg-card border-border">
-              <div className="flex flex-col lg:flex-row gap-3">
-                <div className="flex gap-2 items-center flex-wrap">
-                  <Select value={docStep} onValueChange={(v) => setDocStep(v as "all" | ProcessStepKey)}>
-                    <SelectTrigger className="w-[200px] bg-background/40">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Alle Belegarten</SelectItem>
-                      {PROCESS_STEPS.map((s) => (
-                        <SelectItem key={s.key} value={s.key}>{s.documentName}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => setDocSortDir((d) => (d === "asc" ? "desc" : "asc"))}
-                    aria-label="Sortierung wechseln"
-                    title={docSortDir === "asc" ? "Älteste zuerst" : "Neueste zuerst"}
-                  >
-                    {docSortDir === "asc" ? <ArrowUpAZ className="size-4" /> : <ArrowDownAZ className="size-4" />}
-                  </Button>
-                </div>
+          <TabsContent value="documents" className="flex flex-col min-h-0 flex-1 gap-3 mt-0">
+            <Card className="px-3 py-2 bg-card border-border shrink-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Select value={docStep} onValueChange={(v) => setDocStep(v as "all" | ProcessStepKey)}>
+                  <SelectTrigger className="w-[200px] h-8 text-xs bg-background/40">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Alle Belegarten</SelectItem>
+                    {PROCESS_STEPS.map((s) => (
+                      <SelectItem key={s.key} value={s.key}>{s.documentName}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => setDocSortDir((d) => (d === "asc" ? "desc" : "asc"))}
+                  aria-label="Sortierung wechseln"
+                  title={docSortDir === "asc" ? "Älteste zuerst" : "Neueste zuerst"}
+                >
+                  {docSortDir === "asc" ? <ArrowUpAZ className="size-4" /> : <ArrowDownAZ className="size-4" />}
+                </Button>
               </div>
             </Card>
 
-            <Card className="bg-card border-border overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border bg-background/30 text-left text-xs uppercase tracking-wider text-muted-foreground">
-                      <th className="px-5 py-3 font-medium">Belegart</th>
-                      <th className="px-5 py-3 font-medium">Vorgang</th>
-                      <th className="px-5 py-3 font-medium">Fahrzeug / VIN</th>
-                      <th className="px-5 py-3 font-medium">Kunde</th>
-                      <th className="px-5 py-3 font-medium">Erstellt</th>
-                      <th className="px-5 py-3 font-medium text-right">Aktion</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredDocs.map((d, idx) => (
-                      <tr key={`${d.processId}-${d.step.key}-${idx}`} className="border-b border-border/50 hover:bg-surface-elevated/40 transition-smooth group">
-                        <td className="px-5 py-4">
-                          <div className="flex items-center gap-2.5">
-                            <div className="size-8 rounded-lg bg-primary/15 grid place-items-center">
-                              <FileText className="size-4 text-primary-glow" />
-                            </div>
-                            <span className="font-medium text-foreground">{d.step.documentName}</span>
+            <DataTableShell footer={<>{filteredDocs.length} Belege</>}>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Belegart</th>
+                    <th>Vorgang</th>
+                    <th>Fahrzeug / VIN</th>
+                    <th>Kunde</th>
+                    <th>Erstellt</th>
+                    <th className="text-right">Aktion</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredDocs.map((d, idx) => (
+                    <tr key={`${d.processId}-${d.step.key}-${idx}`} className="hover:bg-surface-elevated/40 transition-smooth group">
+                      <td>
+                        <div className="flex items-center gap-2">
+                          <div className="size-6 rounded-md bg-primary/15 grid place-items-center shrink-0">
+                            <FileText className="size-3.5 text-primary-glow" />
                           </div>
-                        </td>
-                        <td className="px-5 py-4">
-                          <Link to={`/vorgaenge/${d.processId}`} className="font-display font-semibold text-foreground hover:text-primary-glow">
-                            {d.processId}
-                          </Link>
-                        </td>
-                        <td className="px-5 py-4">
-                          <p className="text-foreground">{d.vehicleLabel}</p>
-                          <p className="font-mono text-xs text-muted-foreground">{d.vin}</p>
-                        </td>
-                        <td className="px-5 py-4 text-foreground">{d.customerName}</td>
-                        <td className="px-5 py-4 text-muted-foreground text-xs">{formatDate(d.completedAt)}</td>
-                        <td className="px-5 py-4 text-right">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => handleDownload(d.processId, d.step.key)}
-                            className="gap-1.5"
-                          >
-                            <Download className="size-3.5" /> PDF
-                          </Button>
-                        </td>
-                      </tr>
-                    ))}
-                    {filteredDocs.length === 0 && (
-                      <tr>
-                        <td colSpan={6} className="px-5 py-12 text-center text-muted-foreground text-sm">
-                          Keine Belege gefunden.
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
+                          <span className="font-medium text-foreground">{d.step.documentName}</span>
+                        </div>
+                      </td>
+                      <td>
+                        <Link to={`/vorgaenge/${d.processId}`} className="font-display font-semibold text-foreground hover:text-primary-glow">
+                          {d.processId}
+                        </Link>
+                      </td>
+                      <td>
+                        <p className="text-foreground leading-tight">{d.vehicleLabel}</p>
+                        <p className="font-mono text-[10px] text-muted-foreground leading-tight">{d.vin}</p>
+                      </td>
+                      <td className="text-foreground">{d.customerName}</td>
+                      <td className="text-muted-foreground whitespace-nowrap">{formatDate(d.completedAt)}</td>
+                      <td className="text-right">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleDownload(d.processId, d.step.key)}
+                          className="h-7 gap-1.5 text-xs"
+                        >
+                          <Download className="size-3.5" /> PDF
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                  {filteredDocs.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="px-3 py-12 text-center text-muted-foreground">
+                        Keine Belege gefunden.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </DataTableShell>
           </TabsContent>
         </Tabs>
       </div>

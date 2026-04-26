@@ -33,31 +33,29 @@ const Stammdaten = () => {
 
   return (
     <AppShell>
-      <div className="space-y-6 animate-fade-in">
-        <div className="flex items-end justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="size-12 rounded-2xl bg-gradient-brand grid place-items-center shadow-glow">
-              <Database className="size-6 text-primary-foreground" />
-            </div>
-            <div>
-              <h1 className="font-display text-3xl font-bold tracking-tight">Stammdaten</h1>
-              <p className="text-sm text-muted-foreground mt-1">
-                Kunden, Partner und Standorte zentral verwalten — überall im System auswählbar.
-              </p>
-            </div>
+      <div className="flex flex-col min-h-0 flex-1 gap-3 animate-fade-in">
+        <div className="flex items-center gap-3 shrink-0">
+          <div className="size-9 rounded-xl bg-gradient-brand grid place-items-center shadow-glow">
+            <Database className="size-5 text-primary-foreground" />
+          </div>
+          <div>
+            <h1 className="font-display text-2xl font-bold tracking-tight">Stammdaten</h1>
+            <p className="text-xs text-muted-foreground">
+              Kunden, Partner und Standorte zentral verwalten — überall im System auswählbar.
+            </p>
           </div>
         </div>
 
-        <Tabs value={tab} onValueChange={(v) => setTab(v as StammTab)}>
-          <TabsList className="bg-background/40">
+        <Tabs value={tab} onValueChange={(v) => setTab(v as StammTab)} className="flex flex-col min-h-0 flex-1 gap-3">
+          <TabsList className="bg-background/40 self-start shrink-0">
             <TabsTrigger value="customers" className="gap-2"><Users className="size-4" /> Kunden</TabsTrigger>
             <TabsTrigger value="partners"  className="gap-2"><Handshake className="size-4" /> Partner</TabsTrigger>
             <TabsTrigger value="locations" className="gap-2"><MapPin className="size-4" /> Standorte</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="customers" className="mt-5"><CustomersPanel /></TabsContent>
-          <TabsContent value="partners"  className="mt-5"><PartnersPanel /></TabsContent>
-          <TabsContent value="locations" className="mt-5"><LocationsPanel /></TabsContent>
+          <TabsContent value="customers" className="mt-0 flex flex-col min-h-0 flex-1"><CustomersPanel /></TabsContent>
+          <TabsContent value="partners"  className="mt-0 flex flex-col min-h-0 flex-1"><PartnersPanel /></TabsContent>
+          <TabsContent value="locations" className="mt-0 flex flex-col min-h-0 flex-1"><LocationsPanel /></TabsContent>
         </Tabs>
       </div>
     </AppShell>
@@ -92,7 +90,7 @@ const CustomersPanel = () => {
   }, [enriched, query]);
 
   return (
-    <Card className="bg-card border-border overflow-hidden">
+    <Card className="bg-card border-border overflow-hidden flex flex-col min-h-0 flex-1">
       <div className="flex items-center justify-between gap-3 p-4 border-b border-border flex-wrap">
         <div className="flex items-center gap-3 flex-1 min-w-0">
           <Input
@@ -111,7 +109,7 @@ const CustomersPanel = () => {
       {filtered.length === 0 ? (
         <div className="p-12 text-center text-muted-foreground text-sm">Keine Kunden gefunden.</div>
       ) : (
-        <div className="overflow-auto max-h-[55vh]">
+        <div className="overflow-auto min-h-0 flex-1">
           <table className="w-full text-xs">
             <thead className="sticky top-0 z-10 bg-background/95 backdrop-blur">
               <tr className="border-b border-border bg-background/30 text-left text-xs uppercase tracking-wider text-muted-foreground">
@@ -201,7 +199,7 @@ const PartnersPanel = () => {
 
   return (
     <>
-      <Card className="bg-card border-border overflow-hidden">
+      <Card className="bg-card border-border overflow-hidden flex flex-col min-h-0 flex-1">
         <div className="flex items-center justify-between gap-3 p-4 border-b border-border flex-wrap">
           <div className="flex items-center gap-3 flex-wrap flex-1 min-w-0">
             <Input
@@ -231,7 +229,7 @@ const PartnersPanel = () => {
             Noch keine Partner angelegt.
           </div>
         ) : (
-          <div className="overflow-auto max-h-[55vh]">
+          <div className="overflow-auto min-h-0 flex-1">
             <table className="w-full text-xs">
               <thead className="sticky top-0 z-10 bg-background/95 backdrop-blur">
                 <tr className="border-b border-border bg-background/30 text-left text-xs uppercase tracking-wider text-muted-foreground">
@@ -432,7 +430,7 @@ const LocationsPanel = () => {
   };
 
   return (
-    <Card className="bg-card border-border overflow-hidden">
+    <Card className="bg-card border-border overflow-hidden flex flex-col min-h-0 flex-1">
       <div className="p-4 border-b border-border">
         <div className="flex gap-2 max-w-md">
           <Input
@@ -453,7 +451,7 @@ const LocationsPanel = () => {
       {locations.length === 0 ? (
         <div className="p-12 text-center text-muted-foreground text-sm">Noch keine Standorte angelegt.</div>
       ) : (
-        <div className="overflow-auto max-h-[55vh]">
+        <div className="overflow-auto min-h-0 flex-1">
           <table className="w-full text-xs">
             <thead className="sticky top-0 z-10 bg-background/95 backdrop-blur">
               <tr className="border-b border-border bg-background/30 text-left text-xs uppercase tracking-wider text-muted-foreground">

@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { VehicleIntakeDialog } from "@/components/fleet/VehicleIntakeDialog";
 import { useTopbarSearch } from "@/context/TopbarSearchContext";
+import { DataTableShell } from "@/components/shared/DataTableShell";
 
 type PlanSortKey = "expected_asc" | "expected_desc" | "created_desc" | "price_asc" | "price_desc" | "supplier";
 
@@ -85,50 +86,48 @@ const PurchasePlanning = () => {
 
   return (
     <AppShell>
-      <div className="space-y-6 animate-fade-in">
-        <div className="flex items-end justify-between gap-4">
+      <div className="flex flex-col min-h-0 flex-1 gap-4 animate-fade-in">
+        <div className="flex items-center justify-between gap-4 shrink-0">
           <div>
-            <h1 className="font-display text-3xl font-bold tracking-tight">Einkaufsplanung</h1>
-            <p className="text-sm text-muted-foreground mt-1">Plane Fahrzeugankäufe – beim Eintreffen wandern sie automatisch in den Bestand.</p>
+            <h1 className="font-display text-2xl font-bold tracking-tight">Einkaufsplanung</h1>
+            <p className="text-xs text-muted-foreground">Plane Fahrzeugankäufe – beim Eintreffen wandern sie automatisch in den Bestand.</p>
           </div>
           <NewPlanDialog open={dialogOpen} onOpenChange={setDialogOpen} onSubmit={(p) => { addPlan(p); toast.success("Einkauf geplant."); setDialogOpen(false); }} />
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 shrink-0">
           {(["open", "ordered", "received", "cancelled"] as PurchasePlanStatus[]).map((status) => {
             const count = plans.filter((p) => p.status === status).length;
             const { label, icon: Icon, className } = STATUS_META[status];
             return (
-              <Card key={status} className="p-4 flex items-center gap-4">
-                <div className={cn("size-10 rounded-lg grid place-items-center", className)}>
-                  <Icon className="size-5" />
+              <Card key={status} className="px-3 py-2 flex items-center gap-3">
+                <div className={cn("size-8 rounded-md grid place-items-center shrink-0", className)}>
+                  <Icon className="size-4" />
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground uppercase tracking-wider">{label}</p>
-                  <p className="font-display text-2xl font-bold">{count}</p>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wider leading-none">{label}</p>
+                  <p className="font-display text-lg font-bold leading-tight">{count}</p>
                 </div>
               </Card>
             );
           })}
         </div>
 
-        <Card className="p-4 space-y-3">
-          <div className="flex flex-col md:flex-row gap-3 md:items-center">
-            <Select value={sortKey} onValueChange={(v) => setSortKey(v as PlanSortKey)}>
-              <SelectTrigger className="w-[200px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="expected_asc">Erwartet ↑ (am nächsten)</SelectItem>
-                <SelectItem value="expected_desc">Erwartet ↓</SelectItem>
-                <SelectItem value="created_desc">Zuletzt geplant</SelectItem>
-                <SelectItem value="price_desc">Zielpreis ↓</SelectItem>
-                <SelectItem value="price_asc">Zielpreis ↑</SelectItem>
-                <SelectItem value="supplier">Lieferant A-Z</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex gap-2 flex-wrap">
+        <Card className="px-3 py-2 flex items-center gap-2 flex-wrap shrink-0">
+          <Select value={sortKey} onValueChange={(v) => setSortKey(v as PlanSortKey)}>
+            <SelectTrigger className="w-[200px] h-8 text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="expected_asc">Erwartet ↑ (am nächsten)</SelectItem>
+              <SelectItem value="expected_desc">Erwartet ↓</SelectItem>
+              <SelectItem value="created_desc">Zuletzt geplant</SelectItem>
+              <SelectItem value="price_desc">Zielpreis ↓</SelectItem>
+              <SelectItem value="price_asc">Zielpreis ↑</SelectItem>
+              <SelectItem value="supplier">Lieferant A-Z</SelectItem>
+            </SelectContent>
+          </Select>
+          <div className="flex gap-1.5 flex-wrap">
             {([
               { key: "all", label: "Alle" },
               { key: "open", label: "Offen" },
@@ -136,68 +135,66 @@ const PurchasePlanning = () => {
               { key: "received", label: "Eingetroffen" },
               { key: "cancelled", label: "Storniert" },
             ] as const).map((f) => (
-              <Button key={f.key} size="sm" variant={filter === f.key ? "default" : "outline"} onClick={() => setFilter(f.key)}>
+              <Button key={f.key} size="sm" variant={filter === f.key ? "default" : "outline"} className="h-8 text-xs" onClick={() => setFilter(f.key)}>
                 {f.label}
               </Button>
             ))}
           </div>
         </Card>
 
-        <Card className="bg-card border-border overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border bg-background/30 text-left text-xs uppercase tracking-wider text-muted-foreground">
-                  <th className="px-5 py-3 font-medium">Plan-Nr.</th>
-                  <th className="px-5 py-3 font-medium">Fahrzeug</th>
-                  <th className="px-5 py-3 font-medium">Typ</th>
-                  <th className="px-5 py-3 font-medium">Lieferant</th>
-                  <th className="px-5 py-3 font-medium text-right">Zielpreis</th>
-                  <th className="px-5 py-3 font-medium">Erwartet</th>
-                  <th className="px-5 py-3 font-medium">Status</th>
-                  <th className="px-5 py-3 font-medium text-right">Aktion</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((p) => {
-                  const meta = STATUS_META[p.status];
-                  return (
-                    <tr key={p.id} className="border-b border-border/50 hover:bg-surface-elevated/40 transition-smooth">
-                      <td className="px-5 py-4 font-display font-semibold">{p.id}</td>
-                      <td className="px-5 py-4">
-                        <p className="font-medium text-foreground">{p.make} {p.model}</p>
-                        <p className="text-xs text-muted-foreground">{p.year}{p.vin ? ` · VIN ${p.vin}` : ""}</p>
-                      </td>
-                      <td className="px-5 py-4 text-xs text-muted-foreground">{VEHICLE_TYPE_LABELS[p.type]}</td>
-                      <td className="px-5 py-4 text-foreground">{p.supplier}</td>
-                      <td className="px-5 py-4 text-right font-semibold">{formatCurrency(p.targetPrice)}</td>
-                      <td className="px-5 py-4 text-muted-foreground text-xs">{formatDate(p.expectedAt)}</td>
-                      <td className="px-5 py-4"><Badge className={meta.className}>{meta.label}</Badge></td>
-                      <td className="px-5 py-4 text-right">
-                        {p.status === "open" && (
-                          <Button size="sm" variant="outline" onClick={() => { updateStatus(p.id, "ordered"); toast.success("Als bestellt markiert."); }}>Bestellen</Button>
-                        )}
-                        {p.status === "ordered" && (
-                          <Button size="sm" className="bg-gradient-brand gap-1.5" onClick={() => setReceiveDialog({ planId: p.id })}>
-                            <Package className="size-3.5" /> Eingetroffen
-                          </Button>
-                        )}
-                        {p.status === "received" && (
-                          <span className="text-xs text-success inline-flex items-center gap-1.5">
-                            <CheckCircle2 className="size-3.5" /> Im Bestand
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-                {filtered.length === 0 && (
-                  <tr><td colSpan={8} className="px-5 py-12 text-center text-muted-foreground text-sm">Keine Einkaufspläne gefunden.</td></tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </Card>
+        <DataTableShell footer={<>{filtered.length} Einträge</>}>
+          <table>
+            <thead>
+              <tr>
+                <th>Plan-Nr.</th>
+                <th>Fahrzeug</th>
+                <th>Typ</th>
+                <th>Lieferant</th>
+                <th className="text-right">Zielpreis</th>
+                <th>Erwartet</th>
+                <th>Status</th>
+                <th className="text-right">Aktion</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map((p) => {
+                const meta = STATUS_META[p.status];
+                return (
+                  <tr key={p.id} className="hover:bg-surface-elevated/40 transition-smooth">
+                    <td className="font-display font-semibold">{p.id}</td>
+                    <td>
+                      <p className="font-medium text-foreground leading-tight">{p.make} {p.model}</p>
+                      <p className="text-[10px] text-muted-foreground leading-tight">{p.year}{p.vin ? ` · VIN ${p.vin}` : ""}</p>
+                    </td>
+                    <td className="text-muted-foreground">{VEHICLE_TYPE_LABELS[p.type]}</td>
+                    <td className="text-foreground">{p.supplier}</td>
+                    <td className="text-right font-semibold whitespace-nowrap">{formatCurrency(p.targetPrice)}</td>
+                    <td className="text-muted-foreground whitespace-nowrap">{formatDate(p.expectedAt)}</td>
+                    <td><Badge className={cn(meta.className, "text-[10px] px-1.5 py-0")}>{meta.label}</Badge></td>
+                    <td className="text-right">
+                      {p.status === "open" && (
+                        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => { updateStatus(p.id, "ordered"); toast.success("Als bestellt markiert."); }}>Bestellen</Button>
+                      )}
+                      {p.status === "ordered" && (
+                        <Button size="sm" className="bg-gradient-brand gap-1.5 h-7 text-xs" onClick={() => setReceiveDialog({ planId: p.id })}>
+                          <Package className="size-3.5" /> Eingetroffen
+                        </Button>
+                      )}
+                      {p.status === "received" && (
+                        <span className="text-[10px] text-success inline-flex items-center gap-1">
+                          <CheckCircle2 className="size-3" /> Im Bestand
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+              {filtered.length === 0 && (
+                <tr><td colSpan={8} className="px-3 py-12 text-center text-muted-foreground">Keine Einkaufspläne gefunden.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </DataTableShell>
       </div>
 
       <VehicleIntakeDialog
