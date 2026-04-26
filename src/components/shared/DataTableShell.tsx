@@ -6,37 +6,35 @@ interface DataTableShellProps {
   children: ReactNode;
   /** Optional Footer / Hinweis unter der Tabelle */
   footer?: ReactNode;
-  /** Wenn der Eltern-Container flex-col + min-h-0 ist, fülle restl. Höhe (default true). */
-  fill?: boolean;
+  /** Maximale Höhe für den Scrollbereich. Default: 'calc(100vh - 280px)'. */
+  maxHeight?: string;
   className?: string;
 }
 
 /**
- * Einheitliche, scrollbare Tabellen-Hülle.
- * - Sticky <thead> via `[&_thead]:sticky` Selektor
- * - Kompakte Zellen via `[&_th]:px-3 [&_th]:py-2 [&_td]:px-3 [&_td]:py-2`
- * - Einheitliche Schriftgröße `text-xs`
- * - Scrollt nur intern
+ * Einheitliche Tabellen-Hülle mit interner vertikaler Scroll-Logik.
+ * - Sticky Header
+ * - Kompakte Zellen + einheitliche Schrift (text-xs)
+ * - Robust ggü. flex-Layouts: nutzt feste maxHeight statt flex-1.
  */
-export const DataTableShell = ({ children, footer, fill = true, className }: DataTableShellProps) => {
+export const DataTableShell = ({
+  children,
+  footer,
+  maxHeight = "calc(100vh - 280px)",
+  className,
+}: DataTableShellProps) => {
   return (
-    <Card
-      className={cn(
-        "bg-card border-border overflow-hidden flex flex-col min-h-0",
-        fill && "flex-1",
-        className,
-      )}
-    >
+    <Card className={cn("bg-card border-border overflow-hidden flex flex-col min-h-0", className)}>
       <div
         className={cn(
-          "overflow-auto min-h-0",
+          "overflow-auto",
           "[&_table]:w-full [&_table]:text-xs",
           "[&_thead]:sticky [&_thead]:top-0 [&_thead]:z-10 [&_thead]:bg-background/95 [&_thead]:backdrop-blur",
           "[&_thead_th]:px-3 [&_thead_th]:py-2 [&_thead_th]:font-medium [&_thead_th]:text-left [&_thead_th]:text-muted-foreground [&_thead_th]:uppercase [&_thead_th]:tracking-wider [&_thead_th]:text-[10px]",
           "[&_tbody_td]:px-3 [&_tbody_td]:py-2",
           "[&_tbody_tr]:border-b [&_tbody_tr]:border-border/50 [&_tbody_tr:last-child]:border-0",
-          fill ? "flex-1" : "",
         )}
+        style={{ maxHeight }}
       >
         {children}
       </div>

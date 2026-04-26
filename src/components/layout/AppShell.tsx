@@ -8,11 +8,8 @@ export const AppShell = ({ children }: { children: ReactNode }) => {
       <Sidebar />
       <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
         <Topbar />
-        {/* Kein Page-Scroll mehr – jede Seite verwaltet ihren internen Scroll selbst */}
-        <main className="flex-1 min-h-0 overflow-hidden">
-          <div className="h-full max-w-[1400px] mx-auto px-6 py-6 flex flex-col min-h-0">
-            {children}
-          </div>
+        <main className="flex-1 overflow-y-auto">
+          <div className="max-w-[1400px] mx-auto px-6 py-6">{children}</div>
         </main>
       </div>
     </div>

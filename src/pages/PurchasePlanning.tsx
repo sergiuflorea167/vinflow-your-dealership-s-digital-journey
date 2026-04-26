@@ -86,7 +86,7 @@ const PurchasePlanning = () => {
 
   return (
     <AppShell>
-      <div className="flex flex-col min-h-0 flex-1 gap-4 animate-fade-in">
+      <div className="space-y-3 animate-fade-in">
         <div className="flex items-center justify-between gap-4 shrink-0">
           <div>
             <h1 className="font-display text-2xl font-bold tracking-tight">Einkaufsplanung</h1>
