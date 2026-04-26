@@ -477,7 +477,7 @@ const Todos = () => {
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader><DialogTitle>Neues To-Do</DialogTitle></DialogHeader>
-          <CreateTodoForm
+          <TodoForm
             onSubmit={(data) => {
               addTodo(data);
               toast.success("To-Do angelegt.");
@@ -485,6 +485,31 @@ const Todos = () => {
             }}
             onCancel={() => setCreateOpen(false)}
           />
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Dialog */}
+      <Dialog open={!!editTodo} onOpenChange={(o) => !o && setEditTodo(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader><DialogTitle>To-Do bearbeiten</DialogTitle></DialogHeader>
+          {editTodo && (
+            <TodoForm
+              key={editTodo.id}
+              initial={editTodo}
+              submitLabel="Speichern"
+              onSubmit={(data) => {
+                updateTodo(editTodo.id, data);
+                toast.success("To-Do aktualisiert.");
+                setEditTodo(null);
+              }}
+              onCancel={() => setEditTodo(null)}
+              onDelete={() => {
+                removeTodo(editTodo.id);
+                toast.success("To-Do gelöscht.");
+                setEditTodo(null);
+              }}
+            />
+          )}
         </DialogContent>
       </Dialog>
     </AppShell>
