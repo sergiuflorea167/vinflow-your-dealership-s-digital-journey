@@ -235,7 +235,38 @@ export interface Offer {
 
 // ---------- Einkaufsplanung ----------
 
-export type PurchasePlanStatus = "open" | "ordered" | "received" | "cancelled";
+/**
+ * Status eines Einkaufsplans.
+ *  - tracking:  Wird verfolgt (Auktion läuft, Verhandlung mit Privatperson, Beobachtung).
+ *  - won:       Deal abgeschlossen, Fahrzeug noch nicht im Bestand (z. B. Zuschlag erhalten,
+ *               aber noch nicht abgeholt). Bereit zur Überführung in den Bestand.
+ *  - received:  In den Bestand übergegangen.
+ *  - lost:      Zuschlag verpasst / Verkäufer abgesprungen.
+ *  - cancelled: Manuell verworfen.
+ */
+export type PurchasePlanStatus = "tracking" | "won" | "received" | "lost" | "cancelled";
+
+export type PurchasePlanSource =
+  | "auction"          // Auktionsplattform (BCA, Copart, …)
+  | "private_listing"  // Privatinserat (mobile.de, AutoScout, Kleinanzeigen)
+  | "dealer"           // Händler / Großhandel
+  | "tip"              // Tipp / Empfehlung
+  | "other";
+
+export const PURCHASE_PLAN_SOURCE_LABELS: Record<PurchasePlanSource, string> = {
+  auction: "Auktion",
+  private_listing: "Privatinserat",
+  dealer: "Händler",
+  tip: "Tipp",
+  other: "Sonstiges",
+};
+
+export interface PurchasePlanNote {
+  id: string;
+  text: string;
+  createdAt: string;
+  createdBy: string;
+}
 
 export interface PurchasePlan {
   id: string;
@@ -243,12 +274,21 @@ export interface PurchasePlan {
   make: string;
   model: string;
   year: number;
+  /** Geschätzter / Ziel-Einkaufspreis brutto. */
   targetPrice: number;
+  /** Quelle des potenziellen Einkaufs. */
+  source: PurchasePlanSource;
+  /** Anbieter / Plattform / Verkäufer (z. B. „BCA Hamburg", „Privat – Müller"). */
   supplier: string;
-  expectedAt: string;
+  /** Optionaler Direktlink zum Inserat / zur Auktion. */
+  sourceUrl?: string;
+  /** Optional: erwartetes Abschluss-/Auktionsdatum. */
+  expectedAt?: string;
   status: PurchasePlanStatus;
+  /** Sobald bekannt – wird beim Bestandsübergang übernommen. */
   vin?: string;
-  notes?: string;
+  /** Chronologische Notizen mit Zeitstempel. */
+  noteEntries: PurchasePlanNote[];
   createdAt: string;
 }
 
