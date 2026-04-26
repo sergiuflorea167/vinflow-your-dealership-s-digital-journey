@@ -167,15 +167,17 @@ const Fleet = () => {
         </div>
 
         {/* KPI-Strip kompakt */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 shrink-0">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 shrink-0">
           {[
-            { label: "Gesamt", value: stats.total, accent: "text-primary" },
-            { label: "Im Bestand", value: stats.in_stock, accent: "text-success" },
-            { label: "Reserviert", value: stats.reserved, accent: "text-warning" },
-            { label: "Verkauft", value: stats.sold, accent: "text-muted-foreground" },
-          ].map(({ label, value, accent }) => (
+            { label: "Gesamt", value: stats.total, icon: Car, accent: "text-primary" },
+            { label: "Im Bestand", value: stats.in_stock, icon: Car, accent: "text-success" },
+            { label: "Reserviert", value: stats.reserved, icon: Car, accent: "text-warning" },
+            { label: "Verkauft", value: stats.sold, icon: Car, accent: "text-muted-foreground" },
+            { label: "Inseriert", value: stats.listed, icon: Megaphone, accent: "text-primary-glow" },
+            { label: "Nicht inseriert", value: stats.notListed, icon: Megaphone, accent: "text-destructive" },
+          ].map(({ label, value, icon: Icon, accent }) => (
             <Card key={label} className="px-3 py-2 flex items-center gap-3">
-              <Car className={`size-4 ${accent}`} />
+              <Icon className={`size-4 ${accent}`} />
               <div>
                 <p className="text-[10px] text-muted-foreground uppercase tracking-wider leading-none">{label}</p>
                 <p className="font-display text-lg font-bold leading-tight">{value}</p>
@@ -193,6 +195,14 @@ const Fleet = () => {
               {Object.entries(VEHICLE_TYPE_LABELS).map(([k, v]) => (
                 <SelectItem key={k} value={k}>{v}</SelectItem>
               ))}
+            </SelectContent>
+          </Select>
+          <Select value={listedFilter} onValueChange={(v) => setListedFilter(v as ListedFilter)}>
+            <SelectTrigger className="w-[160px] h-8 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Alle Inserate</SelectItem>
+              <SelectItem value="listed">Nur inseriert ({stats.listed})</SelectItem>
+              <SelectItem value="not_listed">Nicht inseriert ({stats.notListed})</SelectItem>
             </SelectContent>
           </Select>
           <div className="flex gap-1.5 flex-wrap">
