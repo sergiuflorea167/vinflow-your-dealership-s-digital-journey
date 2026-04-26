@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { useTopbarSearch } from "@/context/TopbarSearchContext";
 import { ProcessTimeAnalyzer } from "@/components/kpi/ProcessTimeAnalyzer";
+import { KpiRangePicker } from "@/components/kpi/KpiRangePicker";
 
 
 
@@ -158,6 +159,9 @@ const KPIs = () => {
             </Button>
           </div>
         </div>
+
+        {/* Globaler Zeitraum-Filter — gilt für alle zeitabhängigen KPIs */}
+        <KpiRangePicker />
 
         <GoalsPanel />
 
