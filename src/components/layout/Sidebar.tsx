@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
 import {
-  LayoutDashboard, Workflow, Car, Users, ShoppingCart, ListChecks,
+  LayoutDashboard, Workflow, Car, ShoppingCart, ListChecks,
   BarChart3, Settings as SettingsIcon, ChevronLeft, ChevronRight,
   Database,
 } from "lucide-react";
