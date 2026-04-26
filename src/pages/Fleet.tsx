@@ -320,7 +320,7 @@ const Fleet = () => {
                           <TooltipContent side="top" className="text-xs max-w-xs">
                             {vehicle.listed?.active
                               ? `Aktiv inseriert${vehicle.listed.listedAt ? ` seit ${formatDate(vehicle.listed.listedAt)}` : ""}.`
-                              : "Noch nicht online inseriert. Ein To-Do „Inserat erstellen“ ist offen."}
+                              : 'Noch nicht online inseriert. Ein To-Do „Inserat erstellen" ist offen.'}
                           </TooltipContent>
                         </Tooltip>
                       </td>
