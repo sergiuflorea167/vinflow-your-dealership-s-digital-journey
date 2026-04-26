@@ -796,8 +796,8 @@ export const useProcessStore = create<State>()(
       };
     },
     {
-      name: "vinflow-store-v3",
-      version: 3,
+      name: "vinflow-store-v4",
+      version: 4,
       partialize: (s) => ({
         vehicles: s.vehicles,
         customers: s.customers,
@@ -809,6 +809,45 @@ export const useProcessStore = create<State>()(
         goals: s.goals,
         settings: s.settings,
       }),
+      onRehydrateStorage: () => (state) => {
+        if (!state) return;
+        // Sicherstellen, dass nicht-inserierte, aktive Fahrzeuge ein offenes
+        // Auto-To-Do „Inserat erstellen" mit 3 Tagen Fälligkeit haben.
+        const nowIso = new Date().toISOString();
+        const newTodos: Todo[] = [];
+        let counter = state.todos.length;
+        state.vehicles.forEach((v) => {
+          if (v.status === "sold") return;
+          if (v.listed?.active) return;
+          const exists = state.todos.some(
+            (t) =>
+              t.vehicleId === v.id &&
+              !t.done &&
+              t.title === "Inserat erstellen" &&
+              (t.tags ?? []).includes("auto")
+          );
+          if (exists) return;
+          counter += 1;
+          const due = new Date();
+          due.setDate(due.getDate() + 3);
+          newTodos.push({
+            id: `TD-${String(counter).padStart(3, "0")}`,
+            title: "Inserat erstellen",
+            description: `Online-Inserat für ${v.make} ${v.model} (${v.id}) anlegen.`,
+            priority: "medium",
+            scope: "internal_fleet",
+            done: false,
+            vehicleId: v.id,
+            dueDate: due.toISOString(),
+            tags: ["inserat", "auto"],
+            createdAt: nowIso,
+            createdBy: state.settings.userName || "System",
+          });
+        });
+        if (newTodos.length > 0) {
+          state.todos = [...newTodos, ...state.todos];
+        }
+      },
     }
   )
 );
