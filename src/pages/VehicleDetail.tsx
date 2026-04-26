@@ -36,7 +36,7 @@ const VehicleDetail = () => {
 
   const [offerDialog, setOfferDialog] = useState(false);
 
-  if (!vehicle) return <Navigate to="/flotte" replace />;
+  if (!vehicle) return <Navigate to="/bestand" replace />;
 
   const acceptedOffer = offers.find((o) => o.status === "accepted");
   const canAcceptMore = !acceptedOffer;
@@ -44,8 +44,8 @@ const VehicleDetail = () => {
   return (
     <AppShell>
       <div className="space-y-6 animate-fade-in">
-        <Link to="/flotte" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
-          <ArrowLeft className="size-4" /> Zurück zur Flotte
+        <Link to="/bestand" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+          <ArrowLeft className="size-4" /> Zurück zum Bestand
         </Link>
 
         <Card className="p-6 bg-gradient-surface border-border shadow-card">
