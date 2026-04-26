@@ -26,6 +26,7 @@ const groups: NavGroup[] = [
       { to: "/vorgaenge",       label: "Vorgänge",        icon: Workflow },
       { to: "/einkaufsplanung", label: "Einkaufsplanung", icon: ShoppingCart },
       { to: "/todos",           label: "To-Dos",          icon: ListChecks },
+      { to: "/kalender",        label: "Kalender",        icon: CalendarDays },
     ],
   },
   {
