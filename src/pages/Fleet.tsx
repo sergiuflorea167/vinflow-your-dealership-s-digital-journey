@@ -49,7 +49,7 @@ const Fleet = () => {
   const [searchField, setSearchField] = useState<"all" | "vin" | "make" | "model" | "color" | "location">("all");
   const [filter, setFilter] = useState<"all" | VehicleStatus>("all");
   const [typeFilter, setTypeFilter] = useState<"all" | VehicleType>("all");
-  const [sortKey, setSortKey] = useState<FleetSortKey>("newest");
+  const [sort, setSort] = useState<SortState<FleetSortKey>>({ key: "stockDays", dir: "asc" });
   const [intakeOpen, setIntakeOpen] = useState(false);
 
   const topbarSearch = useMemo(() => ({
@@ -71,11 +71,17 @@ const Fleet = () => {
   useTopbarSearch(topbarSearch);
 
   const data = useMemo(() => {
+    const now = Date.now();
     return vehicles.map((v) => {
       const vehicleOffers = offers.filter((o) => o.vehicleId === v.id);
       const openOffers = vehicleOffers.filter((o) => o.status === "sent" || o.status === "draft").length;
       const proc = processes.find((p) => p.vehicleId === v.id);
-      return { vehicle: v, openOffers, processId: proc?.id };
+      const ek = v.purchasePrice + vehicleTotalCostsGross(v);
+      const margin = v.listPrice - ek;
+      const stockDays = v.arrivedAt
+        ? Math.max(0, Math.floor((now - new Date(v.arrivedAt).getTime()) / 86400000))
+        : 0;
+      return { vehicle: v, openOffers, processId: proc?.id, margin, stockDays };
     });
   }, [vehicles, offers, processes]);
 
@@ -96,19 +102,30 @@ const Fleet = () => {
       return fields[searchField].toLowerCase().includes(q);
     });
 
+    const dirMul = sort.dir === "asc" ? 1 : -1;
     return [...list].sort((a, b) => {
       const va = a.vehicle, vb = b.vehicle;
-      switch (sortKey) {
-        case "newest":       return (new Date(vb.arrivedAt ?? 0).getTime() - new Date(va.arrivedAt ?? 0).getTime());
-        case "oldest":       return (new Date(va.arrivedAt ?? 0).getTime() - new Date(vb.arrivedAt ?? 0).getTime());
-        case "price_asc":    return va.listPrice - vb.listPrice;
-        case "price_desc":   return vb.listPrice - va.listPrice;
-        case "mileage_asc":  return va.mileage - vb.mileage;
-        case "mileage_desc": return vb.mileage - va.mileage;
-        case "make":         return `${va.make} ${va.model}`.localeCompare(`${vb.make} ${vb.model}`);
+      let cmp = 0;
+      switch (sort.key) {
+        case "name":       cmp = `${va.make} ${va.model}`.localeCompare(`${vb.make} ${vb.model}`); break;
+        case "type":       cmp = VEHICLE_TYPE_LABELS[va.type].localeCompare(VEHICLE_TYPE_LABELS[vb.type]); break;
+        case "year":       cmp = va.year - vb.year; break;
+        case "mileage":    cmp = va.mileage - vb.mileage; break;
+        case "power":      cmp = va.power_hp - vb.power_hp; break;
+        case "color":      cmp = va.color.localeCompare(vb.color); break;
+        case "location":   cmp = va.location.name.localeCompare(vb.location.name); break;
+        case "hu":         cmp = (va.hu ?? "").localeCompare(vb.hu ?? ""); break;
+        case "stockDays":  cmp = b.stockDays - a.stockDays; break; // default: ältester zuerst → invertiere unten
+        case "price":      cmp = va.listPrice - vb.listPrice; break;
+        case "margin":     cmp = a.margin - b.margin; break;
+        case "openOffers": cmp = a.openOffers - b.openOffers; break;
+        case "status":     cmp = STATUS_ORDER[va.status] - STATUS_ORDER[vb.status]; break;
       }
+      // stockDays asc = "längste im Bestand zuerst" intuitiv
+      if (sort.key === "stockDays") return cmp * (sort.dir === "asc" ? 1 : -1);
+      return cmp * dirMul;
     });
-  }, [data, filter, typeFilter, query, searchField, sortKey]);
+  }, [data, filter, typeFilter, query, searchField, sort]);
 
   const stats = {
     total: vehicles.length,
