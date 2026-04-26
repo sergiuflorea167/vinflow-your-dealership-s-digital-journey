@@ -87,10 +87,25 @@ const PurchasePlanning = () => {
           })}
         </div>
 
-        <Card className="p-4 flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-            <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Marke, Modell, Lieferant…" className="pl-9" />
+        <Card className="p-4 space-y-3">
+          <div className="flex flex-col md:flex-row gap-3 md:items-center">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+              <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Marke, Modell, Lieferant…" className="pl-9" />
+            </div>
+            <Select value={sortKey} onValueChange={(v) => setSortKey(v as PlanSortKey)}>
+              <SelectTrigger className="w-[200px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="expected_asc">Erwartet ↑ (am nächsten)</SelectItem>
+                <SelectItem value="expected_desc">Erwartet ↓</SelectItem>
+                <SelectItem value="created_desc">Zuletzt geplant</SelectItem>
+                <SelectItem value="price_desc">Zielpreis ↓</SelectItem>
+                <SelectItem value="price_asc">Zielpreis ↑</SelectItem>
+                <SelectItem value="supplier">Lieferant A-Z</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div className="flex gap-2 flex-wrap">
             {([
@@ -98,6 +113,7 @@ const PurchasePlanning = () => {
               { key: "open", label: "Offen" },
               { key: "ordered", label: "Bestellt" },
               { key: "received", label: "Eingetroffen" },
+              { key: "cancelled", label: "Storniert" },
             ] as const).map((f) => (
               <Button key={f.key} size="sm" variant={filter === f.key ? "default" : "outline"} onClick={() => setFilter(f.key)}>
                 {f.label}
