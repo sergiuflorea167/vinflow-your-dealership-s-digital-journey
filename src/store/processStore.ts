@@ -75,6 +75,8 @@ interface State {
   changeVehicleLocation: (vehicleId: string, location: VehicleLocation) => void;
   addVehicleCost: (vehicleId: string, cost: Omit<CostEntry, "id" | "createdAt" | "createdBy">) => void;
   removeVehicleCost: (vehicleId: string, costId: string) => void;
+  /** Setzt den Inseratstatus. Erstellt / schließt automatisch das To-Do „Inserat erstellen". */
+  setVehicleListed: (vehicleId: string, listed: boolean) => void;
 
   // ------- Customer -------
   addCustomer: (c: Omit<Customer, "id">) => Customer;
