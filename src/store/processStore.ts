@@ -347,6 +347,22 @@ export const useProcessStore = create<State>()(
             };
           }),
 
+        updateVehicle: (vehicleId, patch) =>
+          set((state) => {
+            const vehicle = state.vehicles.find((v) => v.id === vehicleId);
+            if (!vehicle) return state;
+            return {
+              ...state,
+              vehicles: state.vehicles.map((v) => (v.id === vehicleId ? { ...v, ...patch } : v)),
+              activities: logActivity(
+                state,
+                "vehicle_updated",
+                `${vehicle.make} ${vehicle.model} aktualisiert`,
+                { vehicleId, meta: { fields: Object.keys(patch).join(", ") } }
+              ),
+            };
+          }),
+
         addVehicleCost: (vehicleId, cost) =>
           set((state) => {
             const vehicle = state.vehicles.find((v) => v.id === vehicleId);
