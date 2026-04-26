@@ -194,7 +194,8 @@ const PurchasePlanning = () => {
               {filtered.map((p) => {
                 const meta = STATUS_META[p.status];
                 const SourceIcon = SOURCE_ICONS[p.source];
-                const lastNote = p.noteEntries[p.noteEntries.length - 1];
+                const noteEntries = p.noteEntries ?? [];
+                const lastNote = noteEntries[noteEntries.length - 1];
                 return (
                   <tr key={p.id} className="hover:bg-surface-elevated/40 transition-smooth cursor-pointer" onClick={() => setDetailPlanId(p.id)}>
                     <td>
@@ -215,7 +216,7 @@ const PurchasePlanning = () => {
                       {lastNote ? (
                         <>
                           <p className="text-xs text-foreground line-clamp-1">{lastNote.text}</p>
-                          <p className="text-[10px] text-muted-foreground leading-tight">{formatDateTime(lastNote.createdAt)} · {p.noteEntries.length} Notiz{p.noteEntries.length !== 1 ? "en" : ""}</p>
+                          <p className="text-[10px] text-muted-foreground leading-tight">{formatDateTime(lastNote.createdAt)} · {noteEntries.length} Notiz{noteEntries.length !== 1 ? "en" : ""}</p>
                         </>
                       ) : (
                         <span className="text-[11px] text-muted-foreground italic">– keine Notiz –</span>
