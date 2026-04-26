@@ -538,6 +538,8 @@ const TodoForm = ({
   const [priority, setPriority] = useState<TodoPriority>(initial?.priority ?? "medium");
   const [scope, setScope] = useState<TodoScope>(initial?.scope ?? "general");
   const [dueDate, setDueDate] = useState(initial?.dueDate ?? "");
+  const [startTime, setStartTime] = useState(initial?.startTime ?? "");
+  const [endTime, setEndTime] = useState(initial?.endTime ?? "");
   const [assignee, setAssignee] = useState(initial?.assignee ?? "");
   const [tagsRaw, setTagsRaw] = useState((initial?.tags ?? []).join(", "));
 
@@ -546,12 +548,22 @@ const TodoForm = ({
       toast.error("Bitte einen Titel eingeben.");
       return;
     }
+    if ((startTime || endTime) && !dueDate) {
+      toast.error("Für Uhrzeiten bitte auch ein Datum angeben.");
+      return;
+    }
+    if (startTime && endTime && endTime <= startTime) {
+      toast.error("Endzeit muss nach Startzeit liegen.");
+      return;
+    }
     onSubmit({
       title: title.trim(),
       description: description.trim() || undefined,
       priority,
       scope,
       dueDate: dueDate || undefined,
+      startTime: startTime || undefined,
+      endTime: endTime || undefined,
       assignee: assignee.trim() || undefined,
       tags: tagsRaw.split(",").map((t) => t.trim()).filter(Boolean),
       vehicleId: initial?.vehicleId,
