@@ -390,11 +390,16 @@ export const MOCK_CUSTOMERS: Customer[] = [
   { id: "C-004", name: "Julia Schneider", email: "j.schneider@example.de", phone: "+49 173 4567890", street: "Königstraße 40", zip: "70173", city: "Stuttgart" },
   { id: "C-005", name: "Andreas Bauer", email: "a.bauer@example.de", phone: "+49 170 9988776", street: "Zeil 12", zip: "60313", city: "Frankfurt" },
   { id: "C-006", name: "Lisa Maier", email: "l.maier@example.de", phone: "+49 152 3344556", street: "Hohe Straße 88", zip: "50667", city: "Köln" },
+  { id: "C-007", name: "Daniel Fischer", email: "d.fischer@example.de", phone: "+49 176 4455667", street: "Rathenauplatz 3", zip: "90489", city: "Nürnberg" },
+  { id: "C-008", name: "Katharina Wolf", email: "k.wolf@example.de", phone: "+49 159 8877665", street: "Bahnhofstraße 14", zip: "30159", city: "Hannover" },
+  { id: "C-009", name: "Stefan Becker", email: "s.becker@example.de", phone: "+49 174 6677889", street: "Schloßstraße 77", zip: "12163", city: "Berlin" },
+  { id: "C-010", name: "Nadine Klein", email: "n.klein@example.de", phone: "+49 162 5544332", street: "Maximilianstraße 9", zip: "80539", city: "München" },
+  { id: "C-011", name: "Christoph Lehmann", email: "c.lehmann@example.de", phone: "+49 175 9988771", street: "Sandweg 22", zip: "60316", city: "Frankfurt" },
+  { id: "C-012", name: "Eva Schwarz", email: "e.schwarz@example.de", phone: "+49 151 2233445", street: "Lindenstraße 4", zip: "01067", city: "Dresden" },
+  { id: "C-013", name: "Jürgen Hartmann", email: "j.hartmann@example.de", phone: "+49 170 6655443", street: "Hafenstraße 18", zip: "20359", city: "Hamburg" },
+  { id: "C-014", name: "Petra Lang", email: "p.lang@example.de", phone: "+49 152 4433221", street: "Kaiserstraße 2", zip: "76131", city: "Karlsruhe" },
+  { id: "C-015", name: "Florian Roth", email: "f.roth@example.de", phone: "+49 171 7766554", street: "Theaterplatz 1", zip: "99423", city: "Weimar" },
 ];
-
-const baseLoc = (name = "Hof A · Platz 1", kind: LocationKind = "lot"): VehicleLocation => ({
-  name, kind, since: isoDaysAgo(30),
-});
 
 const seedCosts = (entries: Array<Omit<CostEntry, "id" | "createdAt" | "createdBy">>): CostEntry[] =>
   entries.map((e, i) => ({ id: `K-${Math.random().toString(36).slice(2, 8)}-${i}`, createdAt: e.date, createdBy: "Admin", ...e }));
@@ -475,7 +480,7 @@ export const MOCK_VEHICLES: Vehicle[] = [
     listPrice: 56700, purchasePrice: 47000, status: "in_stock", arrivedAt: isoDaysAgo(15),
     location: { name: "Aufbereiter Glanz GmbH", kind: "detailer", since: isoDaysAgo(2) },
     locationHistory: [{ name: "Hof A · Platz 09", kind: "lot", since: isoDaysAgo(15) }],
-    costs: [],
+    costs: seedCosts([{ category: "detailing", description: "Felgen aufbereiten", netAmount: 380, vatRate: 19, date: isoDaysAgo(2) }]),
   },
   {
     id: "V-008", vin: "SAJAA01N5SC123987", type: "suv", make: "Jaguar", model: "F-Pace P400e", year: 2024, color: "Eiger Grey",
@@ -486,12 +491,143 @@ export const MOCK_VEHICLES: Vehicle[] = [
     locationHistory: [],
     costs: [],
   },
+  {
+    id: "V-009", vin: "WP0AB29928S701234", type: "limousine", make: "Porsche", model: "911 Carrera S", year: 2023, color: "GT Silber",
+    mileage: 18400, fuel: "Benzin", transmission: "DKG", power_kw: 331, power_hp: 450, doors: 2, seats: 4,
+    firstRegistration: "2023-06-22", hu: "2026-06-22",
+    listPrice: 134900, purchasePrice: 118000, status: "sold", arrivedAt: isoDaysAgo(95),
+    location: { name: "Beim Kunden (übergeben)", kind: "customer", since: isoDaysAgo(40) },
+    locationHistory: [{ name: "Showroom", kind: "showroom", since: isoDaysAgo(95) }],
+    costs: seedCosts([
+      { category: "transport", description: "Premium-Transport Stuttgart", netAmount: 690, vatRate: 19, date: isoDaysAgo(94) },
+      { category: "detailing", description: "Keramikversiegelung", netAmount: 1200, vatRate: 19, date: isoDaysAgo(80) },
+      { category: "workshop", description: "Service B + Bremsen", netAmount: 1850, vatRate: 19, date: isoDaysAgo(75) },
+    ]),
+  },
+  {
+    id: "V-010", vin: "WDB2030461F112233", type: "limousine", make: "Mercedes-Benz", model: "E 300 de", year: 2024, color: "Cavansitblau",
+    mileage: 11200, fuel: "Plug-in-Hybrid", transmission: "Automatik", power_kw: 225, power_hp: 306, doors: 4, seats: 5,
+    firstRegistration: "2024-02-08", hu: "2027-02-08",
+    listPrice: 58400, purchasePrice: 49500, status: "sold", arrivedAt: isoDaysAgo(82),
+    location: { name: "Beim Kunden (übergeben)", kind: "customer", since: isoDaysAgo(25) },
+    locationHistory: [{ name: "Hof A · Platz 02", kind: "lot", since: isoDaysAgo(82) }],
+    costs: seedCosts([
+      { category: "workshop", description: "Hochvolt-Check + Software", netAmount: 420, vatRate: 19, date: isoDaysAgo(70) },
+      { category: "detailing", description: "Aufbereitung", netAmount: 320, vatRate: 19, date: isoDaysAgo(60) },
+    ]),
+  },
+  {
+    id: "V-011", vin: "WVGZZZ5NZMW998877", type: "suv", make: "Volkswagen", model: "Tiguan R-Line", year: 2024, color: "Atlanticblau",
+    mileage: 14800, fuel: "Benzin", transmission: "DKG", power_kw: 180, power_hp: 245, doors: 5, seats: 5,
+    firstRegistration: "2024-03-12", hu: "2027-03-12",
+    listPrice: 46500, purchasePrice: 39000, status: "sold", arrivedAt: isoDaysAgo(72),
+    location: { name: "Beim Kunden (übergeben)", kind: "customer", since: isoDaysAgo(18) },
+    locationHistory: [{ name: "Hof B · Platz 02", kind: "lot", since: isoDaysAgo(72) }],
+    costs: seedCosts([
+      { category: "detailing", description: "Aufbereitung", netAmount: 290, vatRate: 19, date: isoDaysAgo(60) },
+    ]),
+  },
+  {
+    id: "V-012", vin: "ZAR93900007891234", type: "kleinwagen", make: "Fiat", model: "500 La Prima", year: 2024, color: "Mineral Grey",
+    mileage: 6800, fuel: "Elektro", transmission: "Automatik", power_kw: 87, power_hp: 118, doors: 3, seats: 4,
+    firstRegistration: "2024-05-04", hu: "2027-05-04",
+    listPrice: 24900, purchasePrice: 19800, status: "in_stock", arrivedAt: isoDaysAgo(20),
+    location: { name: "Hof A · Platz 14", kind: "lot", since: isoDaysAgo(20) },
+    locationHistory: [],
+    costs: [],
+  },
+  {
+    id: "V-013", vin: "VF7SC9HRC12567890", type: "kleinwagen", make: "Peugeot", model: "208 GT", year: 2024, color: "Blau Vertigo",
+    mileage: 9300, fuel: "Benzin", transmission: "Automatik", power_kw: 96, power_hp: 130, doors: 5, seats: 5,
+    firstRegistration: "2024-04-18", hu: "2027-04-18",
+    listPrice: 21800, purchasePrice: 17500, status: "in_stock", arrivedAt: isoDaysAgo(12),
+    location: { name: "Hof B · Platz 06", kind: "lot", since: isoDaysAgo(12) },
+    locationHistory: [],
+    costs: seedCosts([{ category: "detailing", description: "Aufbereitung", netAmount: 180, vatRate: 19, date: isoDaysAgo(8) }]),
+  },
+  {
+    id: "V-014", vin: "WF0AXXTTGAGH54321", type: "transporter", make: "Ford", model: "Transit Custom L2H1", year: 2023, color: "Frost-Weiß",
+    mileage: 42000, fuel: "Diesel", transmission: "Schaltgetriebe", power_kw: 125, power_hp: 170, doors: 5, seats: 3,
+    firstRegistration: "2023-09-12", hu: "2025-09-12",
+    listPrice: 32400, purchasePrice: 26500, status: "reserved", arrivedAt: isoDaysAgo(38),
+    location: { name: "Hof B · Platz 08", kind: "lot", since: isoDaysAgo(38) },
+    locationHistory: [],
+    costs: seedCosts([
+      { category: "workshop", description: "AHK 13-polig nachgerüstet", netAmount: 580, vatRate: 19, date: isoDaysAgo(20) },
+      { category: "transport", description: "Überführung Düsseldorf", netAmount: 240, vatRate: 19, date: isoDaysAgo(38) },
+    ]),
+  },
+  {
+    id: "V-015", vin: "5YJ3E1EA8KF112233", type: "limousine", make: "Tesla", model: "Model 3 Long Range", year: 2024, color: "Pearl White",
+    mileage: 7100, fuel: "Elektro", transmission: "Automatik", power_kw: 324, power_hp: 440, doors: 4, seats: 5,
+    firstRegistration: "2024-02-28", hu: "2027-02-28",
+    listPrice: 49800, purchasePrice: 41500, status: "sold", arrivedAt: isoDaysAgo(60),
+    location: { name: "Beim Kunden (übergeben)", kind: "customer", since: isoDaysAgo(8) },
+    locationHistory: [{ name: "Hof A · Platz 11", kind: "lot", since: isoDaysAgo(60) }],
+    costs: seedCosts([
+      { category: "workshop", description: "Software-Update + Bremsenservice", netAmount: 280, vatRate: 19, date: isoDaysAgo(40) },
+      { category: "detailing", description: "Aufbereitung + Folierung", netAmount: 720, vatRate: 19, date: isoDaysAgo(30) },
+    ]),
+  },
+  {
+    id: "V-016", vin: "WAUZZZ4M9NA776655", type: "suv", make: "Audi", model: "Q7 50 TDI", year: 2024, color: "Manhattangrau",
+    mileage: 19800, fuel: "Diesel", transmission: "Automatik", power_kw: 210, power_hp: 286, doors: 5, seats: 7,
+    firstRegistration: "2024-01-30", hu: "2027-01-30",
+    listPrice: 84900, purchasePrice: 73000, status: "in_stock", arrivedAt: isoDaysAgo(48),
+    location: { name: "Showroom", kind: "showroom", since: isoDaysAgo(20) },
+    locationHistory: [{ name: "Hof A · Platz 06", kind: "lot", since: isoDaysAgo(48) }],
+    costs: seedCosts([
+      { category: "detailing", description: "Premium-Aufbereitung", netAmount: 480, vatRate: 19, date: isoDaysAgo(35) },
+      { category: "workshop", description: "Standheizung-Check", netAmount: 220, vatRate: 19, date: isoDaysAgo(25) },
+    ]),
+  },
+  {
+    id: "V-017", vin: "WMWXP7C50K2T11223", type: "kleinwagen", make: "Mini", model: "Cooper S", year: 2024, color: "Chili Red",
+    mileage: 5400, fuel: "Benzin", transmission: "DKG", power_kw: 131, power_hp: 178, doors: 3, seats: 4,
+    firstRegistration: "2024-04-05", hu: "2027-04-05",
+    listPrice: 32900, purchasePrice: 27200, status: "in_stock", arrivedAt: isoDaysAgo(18),
+    location: { name: "Showroom", kind: "showroom", since: isoDaysAgo(10) },
+    locationHistory: [],
+    costs: [],
+  },
+  {
+    id: "V-018", vin: "ZAMJK45J100445566", type: "cabrio", make: "Maserati", model: "GranCabrio", year: 2023, color: "Blu Emozione",
+    mileage: 8900, fuel: "Benzin", transmission: "Automatik", power_kw: 338, power_hp: 460, doors: 2, seats: 4,
+    firstRegistration: "2023-07-15", hu: "2026-07-15",
+    listPrice: 142000, purchasePrice: 124000, status: "in_stock", arrivedAt: isoDaysAgo(28),
+    location: { name: "Showroom", kind: "showroom", since: isoDaysAgo(28) },
+    locationHistory: [],
+    costs: seedCosts([
+      { category: "transport", description: "Cabrio-Spezialtransport", netAmount: 980, vatRate: 19, date: isoDaysAgo(28) },
+      { category: "detailing", description: "Lederaufbereitung", netAmount: 640, vatRate: 19, date: isoDaysAgo(20) },
+    ]),
+  },
+  {
+    id: "V-019", vin: "WBA4J11070BL55443", type: "suv", make: "BMW", model: "X1 sDrive18d", year: 2024, color: "Alpinweiß",
+    mileage: 16200, fuel: "Diesel", transmission: "Automatik", power_kw: 110, power_hp: 150, doors: 5, seats: 5,
+    firstRegistration: "2024-03-20", hu: "2027-03-20",
+    listPrice: 39800, purchasePrice: 33000, status: "in_stock", arrivedAt: isoDaysAgo(9),
+    location: { name: "Hof A · Platz 04", kind: "lot", since: isoDaysAgo(9) },
+    locationHistory: [],
+    costs: [],
+  },
+  {
+    id: "V-020", vin: "VF3LBYHZRJW998822", type: "kombi", make: "Citroën", model: "C5 X Hybrid", year: 2024, color: "Schwarz Perla",
+    mileage: 11500, fuel: "Plug-in-Hybrid", transmission: "Automatik", power_kw: 165, power_hp: 225, doors: 5, seats: 5,
+    firstRegistration: "2024-02-26", hu: "2027-02-26",
+    listPrice: 36400, purchasePrice: 29800, status: "in_stock", arrivedAt: isoDaysAgo(22),
+    location: { name: "Hof B · Platz 03", kind: "lot", since: isoDaysAgo(22) },
+    locationHistory: [],
+    costs: seedCosts([{ category: "workshop", description: "Inspektion", netAmount: 320, vatRate: 19, date: isoDaysAgo(15) }]),
+  },
 ];
 
 export const MOCK_PURCHASE_PLANS: PurchasePlan[] = [
   { id: "PP-2025-014", type: "suv", make: "BMW", model: "X3 xDrive30d", year: 2024, targetPrice: 48000, supplier: "BMW Auktion München", expectedAt: "2025-05-08", status: "ordered", createdAt: isoDaysAgo(15) },
   { id: "PP-2025-015", type: "suv", make: "Audi", model: "Q5 50 TFSI e", year: 2024, targetPrice: 52000, supplier: "Audi Großhandel Ingolstadt", expectedAt: "2025-05-15", status: "open", createdAt: isoDaysAgo(8) },
   { id: "PP-2025-016", type: "suv", make: "Tesla", model: "Model Y Long Range", year: 2025, targetPrice: 44000, supplier: "Direktimport NL", expectedAt: "2025-05-22", status: "open", createdAt: isoDaysAgo(5) },
+  { id: "PP-2025-017", type: "limousine", make: "Mercedes-Benz", model: "S 580", year: 2024, targetPrice: 92000, supplier: "MB Auktion Bremen", expectedAt: "2025-05-30", status: "ordered", createdAt: isoDaysAgo(3) },
+  { id: "PP-2025-018", type: "kleinwagen", make: "Renault", model: "Clio TCe 90", year: 2024, targetPrice: 14500, supplier: "Renault Großhandel", expectedAt: "2025-06-05", status: "open", createdAt: isoDaysAgo(2) },
 ];
 
 export const MOCK_OFFERS: Offer[] = [
@@ -502,9 +638,19 @@ export const MOCK_OFFERS: Offer[] = [
   { id: "OFR-2025-0241", vehicleId: "V-003", customerId: "C-005", createdAt: isoDaysAgo(6), validUntil: "2025-05-22", price: 42900, status: "sent", customerTodos: [] },
   { id: "OFR-2025-0220", vehicleId: "V-004", customerId: "C-004", createdAt: isoDaysAgo(24), validUntil: "2025-04-16", price: 78900, status: "accepted", customerTodos: [{ id: "t1", title: "Sportabgasanlage nachgerüstet" }] },
   { id: "OFR-2025-0218", vehicleId: "V-005", customerId: "C-006", createdAt: isoDaysAgo(28), validUntil: "2025-04-30", price: 41200, status: "accepted", customerTodos: [] },
+  { id: "OFR-2025-0245", vehicleId: "V-006", customerId: "C-007", createdAt: isoDaysAgo(4), validUntil: "2025-05-25", price: 71200, status: "sent", customerTodos: [] },
+  { id: "OFR-2025-0246", vehicleId: "V-006", customerId: "C-010", createdAt: isoDaysAgo(2), validUntil: "2025-05-26", price: 71500, status: "sent", customerTodos: [] },
+  { id: "OFR-2025-0210", vehicleId: "V-009", customerId: "C-008", createdAt: isoDaysAgo(85), validUntil: "2025-02-28", price: 134900, status: "accepted", customerTodos: [{ id: "t1", title: "Originalfelgen + Sommerreifen" }] },
+  { id: "OFR-2025-0212", vehicleId: "V-010", customerId: "C-009", createdAt: isoDaysAgo(75), validUntil: "2025-03-15", price: 58400, status: "accepted", customerTodos: [] },
+  { id: "OFR-2025-0215", vehicleId: "V-011", customerId: "C-011", createdAt: isoDaysAgo(65), validUntil: "2025-03-25", price: 46500, status: "accepted", customerTodos: [{ id: "t1", title: "AHK abnehmbar nachrüsten" }] },
+  { id: "OFR-2025-0238", vehicleId: "V-014", customerId: "C-013", createdAt: isoDaysAgo(20), validUntil: "2025-05-10", price: 32400, status: "accepted", customerTodos: [{ id: "t1", title: "Beschriftung möglich" }] },
+  { id: "OFR-2025-0205", vehicleId: "V-015", customerId: "C-012", createdAt: isoDaysAgo(55), validUntil: "2025-03-15", price: 49800, status: "accepted", customerTodos: [] },
+  { id: "OFR-2025-0247", vehicleId: "V-016", customerId: "C-014", createdAt: isoDaysAgo(3), validUntil: "2025-05-28", price: 84900, status: "sent", customerTodos: [] },
+  { id: "OFR-2025-0248", vehicleId: "V-018", customerId: "C-015", createdAt: isoDaysAgo(1), validUntil: "2025-06-01", price: 142000, status: "draft", customerTodos: [] },
 ];
 
 export const MOCK_PROCESSES: Process[] = [
+  // In-Flight Vorgang #1: Outbound-Check
   {
     id: "VF-2025-0142", vehicleId: "V-001", customerId: "C-001", acceptedOfferId: "OFR-2025-0231",
     createdAt: isoDaysAgo(13), updatedAt: isoDaysAgo(2),
@@ -517,6 +663,7 @@ export const MOCK_PROCESSES: Process[] = [
     customerTodosOC: [{ id: "ct1", title: "Standheizung nachrüsten" }, { id: "ct2", title: "AHK montieren" }],
     outboundChecklist: DEFAULT_OUTBOUND_CHECKLIST().map((c, i) => ({ ...c, done: i < 4 })),
   },
+  // Vorgang #2: erst Anzahlung
   {
     id: "VF-2025-0141", vehicleId: "V-002", customerId: "C-002", acceptedOfferId: "OFR-2025-0229",
     createdAt: isoDaysAgo(18), updatedAt: isoDaysAgo(3),
@@ -525,20 +672,31 @@ export const MOCK_PROCESSES: Process[] = [
     customerTodosOC: [],
     outboundChecklist: DEFAULT_OUTBOUND_CHECKLIST(),
   },
+  // Vorgang #3: vollständig abgeschlossen (Übergabe vor 2 Tagen)
   {
     id: "VF-2025-0139", vehicleId: "V-004", customerId: "C-004", acceptedOfferId: "OFR-2025-0220",
-    createdAt: isoDaysAgo(24), updatedAt: isoDaysAgo(1),
-    currentStep: "delivery_confirmation", steps: buildEmptySteps("delivery_confirmation"),
+    createdAt: isoDaysAgo(24), updatedAt: isoDaysAgo(2),
+    currentStep: "delivery_confirmation",
+    steps: {
+      offer: { status: "completed", completedAt: isoDaysAgo(24), documentArchived: true },
+      down_payment: { status: "completed", completedAt: isoDaysAgo(20), documentArchived: true },
+      order_confirmation: { status: "completed", completedAt: isoDaysAgo(18), documentArchived: true },
+      outbound_check: { status: "completed", completedAt: isoDaysAgo(8), documentArchived: true },
+      invoicing: { status: "completed", completedAt: isoDaysAgo(5), documentArchived: true },
+      purchase_contract: { status: "completed", completedAt: isoDaysAgo(3), documentArchived: true },
+      delivery_confirmation: { status: "completed", completedAt: isoDaysAgo(2), documentArchived: true },
+    },
     fields: {
       finalPrice: 78900,
       downPayment: { amount: 10000, dueDate: "2025-04-05", method: "Überweisung", received: true, receivedDate: "2025-04-04" },
       orderConfirmation: { orderDate: "2025-04-06", deliveryDate: "2025-04-25", paymentTerms: "Restzahlung bei Übergabe" },
-      invoicing: { invoiceNumber: "RE-2025-0418", invoiceDate: "2025-04-22", dueDate: "2025-05-06" },
-      purchaseContract: { contractNumber: "KV-2025-0418", contractDate: "2025-04-23", warrantyMonths: 12, place: "München" },
+      invoicing: { invoiceNumber: "RE-2025-0418", invoiceDate: isoDaysAgo(5).slice(0, 10), dueDate: "2025-05-06" },
+      purchaseContract: { contractNumber: "KV-2025-0418", contractDate: isoDaysAgo(3).slice(0, 10), warrantyMonths: 12, place: "München" },
     },
     customerTodosOC: [{ id: "ct1", title: "Sportabgasanlage geliefert" }],
     outboundChecklist: DEFAULT_OUTBOUND_CHECKLIST().map((c) => ({ ...c, done: true })),
   },
+  // Vorgang #4: Rechnungsstellung aktiv
   {
     id: "VF-2025-0138", vehicleId: "V-005", customerId: "C-006", acceptedOfferId: "OFR-2025-0218",
     createdAt: isoDaysAgo(28), updatedAt: isoDaysAgo(5),
@@ -551,6 +709,113 @@ export const MOCK_PROCESSES: Process[] = [
     customerTodosOC: [],
     outboundChecklist: DEFAULT_OUTBOUND_CHECKLIST().map((c) => ({ ...c, done: true })),
   },
+  // Vorgang #5: vollständig (vor 8 Tagen übergeben)
+  {
+    id: "VF-2025-0137", vehicleId: "V-015", customerId: "C-012", acceptedOfferId: "OFR-2025-0205",
+    createdAt: isoDaysAgo(55), updatedAt: isoDaysAgo(8),
+    currentStep: "delivery_confirmation",
+    steps: {
+      offer: { status: "completed", completedAt: isoDaysAgo(55), documentArchived: true },
+      down_payment: { status: "skipped", completedAt: isoDaysAgo(54) },
+      order_confirmation: { status: "completed", completedAt: isoDaysAgo(50), documentArchived: true },
+      outbound_check: { status: "completed", completedAt: isoDaysAgo(20), documentArchived: true },
+      invoicing: { status: "completed", completedAt: isoDaysAgo(15), documentArchived: true },
+      purchase_contract: { status: "completed", completedAt: isoDaysAgo(10), documentArchived: true },
+      delivery_confirmation: { status: "completed", completedAt: isoDaysAgo(8), documentArchived: true },
+    },
+    fields: {
+      finalPrice: 49800,
+      orderConfirmation: { orderDate: isoDaysAgo(50).slice(0, 10), deliveryDate: isoDaysAgo(10).slice(0, 10), paymentTerms: "Sofort bei Übergabe" },
+      invoicing: { invoiceNumber: "RE-2025-0405", invoiceDate: isoDaysAgo(15).slice(0, 10), dueDate: isoDaysAgo(1).slice(0, 10) },
+      purchaseContract: { contractNumber: "KV-2025-0405", contractDate: isoDaysAgo(10).slice(0, 10), warrantyMonths: 12, place: "Dresden" },
+    },
+    customerTodosOC: [],
+    outboundChecklist: DEFAULT_OUTBOUND_CHECKLIST().map((c) => ({ ...c, done: true })),
+  },
+  // Vorgang #6: vollständig (vor 18 Tagen übergeben)
+  {
+    id: "VF-2025-0135", vehicleId: "V-011", customerId: "C-011", acceptedOfferId: "OFR-2025-0215",
+    createdAt: isoDaysAgo(65), updatedAt: isoDaysAgo(18),
+    currentStep: "delivery_confirmation",
+    steps: {
+      offer: { status: "completed", completedAt: isoDaysAgo(65), documentArchived: true },
+      down_payment: { status: "completed", completedAt: isoDaysAgo(60), documentArchived: true },
+      order_confirmation: { status: "completed", completedAt: isoDaysAgo(55), documentArchived: true },
+      outbound_check: { status: "completed", completedAt: isoDaysAgo(30), documentArchived: true },
+      invoicing: { status: "completed", completedAt: isoDaysAgo(25), documentArchived: true },
+      purchase_contract: { status: "completed", completedAt: isoDaysAgo(20), documentArchived: true },
+      delivery_confirmation: { status: "completed", completedAt: isoDaysAgo(18), documentArchived: true },
+    },
+    fields: {
+      finalPrice: 46500,
+      downPayment: { amount: 6000, dueDate: isoDaysAgo(60).slice(0, 10), method: "Überweisung", received: true, receivedDate: isoDaysAgo(60).slice(0, 10) },
+      orderConfirmation: { orderDate: isoDaysAgo(55).slice(0, 10), deliveryDate: isoDaysAgo(20).slice(0, 10), paymentTerms: "Restzahlung bei Übergabe" },
+      invoicing: { invoiceNumber: "RE-2025-0395", invoiceDate: isoDaysAgo(25).slice(0, 10), dueDate: isoDaysAgo(11).slice(0, 10) },
+      purchaseContract: { contractNumber: "KV-2025-0395", contractDate: isoDaysAgo(20).slice(0, 10), warrantyMonths: 12, place: "Frankfurt" },
+    },
+    customerTodosOC: [{ id: "ct1", title: "AHK abnehmbar montiert" }],
+    outboundChecklist: DEFAULT_OUTBOUND_CHECKLIST().map((c) => ({ ...c, done: true })),
+  },
+  // Vorgang #7: vollständig (vor 25 Tagen übergeben)
+  {
+    id: "VF-2025-0132", vehicleId: "V-010", customerId: "C-009", acceptedOfferId: "OFR-2025-0212",
+    createdAt: isoDaysAgo(75), updatedAt: isoDaysAgo(25),
+    currentStep: "delivery_confirmation",
+    steps: {
+      offer: { status: "completed", completedAt: isoDaysAgo(75), documentArchived: true },
+      down_payment: { status: "completed", completedAt: isoDaysAgo(70), documentArchived: true },
+      order_confirmation: { status: "completed", completedAt: isoDaysAgo(65), documentArchived: true },
+      outbound_check: { status: "completed", completedAt: isoDaysAgo(40), documentArchived: true },
+      invoicing: { status: "completed", completedAt: isoDaysAgo(32), documentArchived: true },
+      purchase_contract: { status: "completed", completedAt: isoDaysAgo(28), documentArchived: true },
+      delivery_confirmation: { status: "completed", completedAt: isoDaysAgo(25), documentArchived: true },
+    },
+    fields: {
+      finalPrice: 58400,
+      downPayment: { amount: 8000, dueDate: isoDaysAgo(70).slice(0, 10), method: "Überweisung", received: true, receivedDate: isoDaysAgo(70).slice(0, 10) },
+      orderConfirmation: { orderDate: isoDaysAgo(65).slice(0, 10), deliveryDate: isoDaysAgo(28).slice(0, 10), paymentTerms: "Restzahlung bei Übergabe" },
+      invoicing: { invoiceNumber: "RE-2025-0382", invoiceDate: isoDaysAgo(32).slice(0, 10), dueDate: isoDaysAgo(18).slice(0, 10) },
+      purchaseContract: { contractNumber: "KV-2025-0382", contractDate: isoDaysAgo(28).slice(0, 10), warrantyMonths: 24, place: "Berlin" },
+    },
+    customerTodosOC: [],
+    outboundChecklist: DEFAULT_OUTBOUND_CHECKLIST().map((c) => ({ ...c, done: true })),
+  },
+  // Vorgang #8: vollständig vor 40 Tagen
+  {
+    id: "VF-2025-0128", vehicleId: "V-009", customerId: "C-008", acceptedOfferId: "OFR-2025-0210",
+    createdAt: isoDaysAgo(85), updatedAt: isoDaysAgo(40),
+    currentStep: "delivery_confirmation",
+    steps: {
+      offer: { status: "completed", completedAt: isoDaysAgo(85), documentArchived: true },
+      down_payment: { status: "completed", completedAt: isoDaysAgo(80), documentArchived: true },
+      order_confirmation: { status: "completed", completedAt: isoDaysAgo(75), documentArchived: true },
+      outbound_check: { status: "completed", completedAt: isoDaysAgo(50), documentArchived: true },
+      invoicing: { status: "completed", completedAt: isoDaysAgo(46), documentArchived: true },
+      purchase_contract: { status: "completed", completedAt: isoDaysAgo(43), documentArchived: true },
+      delivery_confirmation: { status: "completed", completedAt: isoDaysAgo(40), documentArchived: true },
+    },
+    fields: {
+      finalPrice: 134900,
+      downPayment: { amount: 25000, dueDate: isoDaysAgo(80).slice(0, 10), method: "Überweisung", received: true, receivedDate: isoDaysAgo(80).slice(0, 10) },
+      orderConfirmation: { orderDate: isoDaysAgo(75).slice(0, 10), deliveryDate: isoDaysAgo(43).slice(0, 10), paymentTerms: "Restzahlung bei Übergabe" },
+      invoicing: { invoiceNumber: "RE-2025-0331", invoiceDate: isoDaysAgo(46).slice(0, 10), dueDate: isoDaysAgo(32).slice(0, 10) },
+      purchaseContract: { contractNumber: "KV-2025-0331", contractDate: isoDaysAgo(43).slice(0, 10), warrantyMonths: 24, place: "Hannover" },
+    },
+    customerTodosOC: [{ id: "ct1", title: "Originalfelgen + Sommerreifen übergeben" }],
+    outboundChecklist: DEFAULT_OUTBOUND_CHECKLIST().map((c) => ({ ...c, done: true })),
+  },
+  // Vorgang #9: AB aktiv (Transporter)
+  {
+    id: "VF-2025-0143", vehicleId: "V-014", customerId: "C-013", acceptedOfferId: "OFR-2025-0238",
+    createdAt: isoDaysAgo(20), updatedAt: isoDaysAgo(2),
+    currentStep: "order_confirmation", steps: buildEmptySteps("order_confirmation"),
+    fields: {
+      finalPrice: 32400,
+      downPayment: { amount: 4000, dueDate: isoDaysAgo(15).slice(0, 10), method: "Überweisung", received: true, receivedDate: isoDaysAgo(15).slice(0, 10) },
+    },
+    customerTodosOC: [{ id: "ct1", title: "Beschriftung mit Firmenlogo" }],
+    outboundChecklist: DEFAULT_OUTBOUND_CHECKLIST(),
+  },
 ];
 
 export const MOCK_TODOS: Todo[] = [
@@ -558,6 +823,9 @@ export const MOCK_TODOS: Todo[] = [
   { id: "TD-002", title: "Originalpapiere von Vorbesitzer anfordern", priority: "medium", done: false, dueDate: new Date(Date.now() + 5 * 86400000).toISOString().slice(0, 10), scope: "internal_pre_purchase", createdAt: isoDaysAgo(1), createdBy: "Admin" },
   { id: "TD-003", title: "Innenraumdesinfektion vor Auslieferung", priority: "low", done: true, scope: "internal_fleet", vehicleId: "V-006", createdAt: isoDaysAgo(4), createdBy: "Admin" },
   { id: "TD-004", title: "Probefahrt-Termin koordinieren", priority: "high", done: false, dueDate: new Date(Date.now() + 1 * 86400000).toISOString().slice(0, 10), scope: "internal_fleet", vehicleId: "V-006", createdAt: isoDaysAgo(1), createdBy: "Admin" },
+  { id: "TD-005", title: "Garantieverlängerung anbieten", priority: "medium", done: false, dueDate: new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10), scope: "internal_fleet", vehicleId: "V-016", createdAt: isoDaysAgo(3), createdBy: "Admin" },
+  { id: "TD-006", title: "Cabrio-Verdeck Funktion testen", priority: "high", done: false, dueDate: new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10), scope: "internal_fleet", vehicleId: "V-018", createdAt: isoDaysAgo(2), createdBy: "Admin" },
+  { id: "TD-007", title: "TÜV-Termin V-014 vereinbaren", priority: "high", done: false, dueDate: new Date(Date.now() + 4 * 86400000).toISOString().slice(0, 10), scope: "internal_fleet", vehicleId: "V-014", createdAt: isoDaysAgo(1), createdBy: "Admin" },
 ];
 
 export const MOCK_ACTIVITIES: Activity[] = [
@@ -568,11 +836,17 @@ export const MOCK_ACTIVITIES: Activity[] = [
   { id: "A-005", type: "process_step_completed", message: "Anzahlung abgeschlossen", timestamp: isoDaysAgo(11), user: "Admin", processId: "VF-2025-0142", meta: { step: "down_payment" } },
   { id: "A-006", type: "process_step_completed", message: "Auftragsbestätigung abgeschlossen", timestamp: isoDaysAgo(8), user: "Admin", processId: "VF-2025-0142", meta: { step: "order_confirmation" } },
   { id: "A-007", type: "vehicle_location_changed", message: "BMW 320d → Hof A · Platz 03", timestamp: isoDaysAgo(2), user: "Admin", vehicleId: "V-001" },
+  { id: "A-008", type: "vehicle_added", message: "Maserati GranCabrio aufgenommen", timestamp: isoDaysAgo(28), user: "Admin", vehicleId: "V-018" },
+  { id: "A-009", type: "process_step_completed", message: "Übergabe abgeschlossen", timestamp: isoDaysAgo(2), user: "Admin", processId: "VF-2025-0139", meta: { step: "delivery_confirmation" } },
+  { id: "A-010", type: "process_step_completed", message: "Übergabe abgeschlossen", timestamp: isoDaysAgo(8), user: "Admin", processId: "VF-2025-0137", meta: { step: "delivery_confirmation" } },
+  { id: "A-011", type: "vehicle_cost_added", message: "Kosten Felgen aufbereiten (380,00 € netto)", timestamp: isoDaysAgo(2), user: "Admin", vehicleId: "V-007" },
+  { id: "A-012", type: "offer_created", message: "Angebot OFR-2025-0247 für Audi Q7", timestamp: isoDaysAgo(3), user: "Admin", vehicleId: "V-016", customerId: "C-014" },
 ];
 
 export const MOCK_GOALS: Goal[] = [
   { id: "G-001", metric: "revenue", period: "month", target: 250000, startDate: new Date(today.getFullYear(), today.getMonth(), 1).toISOString(), endDate: new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString(), label: "Umsatzziel Monat" },
   { id: "G-002", metric: "vehicles_sold", period: "month", target: 8, startDate: new Date(today.getFullYear(), today.getMonth(), 1).toISOString(), endDate: new Date(today.getFullYear(), today.getMonth() + 1, 0).toISOString(), label: "Verkaufte Fahrzeuge" },
+  { id: "G-003", metric: "profit", period: "quarter", target: 120000, startDate: new Date(today.getFullYear(), Math.floor(today.getMonth()/3)*3, 1).toISOString(), endDate: new Date(today.getFullYear(), Math.floor(today.getMonth()/3)*3 + 3, 0).toISOString(), label: "Gewinnziel Quartal" },
 ];
 
 export const DEFAULT_SETTINGS: Settings = {
