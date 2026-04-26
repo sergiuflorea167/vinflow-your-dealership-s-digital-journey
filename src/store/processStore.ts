@@ -105,6 +105,11 @@ interface State {
   updateSettings: (patch: Partial<Settings>) => void;
   addSettingsLocation: (name: string) => void;
   removeSettingsLocation: (name: string) => void;
+
+  // ------- Partner -------
+  addPartner: (p: Omit<Partner, "id" | "createdAt">) => Partner;
+  updatePartner: (id: string, patch: Partial<Omit<Partner, "id" | "createdAt">>) => void;
+  removePartner: (id: string) => void;
 }
 
 const nextNumericId = (prefix: string, list: { id: string }[]) => {
