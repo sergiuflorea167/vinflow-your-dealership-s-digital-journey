@@ -361,10 +361,32 @@ const CalendarPage = () => {
 
   const todayISO = toISO(new Date());
 
+  // Refs / measurements for drag & drop on the week grid.
+  const weekGridRef = useRef<HTMLDivElement>(null);
+  const dayColRef = useRef<HTMLDivElement>(null);
+  const [dayColWidth, setDayColWidth] = useState(0);
+  useEffect(() => {
+    if (!dayColRef.current) return;
+    const el = dayColRef.current;
+    const update = () => setDayColWidth(el.getBoundingClientRect().width);
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const handleEventCommit = useCallback(
+    (id: string, patch: { date?: string; startTime: string; endTime: string }) => {
+      updateCalendarEvent(id, patch);
+    },
+    [updateCalendarEvent],
+  );
+
   const openCreate = (defaults: { date?: string; type?: CalendarEventType } = {}) => {
     setCreateDefaults(defaults);
     setCreateOpen(true);
   };
+
 
   return (
     <AppShell>
