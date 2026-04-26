@@ -293,16 +293,7 @@ const ProcessList = () => {
           <TabsContent value="documents" className="space-y-6 mt-0">
             <Card className="p-4 bg-card border-border">
               <div className="flex flex-col lg:flex-row gap-3">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Vorgangs-Nr., VIN, Kunde, Belegart…"
-                    value={docQ}
-                    onChange={(e) => setDocQ(e.target.value)}
-                    className="pl-9 bg-background/40"
-                  />
-                </div>
-                <div className="flex gap-2 items-center">
+                <div className="flex gap-2 items-center flex-wrap">
                   <Select value={docStep} onValueChange={(v) => setDocStep(v as "all" | ProcessStepKey)}>
                     <SelectTrigger className="w-[200px] bg-background/40">
                       <SelectValue />
