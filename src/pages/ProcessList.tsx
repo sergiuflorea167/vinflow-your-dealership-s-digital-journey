@@ -26,6 +26,11 @@ type ProcessSortKey = "updated" | "created" | "price" | "id" | "customer";
 type OfferSortKey = "validUntil" | "created" | "price" | "customer" | "id";
 type ValidityFilter = "all" | "active" | "soon" | "expired";
 
+/** Ein Vorgang gilt als archiviert, sobald der letzte Schritt der Kette abgeschlossen wurde. */
+const LAST_STEP_KEY: ProcessStepKey = PROCESS_STEPS[PROCESS_STEPS.length - 1].key;
+const isProcessArchived = (p: { steps: Record<string, { status?: string } | undefined> }) =>
+  p.steps?.[LAST_STEP_KEY]?.status === "completed";
+
 const STATUS_META: Record<OfferStatus, { label: string; className: string }> = {
   draft:    { label: "Entwurf",     className: "bg-muted text-muted-foreground border-border" },
   sent:     { label: "Gesendet",    className: "bg-info/15 text-info border-info/30" },
