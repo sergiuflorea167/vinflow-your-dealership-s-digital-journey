@@ -79,6 +79,8 @@ const Todos = () => {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("open");
   const [scopeFilter, setScopeFilter] = useState<"all" | TodoScope>("all");
   const [priorityFilter, setPriorityFilter] = useState<"all" | TodoPriority>("all");
+  const [dueFilter, setDueFilter] = useState<DueFilter>("any");
+  const [customDue, setCustomDue] = useState<Date | undefined>(undefined);
   const [query, setQuery] = useState("");
   const [searchField, setSearchField] = useState<"all" | "title" | "tag" | "assignee">("all");
   const [createOpen, setCreateOpen] = useState(false);
