@@ -174,9 +174,94 @@ const VehicleDetail = () => {
           </Card>
         )}
 
-        {/* ---------- Daten-Sektionen mit Inline-Edit ---------- */}
+        {/* ---------- Angebote & Verkauf (oben für schnellen Zugriff) ---------- */}
+        <Card className="p-6 bg-card border-border shadow-card">
+          <div className="flex items-center justify-between mb-5 gap-4 flex-wrap">
+            <div>
+              <h2 className="text-xl font-display font-semibold">Angebote &amp; Verkauf</h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                {offers.length} Angebot{offers.length !== 1 ? "e" : ""}
+                {!process && " · oder direkt zum Vorgang springen, wenn der Kunde mündlich zugesagt hat."}
+              </p>
+            </div>
+            {!process && (
+              <div className="flex gap-2 flex-wrap">
+                <Button onClick={() => setOfferDialog(true)} variant="outline" className="gap-2">
+                  <Plus className="size-4" /> Neues Angebot
+                </Button>
+                <Button onClick={() => setDirectDialog(true)} className="bg-gradient-brand gap-2">
+                  <Zap className="size-4" /> Direkt verkaufen
+                </Button>
+              </div>
+            )}
+          </div>
+
+          {offers.length === 0 ? (
+            <div className="text-center py-10 text-muted-foreground text-sm border border-dashed border-border rounded-xl">
+              Noch keine Angebote für dieses Fahrzeug.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {offers.map((offer) => {
+                const cust = getCustomer(offer.customerId);
+                const meta = STATUS_META[offer.status];
+                return (
+                  <div key={offer.id} className={cn(
+                    "rounded-xl border p-4 transition-smooth",
+                    offer.status === "accepted" ? "bg-success/5 border-success/30" : "bg-background/40 border-border hover:border-primary/40"
+                  )}>
+                    <div className="flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="size-10 rounded-lg bg-secondary grid place-items-center text-secondary-foreground font-display font-bold text-sm shrink-0">
+                          {cust?.name.split(" ").map((n) => n[0]).slice(0, 2).join("") ?? "?"}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="font-display font-semibold text-foreground truncate">{cust?.name ?? "Unbekannt"}</p>
+                            <Badge className={meta.className}>{meta.label}</Badge>
+                          </div>
+                          <p className="text-xs text-muted-foreground font-mono">{offer.id} · gültig bis {formatDate(offer.validUntil)}</p>
+                        </div>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="font-display text-xl font-bold text-foreground">{formatCurrency(offer.price)}</p>
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider">erstellt {formatDate(offer.createdAt)}</p>
+                      </div>
+                    </div>
+
+                    {offer.status === "sent" && canAcceptMore && (
+                      <div className="flex items-center gap-2 mt-3 pt-3 border-t border-border">
+                        <Button size="sm" variant="outline" onClick={() => { updateOfferStatus(offer.id, "rejected"); toast.message("Angebot abgelehnt."); }} className="gap-1.5">
+                          <X className="size-3.5" /> Ablehnen
+                        </Button>
+                        <Button size="sm" className="bg-success hover:bg-success/90 text-success-foreground gap-1.5"
+                          onClick={() => {
+                            const proc = acceptOffer(offer.id);
+                            toast.success(`Angebot angenommen · Vorgang ${proc?.id} gestartet.`);
+                            if (proc) navigate(`/vorgaenge/${proc.id}`);
+                          }}>
+                          <CheckCircle2 className="size-3.5" /> Annehmen → Vorgang
+                        </Button>
+                      </div>
+                    )}
+                    {offer.status === "draft" && (
+                      <div className="flex items-center gap-2 mt-3 pt-3 border-t border-border">
+                        <Button size="sm" variant="outline" onClick={() => { updateOfferStatus(offer.id, "sent"); toast.success("Angebot versendet."); }} className="gap-1.5">
+                          <Send className="size-3.5" /> Senden
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </Card>
+
+        {/* ---------- Daten-Sektionen mit Inline-Edit (einklappbar) ---------- */}
         <Section
           title="Identifikation"
+          defaultOpen
           rows={[
             { label: "Fahrzeugtyp", value: VEHICLE_TYPE_LABELS[vehicle.type] },
             { label: "Marke", value: vehicle.make },
@@ -189,11 +274,13 @@ const VehicleDetail = () => {
             { label: "TSN", value: vehicle.tsn, mono: true },
             { label: "Kennzeichen", value: vehicle.licensePlate, mono: true },
             { label: "Vorbesitzer", value: vehicle.previousOwners },
+            { label: "Kilometerstand", value: `${vehicle.mileage.toLocaleString("de-DE")} km` },
           ]}
           renderEditor={(close) => (
             <IdentificationEditor vehicle={vehicle} onSave={(p) => { handleSaveSection(p); close(); }} onCancel={close} />
           )}
         />
+
 
         <Section
           title="Technik & Antrieb"
