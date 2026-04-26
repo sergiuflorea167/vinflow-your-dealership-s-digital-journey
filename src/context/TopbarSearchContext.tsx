@@ -1,4 +1,4 @@
-import { createContext, ReactNode, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 
 export type SearchFieldOption = { key: string; label: string };
 
@@ -32,11 +32,46 @@ export const useTopbarSearchContext = () => {
 
 export const useTopbarSearchConfig = () => useTopbarSearchContext().config;
 
+/**
+ * Registriert eine Suchleisten-Konfiguration für die Topbar.
+ * Callbacks werden über Refs gehalten, damit wechselnde Inline-Funktionen
+ * keinen Render-Loop auslösen.
+ */
 export const useTopbarSearch = (cfg: TopbarSearchConfig | null) => {
   const { setConfig } = useTopbarSearchContext();
 
+  // Refs für aktuelle Callbacks
+  const onChangeRef = useRef(cfg?.onChange);
+  const onFieldChangeRef = useRef(cfg?.onFieldChange);
+  onChangeRef.current = cfg?.onChange;
+  onFieldChangeRef.current = cfg?.onFieldChange;
+
+  const stableOnChange = useCallback((v: string) => onChangeRef.current?.(v), []);
+  const stableOnFieldChange = useCallback((f: string) => onFieldChangeRef.current?.(f), []);
+
+  // Nur primitive Werte und Felder-Definition als Dependencies
+  const placeholder = cfg?.placeholder;
+  const value = cfg?.value;
+  const field = cfg?.field;
+  const fieldsKey = useMemo(
+    () => cfg?.fields.map((f) => `${f.key}:${f.label}`).join("|") ?? "",
+    [cfg?.fields],
+  );
+
   useEffect(() => {
-    setConfig(cfg);
+    if (!cfg) {
+      setConfig(null);
+      return;
+    }
+    setConfig({
+      placeholder: placeholder ?? "",
+      fields: cfg.fields,
+      value: value ?? "",
+      field: field ?? "",
+      onChange: stableOnChange,
+      onFieldChange: stableOnFieldChange,
+    });
     return () => setConfig(null);
-  }, [cfg, setConfig]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [placeholder, value, field, fieldsKey, stableOnChange, stableOnFieldChange, setConfig]);
 };
