@@ -522,7 +522,7 @@ const IdentificationEditor = ({ vehicle, onSave, onCancel }: { vehicle: Vehicle;
       <Field label="Modell"><Input value={model} onChange={(e) => setModel(e.target.value)} /></Field>
       <Field label="Modell-Details"><Input value={modelDetail} onChange={(e) => setModelDetail(e.target.value)} placeholder="z. B. M-Sport Paket" /></Field>
       <Field label="Baujahr"><Input type="number" value={year} onChange={(e) => setYear(Number(e.target.value))} /></Field>
-      <Field label="Zustand"><Selectbox value={condition} onChange={setCondition} options={CONDITIONS} /></Field>
+      <Field label="Zustand"><Selectbox value={condition} onChange={(v) => v && setCondition(v)} options={CONDITIONS} /></Field>
       <Field label="VIN" full><Input value={vin} onChange={(e) => setVin(e.target.value.toUpperCase())} maxLength={17} className="font-mono" /></Field>
       <Field label="HSN"><Input value={hsn} onChange={(e) => setHsn(e.target.value)} maxLength={4} className="font-mono" /></Field>
       <Field label="TSN"><Input value={tsn} onChange={(e) => setTsn(e.target.value)} maxLength={3} className="font-mono" /></Field>
@@ -569,11 +569,11 @@ const TechEditor = ({ vehicle, onSave, onCancel }: { vehicle: Vehicle; onSave: (
           {TRANSMISSIONS.map((f) => <option key={f} value={f}>{f}</option>)}
         </select>
       </Field>
-      <Field label="Antrieb"><Selectbox value={drive} onChange={setDrive} options={DRIVES} /></Field>
+      <Field label="Antrieb"><Selectbox value={drive} onChange={(v) => setDrive(v)} options={DRIVES} /></Field>
       <Field label="Leistung (PS)"><Input type="number" value={hp || ""} onChange={(e) => setHp(Number(e.target.value))} /></Field>
       <Field label="Hubraum (ccm)"><Input type="number" value={displacement} onChange={(e) => setDisplacement(e.target.value === "" ? "" : Number(e.target.value))} /></Field>
       <Field label="Zylinder"><Input type="number" value={cylinders} onChange={(e) => setCylinders(e.target.value === "" ? "" : Number(e.target.value))} /></Field>
-      <Field label="Schadstoffklasse"><Selectbox value={emission} onChange={setEmission} options={EMISSIONS} /></Field>
+      <Field label="Schadstoffklasse"><Selectbox value={emission} onChange={(v) => setEmission(v)} options={EMISSIONS} /></Field>
       <Field label="CO₂ (g/km)"><Input type="number" value={co2} onChange={(e) => setCo2(e.target.value === "" ? "" : Number(e.target.value))} /></Field>
       <Field label="Verbrauch (l/100km)"><Input type="number" step="0.1" value={consumption} onChange={(e) => setConsumption(e.target.value === "" ? "" : Number(e.target.value))} /></Field>
       <Field label="Batterie (kWh)"><Input type="number" value={battery} onChange={(e) => setBattery(e.target.value === "" ? "" : Number(e.target.value))} /></Field>
