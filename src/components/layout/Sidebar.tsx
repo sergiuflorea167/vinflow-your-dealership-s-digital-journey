@@ -38,7 +38,7 @@ export const Sidebar = () => {
   );
 
   return (
-    <aside className="hidden md:flex w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar">
+    <aside className="hidden md:flex w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar h-screen sticky top-0">
       <NavLink to="/" className="flex items-center gap-3 px-6 h-16 border-b border-sidebar-border hover:opacity-90 transition-smooth">
         <div className="size-9 rounded-xl bg-gradient-brand grid place-items-center shadow-glow">
           <span className="font-display font-bold text-primary-foreground text-lg">V</span>
