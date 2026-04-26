@@ -1102,8 +1102,8 @@ export const useProcessStore = create<State>()(
       };
     },
     {
-      name: "vinflow-store-v5",
-      version: 5,
+      name: "vinflow-store-v6",
+      version: 6,
       partialize: (s) => ({
         vehicles: s.vehicles,
         customers: s.customers,
@@ -1113,10 +1113,16 @@ export const useProcessStore = create<State>()(
         todos: s.todos,
         activities: s.activities,
         goals: s.goals,
+        calendarEvents: s.calendarEvents,
+        dayTemplates: s.dayTemplates,
         settings: s.settings,
       }),
       onRehydrateStorage: () => (state) => {
         if (!state) return;
+
+        // ---- Defaults für neu hinzugefügte Felder (v6) ----
+        if (!Array.isArray(state.calendarEvents)) state.calendarEvents = MOCK_CALENDAR_EVENTS;
+        if (!Array.isArray(state.dayTemplates))   state.dayTemplates   = DEFAULT_DAY_TEMPLATES;
 
         // ---- Migration: PurchasePlan-Schema v5 ----
         // Alte Pläne können noch alte Status-Werte ("open"/"ordered") haben
