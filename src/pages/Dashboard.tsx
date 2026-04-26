@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ProcessCard } from "@/components/process/ProcessCard";
+import { GoalsPanel } from "@/components/dashboard/GoalsPanel";
 import { useProcessStore } from "@/store/processStore";
 import { PROCESS_STEPS, formatCurrency, stepIndex } from "@/data/process";
 import { ArrowUpRight, TrendingUp, Workflow, FileCheck2, Car } from "lucide-react";
