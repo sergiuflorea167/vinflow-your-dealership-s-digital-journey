@@ -3,12 +3,13 @@
 
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Pin, PinOff, GripVertical } from "lucide-react";
+import { Pin, PinOff, GripVertical, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useDashboardStore } from "@/store/dashboardStore";
 import { useProcessStore } from "@/store/processStore";
 import { KpiDef } from "@/lib/kpis";
 import { useMemo } from "react";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface KpiCardProps {
   kpi: KpiDef;
@@ -38,10 +39,39 @@ export const KpiCard = ({ kpi, variant = "catalog", dragHandleProps }: KpiCardPr
       )}
     >
       <div className="flex items-start justify-between gap-2 mb-3">
-        <div className="min-w-0">
+        <div className="min-w-0 flex items-center gap-1.5">
           <p className="text-xs uppercase tracking-wider text-muted-foreground font-medium truncate">
             {kpi.label}
           </p>
+          <Tooltip delayDuration={150}>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                aria-label={`Bedeutung von ${kpi.label}`}
+                className="text-muted-foreground/60 hover:text-primary-glow transition-smooth shrink-0"
+              >
+                <Info className="size-3.5" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent
+              side="top"
+              align="start"
+              className="max-w-xs p-3 text-xs leading-relaxed space-y-2 bg-popover border-border"
+            >
+              <div>
+                <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">
+                  Was misst dieser Wert?
+                </p>
+                <p className="text-foreground">{kpi.description}</p>
+              </div>
+              <div className="border-t border-border pt-2">
+                <p className="text-[10px] uppercase tracking-wider text-primary-glow font-semibold mb-1">
+                  Deutung
+                </p>
+                <p className="text-foreground">{kpi.interpretation}</p>
+              </div>
+            </TooltipContent>
+          </Tooltip>
         </div>
         <div className="flex items-center gap-1 -mt-1 -mr-1">
           {variant === "dashboard" && dragHandleProps && (
