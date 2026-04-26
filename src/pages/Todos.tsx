@@ -619,6 +619,22 @@ const TodoForm = ({
         </div>
       </div>
 
+      <div className="grid grid-cols-2 gap-3">
+        <div className="space-y-1.5">
+          <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">Von (optional)</Label>
+          <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} disabled={!dueDate} />
+        </div>
+        <div className="space-y-1.5">
+          <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">Bis (optional)</Label>
+          <Input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} disabled={!dueDate} />
+        </div>
+      </div>
+      {dueDate && startTime && endTime && (
+        <p className="text-[10px] text-muted-foreground -mt-2">
+          Bei Speichern wird automatisch ein verknüpfter Kalendereintrag erzeugt.
+        </p>
+      )}
+
       <div className="space-y-1.5">
         <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">Tags (Komma-getrennt)</Label>
         <Input value={tagsRaw} onChange={(e) => setTagsRaw(e.target.value)} placeholder="büro, dringend, telefon" />
