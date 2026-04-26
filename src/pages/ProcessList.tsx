@@ -140,19 +140,21 @@ const ProcessList = () => {
       if (docStep !== "all" && d.step.key !== docStep) return false;
       if (!docQ) return true;
       const s = docQ.toLowerCase();
-      return (
-        d.processId.toLowerCase().includes(s) ||
-        d.vin.toLowerCase().includes(s) ||
-        d.vehicleLabel.toLowerCase().includes(s) ||
-        d.customerName.toLowerCase().includes(s) ||
-        d.step.documentName.toLowerCase().includes(s)
-      );
+      const fields: Record<typeof docQField, string> = {
+        all: `${d.processId} ${d.vin} ${d.vehicleLabel} ${d.customerName} ${d.step.documentName}`,
+        id: d.processId,
+        vin: d.vin,
+        vehicle: d.vehicleLabel,
+        customer: d.customerName,
+        doc: d.step.documentName,
+      };
+      return fields[docQField].toLowerCase().includes(s);
     });
     return list.sort((a, b) => {
       const diff = new Date(a.completedAt).getTime() - new Date(b.completedAt).getTime();
       return docSortDir === "asc" ? diff : -diff;
     });
-  }, [documents, docQ, docStep, docSortDir]);
+  }, [documents, docQ, docQField, docStep, docSortDir]);
 
   const handleDownload = (processId: string, stepKey: ProcessStepKey) => {
     const proc = processes.find((p) => p.id === processId);
@@ -173,7 +175,7 @@ const ProcessList = () => {
           </p>
         </div>
 
-        <Tabs defaultValue="list" className="space-y-6">
+        <Tabs value={tab} onValueChange={(v) => setTab(v as "list" | "documents")} className="space-y-6">
           <TabsList>
             <TabsTrigger value="list">Liste ({processes.length})</TabsTrigger>
             <TabsTrigger value="documents">Belege-Archiv ({documents.length})</TabsTrigger>
@@ -183,16 +185,7 @@ const ProcessList = () => {
           <TabsContent value="list" className="space-y-6 mt-0">
             <Card className="p-4 bg-card border-border">
               <div className="flex flex-col lg:flex-row gap-3">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-                  <Input
-                    placeholder="VIN, Vorgangs-Nr., Modell oder Kunde…"
-                    value={q}
-                    onChange={(e) => setQ(e.target.value)}
-                    className="pl-9 bg-background/40"
-                  />
-                </div>
-                <div className="flex gap-2 items-center">
+                <div className="flex gap-2 items-center flex-wrap">
                   <Select value={sortKey} onValueChange={(v) => setSortKey(v as ProcessSortKey)}>
                     <SelectTrigger className="w-[180px] bg-background/40">
                       <SelectValue />
