@@ -145,7 +145,8 @@ const ProcessDetail = () => {
                   <span className="text-xs font-mono text-muted-foreground">Schritt {selectedIdx + 1} / {PROCESS_STEPS.length}</span>
                   {isCompleted && <Badge className="bg-success text-success-foreground hover:bg-success">Abgeschlossen</Badge>}
                   {isSkipped && <Badge variant="outline" className="border-muted-foreground/30 text-muted-foreground">Übersprungen</Badge>}
-                  {isCurrent && !isCompleted && !isSkipped && <Badge className="bg-primary text-primary-foreground hover:bg-primary">Aktiv</Badge>}
+                  {isCurrent && !isCompleted && !isSkipped && !isBooked && <Badge className="bg-primary text-primary-foreground hover:bg-primary">Aktiv</Badge>}
+                  {isBooked && <Badge className="bg-success text-success-foreground hover:bg-success gap-1"><CheckCircle2 className="size-3" /> Gebucht</Badge>}
                   {isLocked && (<Badge variant="outline" className="border-border text-muted-foreground"><Lock className="size-3 mr-1" /> Gesperrt</Badge>)}
                 </div>
                 <h2 className="text-2xl font-display font-bold text-foreground">{selectedStep.label}</h2>
