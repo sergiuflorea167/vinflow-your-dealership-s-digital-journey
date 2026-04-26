@@ -159,7 +159,7 @@ const ProcessDetail = () => {
               <StepFields
                 stepKey={selectedKey}
                 fields={process.fields}
-                disabled={!isCurrent || isSkipped}
+                disabled={!isCurrent || isSkipped || isBooked}
                 onChange={(patch) => updateFields(process.id, patch)}
               />
             )}
