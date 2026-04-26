@@ -552,6 +552,16 @@ export const useProcessStore = create<State>()(
           return offer;
         },
 
+        updateOffer: (offerId, patch) =>
+          set((state) => {
+            const offer = state.offers.find((o) => o.id === offerId);
+            if (!offer) return state;
+            return {
+              ...state,
+              offers: state.offers.map((o) => (o.id === offerId ? { ...o, ...patch } : o)),
+            };
+          }),
+
         updateOfferStatus: (offerId, status) =>
           set((state) => {
             const offer = state.offers.find((o) => o.id === offerId);
