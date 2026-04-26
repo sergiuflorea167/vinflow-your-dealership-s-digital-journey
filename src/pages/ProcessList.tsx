@@ -168,8 +168,8 @@ const ProcessList = () => {
   };
 
   return (
-    <AppShell fullHeight>
-      <div className="flex flex-col min-h-0 flex-1 gap-3 animate-fade-in">
+    <AppShell>
+      <div className="space-y-3 animate-fade-in">
         <div className="shrink-0">
           <h1 className="text-2xl font-display font-bold">Vorgänge</h1>
           <p className="text-xs text-muted-foreground">
