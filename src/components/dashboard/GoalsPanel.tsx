@@ -64,7 +64,7 @@ export const computeGoalProgress = (
   const end = new Date(goal.endDate);
 
   const handovers = ctx.processes.filter((p) => {
-    const rec = p.steps.handover;
+    const rec = p.steps.delivery_confirmation;
     if (!rec || rec.status !== "completed" || !rec.completedAt) return false;
     const t = new Date(rec.completedAt);
     return t >= start && t <= end;
