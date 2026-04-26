@@ -10,10 +10,11 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { useProcessStore } from "@/store/processStore";
-import { formatCurrency, formatDate, PurchasePlanStatus, VEHICLE_TYPE_LABELS, VehicleType, FuelType, Transmission } from "@/data/process";
+import { formatCurrency, formatDate, PurchasePlanStatus, VEHICLE_TYPE_LABELS, VehicleType } from "@/data/process";
 import { Plus, Search, Truck, CheckCircle2, Clock, Package, Ban } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { VehicleIntakeDialog } from "@/components/fleet/VehicleIntakeDialog";
 
 type PlanSortKey = "expected_asc" | "expected_desc" | "created_desc" | "price_asc" | "price_desc" | "supplier";
 
