@@ -37,6 +37,8 @@ export interface StepRecord {
   status: StepStatus;
   completedAt?: string;
   documentArchived?: boolean;
+  /** Zwischenstand: Schritt wurde verbindlich „gebucht" (Pflichtfelder fixiert), aber Beleg noch nicht erzeugt. */
+  bookedAt?: string;
 }
 
 // ---------- To-Dos ----------
