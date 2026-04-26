@@ -95,71 +95,107 @@ const VehicleDetail = () => {
           <ArrowLeft className="size-4" /> Zurück zum Bestand
         </RouterLink>
 
-        {/* ---------- Header ---------- */}
-        <Card className="p-6 bg-gradient-surface border-border shadow-card">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-            <div className="flex items-center gap-4">
-              <div className="size-16 rounded-2xl bg-gradient-brand grid place-items-center shadow-glow">
-                <Car className="size-8 text-primary-foreground" />
-              </div>
-              <div>
-                <p className="text-xs uppercase tracking-widest text-muted-foreground mb-1">Fahrzeug {vehicle.id}</p>
-                <h1 className="text-3xl font-display font-bold">
-                  {vehicle.make} {vehicle.model}
-                </h1>
-                {vehicle.modelDetail && (
-                  <p className="text-sm text-muted-foreground">{vehicle.modelDetail}</p>
-                )}
-                <p className="font-mono text-xs text-muted-foreground mt-1">VIN {vehicle.vin}</p>
-              </div>
-            </div>
-            <div className="text-right">
-              <p className="text-xs uppercase tracking-widest text-muted-foreground">Listenpreis</p>
-              <p className="text-3xl font-display font-bold text-primary-glow">{formatCurrency(vehicle.listPrice)}</p>
-              <p className="text-xs text-muted-foreground mt-1">
-                EK: {formatCurrency(vehicle.purchasePrice)}
-              </p>
-            </div>
-          </div>
-        </Card>
+        {/* ---------- Verkaufs-Header ---------- */}
+        {(() => {
+          const margin = vehicle.listPrice - vehicle.purchasePrice;
+          const marginPct = vehicle.purchasePrice > 0 ? (margin / vehicle.purchasePrice) * 100 : 0;
+          const daysInStock = Math.max(
+            0,
+            Math.floor((Date.now() - new Date(vehicle.location.since).getTime()) / 86400000),
+          );
+          const acceptedCount = offers.filter((o) => o.status === "accepted").length;
+          const openCount = offers.filter((o) => o.status === "sent").length;
 
-        {/* ---------- Standort ---------- */}
-        <Card className="p-5 bg-card border-border shadow-card">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-start gap-3 min-w-0">
-              <div className="size-10 rounded-lg bg-info/15 grid place-items-center shrink-0">
-                <MapPin className="size-5 text-info" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs uppercase tracking-widest text-muted-foreground">Aktueller Standort</p>
-                <p className="font-display font-semibold text-foreground text-lg truncate">{vehicle.location.name}</p>
-                <p className="text-xs text-muted-foreground">
-                  {LOCATION_KIND_LABELS[vehicle.location.kind]} · seit {formatDate(vehicle.location.since)}
-                  {vehicle.location.note ? ` · ${vehicle.location.note}` : ""}
-                </p>
-              </div>
-            </div>
-            <Button variant="outline" size="sm" onClick={() => setLocationDialog(true)} className="gap-1.5 shrink-0">
-              <Edit2 className="size-3.5" /> Standort ändern
-            </Button>
-          </div>
+          return (
+            <Card className="p-6 bg-gradient-surface border-border shadow-card">
+              <div className="flex flex-col xl:flex-row xl:items-start xl:justify-between gap-6">
+                {/* Linke Spalte: Identität + Standort-Chip */}
+                <div className="flex items-start gap-4 min-w-0 flex-1">
+                  <div className="size-16 rounded-2xl bg-gradient-brand grid place-items-center shadow-glow shrink-0">
+                    <Car className="size-8 text-primary-foreground" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                      <p className="text-xs uppercase tracking-widest text-muted-foreground">Fahrzeug {vehicle.id}</p>
+                      <span className="text-muted-foreground/40">·</span>
+                      <button
+                        type="button"
+                        onClick={() => setLocationDialog(true)}
+                        className="inline-flex items-center gap-1.5 text-xs text-info hover:text-info/80 transition-smooth group"
+                        title={`${LOCATION_KIND_LABELS[vehicle.location.kind]} · seit ${formatDate(vehicle.location.since)}${vehicle.location.note ? ` · ${vehicle.location.note}` : ""}`}
+                      >
+                        <MapPin className="size-3.5" />
+                        <span className="font-medium truncate max-w-[200px]">{vehicle.location.name}</span>
+                        <Edit2 className="size-3 opacity-0 group-hover:opacity-100 transition-smooth" />
+                      </button>
+                    </div>
+                    <h1 className="text-3xl font-display font-bold leading-tight">
+                      {vehicle.make} {vehicle.model}
+                    </h1>
+                    {vehicle.modelDetail && (
+                      <p className="text-sm text-muted-foreground">{vehicle.modelDetail}</p>
+                    )}
+                    <p className="font-mono text-[11px] text-muted-foreground mt-1">VIN {vehicle.vin}</p>
+                  </div>
+                </div>
 
-          {vehicle.locationHistory.length > 0 && (
-            <details className="mt-4 group">
-              <summary className="text-xs text-muted-foreground cursor-pointer flex items-center gap-1.5 hover:text-foreground transition-smooth">
-                <History className="size-3.5" /> Standort-Historie ({vehicle.locationHistory.length})
-              </summary>
-              <ul className="mt-3 space-y-1.5 pl-5 text-xs">
-                {vehicle.locationHistory.map((h, i) => (
-                  <li key={i} className="text-muted-foreground">
-                    <span className="text-foreground font-medium">{h.name}</span>
-                    {" · "}{LOCATION_KIND_LABELS[h.kind]} · seit {formatDate(h.since)}
-                  </li>
-                ))}
-              </ul>
-            </details>
-          )}
-        </Card>
+                {/* Rechte Spalte: Preis + Verkaufs-CTAs */}
+                <div className="flex flex-col items-stretch xl:items-end gap-3 shrink-0">
+                  <div className="text-right">
+                    <p className="text-xs uppercase tracking-widest text-muted-foreground">Verkaufspreis</p>
+                    <p className="text-4xl font-display font-bold text-primary-glow leading-none">{formatCurrency(vehicle.listPrice)}</p>
+                    <p className="text-xs text-muted-foreground mt-1.5">
+                      EK {formatCurrency(vehicle.purchasePrice)} ·{" "}
+                      <span className={cn("font-semibold", margin > 0 ? "text-success" : "text-destructive")}>
+                        +{formatCurrency(margin)} ({marginPct.toFixed(1)}%)
+                      </span>
+                    </p>
+                  </div>
+                  {!process && (
+                    <div className="flex gap-2 justify-end">
+                      <Button onClick={() => setOfferDialog(true)} variant="outline" size="sm" className="gap-1.5">
+                        <Plus className="size-3.5" /> Angebot
+                      </Button>
+                      <Button onClick={() => setDirectDialog(true)} size="sm" className="bg-gradient-brand gap-1.5">
+                        <Zap className="size-3.5" /> Direkt verkaufen
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* KPI-Strip */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-6 pt-6 border-t border-border">
+                <div>
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Tage im Bestand</p>
+                  <p className={cn(
+                    "font-display text-xl font-bold mt-0.5",
+                    daysInStock > 90 ? "text-warning" : "text-foreground",
+                  )}>{daysInStock}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Offene Angebote</p>
+                  <p className="font-display text-xl font-bold mt-0.5 text-foreground">
+                    {openCount}
+                    {acceptedCount > 0 && <span className="text-success text-sm font-medium ml-2">· 1 angenommen</span>}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Kilometerstand</p>
+                  <p className="font-display text-xl font-bold mt-0.5 text-foreground">
+                    {vehicle.mileage?.toLocaleString("de-DE") ?? "–"} <span className="text-xs font-normal text-muted-foreground">km</span>
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Erstzulassung</p>
+                  <p className="font-display text-xl font-bold mt-0.5 text-foreground">
+                    {vehicle.firstRegistration ? formatDate(vehicle.firstRegistration) : "–"}
+                  </p>
+                </div>
+              </div>
+            </Card>
+          );
+        })()}
 
         {/* ---------- Vorgang (falls vorhanden) ---------- */}
         {process && (
