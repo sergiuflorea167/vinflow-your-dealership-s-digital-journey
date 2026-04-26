@@ -43,6 +43,7 @@ export interface StepRecord {
 
 export type TodoPriority = "low" | "medium" | "high";
 export type TodoScope =
+  | "general"                 // freistehend, ohne Bezug zu Kunde/Fahrzeug
   | "internal_pre_purchase"   // intern, vor/nach Bestandszugang
   | "internal_fleet"          // intern, am Fahrzeug allgemein
   | "offer"                   // sichtbar für Kunden auf Angebot
@@ -52,13 +53,17 @@ export type TodoScope =
 export interface Todo {
   id: string;
   title: string;
+  description?: string;
   priority: TodoPriority;
   done: boolean;
   dueDate?: string;
   scope: TodoScope;
   vehicleId?: string;
   processId?: string;
+  tags?: string[];
+  assignee?: string;
   createdAt: string;
+  completedAt?: string;
   createdBy: string;
 }
 
