@@ -90,7 +90,7 @@ const CustomersPanel = () => {
   }, [enriched, query]);
 
   return (
-    <Card className="bg-card border-border overflow-hidden">
+    <Card className="bg-card border-border overflow-hidden flex flex-col min-h-0 flex-1">
       <div className="flex items-center justify-between gap-3 p-4 border-b border-border flex-wrap">
         <div className="flex items-center gap-3 flex-1 min-w-0">
           <Input
@@ -109,7 +109,7 @@ const CustomersPanel = () => {
       {filtered.length === 0 ? (
         <div className="p-12 text-center text-muted-foreground text-sm">Keine Kunden gefunden.</div>
       ) : (
-        <div className="overflow-auto max-h-[55vh]">
+        <div className="overflow-auto min-h-0 flex-1">
           <table className="w-full text-xs">
             <thead className="sticky top-0 z-10 bg-background/95 backdrop-blur">
               <tr className="border-b border-border bg-background/30 text-left text-xs uppercase tracking-wider text-muted-foreground">
@@ -199,7 +199,7 @@ const PartnersPanel = () => {
 
   return (
     <>
-      <Card className="bg-card border-border overflow-hidden">
+      <Card className="bg-card border-border overflow-hidden flex flex-col min-h-0 flex-1">
         <div className="flex items-center justify-between gap-3 p-4 border-b border-border flex-wrap">
           <div className="flex items-center gap-3 flex-wrap flex-1 min-w-0">
             <Input
@@ -229,7 +229,7 @@ const PartnersPanel = () => {
             Noch keine Partner angelegt.
           </div>
         ) : (
-          <div className="overflow-auto max-h-[55vh]">
+          <div className="overflow-auto min-h-0 flex-1">
             <table className="w-full text-xs">
               <thead className="sticky top-0 z-10 bg-background/95 backdrop-blur">
                 <tr className="border-b border-border bg-background/30 text-left text-xs uppercase tracking-wider text-muted-foreground">
@@ -430,7 +430,7 @@ const LocationsPanel = () => {
   };
 
   return (
-    <Card className="bg-card border-border overflow-hidden">
+    <Card className="bg-card border-border overflow-hidden flex flex-col min-h-0 flex-1">
       <div className="p-4 border-b border-border">
         <div className="flex gap-2 max-w-md">
           <Input
@@ -451,7 +451,7 @@ const LocationsPanel = () => {
       {locations.length === 0 ? (
         <div className="p-12 text-center text-muted-foreground text-sm">Noch keine Standorte angelegt.</div>
       ) : (
-        <div className="overflow-auto max-h-[55vh]">
+        <div className="overflow-auto min-h-0 flex-1">
           <table className="w-full text-xs">
             <thead className="sticky top-0 z-10 bg-background/95 backdrop-blur">
               <tr className="border-b border-border bg-background/30 text-left text-xs uppercase tracking-wider text-muted-foreground">
