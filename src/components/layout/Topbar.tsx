@@ -11,7 +11,10 @@ export const Topbar = () => {
   const userName = useProcessStore((s) => s.settings.userName);
   const initials = (userName || "AD").split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase() || "AD";
 
-  const { config } = useTopbarSearchContext();
+  const { getConfig, version } = useTopbarSearchContext();
+  // version is read so this component re-renders whenever a page (un)registers.
+  void version;
+  const config = getConfig();
   const disabled = !config;
 
   return (
