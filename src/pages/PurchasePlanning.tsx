@@ -361,6 +361,8 @@ const NewPlanDialog = ({ open, onOpenChange, onSubmit }: {
           <p className="text-xs text-muted-foreground">Nur die Eckdaten – Details kommen später beim Bestandseingang.</p>
         </DialogHeader>
         <div className="grid grid-cols-2 gap-3 py-2">
+          <FormField label="Marke *"><Input value={form.make} onChange={(e) => setForm({ ...form, make: e.target.value })} placeholder="z. B. BMW" autoFocus /></FormField>
+          <FormField label="Modell *"><Input value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} placeholder="z. B. X3 xDrive30d" /></FormField>
           <FormField label="Quelle">
             <select value={form.source} onChange={(e) => setForm({ ...form, source: e.target.value as PurchasePlanSource })} className="w-full h-10 rounded-md border border-input bg-background/40 px-3 text-sm">
               {Object.entries(PURCHASE_PLAN_SOURCE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
@@ -371,8 +373,6 @@ const NewPlanDialog = ({ open, onOpenChange, onSubmit }: {
               {Object.entries(VEHICLE_TYPE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </select>
           </FormField>
-          <FormField label="Marke *"><Input value={form.make} onChange={(e) => setForm({ ...form, make: e.target.value })} placeholder="z. B. BMW" /></FormField>
-          <FormField label="Modell *"><Input value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} placeholder="z. B. X3 xDrive30d" /></FormField>
           <FormField label="Baujahr"><Input type="number" value={form.year || ""} onChange={(e) => setForm({ ...form, year: Number(e.target.value) })} /></FormField>
           <FormField label="Zielpreis brutto (EUR)"><Input type="number" value={form.targetPrice || ""} onChange={(e) => setForm({ ...form, targetPrice: Number(e.target.value) })} placeholder="z. B. 45000" /></FormField>
           <FormField label="Anbieter / Plattform" full>
