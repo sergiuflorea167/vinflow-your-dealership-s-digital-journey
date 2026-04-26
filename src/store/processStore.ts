@@ -51,7 +51,7 @@ interface State {
   getOffer: (id: string) => Offer | undefined;
   getOffersForVehicle: (vehicleId: string) => Offer[];
   getProcessForVehicle: (vehicleId: string) => Process | undefined;
-  getActivitiesFor: (q: { vehicleId?: string; processId?: string }) => Activity[];
+  getActivitiesFor: (q: { vehicleId?: string; processId?: string; customerId?: string }) => Activity[];
   getTodosFor: (q: { vehicleId?: string; processId?: string; scope?: TodoScope }) => Todo[];
 
   // ------- Process -------
@@ -159,8 +159,12 @@ export const useProcessStore = create<State>()(
         getOffer: (id) => get().offers.find((o) => o.id === id),
         getOffersForVehicle: (vehicleId) => get().offers.filter((o) => o.vehicleId === vehicleId),
         getProcessForVehicle: (vehicleId) => get().processes.find((p) => p.vehicleId === vehicleId),
-        getActivitiesFor: ({ vehicleId, processId }) =>
-          get().activities.filter((a) => (vehicleId ? a.vehicleId === vehicleId : true) && (processId ? a.processId === processId : true)),
+        getActivitiesFor: ({ vehicleId, processId, customerId }) =>
+          get().activities.filter((a) =>
+            (vehicleId ? a.vehicleId === vehicleId : true) &&
+            (processId ? a.processId === processId : true) &&
+            (customerId ? a.customerId === customerId : true)
+          ),
         getTodosFor: ({ vehicleId, processId, scope }) =>
           get().todos.filter((t) =>
             (vehicleId ? t.vehicleId === vehicleId : true) &&
