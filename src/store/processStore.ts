@@ -91,8 +91,12 @@ interface State {
   startProcessForVehicle: (args: { vehicleId: string; customerId: string; price: number }) => Process | undefined;
 
   // ------- Purchase plan -------
-  addPurchasePlan: (p: Omit<PurchasePlan, "id" | "createdAt" | "status"> & { status?: PurchasePlan["status"] }) => PurchasePlan;
+  addPurchasePlan: (p: Omit<PurchasePlan, "id" | "createdAt" | "status" | "noteEntries"> & { status?: PurchasePlan["status"]; initialNote?: string }) => PurchasePlan;
+  updatePurchasePlan: (id: string, patch: Partial<Omit<PurchasePlan, "id" | "createdAt" | "noteEntries">>) => void;
   updatePurchasePlanStatus: (id: string, status: PurchasePlan["status"]) => void;
+  addPurchasePlanNote: (id: string, text: string) => void;
+  removePurchasePlanNote: (id: string, noteId: string) => void;
+  removePurchasePlan: (id: string) => void;
   convertPlanToVehicle: (planId: string, vehicle: Omit<Vehicle, "id" | "status" | "locationHistory" | "costs">) => Vehicle | undefined;
 
   // ------- Todos -------
