@@ -111,7 +111,7 @@ const CustomersPanel = () => {
       {filtered.length === 0 ? (
         <div className="p-12 text-center text-muted-foreground text-sm">Keine Kunden gefunden.</div>
       ) : (
-        <div className="overflow-x-auto">
+        <div className="overflow-auto max-h-[55vh]">
           <table className="w-full text-xs">
             <thead>
               <tr className="border-b border-border bg-background/30 text-left text-xs uppercase tracking-wider text-muted-foreground">
@@ -231,7 +231,7 @@ const PartnersPanel = () => {
             Noch keine Partner angelegt.
           </div>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-auto max-h-[55vh]">
             <table className="w-full text-xs">
               <thead>
                 <tr className="border-b border-border bg-background/30 text-left text-xs uppercase tracking-wider text-muted-foreground">
@@ -453,7 +453,7 @@ const LocationsPanel = () => {
       {locations.length === 0 ? (
         <div className="p-12 text-center text-muted-foreground text-sm">Noch keine Standorte angelegt.</div>
       ) : (
-        <div className="overflow-x-auto">
+        <div className="overflow-auto max-h-[55vh]">
           <table className="w-full text-xs">
             <thead>
               <tr className="border-b border-border bg-background/30 text-left text-xs uppercase tracking-wider text-muted-foreground">
