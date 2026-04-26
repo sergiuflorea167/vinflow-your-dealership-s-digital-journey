@@ -26,6 +26,11 @@ type ProcessSortKey = "updated" | "created" | "price" | "id" | "customer";
 type OfferSortKey = "validUntil" | "created" | "price" | "customer" | "id";
 type ValidityFilter = "all" | "active" | "soon" | "expired";
 
+/** Ein Vorgang gilt als archiviert, sobald der letzte Schritt der Kette abgeschlossen wurde. */
+const LAST_STEP_KEY: ProcessStepKey = PROCESS_STEPS[PROCESS_STEPS.length - 1].key;
+const isProcessArchived = (p: { steps: Record<string, { status?: string } | undefined> }) =>
+  p.steps?.[LAST_STEP_KEY]?.status === "completed";
+
 const STATUS_META: Record<OfferStatus, { label: string; className: string }> = {
   draft:    { label: "Entwurf",     className: "bg-muted text-muted-foreground border-border" },
   sent:     { label: "Gesendet",    className: "bg-info/15 text-info border-info/30" },
@@ -45,7 +50,7 @@ const ProcessList = () => {
   const companyName = useProcessStore((s) => s.settings.companyName);
 
   // ---- Tabs ----
-  const [tab, setTab] = useState<"list" | "offers" | "documents">("list");
+  const [tab, setTab] = useState<"list" | "archived" | "offers" | "documents">("list");
 
   // ---- Liste ----
   const [q, setQ] = useState("");
@@ -53,6 +58,12 @@ const ProcessList = () => {
   const [filter, setFilter] = useState<string>("all");
   const [sortKey, setSortKey] = useState<ProcessSortKey>("updated");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+
+  // ---- Archivierte Vorgänge ----
+  const [archQ, setArchQ] = useState("");
+  const [archQField, setArchQField] = useState<"all" | "id" | "vin" | "vehicle" | "customer">("all");
+  const [archSortKey, setArchSortKey] = useState<ProcessSortKey>("updated");
+  const [archSortDir, setArchSortDir] = useState<"asc" | "desc">("desc");
 
   const enriched = useMemo(
     () =>
@@ -62,8 +73,11 @@ const ProcessList = () => {
     [processes, getVehicle, getCustomer]
   );
 
+  const activeEnriched = useMemo(() => enriched.filter((e) => !isProcessArchived(e.p)), [enriched]);
+  const archivedEnriched = useMemo(() => enriched.filter((e) => isProcessArchived(e.p)), [enriched]);
+
   const filtered = useMemo(() => {
-    const list = enriched.filter(({ p, vehicle, customer }) => {
+    const list = activeEnriched.filter(({ p, vehicle, customer }) => {
       if (filter !== "all" && p.currentStep !== filter) return false;
       if (!q) return true;
       const s = q.toLowerCase();
@@ -88,7 +102,32 @@ const ProcessList = () => {
       }
     });
     return sorted;
-  }, [enriched, q, qField, filter, sortKey, sortDir]);
+  }, [activeEnriched, q, qField, filter, sortKey, sortDir]);
+
+  const filteredArchived = useMemo(() => {
+    const list = archivedEnriched.filter(({ p, vehicle, customer }) => {
+      if (!archQ) return true;
+      const s = archQ.toLowerCase();
+      const fields: Record<typeof archQField, string> = {
+        all: `${p.id} ${vehicle!.vin} ${vehicle!.make} ${vehicle!.model} ${customer!.name}`,
+        id: p.id,
+        vin: vehicle!.vin,
+        vehicle: `${vehicle!.make} ${vehicle!.model}`,
+        customer: customer!.name,
+      };
+      return fields[archQField].toLowerCase().includes(s);
+    });
+    return [...list].sort((a, b) => {
+      const dir = archSortDir === "asc" ? 1 : -1;
+      switch (archSortKey) {
+        case "updated": return (new Date(a.p.updatedAt).getTime() - new Date(b.p.updatedAt).getTime()) * dir;
+        case "created": return (new Date(a.p.createdAt).getTime() - new Date(b.p.createdAt).getTime()) * dir;
+        case "price": return ((a.p.fields.finalPrice ?? a.vehicle!.listPrice) - (b.p.fields.finalPrice ?? b.vehicle!.listPrice)) * dir;
+        case "id": return a.p.id.localeCompare(b.p.id) * dir;
+        case "customer": return a.customer!.name.localeCompare(b.customer!.name) * dir;
+      }
+    });
+  }, [archivedEnriched, archQ, archQField, archSortKey, archSortDir]);
 
   // ---- Angebote ----
   const [offerQ, setOfferQ] = useState("");
@@ -179,6 +218,22 @@ const ProcessList = () => {
         ],
       };
     }
+    if (tab === "archived") {
+      return {
+        placeholder: "Archivierte Vorgänge durchsuchen…",
+        value: archQ,
+        onChange: setArchQ,
+        field: archQField,
+        onFieldChange: (f: string) => setArchQField(f as typeof archQField),
+        fields: [
+          { key: "all",      label: "Alle Felder" },
+          { key: "id",       label: "Vorgangs-Nr." },
+          { key: "vin",      label: "VIN" },
+          { key: "vehicle",  label: "Fahrzeug" },
+          { key: "customer", label: "Kunde" },
+        ],
+      };
+    }
     if (tab === "offers") {
       return {
         placeholder: "Angebote durchsuchen…",
@@ -209,7 +264,7 @@ const ProcessList = () => {
         { key: "doc",      label: "Belegart" },
       ],
     };
-  }, [tab, q, qField, offerQ, offerQField, docQ, docQField]);
+  }, [tab, q, qField, archQ, archQField, offerQ, offerQField, docQ, docQField]);
 
   useTopbarSearch(topbarSearch);
 
@@ -282,11 +337,12 @@ const ProcessList = () => {
 
         <Tabs
           value={tab}
-          onValueChange={(v) => setTab(v as "list" | "offers" | "documents")}
+          onValueChange={(v) => setTab(v as "list" | "archived" | "offers" | "documents")}
           className="space-y-3"
         >
           <TabsList className="shrink-0 self-start">
-            <TabsTrigger value="list">Vorgänge ({processes.length})</TabsTrigger>
+            <TabsTrigger value="list">Aktive Vorgänge ({activeEnriched.length})</TabsTrigger>
+            <TabsTrigger value="archived">Archivierte Vorgänge ({archivedEnriched.length})</TabsTrigger>
             <TabsTrigger value="offers">Angebote ({offers.length})</TabsTrigger>
             <TabsTrigger value="documents">Belege-Archiv ({documents.length})</TabsTrigger>
           </TabsList>
@@ -318,10 +374,10 @@ const ProcessList = () => {
                 </Button>
                 <div className="flex gap-1.5 overflow-x-auto">
                   <FilterPill active={filter === "all"} onClick={() => setFilter("all")}>
-                    Alle ({processes.length})
+                    Alle ({activeEnriched.length})
                   </FilterPill>
                   {PROCESS_STEPS.map((s) => {
-                    const c = processes.filter((p) => p.currentStep === s.key).length;
+                    const c = activeEnriched.filter((e) => e.p.currentStep === s.key).length;
                     if (c === 0) return null;
                     return (
                       <FilterPill key={s.key} active={filter === s.key} onClick={() => setFilter(s.key)}>
@@ -388,6 +444,97 @@ const ProcessList = () => {
                     <tr>
                       <td colSpan={7} className="px-3 py-12 text-center text-muted-foreground">
                         Keine Vorgänge gefunden.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </DataTableShell>
+          </TabsContent>
+
+          {/* -------- Archivierte Vorgänge -------- */}
+          <TabsContent value="archived" className="space-y-3 mt-0">
+            <Card className="px-3 py-2 bg-card border-border shrink-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Select value={archSortKey} onValueChange={(v) => setArchSortKey(v as ProcessSortKey)}>
+                  <SelectTrigger className="w-[170px] h-8 text-xs bg-background/40">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="updated">Sort.: Abgeschlossen</SelectItem>
+                    <SelectItem value="created">Sort.: Erstellt</SelectItem>
+                    <SelectItem value="price">Sort.: Preis</SelectItem>
+                    <SelectItem value="customer">Sort.: Kunde</SelectItem>
+                    <SelectItem value="id">Sort.: Vorgangs-Nr.</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => setArchSortDir((d) => (d === "asc" ? "desc" : "asc"))}
+                  aria-label="Richtung wechseln"
+                >
+                  {archSortDir === "asc" ? <ArrowUpAZ className="size-4" /> : <ArrowDownAZ className="size-4" />}
+                </Button>
+                <p className="text-[11px] text-muted-foreground ml-auto">
+                  Vorgänge, deren letzter Schritt („{PROCESS_STEPS[PROCESS_STEPS.length - 1].shortLabel}") abgeschlossen wurde.
+                </p>
+              </div>
+            </Card>
+
+            <DataTableShell footer={<>{filteredArchived.length} archivierte Vorgänge</>}>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Vorgang</th>
+                    <th>Fahrzeug / VIN</th>
+                    <th>Kunde</th>
+                    <th className="text-right">Preis</th>
+                    <th>Abgeschlossen</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredArchived.map(({ p, vehicle, customer }) => {
+                    const completedAt = p.steps[LAST_STEP_KEY]?.completedAt ?? p.updatedAt;
+                    return (
+                      <tr key={p.id} className="hover:bg-surface-elevated/40 transition-smooth group">
+                        <td>
+                          <Link to={`/vorgaenge/${p.id}`} className="font-display font-semibold text-foreground hover:text-primary-glow">
+                            {p.id}
+                          </Link>
+                        </td>
+                        <td>
+                          <p className="font-medium text-foreground leading-tight">{vehicle!.make} {vehicle!.model}</p>
+                          <p className="font-mono text-[10px] text-muted-foreground leading-tight">{vehicle!.vin}</p>
+                        </td>
+                        <td>
+                          <p className="text-foreground leading-tight">{customer!.name}</p>
+                          <p className="text-[10px] text-muted-foreground leading-tight">{customer!.city}</p>
+                        </td>
+                        <td className="text-right font-semibold text-foreground whitespace-nowrap">
+                          {formatCurrency(p.fields.finalPrice ?? vehicle!.listPrice)}
+                        </td>
+                        <td className="whitespace-nowrap">
+                          <Badge variant="outline" className="border-success/40 text-success text-[10px] px-1.5 py-0 gap-1">
+                            <CheckCircle2 className="size-3" /> {formatDate(completedAt)}
+                          </Badge>
+                        </td>
+                        <td>
+                          <Link to={`/vorgaenge/${p.id}`}>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-smooth">
+                              <ChevronRight className="size-4" />
+                            </Button>
+                          </Link>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {filteredArchived.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="px-3 py-12 text-center text-muted-foreground">
+                        Noch keine archivierten Vorgänge.
                       </td>
                     </tr>
                   )}
