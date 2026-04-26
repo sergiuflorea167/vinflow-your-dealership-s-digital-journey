@@ -341,7 +341,7 @@ const NewPlanDialog = ({ open, onOpenChange, onSubmit }: {
     expectedAt: "",
     initialNote: "",
   });
-  const valid = form.make.trim() && form.model.trim() && form.year && form.targetPrice > 0 && form.supplier.trim();
+  const valid = form.make.trim() && form.model.trim();
 
   const reset = () => setForm({
     type: "limousine", make: "", model: "", year: new Date().getFullYear(),
@@ -361,21 +361,21 @@ const NewPlanDialog = ({ open, onOpenChange, onSubmit }: {
           <p className="text-xs text-muted-foreground">Nur die Eckdaten – Details kommen später beim Bestandseingang.</p>
         </DialogHeader>
         <div className="grid grid-cols-2 gap-3 py-2">
-          <FormField label="Quelle *">
+          <FormField label="Quelle">
             <select value={form.source} onChange={(e) => setForm({ ...form, source: e.target.value as PurchasePlanSource })} className="w-full h-10 rounded-md border border-input bg-background/40 px-3 text-sm">
               {Object.entries(PURCHASE_PLAN_SOURCE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </select>
           </FormField>
-          <FormField label="Fahrzeugtyp *">
+          <FormField label="Fahrzeugtyp">
             <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value as VehicleType })} className="w-full h-10 rounded-md border border-input bg-background/40 px-3 text-sm">
               {Object.entries(VEHICLE_TYPE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </select>
           </FormField>
           <FormField label="Marke *"><Input value={form.make} onChange={(e) => setForm({ ...form, make: e.target.value })} placeholder="z. B. BMW" /></FormField>
           <FormField label="Modell *"><Input value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} placeholder="z. B. X3 xDrive30d" /></FormField>
-          <FormField label="Baujahr *"><Input type="number" value={form.year} onChange={(e) => setForm({ ...form, year: Number(e.target.value) })} /></FormField>
-          <FormField label="Zielpreis brutto (EUR) *"><Input type="number" value={form.targetPrice || ""} onChange={(e) => setForm({ ...form, targetPrice: Number(e.target.value) })} placeholder="z. B. 45000" /></FormField>
-          <FormField label="Anbieter / Plattform *" full>
+          <FormField label="Baujahr"><Input type="number" value={form.year || ""} onChange={(e) => setForm({ ...form, year: Number(e.target.value) })} /></FormField>
+          <FormField label="Zielpreis brutto (EUR)"><Input type="number" value={form.targetPrice || ""} onChange={(e) => setForm({ ...form, targetPrice: Number(e.target.value) })} placeholder="z. B. 45000" /></FormField>
+          <FormField label="Anbieter / Plattform" full>
             <Input value={form.supplier} onChange={(e) => setForm({ ...form, supplier: e.target.value })} placeholder="z. B. BCA Hamburg, Privat – Müller, mobile.de" />
           </FormField>
           <FormField label="Link zum Inserat" full>
@@ -404,10 +404,10 @@ const NewPlanDialog = ({ open, onOpenChange, onSubmit }: {
               type: form.type,
               make: form.make.trim(),
               model: form.model.trim(),
-              year: form.year,
-              targetPrice: form.targetPrice,
+              year: form.year || new Date().getFullYear(),
+              targetPrice: form.targetPrice || 0,
               source: form.source,
-              supplier: form.supplier.trim(),
+              supplier: form.supplier.trim() || "–",
               sourceUrl: form.sourceUrl.trim() || undefined,
               expectedAt: form.expectedAt || undefined,
               initialNote: form.initialNote.trim() || undefined,
