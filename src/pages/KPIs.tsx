@@ -20,7 +20,8 @@ import {
   TrendingUp, Target, Workflow, Car,
 } from "lucide-react";
 import { useTopbarSearch } from "@/context/TopbarSearchContext";
-import { ProcessTimeAnalyzer } from "@/components/kpi/ProcessTimeAnalyzer";
+import { Link } from "react-router-dom";
+import { Sparkles, ArrowRight } from "lucide-react";
 import { KpiRangePicker } from "@/components/kpi/KpiRangePicker";
 
 
