@@ -27,6 +27,7 @@ import {
   ActivityType,
   Goal,
   Settings,
+  Partner,
   buildEmptySteps,
   DEFAULT_OUTBOUND_CHECKLIST,
   stepIndex,
@@ -105,6 +106,11 @@ interface State {
   updateSettings: (patch: Partial<Settings>) => void;
   addSettingsLocation: (name: string) => void;
   removeSettingsLocation: (name: string) => void;
+
+  // ------- Partner -------
+  addPartner: (p: Omit<Partner, "id" | "createdAt">) => Partner;
+  updatePartner: (id: string, patch: Partial<Omit<Partner, "id" | "createdAt">>) => void;
+  removePartner: (id: string) => void;
 }
 
 const nextNumericId = (prefix: string, list: { id: string }[]) => {
@@ -656,6 +662,32 @@ export const useProcessStore = create<State>()(
         removeSettingsLocation: (name) =>
           set((state) => ({
             settings: { ...state.settings, locations: state.settings.locations.filter((l) => l !== name) },
+          })),
+
+        // ------- Partner -------
+        addPartner: (p) => {
+          const id = nextNumericId("P", get().settings.partners ?? []);
+          const partner: Partner = { id, createdAt: new Date().toISOString(), ...p };
+          set((state) => ({
+            settings: { ...state.settings, partners: [partner, ...(state.settings.partners ?? [])] },
+          }));
+          return partner;
+        },
+
+        updatePartner: (id, patch) =>
+          set((state) => ({
+            settings: {
+              ...state.settings,
+              partners: (state.settings.partners ?? []).map((p) => (p.id === id ? { ...p, ...patch } : p)),
+            },
+          })),
+
+        removePartner: (id) =>
+          set((state) => ({
+            settings: {
+              ...state.settings,
+              partners: (state.settings.partners ?? []).filter((p) => p.id !== id),
+            },
           })),
       };
     },

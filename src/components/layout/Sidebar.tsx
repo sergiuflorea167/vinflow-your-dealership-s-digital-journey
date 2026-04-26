@@ -3,6 +3,7 @@ import { NavLink } from "react-router-dom";
 import {
   LayoutDashboard, Workflow, Car, Users, ShoppingCart, ListChecks,
   BarChart3, Settings as SettingsIcon, ChevronLeft, ChevronRight,
+  Database,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -11,16 +12,35 @@ import {
 } from "@/components/ui/tooltip";
 
 type NavItem = { to: string; label: string; icon: any };
+type NavGroup = { label: string; items: NavItem[] };
 
-const dashboardItem: NavItem = { to: "/", label: "Dashboard", icon: LayoutDashboard };
+const overview: NavItem[] = [
+  { to: "/", label: "Dashboard", icon: LayoutDashboard },
+];
 
-const mainNav: NavItem[] = [
-  { to: "/bestand", label: "Bestand", icon: Car },
-  { to: "/vorgaenge", label: "Vorgänge", icon: Workflow },
-  { to: "/einkaufsplanung", label: "Einkaufsplanung", icon: ShoppingCart },
-  { to: "/todos", label: "To-Dos", icon: ListChecks },
-  { to: "/kunden", label: "Kunden", icon: Users },
-  { to: "/kpis", label: "KPIs", icon: BarChart3 },
+const groups: NavGroup[] = [
+  {
+    label: "Tagesgeschäft",
+    items: [
+      { to: "/bestand",         label: "Bestand",         icon: Car },
+      { to: "/vorgaenge",       label: "Vorgänge",        icon: Workflow },
+      { to: "/einkaufsplanung", label: "Einkaufsplanung", icon: ShoppingCart },
+      { to: "/todos",           label: "To-Dos",          icon: ListChecks },
+    ],
+  },
+  {
+    label: "Auswertung",
+    items: [
+      { to: "/kpis", label: "KPIs", icon: BarChart3 },
+    ],
+  },
+  {
+    label: "Stammdaten",
+    items: [
+      { to: "/stammdaten", label: "Stammdaten", icon: Database },
+      { to: "/kunden",     label: "Kunden",     icon: Users },
+    ],
+  },
 ];
 
 const settingsItem: NavItem = { to: "/einstellungen", label: "Einstellungen", icon: SettingsIcon };
@@ -68,6 +88,17 @@ export const Sidebar = () => {
       </Tooltip>
     );
   };
+
+  const renderGroup = (group: NavGroup) => (
+    <div key={group.label} className="flex flex-col gap-1">
+      {!collapsed && (
+        <p className="px-3 pt-2 pb-1 text-[10px] uppercase tracking-widest text-muted-foreground/70 font-semibold">
+          {group.label}
+        </p>
+      )}
+      {group.items.map(renderItem)}
+    </div>
+  );
 
   return (
     <TooltipProvider>
@@ -126,16 +157,19 @@ export const Sidebar = () => {
           </div>
         )}
 
-        <nav className={cn("flex-1 py-5 flex flex-col gap-1 overflow-y-auto", collapsed ? "px-2" : "px-3")}>
-          {renderItem(dashboardItem)}
+        <nav className={cn("flex-1 py-5 flex flex-col gap-3 overflow-y-auto", collapsed ? "px-2" : "px-3")}>
+          {overview.map(renderItem)}
 
-          <div className="my-3 mx-3 h-px bg-sidebar-border/70" />
-
-          {mainNav.map(renderItem)}
+          {groups.map((g, i) => (
+            <div key={g.label} className="flex flex-col gap-1">
+              <div className="my-1 mx-3 h-px bg-sidebar-border/70" />
+              {renderGroup(g)}
+            </div>
+          ))}
 
           <div className="flex-1" />
 
-          <div className="my-3 mx-3 h-px bg-sidebar-border/70" />
+          <div className="my-1 mx-3 h-px bg-sidebar-border/70" />
 
           {renderItem(settingsItem)}
         </nav>
