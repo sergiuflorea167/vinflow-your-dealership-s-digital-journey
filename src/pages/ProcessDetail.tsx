@@ -41,9 +41,12 @@ const ProcessDetail = () => {
 
   const selectedKey = selected ?? process?.currentStep ?? "offer";
 
+  const checklistDone = process?.outboundChecklist.filter((c) => c.done).length ?? 0;
+  const checklistTotal = process?.outboundChecklist.length ?? 0;
+
   const validation = useMemo(
-    () => validateStep(selectedKey, process?.fields ?? {}, process?.outboundChecklist.filter((c) => c.done).length ?? 0, process?.outboundChecklist.length ?? 0),
-    [selectedKey, process?.fields, process?.outboundChecklist]
+    () => validateStep(selectedKey, process?.fields ?? {}, checklistDone, checklistTotal),
+    [selectedKey, process?.fields, checklistDone, checklistTotal]
   );
 
   if (!process || !vehicle || !customer) return <Navigate to="/vorgaenge" replace />;
@@ -56,14 +59,6 @@ const ProcessDetail = () => {
   const isSkipped = record.status === "skipped";
   const isLocked = selectedIdx > currentIdx;
   const nextStep = PROCESS_STEPS[currentIdx + 1];
-
-  const checklistDone = process.outboundChecklist.filter((c) => c.done).length;
-  const checklistTotal = process.outboundChecklist.length;
-
-  const validation = useMemo(
-    () => validateStep(selectedKey, process.fields, checklistDone, checklistTotal),
-    [selectedKey, process.fields, checklistDone, checklistTotal]
-  );
 
   const handleComplete = () => {
     if (!validation.ok) { toast.error(validation.message ?? "Bitte alle Pflichtfelder ausfüllen."); return; }
