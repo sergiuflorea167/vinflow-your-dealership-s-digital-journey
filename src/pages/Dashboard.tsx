@@ -15,16 +15,40 @@ const Dashboard = () => {
   const vehicles = useProcessStore((s) => s.vehicles);
   const offers = useProcessStore((s) => s.offers);
 
-  const active = processes.filter((p) => stepIndex(p.currentStep) < PROCESS_STEPS.length - 1
-    || p.steps[p.currentStep].status !== "completed");
-  const inOutbound = processes.filter((p) => p.currentStep === "outbound_check").length;
-  const fleetValue = vehicles.filter((v) => v.status === "in_stock" || v.status === "reserved")
-    .reduce((s, v) => s + v.listPrice, 0);
-  const docsArchived = processes.reduce(
-    (s, p) => s + Object.values(p.steps).filter((x) => x.status === "completed").length,
-    0
-  );
-  const openOffers = offers.filter((o) => o.status === "sent").length;
+  const metrics = useMemo(() => {
+    const active = processes.filter((p) => p.steps.delivery_confirmation?.status !== "completed");
+    const inOutbound = processes.filter((p) => p.currentStep === "outbound_check").length;
+
+    // Bestand
+    const stockVehicles = vehicles.filter((v) => v.status === "in_stock" || v.status === "reserved");
+    const fleetValue = stockVehicles.reduce((s, v) => s + v.listPrice, 0);
+    const fleetEK = stockVehicles.reduce((s, v) => s + v.purchasePrice + vehicleTotalCostsGross(v), 0);
+
+    // Umsatz „dynamisch" = bereits gebuchter Cashflow (Anzahlungen erhalten + Schlussrechnungen)
+    // Anzahlungen
+    const downPaymentsReceived = processes.reduce((s, p) => {
+      const dp = p.fields.downPayment;
+      return s + (dp?.received ? dp.amount ?? 0 : 0);
+    }, 0);
+    // Tatsächlicher Umsatz = Schlussrechnung gestellt (invoicing completed) → finalPrice fließt vollständig ein
+    const invoicedProcesses = processes.filter((p) => p.steps.invoicing?.status === "completed");
+    const invoicedRevenue = invoicedProcesses.reduce((s, p) => s + (p.fields.finalPrice ?? 0), 0);
+
+    // „Gebuchter Umsatz" = Anzahlungen + Restzahlungen (Schlussrechnung). Doppelt gezählte Anzahlungen
+    // bei bereits invoicierten Vorgängen abziehen.
+    const dpAlreadyInvoiced = invoicedProcesses.reduce((s, p) => s + (p.fields.downPayment?.received ? (p.fields.downPayment.amount ?? 0) : 0), 0);
+    const bookedRevenue = invoicedRevenue + (downPaymentsReceived - dpAlreadyInvoiced);
+
+    // Kosten am Bestand (alle aktiven Fahrzeuge)
+    const stockCosts = stockVehicles.reduce((s, v) => s + vehicleTotalCostsGross(v), 0);
+
+    const docsArchived = processes.reduce(
+      (s, p) => s + Object.values(p.steps).filter((x) => x.status === "completed").length, 0
+    );
+    const openOffers = offers.filter((o) => o.status === "sent").length;
+
+    return { active, inOutbound, stockVehicles, fleetValue, fleetEK, downPaymentsReceived, invoicedRevenue, bookedRevenue, stockCosts, docsArchived, openOffers };
+  }, [processes, vehicles, offers]);
 
   const byStep = PROCESS_STEPS.map((step) => ({
     step,
