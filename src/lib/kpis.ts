@@ -24,7 +24,13 @@ export interface KpiDef {
   id: string;
   label: string;
   category: KpiCategory;
+  /** Was misst dieser KPI? (kurze fachliche Definition) */
   description: string;
+  /**
+   * Wie ist die Zahl zu deuten? Praktischer Klartext für den User:
+   * Was bedeutet ein hoher / niedriger Wert, worauf achten, was tun.
+   */
+  interpretation: string;
   format: KpiFormat;
   compute: (ctx: KpiContext) => KpiResult;
 }
