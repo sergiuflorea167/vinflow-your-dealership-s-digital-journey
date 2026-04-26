@@ -20,7 +20,11 @@ const PRIORITY_DOT: Record<TodoPriority, string> = {
 };
 
 const Dashboard = () => {
+  const navigate = useNavigate();
   const processes = useProcessStore((s) => s.processes);
+  const todos = useProcessStore((s) => s.todos);
+  const vehicles = useProcessStore((s) => s.vehicles);
+  const toggleTodo = useProcessStore((s) => s.toggleTodo);
 
   const byStep = useMemo(
     () =>
@@ -29,6 +33,21 @@ const Dashboard = () => {
         count: processes.filter((p) => p.currentStep === step.key && p.steps[step.key].status !== "completed").length,
       })),
     [processes]
+  );
+
+  const todayISO = new Date().toISOString().slice(0, 10);
+  const todayTodos = useMemo(
+    () => todos
+      .filter((t) => !t.done && t.dueDate === todayISO)
+      .sort((a, b) => {
+        const w = { high: 0, medium: 1, low: 2 } as const;
+        return w[a.priority] - w[b.priority];
+      }),
+    [todos, todayISO]
+  );
+  const vehicleMap = useMemo(
+    () => Object.fromEntries(vehicles.map((v) => [v.id, v])),
+    [vehicles]
   );
 
   return (
