@@ -180,19 +180,22 @@ const PurchasePlanning = () => {
         </Card>
       </div>
 
-      <ReceiveDialog
+      <VehicleIntakeDialog
         open={!!receiveDialog}
         onOpenChange={(o) => !o && setReceiveDialog(null)}
-        planMake={planForReceive?.make ?? ""}
-        planModel={planForReceive?.model ?? ""}
-        planYear={planForReceive?.year ?? new Date().getFullYear()}
-        planType={planForReceive?.type ?? "limousine"}
-        planPrice={planForReceive?.targetPrice ?? 0}
         locations={locations}
+        title={planForReceive ? `${planForReceive.make} ${planForReceive.model} in den Bestand aufnehmen` : undefined}
+        preset={planForReceive ? {
+          make: planForReceive.make,
+          model: planForReceive.model,
+          year: planForReceive.year,
+          type: planForReceive.type,
+          targetPrice: planForReceive.targetPrice,
+        } : undefined}
         onSubmit={(data) => {
           if (!receiveDialog) return;
           convert(receiveDialog.planId, data);
-          toast.success("Fahrzeug in die Flotte aufgenommen.");
+          toast.success("Fahrzeug in den Bestand aufgenommen.");
           setReceiveDialog(null);
         }}
       />
@@ -233,79 +236,6 @@ const NewPlanDialog = ({ open, onOpenChange, onSubmit }: {
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Abbrechen</Button>
           <Button disabled={!valid} className="bg-gradient-brand" onClick={() => onSubmit(form)}>Plan anlegen</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-};
-
-const ReceiveDialog = ({ open, onOpenChange, planMake, planModel, planYear, planType, planPrice, locations, onSubmit }: {
-  open: boolean;
-  onOpenChange: (o: boolean) => void;
-  planMake: string; planModel: string; planYear: number; planType: VehicleType; planPrice: number;
-  locations: string[];
-  onSubmit: (data: any) => void;
-}) => {
-  const [vin, setVin] = useState("");
-  const [color, setColor] = useState("");
-  const [mileage, setMileage] = useState(0);
-  const [fuel, setFuel] = useState<FuelType>("Benzin");
-  const [transmission, setTransmission] = useState<Transmission>("Automatik");
-  const [hp, setHp] = useState(150);
-  const [firstReg, setFirstReg] = useState("");
-  const [hu, setHu] = useState("");
-  const [purchasePrice, setPurchasePrice] = useState(planPrice);
-  const [listPrice, setListPrice] = useState(Math.round(planPrice * 1.2));
-  const [location, setLocation] = useState(locations[0] ?? "Hof A · Platz 01");
-
-  const valid = vin.length >= 11 && color && mileage >= 0 && firstReg && purchasePrice > 0 && listPrice > 0 && location;
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
-        <DialogHeader><DialogTitle>{planMake} {planModel} in Flotte aufnehmen</DialogTitle></DialogHeader>
-        <div className="grid grid-cols-2 gap-3 py-2 max-h-[65vh] overflow-y-auto pr-1">
-          <FormField label="VIN (17-stellig) *" full>
-            <Input value={vin} onChange={(e) => setVin(e.target.value.toUpperCase())} placeholder="WBA8E9G50GNT12345" maxLength={17} className="font-mono" />
-          </FormField>
-          <FormField label="Farbe *"><Input value={color} onChange={(e) => setColor(e.target.value)} placeholder="z. B. Mineralweiß" /></FormField>
-          <FormField label="Kilometer *"><Input type="number" value={mileage || ""} onChange={(e) => setMileage(Number(e.target.value))} /></FormField>
-          <FormField label="Kraftstoff *">
-            <select value={fuel} onChange={(e) => setFuel(e.target.value as FuelType)} className="w-full h-10 rounded-md border border-input bg-background/40 px-3 text-sm">
-              {(["Benzin","Diesel","Hybrid","Elektro","Plug-in-Hybrid","Gas"] as FuelType[]).map((f) => <option key={f} value={f}>{f}</option>)}
-            </select>
-          </FormField>
-          <FormField label="Getriebe *">
-            <select value={transmission} onChange={(e) => setTransmission(e.target.value as Transmission)} className="w-full h-10 rounded-md border border-input bg-background/40 px-3 text-sm">
-              {(["Schaltgetriebe","Automatik","DKG","CVT"] as Transmission[]).map((f) => <option key={f} value={f}>{f}</option>)}
-            </select>
-          </FormField>
-          <FormField label="Leistung (PS) *"><Input type="number" value={hp || ""} onChange={(e) => setHp(Number(e.target.value))} /></FormField>
-          <FormField label="Erstzulassung *"><Input type="date" value={firstReg} onChange={(e) => setFirstReg(e.target.value)} /></FormField>
-          <FormField label="HU/TÜV gültig bis"><Input type="date" value={hu} onChange={(e) => setHu(e.target.value)} /></FormField>
-          <FormField label="Einkaufspreis brutto (EUR) *"><Input type="number" value={purchasePrice || ""} onChange={(e) => setPurchasePrice(Number(e.target.value))} /></FormField>
-          <FormField label="Listenpreis brutto (EUR) *"><Input type="number" value={listPrice || ""} onChange={(e) => setListPrice(Number(e.target.value))} /></FormField>
-          <FormField label="Stellplatz *" full>
-            <select value={location} onChange={(e) => setLocation(e.target.value)} className="w-full h-10 rounded-md border border-input bg-background/40 px-3 text-sm">
-              {locations.map((l) => <option key={l} value={l}>{l}</option>)}
-            </select>
-          </FormField>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Abbrechen</Button>
-          <Button
-            disabled={!valid}
-            className="bg-gradient-brand"
-            onClick={() => onSubmit({
-              vin, type: planType, make: planMake, model: planModel, year: planYear,
-              color, mileage, fuel, transmission, power_hp: hp, power_kw: Math.round(hp * 0.7355),
-              firstRegistration: firstReg, hu: hu || undefined,
-              listPrice, purchasePrice,
-              arrivedAt: new Date().toISOString(),
-              location: { name: location, kind: "lot" as const, since: new Date().toISOString() },
-            })}>
-            In Flotte aufnehmen
-          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
