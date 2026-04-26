@@ -355,10 +355,42 @@ export interface Goal {
 
 // ---------- Settings ----------
 
+export type PartnerKind =
+  | "detailer"      // Aufbereiter
+  | "mechanic"      // Werkstatt / Mechaniker
+  | "transport"     // Transporteur
+  | "appraiser"     // Gutachter
+  | "tuv"           // TÜV / Prüfstelle
+  | "supplier"      // Teilelieferant
+  | "other";
+
+export const PARTNER_KIND_LABELS: Record<PartnerKind, string> = {
+  detailer:  "Aufbereiter",
+  mechanic:  "Mechaniker / Werkstatt",
+  transport: "Transporteur",
+  appraiser: "Gutachter",
+  tuv:       "TÜV / Prüfstelle",
+  supplier:  "Teilelieferant",
+  other:     "Sonstiges",
+};
+
+export interface Partner {
+  id: string;
+  name: string;
+  kind: PartnerKind;
+  contactPerson?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  notes?: string;
+  createdAt: string;
+}
+
 export interface Settings {
   userName: string;
   companyName: string;
   locations: string[];     // freie Stellplatz-Liste
+  partners: Partner[];
 }
 
 // ---------- Helpers ----------
@@ -892,4 +924,10 @@ export const DEFAULT_SETTINGS: Settings = {
   userName: "Admin",
   companyName: "VINflow Autohaus GmbH",
   locations: ["Hof A · Platz 01", "Hof A · Platz 02", "Hof A · Platz 03", "Hof B · Platz 01", "Showroom", "Werkstatt Müller", "Aufbereiter Glanz GmbH", "Unterwegs"],
+  partners: [
+    { id: "P-0001", name: "Aufbereiter Glanz GmbH", kind: "detailer", contactPerson: "Stefan Glanz", email: "info@glanz-gmbh.de", phone: "+49 30 1234567", address: "Industriestr. 12, 10115 Berlin", createdAt: new Date().toISOString() },
+    { id: "P-0002", name: "Werkstatt Müller",       kind: "mechanic", contactPerson: "Karl Müller",   email: "service@mueller-kfz.de", phone: "+49 30 7654321", address: "Werkstatthof 4, 10119 Berlin", createdAt: new Date().toISOString() },
+    { id: "P-0003", name: "AutoTrans Berlin",       kind: "transport", contactPerson: "Frau Klein",   email: "dispo@autotrans.de", phone: "+49 30 998877",  address: "Logistikzentrum 1, 12099 Berlin", createdAt: new Date().toISOString() },
+    { id: "P-0004", name: "DEKRA Berlin Mitte",     kind: "tuv",      contactPerson: "Hr. Schmidt",  email: "berlin@dekra.de",       phone: "+49 30 555100",  address: "Prüfweg 7, 10117 Berlin", createdAt: new Date().toISOString() },
+  ],
 };
