@@ -14,6 +14,7 @@ import { ChevronRight, FileText, Download, ArrowDownAZ, ArrowUpAZ } from "lucide
 import { cn } from "@/lib/utils";
 import { downloadBelegPdf } from "@/lib/pdf";
 import { useTopbarSearch } from "@/context/TopbarSearchContext";
+import { DataTableShell } from "@/components/shared/DataTableShell";
 
 type ProcessSortKey = "updated" | "created" | "price" | "id" | "customer";
 
