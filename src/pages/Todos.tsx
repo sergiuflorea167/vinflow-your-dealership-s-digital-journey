@@ -15,8 +15,12 @@ import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import {
+  Popover, PopoverContent, PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar as CalendarPicker } from "@/components/ui/calendar";
+import {
   AlertTriangle, Calendar, Car, CheckCircle2, Flag, Inbox,
-  Plus, Trash2, X,
+  Plus, Trash2, X, CalendarDays,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -48,7 +52,15 @@ const SCOPE_META: Record<TodoScope, { label: string; className: string }> = {
 };
 
 type StatusFilter = "all" | "open" | "today" | "overdue" | "done";
+type DueFilter = "any" | "today" | "tomorrow" | "this_week" | "next_7" | "no_date" | "custom";
 type TodoSortKey = "title" | "scope" | "priority" | "dueDate" | "assignee" | "status" | "createdAt";
+
+const toISO = (d: Date) => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+};
 
 // ---------------------------------------------------------------------------
 // Page
@@ -67,6 +79,8 @@ const Todos = () => {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("open");
   const [scopeFilter, setScopeFilter] = useState<"all" | TodoScope>("all");
   const [priorityFilter, setPriorityFilter] = useState<"all" | TodoPriority>("all");
+  const [dueFilter, setDueFilter] = useState<DueFilter>("any");
+  const [customDue, setCustomDue] = useState<Date | undefined>(undefined);
   const [query, setQuery] = useState("");
   const [searchField, setSearchField] = useState<"all" | "title" | "tag" | "assignee">("all");
   const [createOpen, setCreateOpen] = useState(false);
@@ -92,9 +106,37 @@ const Todos = () => {
   const vehicleMap = useMemo(() => Object.fromEntries(vehicles.map((v) => [v.id, v])), [vehicles]);
   const processMap = useMemo(() => Object.fromEntries(processes.map((p) => [p.id, p])), [processes]);
 
-  const todayISO = new Date().toISOString().slice(0, 10);
+  const todayISO = toISO(new Date());
   const isOverdue = (t: Todo) => !t.done && !!t.dueDate && t.dueDate < todayISO;
   const isToday   = (t: Todo) => !t.done && t.dueDate === todayISO;
+
+  // Fälligkeits-Range basierend auf dueFilter
+  const dueRange = useMemo(() => {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    if (dueFilter === "today") {
+      return { from: toISO(start), to: toISO(start) };
+    }
+    if (dueFilter === "tomorrow") {
+      const t = new Date(start); t.setDate(t.getDate() + 1);
+      return { from: toISO(t), to: toISO(t) };
+    }
+    if (dueFilter === "this_week") {
+      // Mo–So (ISO: Montag = 1)
+      const day = start.getDay() === 0 ? 7 : start.getDay();
+      const monday = new Date(start); monday.setDate(start.getDate() - (day - 1));
+      const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6);
+      return { from: toISO(monday), to: toISO(sunday) };
+    }
+    if (dueFilter === "next_7") {
+      const end = new Date(start); end.setDate(start.getDate() + 6);
+      return { from: toISO(start), to: toISO(end) };
+    }
+    if (dueFilter === "custom" && customDue) {
+      return { from: toISO(customDue), to: toISO(customDue) };
+    }
+    return null;
+  }, [dueFilter, customDue]);
 
   // ---- Filter -------------------------------------------------------------
   const filtered = useMemo(() => {
@@ -108,6 +150,14 @@ const Todos = () => {
       if (scopeFilter !== "all" && t.scope !== scopeFilter) return false;
       if (priorityFilter !== "all" && t.priority !== priorityFilter) return false;
 
+      // Fälligkeitsdatum-Filter
+      if (dueFilter === "no_date") {
+        if (t.dueDate) return false;
+      } else if (dueRange) {
+        if (!t.dueDate) return false;
+        if (t.dueDate < dueRange.from || t.dueDate > dueRange.to) return false;
+      }
+
       if (q) {
         const fields: string[] = [];
         if (searchField === "all" || searchField === "title")    fields.push(t.title.toLowerCase(), (t.description ?? "").toLowerCase());
@@ -117,7 +167,7 @@ const Todos = () => {
       }
       return true;
     });
-  }, [todos, statusFilter, scopeFilter, priorityFilter, query, searchField, todayISO]);
+  }, [todos, statusFilter, scopeFilter, priorityFilter, dueFilter, dueRange, query, searchField, todayISO]);
 
   // ---- Sortierung ---------------------------------------------------------
   const sorted = useMemo(() => {
@@ -212,6 +262,46 @@ const Todos = () => {
               <SelectItem value="low">Niedrig</SelectItem>
             </SelectContent>
           </Select>
+          <Select
+            value={dueFilter}
+            onValueChange={(v) => {
+              setDueFilter(v as DueFilter);
+              if (v !== "custom") setCustomDue(undefined);
+            }}
+          >
+            <SelectTrigger className="w-[170px] h-8 text-xs gap-1">
+              <CalendarDays className="size-3.5 text-muted-foreground" />
+              <SelectValue placeholder="Fälligkeit" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="any">Alle Fälligkeiten</SelectItem>
+              <SelectItem value="today">Heute fällig</SelectItem>
+              <SelectItem value="tomorrow">Morgen fällig</SelectItem>
+              <SelectItem value="this_week">Diese Woche</SelectItem>
+              <SelectItem value="next_7">Nächste 7 Tage</SelectItem>
+              <SelectItem value="no_date">Ohne Datum</SelectItem>
+              <SelectItem value="custom">Bestimmtes Datum…</SelectItem>
+            </SelectContent>
+          </Select>
+          {dueFilter === "custom" && (
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5">
+                  <Calendar className="size-3.5" />
+                  {customDue ? formatDate(toISO(customDue)) : "Datum wählen"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <CalendarPicker
+                  mode="single"
+                  selected={customDue}
+                  onSelect={setCustomDue}
+                  initialFocus
+                  className={cn("p-3 pointer-events-auto")}
+                />
+              </PopoverContent>
+            </Popover>
+          )}
           <div className="flex gap-1.5 flex-wrap">
             {([
               { key: "open",    label: `Offen (${stats.open})` },
