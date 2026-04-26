@@ -1230,11 +1230,25 @@ export const MOCK_GOALS: Goal[] = [
 export const DEFAULT_SETTINGS: Settings = {
   userName: "Admin",
   companyName: "VINflow Autohaus GmbH",
-  locations: ["Hof A · Platz 01", "Hof A · Platz 02", "Hof A · Platz 03", "Hof B · Platz 01", "Showroom", "Werkstatt Müller", "Aufbereiter Glanz GmbH", "Unterwegs"],
+  locations: [
+    "Hof A · Platz 01", "Hof A · Platz 02", "Hof A · Platz 03", "Hof A · Platz 04", "Hof A · Platz 05",
+    "Hof A · Platz 06", "Hof A · Platz 07", "Hof A · Platz 08", "Hof A · Platz 09", "Hof A · Platz 10",
+    "Hof B · Platz 01", "Hof B · Platz 02", "Hof B · Platz 03", "Hof B · Platz 04", "Hof B · Platz 05",
+    "Showroom", "Showroom Premium", "Werkstatt Müller", "Werkstatt Schneider", "Aufbereiter Glanz GmbH",
+    "Lackiererei Wagner", "Folierung Profi", "DEKRA Prüfstelle", "Unterwegs",
+  ],
   partners: [
     { id: "P-0001", name: "Aufbereiter Glanz GmbH", kind: "detailer", contactPerson: "Stefan Glanz", email: "info@glanz-gmbh.de", phone: "+49 30 1234567", address: "Industriestr. 12, 10115 Berlin", createdAt: new Date().toISOString() },
     { id: "P-0002", name: "Werkstatt Müller",       kind: "mechanic", contactPerson: "Karl Müller",   email: "service@mueller-kfz.de", phone: "+49 30 7654321", address: "Werkstatthof 4, 10119 Berlin", createdAt: new Date().toISOString() },
     { id: "P-0003", name: "AutoTrans Berlin",       kind: "transport", contactPerson: "Frau Klein",   email: "dispo@autotrans.de", phone: "+49 30 998877",  address: "Logistikzentrum 1, 12099 Berlin", createdAt: new Date().toISOString() },
     { id: "P-0004", name: "DEKRA Berlin Mitte",     kind: "tuv",      contactPerson: "Hr. Schmidt",  email: "berlin@dekra.de",       phone: "+49 30 555100",  address: "Prüfweg 7, 10117 Berlin", createdAt: new Date().toISOString() },
+    { id: "P-0005", name: "Lackiererei Wagner",     kind: "detailer", contactPerson: "Andreas Wagner", email: "anfrage@lack-wagner.de", phone: "+49 89 4422100", address: "Gewerbestr. 8, 80939 München", createdAt: new Date().toISOString() },
+    { id: "P-0006", name: "Werkstatt Schneider",    kind: "mechanic", contactPerson: "Ingo Schneider", email: "kontakt@kfz-schneider.de", phone: "+49 89 7711234", address: "Bayernring 22, 80335 München", createdAt: new Date().toISOString() },
+    { id: "P-0007", name: "TÜV Süd München",        kind: "tuv",      contactPerson: "Frau Berger",   email: "muenchen@tuvsud.de",     phone: "+49 89 5790000", address: "Westendstr. 199, 80686 München", createdAt: new Date().toISOString() },
+    { id: "P-0008", name: "AutoLogistik Hamburg",   kind: "transport", contactPerson: "Herr Petersen", email: "service@autolog-hh.de",  phone: "+49 40 6677889", address: "Speicherstr. 3, 20457 Hamburg", createdAt: new Date().toISOString() },
+    { id: "P-0009", name: "Folierung Profi",        kind: "detailer", contactPerson: "Tim Becker",    email: "info@folierung-profi.de", phone: "+49 30 4040501", address: "Tempelhofer Damm 88, 12101 Berlin", createdAt: new Date().toISOString() },
+    { id: "P-0010", name: "DAT Gutachter Hartmann", kind: "appraiser", contactPerson: "Dr. Hartmann", email: "gutachten@hartmann-dat.de", phone: "+49 30 9090909", address: "Bewertungsweg 1, 10437 Berlin", createdAt: new Date().toISOString() },
+    { id: "P-0011", name: "Reifen-Express GmbH",    kind: "supplier", contactPerson: "Frau Mertens",  email: "b2b@reifen-express.de",   phone: "+49 800 7733100", address: "Gutenbergstr. 14, 50226 Frechen", createdAt: new Date().toISOString() },
+    { id: "P-0012", name: "Kfz-Teile Großhandel Süd", kind: "supplier", contactPerson: "Hans Reiter", email: "vertrieb@teile-sued.de", phone: "+49 711 2233445", address: "Stuttgarter Str. 99, 70469 Stuttgart", createdAt: new Date().toISOString() },
   ],
 };
