@@ -13,7 +13,7 @@ import { useProcessStore } from "@/store/processStore";
 import { PROCESS_STEPS, ProcessStepKey, formatCurrency, formatDate, stepIndex } from "@/data/process";
 import { Search, ChevronRight, FileText, Download, ArrowDownAZ, ArrowUpAZ } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { generateProcessStepPdf } from "@/lib/pdf";
+import { downloadBelegPdf } from "@/lib/pdf";
 
 type ProcessSortKey = "updated" | "created" | "price" | "id" | "customer";
 
@@ -120,7 +120,7 @@ const ProcessList = () => {
     const v = getVehicle(proc.vehicleId);
     const c = getCustomer(proc.customerId);
     if (!v || !c) return;
-    generateProcessStepPdf({ process: proc, vehicle: v, customer: c, stepKey });
+    downloadBelegPdf({ process: proc, vehicle: v, customer: c, stepKey });
   };
 
   return (
