@@ -95,6 +95,7 @@ interface State {
   // ------- Todos -------
   addTodo: (t: Omit<Todo, "id" | "createdAt" | "createdBy" | "done">) => Todo;
   toggleTodo: (id: string) => void;
+  updateTodo: (id: string, patch: Partial<Omit<Todo, "id" | "createdAt" | "createdBy">>) => void;
   removeTodo: (id: string) => void;
 
   // ------- Goals & Settings -------
