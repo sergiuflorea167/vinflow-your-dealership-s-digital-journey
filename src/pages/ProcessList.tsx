@@ -180,7 +180,7 @@ const ProcessList = () => {
         <Tabs
           value={tab}
           onValueChange={(v) => setTab(v as "list" | "documents")}
-          className="flex flex-col flex-1 min-h-0 gap-3 [&>[role=tabpanel]]:flex [&>[role=tabpanel]]:flex-col [&>[role=tabpanel]]:flex-1 [&>[role=tabpanel]]:min-h-0"
+          className="space-y-3"
         >
           <TabsList className="shrink-0 self-start">
             <TabsTrigger value="list">Liste ({processes.length})</TabsTrigger>
@@ -188,7 +188,7 @@ const ProcessList = () => {
           </TabsList>
 
           {/* -------- Liste -------- */}
-          <TabsContent value="list" className="flex flex-col min-h-0 flex-1 gap-3 mt-0">
+          <TabsContent value="list" className="space-y-3 mt-0">
             <Card className="px-3 py-2 bg-card border-border shrink-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <Select value={sortKey} onValueChange={(v) => setSortKey(v as ProcessSortKey)}>
@@ -293,7 +293,7 @@ const ProcessList = () => {
           </TabsContent>
 
           {/* -------- Belege-Archiv -------- */}
-          <TabsContent value="documents" className="flex flex-col min-h-0 flex-1 gap-3 mt-0">
+          <TabsContent value="documents" className="space-y-3 mt-0">
             <Card className="px-3 py-2 bg-card border-border shrink-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <Select value={docStep} onValueChange={(v) => setDocStep(v as "all" | ProcessStepKey)}>
