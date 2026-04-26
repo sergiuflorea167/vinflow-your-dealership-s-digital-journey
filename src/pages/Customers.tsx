@@ -68,10 +68,17 @@ const Customers = () => {
         city: e.customer.city,
       };
       return fields[searchField].toLowerCase().includes(q);
-  // search/filter dependencies
-  const _filteredDeps = [enriched, query, searchField, filter, sortKey];
-  void _filteredDeps;
-  }, [enriched, query, filter, sortKey]);
+    });
+    return [...list].sort((a, b) => {
+      switch (sortKey) {
+        case "name": return a.customer.name.localeCompare(b.customer.name);
+        case "city": return a.customer.city.localeCompare(b.customer.city);
+        case "offers": return b.offerCount - a.offerCount;
+        case "processes": return b.processCount - a.processCount;
+        case "value": return b.value - a.value;
+      }
+    });
+  }, [enriched, query, searchField, filter, sortKey]);
 
   return (
     <AppShell>
@@ -88,10 +95,6 @@ const Customers = () => {
 
         <Card className="p-4 space-y-3">
           <div className="flex flex-col md:flex-row gap-3 md:items-center">
-            <div className="relative flex-1 max-w-md">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-              <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Name, E-Mail oder Stadt…" className="pl-9" />
-            </div>
             <div className="flex gap-2 items-center flex-wrap">
               <Select value={filter} onValueChange={(v) => setFilter(v as CustomerFilter)}>
                 <SelectTrigger className="w-[200px]">
