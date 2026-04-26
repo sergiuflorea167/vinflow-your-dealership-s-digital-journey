@@ -470,6 +470,19 @@ export const MOCK_CUSTOMERS: Customer[] = [
   { id: "C-013", name: "Jürgen Hartmann", email: "j.hartmann@example.de", phone: "+49 170 6655443", street: "Hafenstraße 18", zip: "20359", city: "Hamburg" },
   { id: "C-014", name: "Petra Lang", email: "p.lang@example.de", phone: "+49 152 4433221", street: "Kaiserstraße 2", zip: "76131", city: "Karlsruhe" },
   { id: "C-015", name: "Florian Roth", email: "f.roth@example.de", phone: "+49 171 7766554", street: "Theaterplatz 1", zip: "99423", city: "Weimar" },
+  { id: "C-016", name: "Miriam Köhler", email: "m.koehler@example.de", phone: "+49 173 1212343", street: "Marienplatz 8", zip: "80331", city: "München" },
+  { id: "C-017", name: "Robert Vogel", email: "r.vogel@example.de", phone: "+49 152 9090101", street: "Reeperbahn 145", zip: "20359", city: "Hamburg" },
+  { id: "C-018", name: "Sophie Werner", email: "s.werner@example.de", phone: "+49 170 4545676", street: "Gendarmenmarkt 5", zip: "10117", city: "Berlin" },
+  { id: "C-019", name: "Matthias Brandt", email: "m.brandt@example.de", phone: "+49 162 7878989", street: "Schillerplatz 3", zip: "70173", city: "Stuttgart" },
+  { id: "C-020", name: "Anna Sommer", email: "a.sommer@example.de", phone: "+49 174 3434565", street: "Goetheplatz 11", zip: "60313", city: "Frankfurt" },
+  { id: "C-021", name: "Patrick Engel", email: "p.engel@example.de", phone: "+49 176 6767878", street: "Rudolfplatz 22", zip: "50674", city: "Köln" },
+  { id: "C-022", name: "Vanessa Huber", email: "v.huber@example.de", phone: "+49 159 2323454", street: "Hauptmarkt 9", zip: "90403", city: "Nürnberg" },
+  { id: "C-023", name: "Sebastian Frank", email: "s.frank@example.de", phone: "+49 175 8181828", street: "Lister Meile 4", zip: "30161", city: "Hannover" },
+  { id: "C-024", name: "Carina Pohl", email: "c.pohl@example.de", phone: "+49 151 9292939", street: "Prager Straße 18", zip: "01069", city: "Dresden" },
+  { id: "C-025", name: "Alexander Hahn", email: "a.hahn@example.de", phone: "+49 171 5050514", street: "Marktplatz 7", zip: "76133", city: "Karlsruhe" },
+  { id: "C-026", name: "Linda Voss", email: "l.voss@example.de", phone: "+49 173 6363647", street: "Bismarckstraße 33", zip: "10625", city: "Berlin" },
+  { id: "C-027", name: "Auto Müller GmbH", email: "einkauf@auto-mueller.de", phone: "+49 89 7878000", street: "Industriestraße 4", zip: "85716", city: "Unterschleißheim" },
+  { id: "C-028", name: "Logistik Nord GmbH", email: "fuhrpark@logistik-nord.de", phone: "+49 40 8181000", street: "Hafenring 12", zip: "21079", city: "Hamburg" },
 ];
 
 const seedCosts = (entries: Array<Omit<CostEntry, "id" | "createdAt" | "createdBy">>): CostEntry[] =>
