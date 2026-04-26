@@ -98,6 +98,8 @@ const Fleet = () => {
     const list = data.filter(({ vehicle }) => {
       if (filter !== "all" && vehicle.status !== filter) return false;
       if (typeFilter !== "all" && vehicle.type !== typeFilter) return false;
+      if (listedFilter === "listed" && !vehicle.listed?.active) return false;
+      if (listedFilter === "not_listed" && vehicle.listed?.active) return false;
       if (!query.trim()) return true;
       const q = query.toLowerCase();
       const fields: Record<typeof searchField, string> = {
@@ -129,18 +131,21 @@ const Fleet = () => {
         case "margin":     cmp = a.margin - b.margin; break;
         case "openOffers": cmp = a.openOffers - b.openOffers; break;
         case "status":     cmp = STATUS_ORDER[va.status] - STATUS_ORDER[vb.status]; break;
+        case "listed":     cmp = Number(!!va.listed?.active) - Number(!!vb.listed?.active); break;
       }
       // stockDays asc = "längste im Bestand zuerst" intuitiv
       if (sort.key === "stockDays") return cmp * (sort.dir === "asc" ? 1 : -1);
       return cmp * dirMul;
     });
-  }, [data, filter, typeFilter, query, searchField, sort]);
+  }, [data, filter, typeFilter, listedFilter, query, searchField, sort]);
 
   const stats = {
     total: vehicles.length,
     in_stock: vehicles.filter((v) => v.status === "in_stock").length,
     reserved: vehicles.filter((v) => v.status === "reserved").length,
     sold: vehicles.filter((v) => v.status === "sold").length,
+    listed: vehicles.filter((v) => v.listed?.active).length,
+    notListed: vehicles.filter((v) => v.status !== "sold" && !v.listed?.active).length,
   };
 
   return (
