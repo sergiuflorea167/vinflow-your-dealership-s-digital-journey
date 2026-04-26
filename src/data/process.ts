@@ -1098,6 +1098,78 @@ export const MOCK_PROCESSES: Process[] = [
     customerTodosOC: [{ id: "ct1", title: "Beschriftung mit Firmenlogo" }],
     outboundChecklist: DEFAULT_OUTBOUND_CHECKLIST(),
   },
+  // Vorgang #10: Cayenne (V-028) - Übergeben
+  {
+    id: "VF-2025-0144", vehicleId: "V-028", customerId: "C-019", acceptedOfferId: "OFR-2025-0254",
+    createdAt: isoDaysAgo(72), updatedAt: isoDaysAgo(12),
+    currentStep: "delivery_confirmation",
+    steps: {
+      offer: { status: "completed", completedAt: isoDaysAgo(72), documentArchived: true },
+      down_payment: { status: "completed", completedAt: isoDaysAgo(68), documentArchived: true },
+      order_confirmation: { status: "completed", completedAt: isoDaysAgo(60), documentArchived: true },
+      outbound_check: { status: "completed", completedAt: isoDaysAgo(20), documentArchived: true },
+      invoicing: { status: "completed", completedAt: isoDaysAgo(15), documentArchived: true },
+      purchase_contract: { status: "completed", completedAt: isoDaysAgo(13), documentArchived: true },
+      delivery_confirmation: { status: "completed", completedAt: isoDaysAgo(12), documentArchived: true },
+    },
+    fields: {
+      finalPrice: 168900,
+      downPayment: { amount: 30000, dueDate: isoDaysAgo(68).slice(0, 10), method: "Überweisung", received: true, receivedDate: isoDaysAgo(68).slice(0, 10) },
+      orderConfirmation: { orderDate: isoDaysAgo(60).slice(0, 10), deliveryDate: isoDaysAgo(13).slice(0, 10), paymentTerms: "Restzahlung bei Übergabe" },
+      invoicing: { invoiceNumber: "RE-2025-0438", invoiceDate: isoDaysAgo(15).slice(0, 10), dueDate: isoDaysAgo(1).slice(0, 10) },
+      purchaseContract: { contractNumber: "KV-2025-0438", contractDate: isoDaysAgo(13).slice(0, 10), warrantyMonths: 24, place: "Stuttgart" },
+    },
+    customerTodosOC: [],
+    outboundChecklist: DEFAULT_OUTBOUND_CHECKLIST().map((c) => ({ ...c, done: true })),
+  },
+  // Vorgang #11: Tesla Model Y Performance (V-035) - Übergeben
+  {
+    id: "VF-2025-0145", vehicleId: "V-035", customerId: "C-024", acceptedOfferId: "OFR-2025-0259",
+    createdAt: isoDaysAgo(60), updatedAt: isoDaysAgo(5),
+    currentStep: "delivery_confirmation",
+    steps: {
+      offer: { status: "completed", completedAt: isoDaysAgo(60), documentArchived: true },
+      down_payment: { status: "skipped", completedAt: isoDaysAgo(58) },
+      order_confirmation: { status: "completed", completedAt: isoDaysAgo(50), documentArchived: true },
+      outbound_check: { status: "completed", completedAt: isoDaysAgo(15), documentArchived: true },
+      invoicing: { status: "completed", completedAt: isoDaysAgo(10), documentArchived: true },
+      purchase_contract: { status: "completed", completedAt: isoDaysAgo(7), documentArchived: true },
+      delivery_confirmation: { status: "completed", completedAt: isoDaysAgo(5), documentArchived: true },
+    },
+    fields: {
+      finalPrice: 58400,
+      orderConfirmation: { orderDate: isoDaysAgo(50).slice(0, 10), deliveryDate: isoDaysAgo(7).slice(0, 10), paymentTerms: "Sofort bei Übergabe" },
+      invoicing: { invoiceNumber: "RE-2025-0445", invoiceDate: isoDaysAgo(10).slice(0, 10), dueDate: isoDaysAgo(0).slice(0, 10) },
+      purchaseContract: { contractNumber: "KV-2025-0445", contractDate: isoDaysAgo(7).slice(0, 10), warrantyMonths: 24, place: "Dresden" },
+    },
+    customerTodosOC: [],
+    outboundChecklist: DEFAULT_OUTBOUND_CHECKLIST().map((c) => ({ ...c, done: true })),
+  },
+  // Vorgang #12: Renault Master (V-027) - Anzahlung erhalten, AB als nächstes
+  {
+    id: "VF-2025-0146", vehicleId: "V-027", customerId: "C-028", acceptedOfferId: "OFR-2025-0253",
+    createdAt: isoDaysAgo(11), updatedAt: isoDaysAgo(3),
+    currentStep: "order_confirmation", steps: buildEmptySteps("order_confirmation"),
+    fields: {
+      finalPrice: 28900,
+      downPayment: { amount: 4500, dueDate: isoDaysAgo(8).slice(0, 10), method: "Überweisung", received: true, receivedDate: isoDaysAgo(7).slice(0, 10) },
+    },
+    customerTodosOC: [{ id: "ct1", title: "Firmenbeschriftung organisieren" }],
+    outboundChecklist: DEFAULT_OUTBOUND_CHECKLIST(),
+  },
+  // Vorgang #13: Skoda Octavia RS (V-031) - in Outbound Check
+  {
+    id: "VF-2025-0147", vehicleId: "V-031", customerId: "C-020", acceptedOfferId: "OFR-2025-0255",
+    createdAt: isoDaysAgo(7), updatedAt: isoDaysAgo(1),
+    currentStep: "outbound_check", steps: buildEmptySteps("outbound_check"),
+    fields: {
+      finalPrice: 32500,
+      downPayment: { amount: 4000, dueDate: isoDaysAgo(5).slice(0, 10), method: "Überweisung", received: true, receivedDate: isoDaysAgo(5).slice(0, 10) },
+      orderConfirmation: { orderDate: isoDaysAgo(4).slice(0, 10), deliveryDate: new Date(Date.now() + 10 * 86400000).toISOString().slice(0, 10), paymentTerms: "Restzahlung bei Übergabe" },
+    },
+    customerTodosOC: [{ id: "ct1", title: "Winterreifen einlagern" }],
+    outboundChecklist: DEFAULT_OUTBOUND_CHECKLIST().map((c, i) => ({ ...c, done: i < 3 })),
+  },
 ];
 
 export const MOCK_TODOS: Todo[] = [
