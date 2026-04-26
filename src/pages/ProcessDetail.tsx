@@ -80,6 +80,12 @@ const ProcessDetail = () => {
     if (nextStep) setSelected(nextStep.key);
   };
 
+  const handleCancel = () => {
+    cancelStep(process.id, selectedKey);
+    toast.success(`${selectedStep.documentName} storniert – Schritt wieder bearbeitbar.`);
+    setSelected(selectedKey);
+  };
+
   const handleDownload = (key: ProcessStepKey) => {
     downloadBelegPdf({ process, vehicle, customer, offer, stepKey: key, companyName });
     toast.success("PDF heruntergeladen.");
