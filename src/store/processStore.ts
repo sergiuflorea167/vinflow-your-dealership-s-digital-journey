@@ -91,6 +91,7 @@ interface State {
 
   // ------- Offer -------
   addOffer: (o: Omit<Offer, "id" | "createdAt" | "status" | "customerTodos"> & { status?: Offer["status"]; customerTodos?: Offer["customerTodos"] }) => Offer;
+  updateOffer: (offerId: string, patch: Partial<Omit<Offer, "id" | "createdAt" | "vehicleId">>) => void;
   updateOfferStatus: (offerId: string, status: Offer["status"]) => void;
   addOfferCustomerTodo: (offerId: string, title: string) => void;
   removeOfferCustomerTodo: (offerId: string, todoId: string) => void;
@@ -550,6 +551,16 @@ export const useProcessStore = create<State>()(
           }));
           return offer;
         },
+
+        updateOffer: (offerId, patch) =>
+          set((state) => {
+            const offer = state.offers.find((o) => o.id === offerId);
+            if (!offer) return state;
+            return {
+              ...state,
+              offers: state.offers.map((o) => (o.id === offerId ? { ...o, ...patch } : o)),
+            };
+          }),
 
         updateOfferStatus: (offerId, status) =>
           set((state) => {

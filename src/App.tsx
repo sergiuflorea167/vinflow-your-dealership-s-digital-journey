@@ -13,6 +13,7 @@ import PurchasePlanning from "./pages/PurchasePlanning.tsx";
 import Customers from "./pages/Customers.tsx";
 import KPIs from "./pages/KPIs.tsx";
 import Insights from "./pages/Insights.tsx";
+import OfferDetail from "./pages/OfferDetail.tsx";
 import Todos from "./pages/Todos.tsx";
 import Calendar from "./pages/Calendar.tsx";
 import Stammdaten from "./pages/Stammdaten.tsx";
@@ -44,6 +45,7 @@ const App = () => (
           <Route path="/flotte/:id" element={<RedirectVehicle />} />
           <Route path="/vorgaenge" element={<ProcessList />} />
           <Route path="/vorgaenge/:id" element={<ProcessDetail />} />
+          <Route path="/angebote/:id" element={<OfferDetail />} />
           <Route path="/kunden" element={<Customers />} />
           <Route path="/kpis" element={<KPIs />} />
           <Route path="/insights" element={<Insights />} />

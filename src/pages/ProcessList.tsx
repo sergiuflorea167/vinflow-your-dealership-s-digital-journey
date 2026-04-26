@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { AppShell } from "@/components/layout/AppShell";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -9,22 +9,43 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { useProcessStore } from "@/store/processStore";
-import { PROCESS_STEPS, ProcessStepKey, formatCurrency, formatDate, stepIndex } from "@/data/process";
-import { ChevronRight, FileText, Download, ArrowDownAZ, ArrowUpAZ } from "lucide-react";
+import {
+  PROCESS_STEPS, ProcessStepKey, OfferStatus, formatCurrency, formatDate, stepIndex,
+} from "@/data/process";
+import {
+  ChevronRight, FileText, Download, ArrowDownAZ, ArrowUpAZ, CheckCircle2,
+  Send, X, Clock, AlertTriangle, Phone,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
-import { downloadBelegPdf } from "@/lib/pdf";
+import { downloadBelegPdf, downloadOfferPdf } from "@/lib/pdf";
 import { useTopbarSearch } from "@/context/TopbarSearchContext";
 import { DataTableShell } from "@/components/shared/DataTableShell";
+import { toast } from "sonner";
 
 type ProcessSortKey = "updated" | "created" | "price" | "id" | "customer";
+type OfferSortKey = "validUntil" | "created" | "price" | "customer" | "id";
+type ValidityFilter = "all" | "active" | "soon" | "expired";
+
+const STATUS_META: Record<OfferStatus, { label: string; className: string }> = {
+  draft:    { label: "Entwurf",     className: "bg-muted text-muted-foreground border-border" },
+  sent:     { label: "Gesendet",    className: "bg-info/15 text-info border-info/30" },
+  accepted: { label: "Angenommen",  className: "bg-success/15 text-success border-success/30" },
+  rejected: { label: "Abgelehnt",   className: "bg-destructive/15 text-destructive border-destructive/30" },
+  expired:  { label: "Abgelaufen",  className: "bg-warning/15 text-warning border-warning/30" },
+};
 
 const ProcessList = () => {
+  const navigate = useNavigate();
   const processes = useProcessStore((s) => s.processes);
+  const offers = useProcessStore((s) => s.offers);
   const getVehicle = useProcessStore((s) => s.getVehicle);
   const getCustomer = useProcessStore((s) => s.getCustomer);
+  const updateOfferStatus = useProcessStore((s) => s.updateOfferStatus);
+  const acceptOffer = useProcessStore((s) => s.acceptOffer);
+  const companyName = useProcessStore((s) => s.settings.companyName);
 
   // ---- Tabs ----
-  const [tab, setTab] = useState<"list" | "documents">("list");
+  const [tab, setTab] = useState<"list" | "offers" | "documents">("list");
 
   // ---- Liste ----
   const [q, setQ] = useState("");
@@ -69,44 +90,126 @@ const ProcessList = () => {
     return sorted;
   }, [enriched, q, qField, filter, sortKey, sortDir]);
 
+  // ---- Angebote ----
+  const [offerQ, setOfferQ] = useState("");
+  const [offerQField, setOfferQField] = useState<"all" | "id" | "vehicle" | "customer">("all");
+  const [offerStatus, setOfferStatus] = useState<"all" | OfferStatus>("all");
+  const [offerValidity, setOfferValidity] = useState<ValidityFilter>("all");
+  const [offerSortKey, setOfferSortKey] = useState<OfferSortKey>("validUntil");
+  const [offerSortDir, setOfferSortDir] = useState<"asc" | "desc">("asc");
+
+  const enrichedOffers = useMemo(
+    () =>
+      offers
+        .map((o) => ({ o, vehicle: getVehicle(o.vehicleId), customer: getCustomer(o.customerId) }))
+        .filter((e) => e.vehicle && e.customer),
+    [offers, getVehicle, getCustomer]
+  );
+
+  const offerCounts = useMemo(() => {
+    const now = Date.now();
+    const active = enrichedOffers.filter(({ o }) =>
+      o.status === "sent" && new Date(o.validUntil).getTime() >= now
+    ).length;
+    const soon = enrichedOffers.filter(({ o }) => {
+      if (o.status !== "sent") return false;
+      const d = (new Date(o.validUntil).getTime() - now) / 86400000;
+      return d >= 0 && d <= 3;
+    }).length;
+    const expired = enrichedOffers.filter(({ o }) =>
+      o.status === "sent" && new Date(o.validUntil).getTime() < now
+    ).length;
+    return { all: enrichedOffers.length, active, soon, expired };
+  }, [enrichedOffers]);
+
+  const filteredOffers = useMemo(() => {
+    const now = Date.now();
+    const list = enrichedOffers.filter(({ o, vehicle, customer }) => {
+      if (offerStatus !== "all" && o.status !== offerStatus) return false;
+      if (offerValidity !== "all") {
+        const ts = new Date(o.validUntil).getTime();
+        const days = (ts - now) / 86400000;
+        if (offerValidity === "active" && !(o.status === "sent" && ts >= now)) return false;
+        if (offerValidity === "soon" && !(o.status === "sent" && days >= 0 && days <= 3)) return false;
+        if (offerValidity === "expired" && !(o.status === "sent" && ts < now)) return false;
+      }
+      if (!offerQ) return true;
+      const s = offerQ.toLowerCase();
+      const fields: Record<typeof offerQField, string> = {
+        all: `${o.id} ${vehicle!.vin} ${vehicle!.make} ${vehicle!.model} ${customer!.name}`,
+        id: o.id,
+        vehicle: `${vehicle!.make} ${vehicle!.model}`,
+        customer: customer!.name,
+      };
+      return fields[offerQField].toLowerCase().includes(s);
+    });
+
+    return [...list].sort((a, b) => {
+      const dir = offerSortDir === "asc" ? 1 : -1;
+      switch (offerSortKey) {
+        case "validUntil": return (new Date(a.o.validUntil).getTime() - new Date(b.o.validUntil).getTime()) * dir;
+        case "created": return (new Date(a.o.createdAt).getTime() - new Date(b.o.createdAt).getTime()) * dir;
+        case "price": return (a.o.price - b.o.price) * dir;
+        case "customer": return a.customer!.name.localeCompare(b.customer!.name) * dir;
+        case "id": return a.o.id.localeCompare(b.o.id) * dir;
+      }
+    });
+  }, [enrichedOffers, offerQ, offerQField, offerStatus, offerValidity, offerSortKey, offerSortDir]);
+
   // ---- Belege ----
   const [docQ, setDocQ] = useState("");
   const [docQField, setDocQField] = useState<"all" | "id" | "vin" | "vehicle" | "customer" | "doc">("all");
   const [docStep, setDocStep] = useState<"all" | ProcessStepKey>("all");
   const [docSortDir, setDocSortDir] = useState<"asc" | "desc">("desc");
 
-  const topbarSearch = useMemo(() => (
-    tab === "list"
-      ? {
-          placeholder: "Vorgänge durchsuchen…",
-          value: q,
-          onChange: setQ,
-          field: qField,
-          onFieldChange: (f: string) => setQField(f as typeof qField),
-          fields: [
-            { key: "all",      label: "Alle Felder" },
-            { key: "id",       label: "Vorgangs-Nr." },
-            { key: "vin",      label: "VIN" },
-            { key: "vehicle",  label: "Fahrzeug" },
-            { key: "customer", label: "Kunde" },
-          ],
-        }
-      : {
-          placeholder: "Belege durchsuchen…",
-          value: docQ,
-          onChange: setDocQ,
-          field: docQField,
-          onFieldChange: (f: string) => setDocQField(f as typeof docQField),
-          fields: [
-            { key: "all",      label: "Alle Felder" },
-            { key: "id",       label: "Vorgangs-Nr." },
-            { key: "vin",      label: "VIN" },
-            { key: "vehicle",  label: "Fahrzeug" },
-            { key: "customer", label: "Kunde" },
-            { key: "doc",      label: "Belegart" },
-          ],
-        }
-  ), [tab, q, qField, docQ, docQField]);
+  const topbarSearch = useMemo(() => {
+    if (tab === "list") {
+      return {
+        placeholder: "Vorgänge durchsuchen…",
+        value: q,
+        onChange: setQ,
+        field: qField,
+        onFieldChange: (f: string) => setQField(f as typeof qField),
+        fields: [
+          { key: "all",      label: "Alle Felder" },
+          { key: "id",       label: "Vorgangs-Nr." },
+          { key: "vin",      label: "VIN" },
+          { key: "vehicle",  label: "Fahrzeug" },
+          { key: "customer", label: "Kunde" },
+        ],
+      };
+    }
+    if (tab === "offers") {
+      return {
+        placeholder: "Angebote durchsuchen…",
+        value: offerQ,
+        onChange: setOfferQ,
+        field: offerQField,
+        onFieldChange: (f: string) => setOfferQField(f as typeof offerQField),
+        fields: [
+          { key: "all",      label: "Alle Felder" },
+          { key: "id",       label: "Angebots-Nr." },
+          { key: "vehicle",  label: "Fahrzeug" },
+          { key: "customer", label: "Kunde" },
+        ],
+      };
+    }
+    return {
+      placeholder: "Belege durchsuchen…",
+      value: docQ,
+      onChange: setDocQ,
+      field: docQField,
+      onFieldChange: (f: string) => setDocQField(f as typeof docQField),
+      fields: [
+        { key: "all",      label: "Alle Felder" },
+        { key: "id",       label: "Vorgangs-Nr." },
+        { key: "vin",      label: "VIN" },
+        { key: "vehicle",  label: "Fahrzeug" },
+        { key: "customer", label: "Kunde" },
+        { key: "doc",      label: "Belegart" },
+      ],
+    };
+  }, [tab, q, qField, offerQ, offerQField, docQ, docQField]);
 
   useTopbarSearch(topbarSearch);
 
@@ -173,21 +276,22 @@ const ProcessList = () => {
         <div className="shrink-0">
           <h1 className="text-2xl font-display font-bold">Vorgänge</h1>
           <p className="text-xs text-muted-foreground">
-            Alle aktiven &amp; abgeschlossenen Verkaufsvorgänge inkl. archivierter Belege.
+            Alle Angebote, aktiven Verkaufsvorgänge und archivierten Belege.
           </p>
         </div>
 
         <Tabs
           value={tab}
-          onValueChange={(v) => setTab(v as "list" | "documents")}
+          onValueChange={(v) => setTab(v as "list" | "offers" | "documents")}
           className="space-y-3"
         >
           <TabsList className="shrink-0 self-start">
-            <TabsTrigger value="list">Liste ({processes.length})</TabsTrigger>
+            <TabsTrigger value="list">Vorgänge ({processes.length})</TabsTrigger>
+            <TabsTrigger value="offers">Angebote ({offers.length})</TabsTrigger>
             <TabsTrigger value="documents">Belege-Archiv ({documents.length})</TabsTrigger>
           </TabsList>
 
-          {/* -------- Liste -------- */}
+          {/* -------- Liste Vorgänge -------- */}
           <TabsContent value="list" className="space-y-3 mt-0">
             <Card className="px-3 py-2 bg-card border-border shrink-0">
               <div className="flex items-center gap-2 flex-wrap">
@@ -284,6 +388,217 @@ const ProcessList = () => {
                     <tr>
                       <td colSpan={7} className="px-3 py-12 text-center text-muted-foreground">
                         Keine Vorgänge gefunden.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </DataTableShell>
+          </TabsContent>
+
+          {/* -------- Angebote -------- */}
+          <TabsContent value="offers" className="space-y-3 mt-0">
+            <Card className="px-3 py-2 bg-card border-border shrink-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Select value={offerSortKey} onValueChange={(v) => setOfferSortKey(v as OfferSortKey)}>
+                  <SelectTrigger className="w-[180px] h-8 text-xs bg-background/40">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="validUntil">Sort.: Gültig bis</SelectItem>
+                    <SelectItem value="created">Sort.: Erstellt</SelectItem>
+                    <SelectItem value="price">Sort.: Preis</SelectItem>
+                    <SelectItem value="customer">Sort.: Kunde</SelectItem>
+                    <SelectItem value="id">Sort.: Angebots-Nr.</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => setOfferSortDir((d) => (d === "asc" ? "desc" : "asc"))}
+                  aria-label="Richtung wechseln"
+                >
+                  {offerSortDir === "asc" ? <ArrowUpAZ className="size-4" /> : <ArrowDownAZ className="size-4" />}
+                </Button>
+
+                <Select value={offerStatus} onValueChange={(v) => setOfferStatus(v as "all" | OfferStatus)}>
+                  <SelectTrigger className="w-[160px] h-8 text-xs bg-background/40">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Status: Alle</SelectItem>
+                    <SelectItem value="draft">Entwurf</SelectItem>
+                    <SelectItem value="sent">Gesendet</SelectItem>
+                    <SelectItem value="accepted">Angenommen</SelectItem>
+                    <SelectItem value="rejected">Abgelehnt</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <div className="flex gap-1.5 overflow-x-auto">
+                  <FilterPill active={offerValidity === "all"} onClick={() => setOfferValidity("all")}>
+                    Alle ({offerCounts.all})
+                  </FilterPill>
+                  <FilterPill active={offerValidity === "active"} onClick={() => setOfferValidity("active")}>
+                    Aktiv ({offerCounts.active})
+                  </FilterPill>
+                  <FilterPill active={offerValidity === "soon"} onClick={() => setOfferValidity("soon")}>
+                    <Clock className="size-3 mr-1 inline" /> Bald ({offerCounts.soon})
+                  </FilterPill>
+                  <FilterPill active={offerValidity === "expired"} onClick={() => setOfferValidity("expired")}>
+                    <AlertTriangle className="size-3 mr-1 inline" /> Abgelaufen ({offerCounts.expired})
+                  </FilterPill>
+                </div>
+              </div>
+            </Card>
+
+            <DataTableShell footer={<>{filteredOffers.length} Angebote</>}>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Angebot</th>
+                    <th>Fahrzeug</th>
+                    <th>Kunde</th>
+                    <th>Status</th>
+                    <th className="text-right">Preis</th>
+                    <th>Gültig bis</th>
+                    <th>Nachfass</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredOffers.map(({ o, vehicle, customer }) => {
+                    const meta = STATUS_META[o.status];
+                    const days = Math.ceil((new Date(o.validUntil).getTime() - Date.now()) / 86400000);
+                    const isExpired = o.status === "sent" && days < 0;
+                    const isSoon = o.status === "sent" && days >= 0 && days <= 3;
+                    return (
+                      <tr key={o.id} className="hover:bg-surface-elevated/40 transition-smooth group">
+                        <td>
+                          <Link to={`/angebote/${o.id}`} className="font-display font-semibold text-foreground hover:text-primary-glow">
+                            {o.id}
+                          </Link>
+                          <p className="text-[10px] text-muted-foreground">erstellt {formatDate(o.createdAt)}</p>
+                        </td>
+                        <td>
+                          <Link to={`/bestand/${vehicle!.id}`} className="hover:text-primary-glow transition-smooth">
+                            <p className="font-medium text-foreground leading-tight">{vehicle!.make} {vehicle!.model}</p>
+                            <p className="font-mono text-[10px] text-muted-foreground leading-tight">{vehicle!.vin}</p>
+                          </Link>
+                        </td>
+                        <td>
+                          <p className="text-foreground leading-tight">{customer!.name}</p>
+                          <p className="text-[10px] text-muted-foreground leading-tight">{customer!.city}</p>
+                        </td>
+                        <td>
+                          <Badge className={cn(meta.className, "text-[10px] px-1.5 py-0")}>{meta.label}</Badge>
+                        </td>
+                        <td className="text-right font-semibold text-foreground whitespace-nowrap">
+                          {formatCurrency(o.price)}
+                        </td>
+                        <td className="whitespace-nowrap">
+                          <p className={cn(
+                            "text-foreground",
+                            isExpired && "text-warning",
+                          )}>{formatDate(o.validUntil)}</p>
+                          {o.status === "sent" && (
+                            <p className={cn(
+                              "text-[10px]",
+                              isExpired ? "text-warning" : isSoon ? "text-warning" : "text-muted-foreground",
+                            )}>
+                              {isExpired
+                                ? `vor ${Math.abs(days)} Tag${Math.abs(days) === 1 ? "" : "en"}`
+                                : `noch ${days} Tag${days === 1 ? "" : "e"}`}
+                            </p>
+                          )}
+                        </td>
+                        <td>
+                          {o.status === "sent" && (customer?.phone) && (
+                            <a
+                              href={`tel:${customer.phone}`}
+                              className="inline-flex items-center gap-1 text-xs text-primary-glow hover:underline"
+                              title={`Anrufen: ${customer.phone}`}
+                            >
+                              <Phone className="size-3" /> Anrufen
+                            </a>
+                          )}
+                        </td>
+                        <td>
+                          <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-smooth">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              title="PDF herunterladen"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                downloadOfferPdf({ offer: o, vehicle: vehicle!, customer: customer!, companyName });
+                              }}
+                            >
+                              <Download className="size-3.5" />
+                            </Button>
+                            {o.status === "draft" && (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 text-info"
+                                title="Senden"
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  updateOfferStatus(o.id, "sent");
+                                  toast.success("Angebot versendet.");
+                                }}
+                              >
+                                <Send className="size-3.5" />
+                              </Button>
+                            )}
+                            {o.status === "sent" && (
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-success"
+                                  title="Annehmen → Vorgang starten"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    const proc = acceptOffer(o.id);
+                                    if (proc) {
+                                      toast.success(`Vorgang ${proc.id} gestartet.`);
+                                      navigate(`/vorgaenge/${proc.id}`);
+                                    }
+                                  }}
+                                >
+                                  <CheckCircle2 className="size-3.5" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-destructive"
+                                  title="Ablehnen"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    updateOfferStatus(o.id, "rejected");
+                                    toast.message("Angebot abgelehnt.");
+                                  }}
+                                >
+                                  <X className="size-3.5" />
+                                </Button>
+                              </>
+                            )}
+                            <Link to={`/angebote/${o.id}`}>
+                              <Button variant="ghost" size="icon" className="h-7 w-7">
+                                <ChevronRight className="size-4" />
+                              </Button>
+                            </Link>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {filteredOffers.length === 0 && (
+                    <tr>
+                      <td colSpan={8} className="px-3 py-12 text-center text-muted-foreground">
+                        Keine Angebote gefunden.
                       </td>
                     </tr>
                   )}
