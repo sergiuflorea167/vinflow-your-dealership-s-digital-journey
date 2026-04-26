@@ -299,6 +299,31 @@ const Fleet = () => {
                           <span className="text-muted-foreground">–</span>
                         )}
                       </td>
+                      <td className="text-center" onClick={(e) => e.stopPropagation()}>
+                        <Tooltip delayDuration={200}>
+                          <TooltipTrigger asChild>
+                            <span className="inline-flex items-center justify-center">
+                              <Switch
+                                checked={!!vehicle.listed?.active}
+                                onCheckedChange={(checked) => {
+                                  setVehicleListed(vehicle.id, checked);
+                                  toast.success(
+                                    checked
+                                      ? `${vehicle.make} ${vehicle.model} als inseriert markiert.`
+                                      : `Inserat zurückgenommen — neues To-Do erstellt.`
+                                  );
+                                }}
+                                aria-label="Inseriert"
+                              />
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="text-xs max-w-xs">
+                            {vehicle.listed?.active
+                              ? `Aktiv inseriert${vehicle.listed.listedAt ? ` seit ${formatDate(vehicle.listed.listedAt)}` : ""}.`
+                              : "Noch nicht online inseriert. Ein To-Do „Inserat erstellen" ist offen."}
+                          </TooltipContent>
+                        </Tooltip>
+                      </td>
                       <td><Badge className={cn(meta.className, "text-[10px] px-1.5 py-0")}>{meta.label}</Badge></td>
                     </tr>
                   );
