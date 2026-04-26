@@ -15,6 +15,7 @@ import KPIs from "./pages/KPIs.tsx";
 import Todos from "./pages/Todos.tsx";
 import Stammdaten from "./pages/Stammdaten.tsx";
 import { TopbarSearchProvider } from "./context/TopbarSearchContext";
+import { KpiRangeProvider } from "./context/KpiRangeContext";
 
 const queryClient = new QueryClient();
 
@@ -30,6 +31,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <TopbarSearchProvider>
+        <KpiRangeProvider>
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/einkaufsplanung" element={<PurchasePlanning />} />
@@ -47,6 +49,7 @@ const App = () => (
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
+        </KpiRangeProvider>
         </TopbarSearchProvider>
       </BrowserRouter>
     </TooltipProvider>
