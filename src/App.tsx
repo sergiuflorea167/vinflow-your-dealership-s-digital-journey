@@ -12,6 +12,7 @@ import VehicleDetail from "./pages/VehicleDetail.tsx";
 import PurchasePlanning from "./pages/PurchasePlanning.tsx";
 import Customers from "./pages/Customers.tsx";
 import KPIs from "./pages/KPIs.tsx";
+import { TopbarSearchProvider } from "./context/TopbarSearchContext";
 
 const queryClient = new QueryClient();
 
@@ -26,6 +27,7 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
+        <TopbarSearchProvider>
         <Routes>
           <Route path="/" element={<Index />} />
           <Route path="/einkaufsplanung" element={<PurchasePlanning />} />
@@ -41,6 +43,7 @@ const App = () => (
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
+        </TopbarSearchProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
