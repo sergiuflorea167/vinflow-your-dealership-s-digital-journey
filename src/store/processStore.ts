@@ -16,6 +16,7 @@ import {
   Customer,
   Offer,
   PurchasePlan,
+  PurchasePlanNote,
   ProcessStepKey,
   ProcessFields,
   VehicleLocation,
@@ -666,17 +667,63 @@ export const useProcessStore = create<State>()(
         // ------- Purchase plan -------
         addPurchasePlan: (p) => {
           const id = `PP-${new Date().getFullYear()}-${String(get().purchasePlans.length + 1).padStart(3, "0")}`;
-          const plan: PurchasePlan = { id, createdAt: new Date().toISOString(), status: p.status ?? "open", ...p };
+          const nowIso = new Date().toISOString();
+          const userName = get().settings.userName || "Admin";
+          const { initialNote, ...rest } = p;
+          const noteEntries: PurchasePlanNote[] = initialNote && initialNote.trim()
+            ? [{ id: randomId("pn"), text: initialNote.trim(), createdAt: nowIso, createdBy: userName }]
+            : [];
+          const plan: PurchasePlan = {
+            id,
+            createdAt: nowIso,
+            status: rest.status ?? "tracking",
+            noteEntries,
+            ...rest,
+          };
           set((state) => ({
             purchasePlans: [plan, ...state.purchasePlans],
-            activities: logActivity(state, "purchase_planned", `Einkaufsplan ${id}: ${plan.make} ${plan.model}`),
+            activities: logActivity(state, "purchase_planned", `Einkauf verfolgt: ${plan.make} ${plan.model} (${id})`),
           }));
           return plan;
         },
 
+        updatePurchasePlan: (id, patch) =>
+          set((state) => ({
+            purchasePlans: state.purchasePlans.map((p) => (p.id === id ? { ...p, ...patch } : p)),
+          })),
+
         updatePurchasePlanStatus: (id, status) =>
           set((state) => ({
             purchasePlans: state.purchasePlans.map((p) => (p.id === id ? { ...p, status } : p)),
+          })),
+
+        addPurchasePlanNote: (id, text) =>
+          set((state) => {
+            const trimmed = text.trim();
+            if (!trimmed) return state;
+            const note: PurchasePlanNote = {
+              id: randomId("pn"),
+              text: trimmed,
+              createdAt: new Date().toISOString(),
+              createdBy: state.settings.userName || "Admin",
+            };
+            return {
+              purchasePlans: state.purchasePlans.map((p) =>
+                p.id !== id ? p : { ...p, noteEntries: [...p.noteEntries, note] }
+              ),
+            };
+          }),
+
+        removePurchasePlanNote: (id, noteId) =>
+          set((state) => ({
+            purchasePlans: state.purchasePlans.map((p) =>
+              p.id !== id ? p : { ...p, noteEntries: p.noteEntries.filter((n) => n.id !== noteId) }
+            ),
+          })),
+
+        removePurchasePlan: (id) =>
+          set((state) => ({
+            purchasePlans: state.purchasePlans.filter((p) => p.id !== id),
           })),
 
         convertPlanToVehicle: (planId, vehicle) => {
@@ -685,7 +732,7 @@ export const useProcessStore = create<State>()(
           const newVehicle = get().addVehicle({ ...vehicle, status: "in_stock" });
           set((state) => ({
             purchasePlans: state.purchasePlans.map((p) => (p.id === planId ? { ...p, status: "received", vin: vehicle.vin } : p)),
-            activities: logActivity(state, "purchase_received", `Einkaufsplan ${planId} eingetroffen → ${vehicle.make} ${vehicle.model}`, { vehicleId: newVehicle.id }),
+            activities: logActivity(state, "purchase_received", `Einkauf ${planId} → Bestand: ${vehicle.make} ${vehicle.model}`, { vehicleId: newVehicle.id }),
           }));
           return newVehicle;
         },
