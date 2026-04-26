@@ -32,7 +32,7 @@ const Stammdaten = () => {
   const [tab, setTab] = useState<StammTab>("customers");
 
   return (
-    <AppShell>
+    <AppShell fullHeight>
       <div className="flex flex-col min-h-0 flex-1 gap-3 animate-fade-in">
         <div className="flex items-center gap-3 shrink-0">
           <div className="size-9 rounded-xl bg-gradient-brand grid place-items-center shadow-glow">
