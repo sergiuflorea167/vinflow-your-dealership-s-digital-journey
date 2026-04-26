@@ -1,5 +1,6 @@
 // Zentraler KPI-Katalog – eine Quelle der Wahrheit.
 // Jeder KPI berechnet sich live aus dem Store-State.
+// Zeitabhängige KPIs (timeMode: "range") nutzen den globalen Zeitraum-Filter.
 
 import { Process, Vehicle, Offer, Customer, formatCurrency, vehicleTotalCostsGross } from "@/data/process";
 
@@ -12,7 +13,12 @@ export interface KpiContext {
   processes: Process[];
   offers: Offer[];
   customers: Customer[];
+  /** Globaler Zeitraum-Filter (zentral via KpiRangeContext). */
+  range: { from: Date; to: Date; label: string };
 }
+
+/** Markiert eine KPI, deren Wert vom globalen Zeitraum-Filter abhängt. */
+export type KpiTimeMode = "range" | "static";
 
 export interface KpiResult {
   value: number;
@@ -32,19 +38,15 @@ export interface KpiDef {
    */
   interpretation: string;
   format: KpiFormat;
+  /**
+   * "range"  → Wert wird über den globalen Zeitraum-Filter gesteuert.
+   * "static" → Stichtagswert (z. B. aktueller Bestand).
+   */
+  timeMode: KpiTimeMode;
   compute: (ctx: KpiContext) => KpiResult;
 }
 
 // ---- Helpers ----
-const startOfYear = () => new Date(new Date().getFullYear(), 0, 1);
-const startOfMonth = () => new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-const startOfWeek = () => {
-  const now = new Date();
-  const day = (now.getDay() + 6) % 7;
-  const d = new Date(now); d.setDate(now.getDate() - day); d.setHours(0, 0, 0, 0);
-  return d;
-};
-
 const fmt = (value: number, format: KpiFormat) => {
   switch (format) {
     case "currency": return formatCurrency(value);
@@ -55,7 +57,7 @@ const fmt = (value: number, format: KpiFormat) => {
 };
 
 // Verkauf zählt zum Zeitpunkt der Übergabe (delivery_confirmation completed)
-const handoverInRange = (p: Process, from: Date, to: Date = new Date()) => {
+const handoverInRange = (p: Process, from: Date, to: Date) => {
   const rec = p.steps.delivery_confirmation;
   if (!rec || rec.status !== "completed" || !rec.completedAt) return false;
   const t = new Date(rec.completedAt);
@@ -63,7 +65,7 @@ const handoverInRange = (p: Process, from: Date, to: Date = new Date()) => {
 };
 
 // Rechnung gestellt im Zeitraum
-const invoicedInRange = (p: Process, from: Date, to: Date = new Date()) => {
+const invoicedInRange = (p: Process, from: Date, to: Date) => {
   const rec = p.steps.invoicing;
   if (!rec || rec.status !== "completed" || !rec.completedAt) return false;
   const t = new Date(rec.completedAt);
@@ -82,105 +84,74 @@ export const KPI_CATALOG: KpiDef[] = [
   // -------- Umsatz --------
   {
     id: "revenue_year",
-    label: "Jahresumsatz",
+    label: "Umsatz",
     category: "Umsatz",
-    description: "Summe der Verkäufe (Übergabe) seit Jahresbeginn.",
+    description: "Summe der Verkäufe (Übergabe) im gewählten Zeitraum.",
     interpretation:
-      "Hauptindikator für den geschäftlichen Erfolg im laufenden Jahr. Steigt mit jeder vollständig übergebenen Verkaufsabwicklung. Ein Wert deutlich unter dem Vorjahr → Vertrieb / Lead-Zufluss prüfen.",
+      "Hauptindikator für den geschäftlichen Erfolg. Ein Wert deutlich unter Vergleichszeitraum → Vertrieb / Lead-Zufluss prüfen.",
     format: "currency",
-    compute: ({ processes }) => {
-      const from = startOfYear();
-      const sold = processes.filter((p) => handoverInRange(p, from));
+    timeMode: "range",
+    compute: ({ processes, range }) => {
+      const sold = processes.filter((p) => handoverInRange(p, range.from, range.to));
       const value = sold.reduce((s, p) => s + (p.fields.finalPrice ?? 0), 0);
-      return { value, display: fmt(value, "currency"), sub: `${sold.length} Übergaben in ${from.getFullYear()}` };
-    },
-  },
-  {
-    id: "revenue_month",
-    label: "Monatsumsatz",
-    category: "Umsatz",
-    description: "Summe der Verkäufe im aktuellen Monat.",
-    interpretation:
-      "Zeigt die kurzfristige Verkaufsdynamik. Vergleichswert zum Vormonat / Monatsziel. Niedriger Wert mid-month bei vollem Bestand → aktive Vermarktung / Preise prüfen.",
-    format: "currency",
-    compute: ({ processes }) => {
-      const from = startOfMonth();
-      const sold = processes.filter((p) => handoverInRange(p, from));
-      const value = sold.reduce((s, p) => s + (p.fields.finalPrice ?? 0), 0);
-      return { value, display: fmt(value, "currency"), sub: `${sold.length} Übergaben` };
-    },
-  },
-  {
-    id: "revenue_week",
-    label: "Wochenumsatz",
-    category: "Umsatz",
-    description: "Summe der Verkäufe in der laufenden Woche.",
-    interpretation:
-      "Sehr kurzfristiger Puls — gut für Tagesgeschäft & Wochen-Standups. Schwankt naturgemäß stark, einzelner Premium-Verkauf kann ihn dominieren.",
-    format: "currency",
-    compute: ({ processes }) => {
-      const from = startOfWeek();
-      const sold = processes.filter((p) => handoverInRange(p, from));
-      const value = sold.reduce((s, p) => s + (p.fields.finalPrice ?? 0), 0);
-      return { value, display: fmt(value, "currency"), sub: `${sold.length} Übergaben` };
-    },
-  },
-  {
-    id: "revenue_booked",
-    label: "Umsatz (gebucht)",
-    category: "Umsatz",
-    description: "Anzahlungen + Schlussrechnungen, ohne Doppelzählung.",
-    interpretation:
-      "Zeigt das bereits buchhalterisch gesicherte Volumen — also Geld, das entweder schon eingegangen ist (Anzahlung) oder über eine Rechnung verbindlich gestellt wurde. Der relevante Wert für Liquiditätsplanung.",
-    format: "currency",
-    compute: ({ processes }) => {
-      const invoiced = processes.filter((p) => p.steps.invoicing?.status === "completed");
-      const invoicedRevenue = invoiced.reduce((s, p) => s + (p.fields.finalPrice ?? 0), 0);
-      const dpReceived = processes.reduce((s, p) => s + (p.fields.downPayment?.received ? (p.fields.downPayment.amount ?? 0) : 0), 0);
-      const dpInInvoiced = invoiced.reduce((s, p) => s + (p.fields.downPayment?.received ? (p.fields.downPayment.amount ?? 0) : 0), 0);
-      const value = invoicedRevenue + (dpReceived - dpInInvoiced);
-      return { value, display: fmt(value, "currency"), sub: "Anzahlungen + Rechnungen" };
+      return { value, display: fmt(value, "currency"), sub: `${sold.length} Übergaben · ${range.label}` };
     },
   },
   {
     id: "revenue_invoiced",
     label: "Umsatz (Rechnungen)",
     category: "Umsatz",
-    description: "Tatsächlich gestellte Schlussrechnungen.",
+    description: "Tatsächlich gestellte Schlussrechnungen im Zeitraum.",
     interpretation:
-      "Buchhalterischer Bruttoumsatz aus formellen Rechnungen — Basis für USt-Voranmeldung & GuV. Differenz zum „Gebucht“-Wert = noch nicht abgerechnete Anzahlungen.",
+      "Buchhalterischer Bruttoumsatz aus formellen Rechnungen — Basis für USt-Voranmeldung & GuV.",
     format: "currency",
-    compute: ({ processes }) => {
-      const invoiced = processes.filter((p) => p.steps.invoicing?.status === "completed");
-      const value = invoiced.reduce((s, p) => s + (p.fields.finalPrice ?? 0), 0);
-      return { value, display: fmt(value, "currency"), sub: `${invoiced.length} Rechnungen` };
+    timeMode: "range",
+    compute: ({ processes, range }) => {
+      const inv = processes.filter((p) => invoicedInRange(p, range.from, range.to));
+      const value = inv.reduce((s, p) => s + (p.fields.finalPrice ?? 0), 0);
+      return { value, display: fmt(value, "currency"), sub: `${inv.length} Rechnungen · ${range.label}` };
     },
   },
   {
-    id: "revenue_invoiced_month",
-    label: "Rechnungen (Monat)",
+    id: "revenue_booked",
+    label: "Umsatz (gebucht)",
     category: "Umsatz",
-    description: "Schlussrechnungen, die im laufenden Monat gestellt wurden.",
+    description: "Anzahlungen + Schlussrechnungen im Zeitraum, ohne Doppelzählung.",
     interpretation:
-      "Relevanter Wert für die monatliche USt-Voranmeldung. Ein Spike am Monatsende ist normal (Rechnungen werden gebündelt gestellt).",
+      "Bereits buchhalterisch gesichertes Volumen — relevanter Wert für Liquiditätsplanung.",
     format: "currency",
-    compute: ({ processes }) => {
-      const from = startOfMonth();
-      const inv = processes.filter((p) => invoicedInRange(p, from));
-      const value = inv.reduce((s, p) => s + (p.fields.finalPrice ?? 0), 0);
-      return { value, display: fmt(value, "currency"), sub: `${inv.length} Rechnungen` };
+    timeMode: "range",
+    compute: ({ processes, range }) => {
+      const invoiced = processes.filter((p) => invoicedInRange(p, range.from, range.to));
+      const invoicedRevenue = invoiced.reduce((s, p) => s + (p.fields.finalPrice ?? 0), 0);
+      // Anzahlungen werden ohne explizite Datums-Info erfasst — hier alle erhaltenen
+      // einbeziehen und Doppelzählung mit Rechnungen vermeiden.
+      const dpReceived = processes.reduce(
+        (s, p) => s + (p.fields.downPayment?.received ? (p.fields.downPayment.amount ?? 0) : 0),
+        0
+      );
+      const dpInInvoiced = invoiced.reduce(
+        (s, p) => s + (p.fields.downPayment?.received ? (p.fields.downPayment.amount ?? 0) : 0),
+        0
+      );
+      const value = invoicedRevenue + (dpReceived - dpInInvoiced);
+      return { value, display: fmt(value, "currency"), sub: `Anzahlungen + Rechnungen · ${range.label}` };
     },
   },
   {
     id: "down_payments_received",
     label: "Anzahlungen erhalten",
     category: "Umsatz",
-    description: "Bereits eingegangene Anzahlungen aus laufenden Vorgängen.",
+    description: "Bereits eingegangene Anzahlungen (Stichtag, alle laufenden Vorgänge).",
     interpretation:
-      "Bereits zugeflossene Liquidität, die vertraglich an einen noch laufenden Vorgang gebunden ist. Hoch = viele aktive, finanziell abgesicherte Verkäufe.",
+      "Bereits zugeflossene Liquidität, vertraglich an einen noch laufenden Vorgang gebunden.",
     format: "currency",
+    timeMode: "static",
     compute: ({ processes }) => {
-      const value = processes.reduce((s, p) => s + (p.fields.downPayment?.received ? (p.fields.downPayment.amount ?? 0) : 0), 0);
+      const value = processes.reduce(
+        (s, p) => s + (p.fields.downPayment?.received ? (p.fields.downPayment.amount ?? 0) : 0),
+        0
+      );
       return { value, display: fmt(value, "currency"), sub: "Cashflow im Prozess" };
     },
   },
@@ -188,10 +159,11 @@ export const KPI_CATALOG: KpiDef[] = [
     id: "down_payments_open",
     label: "Anzahlungen offen",
     category: "Umsatz",
-    description: "Vereinbarte, aber noch nicht eingegangene Anzahlungen.",
+    description: "Vereinbarte, aber noch nicht eingegangene Anzahlungen (Stichtag).",
     interpretation:
-      "Risiko-Wert: Geld, mit dem gerechnet wird, das aber noch nicht da ist. Hoher Wert → aktiv beim Kunden nachfassen, sonst stockt der Vorgang.",
+      "Risiko-Wert: Geld, mit dem gerechnet wird, das aber noch nicht da ist. Hoher Wert → nachfassen.",
     format: "currency",
+    timeMode: "static",
     compute: ({ processes }) => {
       const value = processes.reduce((s, p) => {
         const dp = p.fields.downPayment;
@@ -204,10 +176,11 @@ export const KPI_CATALOG: KpiDef[] = [
     id: "open_receivables",
     label: "Offene Forderungen",
     category: "Umsatz",
-    description: "Rechnung gestellt, Übergabe noch ausstehend (abzüglich Anzahlung).",
+    description: "Rechnung gestellt, Übergabe noch ausstehend (abzüglich Anzahlung). Stichtag.",
     interpretation:
-      "Klassisches Debitorenrisiko: Rechnung raus, Geld noch nicht voll da, Fahrzeug noch im Hof. Sollte zeitnah Richtung Null gehen — sonst Mahnwesen aktivieren.",
+      "Klassisches Debitorenrisiko. Sollte zeitnah Richtung Null gehen — sonst Mahnwesen aktivieren.",
     format: "currency",
+    timeMode: "static",
     compute: ({ processes }) => {
       const value = processes
         .filter((p) => p.steps.invoicing?.status === "completed" && p.steps.delivery_confirmation?.status !== "completed")
@@ -223,57 +196,46 @@ export const KPI_CATALOG: KpiDef[] = [
   // -------- Verkauf & Marge --------
   {
     id: "profit_year",
-    label: "Jahresgewinn",
+    label: "Gewinn",
     category: "Verkauf & Marge",
-    description: "Gewinn der Übergaben seit Jahresbeginn (VK − EK − Kosten).",
+    description: "Gewinn der Übergaben im gewählten Zeitraum (VK − EK − Kosten).",
     interpretation:
-      "Echte Wertschöpfung des Jahres — wichtiger als der Bruttoumsatz. Sinkt bei Preisnachlässen oder hohen Aufbereitungskosten. Ziel: kontinuierlich steigender Trend.",
+      "Echte Wertschöpfung — wichtiger als Bruttoumsatz. Sinkt bei Preisnachlässen oder hohen Aufbereitungskosten.",
     format: "currency",
-    compute: ({ processes, vehicles }) => {
-      const sold = processes.filter((p) => handoverInRange(p, startOfYear()));
+    timeMode: "range",
+    compute: ({ processes, vehicles, range }) => {
+      const sold = processes.filter((p) => handoverInRange(p, range.from, range.to));
       const value = sold.reduce((s, p) => s + profitOf(p, vehicles), 0);
-      return { value, display: fmt(value, "currency"), sub: `${sold.length} Übergaben` };
+      return { value, display: fmt(value, "currency"), sub: `${sold.length} Übergaben · ${range.label}` };
     },
   },
   {
-    id: "profit_month",
-    label: "Monatsgewinn",
+    id: "profit_avg",
+    label: "Ø Gewinn / Verkauf",
     category: "Verkauf & Marge",
-    description: "Gewinn der Übergaben im laufenden Monat.",
+    description: "Durchschnittlicher Gewinn pro Übergabe im gewählten Zeitraum.",
     interpretation:
-      "Operativer Erfolg des Monats. Vergleich mit Monatsumsatz zeigt die Margenqualität — niedriger Gewinn bei hohem Umsatz = zu viel Rabatt oder zu hohe Kosten.",
+      'Steuerungsgröße für die Profitabilität eines „typischen" Deals. Sinkt → Einkauf oder Pricing prüfen.',
     format: "currency",
-    compute: ({ processes, vehicles }) => {
-      const sold = processes.filter((p) => handoverInRange(p, startOfMonth()));
-      const value = sold.reduce((s, p) => s + profitOf(p, vehicles), 0);
-      return { value, display: fmt(value, "currency"), sub: `${sold.length} Übergaben` };
-    },
-  },
-  {
-    id: "profit_total",
-    label: "Gewinn gesamt",
-    category: "Verkauf & Marge",
-    description: "Gewinn aller je übergebenen Fahrzeuge.",
-    interpretation:
-      "Lebenslange kumulierte Wertschöpfung. Der Ø-Wert pro Verkauf ist die wichtigere Steuerungsgröße — er zeigt, wie profitabel ein „typischer“ Deal ist.",
-    format: "currency",
-    compute: ({ processes, vehicles }) => {
-      const sold = processes.filter((p) => p.steps.delivery_confirmation?.status === "completed");
-      const value = sold.reduce((s, p) => s + profitOf(p, vehicles), 0);
-      const avg = sold.length ? value / sold.length : 0;
-      return { value, display: fmt(value, "currency"), sub: `Ø ${formatCurrency(avg)} / Verkauf` };
+    timeMode: "range",
+    compute: ({ processes, vehicles, range }) => {
+      const sold = processes.filter((p) => handoverInRange(p, range.from, range.to));
+      const total = sold.reduce((s, p) => s + profitOf(p, vehicles), 0);
+      const value = sold.length ? total / sold.length : 0;
+      return { value, display: fmt(value, "currency"), sub: `${sold.length} Verkäufe · ${range.label}` };
     },
   },
   {
     id: "margin_avg",
     label: "Ø Marge",
     category: "Verkauf & Marge",
-    description: "Durchschnittliche Bruttomarge der Verkäufe.",
+    description: "Durchschnittliche Bruttomarge der Verkäufe im Zeitraum.",
     interpretation:
-      "Effizienz-Indikator: Wieviel Prozent des Verkaufspreises bleiben als Roh-Gewinn? Branchenwert im Gebrauchtwagenhandel ~10–15%. Sinkt sie, sind Einkauf oder Standzeitkosten zu hoch.",
+      "Effizienz: Wieviel % vom VK bleibt als Roh-Gewinn? Branchenwert ~10–15%. Sinkt sie → EK oder Standzeit zu hoch.",
     format: "percent",
-    compute: ({ processes, vehicles }) => {
-      const sold = processes.filter((p) => p.steps.delivery_confirmation?.status === "completed");
+    timeMode: "range",
+    compute: ({ processes, vehicles, range }) => {
+      const sold = processes.filter((p) => handoverInRange(p, range.from, range.to));
       const value = sold.length
         ? sold.reduce((acc, p) => {
             const v = vehicles.find((x) => x.id === p.vehicleId);
@@ -283,17 +245,18 @@ export const KPI_CATALOG: KpiDef[] = [
             return acc + (sale > 0 ? ((sale - ek) / sale) * 100 : 0);
           }, 0) / sold.length
         : 0;
-      return { value, display: fmt(value, "percent"), sub: `${sold.length} Verkäufe` };
+      return { value, display: fmt(value, "percent"), sub: `${sold.length} Verkäufe · ${range.label}` };
     },
   },
   {
     id: "conversion_rate",
     label: "Conversion",
     category: "Verkauf & Marge",
-    description: "Angenommene Angebote ÷ alle versendeten Angebote.",
+    description: "Angenommene Angebote ÷ alle entschiedenen Angebote (gesamt).",
     interpretation:
-      "Effizienz des Vertriebs: Wie viele Angebote werden zu echten Aufträgen? Werte unter 20% deuten auf Preis-, Qualifikations- oder Nachfass-Probleme hin.",
+      "Vertriebs-Effizienz. Werte unter 20% deuten auf Preis-, Qualifikations- oder Nachfass-Probleme.",
     format: "percent",
+    timeMode: "static",
     compute: ({ offers }) => {
       const sent = offers.filter((o) => o.status === "sent" || o.status === "accepted" || o.status === "rejected");
       const accepted = offers.filter((o) => o.status === "accepted").length;
@@ -307,10 +270,11 @@ export const KPI_CATALOG: KpiDef[] = [
     id: "stock_value",
     label: "Bestandswert",
     category: "Bestand",
-    description: "Listenpreise aller Fahrzeuge im Bestand inkl. reservierter.",
+    description: "Listenpreise aller Fahrzeuge im Bestand (Stichtag).",
     interpretation:
-      "Gebundenes Vermögen auf dem Hof. Hoher Wert = viel Kapital gebunden → braucht Verkaufsdynamik. Vergleich mit EK zeigt das Margenpotenzial.",
+      "Gebundenes Vermögen auf dem Hof. Hoch = viel Kapital gebunden → braucht Verkaufsdynamik.",
     format: "currency",
+    timeMode: "static",
     compute: ({ vehicles }) => {
       const stock = vehicles.filter((v) => v.status === "in_stock" || v.status === "reserved");
       const value = stock.reduce((s, v) => s + v.listPrice, 0);
@@ -322,10 +286,11 @@ export const KPI_CATALOG: KpiDef[] = [
     id: "stock_count",
     label: "Fahrzeuge im Bestand",
     category: "Bestand",
-    description: "Anzahl Fahrzeuge im Bestand inkl. reservierter.",
+    description: "Anzahl Fahrzeuge im Bestand inkl. reservierter (Stichtag).",
     interpretation:
-      "Operative Größe des Hofs. Zu viele Fahrzeuge = Kapitalbindung + Standzeitrisiko, zu wenige = drohende Umsatzlücken. Reservierungs-Anteil zeigt aktive Nachfrage.",
+      "Operative Größe des Hofs. Reservierungs-Anteil zeigt aktive Nachfrage.",
     format: "number",
+    timeMode: "static",
     compute: ({ vehicles }) => {
       const stock = vehicles.filter((v) => v.status === "in_stock" || v.status === "reserved");
       const reserved = vehicles.filter((v) => v.status === "reserved").length;
@@ -336,10 +301,11 @@ export const KPI_CATALOG: KpiDef[] = [
     id: "stock_age_avg",
     label: "Ø Standzeit",
     category: "Bestand",
-    description: "Durchschnittliche Tage im Hof (nur Bestand).",
+    description: "Durchschnittliche Tage im Hof (nur aktueller Bestand).",
     interpretation:
-      "Wichtigster Frühindikator für Liquiditätsprobleme. Faustregel: > 90 Tage = Preis prüfen, > 120 Tage = aktive Maßnahmen (Vermarktung, Rabatt).",
+      "Frühindikator für Liquiditätsprobleme. > 90 Tage = Preis prüfen, > 120 Tage = aktive Maßnahmen.",
     format: "days",
+    timeMode: "static",
     compute: ({ vehicles }) => {
       const now = Date.now();
       const ages = vehicles
@@ -353,15 +319,18 @@ export const KPI_CATALOG: KpiDef[] = [
     id: "cycle_time_avg",
     label: "Ø Durchlaufzeit",
     category: "Bestand",
-    description: "Tage von Vorgang-Anlage bis Übergabe.",
+    description: "Tage von Vorgang-Anlage bis Übergabe — für Übergaben im Zeitraum.",
     interpretation:
-      "Effizienz der Verkaufsabwicklung selbst. Lange Durchlaufzeit trotz Anzahlung = interne Engpässe (Aufbereitung, Papiere, Termin­findung).",
+      "Effizienz der Verkaufsabwicklung. Lang trotz Anzahlung = interne Engpässe (Aufbereitung, Termine).",
     format: "days",
-    compute: ({ processes }) => {
-      const sold = processes.filter((p) => p.steps.delivery_confirmation?.completedAt);
-      const times = sold.map((p) => Math.max(0, (new Date(p.steps.delivery_confirmation!.completedAt!).getTime() - new Date(p.createdAt).getTime()) / 86400000));
+    timeMode: "range",
+    compute: ({ processes, range }) => {
+      const sold = processes.filter((p) => handoverInRange(p, range.from, range.to));
+      const times = sold.map((p) =>
+        Math.max(0, (new Date(p.steps.delivery_confirmation!.completedAt!).getTime() - new Date(p.createdAt).getTime()) / 86400000)
+      );
       const value = times.length ? times.reduce((s, n) => s + n, 0) / times.length : 0;
-      return { value, display: fmt(value, "days"), sub: "Vorgang → Übergabe" };
+      return { value, display: fmt(value, "days"), sub: `${sold.length} Verkäufe · ${range.label}` };
     },
   },
 
@@ -370,10 +339,11 @@ export const KPI_CATALOG: KpiDef[] = [
     id: "costs_total",
     label: "Kosten gesamt",
     category: "Kosten",
-    description: "Brutto-Kosten aller Fahrzeuge (Werkstatt, Aufbereitung, …).",
+    description: "Brutto-Kosten aller Fahrzeuge (Werkstatt, Aufbereitung, …) — Stichtag.",
     interpretation:
-      "Summe aller fahrzeugbezogenen Aufwände. Verglichen mit dem Gewinn zeigt sie, wie kostenintensiv das aktuelle Portfolio ist.",
+      "Summe aller fahrzeugbezogenen Aufwände. Verglichen mit dem Gewinn zeigt sie, wie kostenintensiv das Portfolio ist.",
     format: "currency",
+    timeMode: "static",
     compute: ({ vehicles }) => {
       const value = vehicles.reduce((s, v) => s + vehicleTotalCostsGross(v), 0);
       return { value, display: fmt(value, "currency"), sub: `${vehicles.length} Fahrzeuge` };
@@ -383,10 +353,11 @@ export const KPI_CATALOG: KpiDef[] = [
     id: "costs_stock",
     label: "Kosten am Bestand",
     category: "Kosten",
-    description: "Brutto-Kosten der aktiv im Bestand stehenden Fahrzeuge.",
+    description: "Brutto-Kosten der aktiv im Bestand stehenden Fahrzeuge (Stichtag).",
     interpretation:
-      "Bereits investiertes Geld in Fahrzeuge, die noch nicht verkauft sind — also „gebundenes Aufbereitungskapital“. Senkt direkt die Marge bei Verkauf.",
+      "Bereits investiertes Geld in Fahrzeuge, die noch nicht verkauft sind — gebundenes Aufbereitungskapital.",
     format: "currency",
+    timeMode: "static",
     compute: ({ vehicles }) => {
       const stock = vehicles.filter((v) => v.status === "in_stock" || v.status === "reserved");
       const value = stock.reduce((s, v) => s + vehicleTotalCostsGross(v), 0);
@@ -397,10 +368,11 @@ export const KPI_CATALOG: KpiDef[] = [
     id: "costs_avg_vehicle",
     label: "Ø Kosten / Fahrzeug",
     category: "Kosten",
-    description: "Durchschnittliche Brutto-Kosten je Fahrzeug.",
+    description: "Durchschnittliche Brutto-Kosten je Fahrzeug (Stichtag).",
     interpretation:
-      "Steuerungsgröße für den Einkauf: Wie viel muss ein „typisches“ Fahrzeug zusätzlich verkraften, bevor es marktfähig ist? Hoch → Einkaufsqualität verbessern.",
+      'Wie viel muss ein „typisches" Fahrzeug zusätzlich verkraften, bevor es marktfähig ist? Hoch → Einkaufsqualität verbessern.',
     format: "currency",
+    timeMode: "static",
     compute: ({ vehicles }) => {
       const total = vehicles.reduce((s, v) => s + vehicleTotalCostsGross(v), 0);
       const value = vehicles.length ? total / vehicles.length : 0;
@@ -413,10 +385,11 @@ export const KPI_CATALOG: KpiDef[] = [
     id: "active_processes",
     label: "Aktive Vorgänge",
     category: "Pipeline",
-    description: "Vorgänge ohne abgeschlossene Übergabe.",
+    description: "Vorgänge ohne abgeschlossene Übergabe (Stichtag).",
     interpretation:
-      "Operative Arbeitslast. Hoher Wert in „in Kontrolle“ = Übergaben stehen kurz bevor (gut für Cashflow). Hoher Wert in frühen Phasen = volle Pipeline für die nächsten Wochen.",
+      'Operative Arbeitslast. Hoher Wert in „in Kontrolle" = Übergaben stehen kurz bevor (gut für Cashflow).',
     format: "number",
+    timeMode: "static",
     compute: ({ processes }) => {
       const active = processes.filter((p) => p.steps.delivery_confirmation?.status !== "completed");
       const inOutbound = active.filter((p) => p.currentStep === "outbound_check").length;
@@ -427,10 +400,11 @@ export const KPI_CATALOG: KpiDef[] = [
     id: "open_offers",
     label: "Offene Angebote",
     category: "Pipeline",
-    description: "Versendete, noch nicht entschiedene Angebote.",
+    description: "Versendete, noch nicht entschiedene Angebote (Stichtag).",
     interpretation:
-      "Vertriebsmotor — alle Angebote, die noch konvertiert werden können. Niedrig → mehr Leads / Angebote rausschicken. Hoch & alt → konsequent nachfassen.",
+      "Vertriebsmotor — alle Angebote, die noch konvertiert werden können.",
     format: "number",
+    timeMode: "static",
     compute: ({ offers }) => {
       const open = offers.filter((o) => o.status === "sent");
       return { value: open.length, display: fmt(open.length, "number"), sub: `${offers.length} Angebote gesamt` };
@@ -440,15 +414,30 @@ export const KPI_CATALOG: KpiDef[] = [
     id: "pipeline_value",
     label: "Pipeline-Wert",
     category: "Pipeline",
-    description: "Summe finalPrice aller laufenden Vorgänge.",
+    description: "Summe finalPrice aller laufenden Vorgänge (Stichtag).",
     interpretation:
-      "Erwarteter Umsatz aus aktuell laufenden Verkäufen — also die nächsten Wochen Umsatz, sofern alle Vorgänge wie geplant durchlaufen. Die Forecast-Zahl.",
+      "Erwarteter Umsatz aus aktuell laufenden Verkäufen — die Forecast-Zahl.",
     format: "currency",
+    timeMode: "static",
     compute: ({ processes }) => {
       const value = processes
         .filter((p) => p.steps.delivery_confirmation?.status !== "completed")
         .reduce((s, p) => s + (p.fields.finalPrice ?? 0), 0);
       return { value, display: fmt(value, "currency"), sub: "In Arbeit" };
+    },
+  },
+  {
+    id: "handovers_count",
+    label: "Übergaben",
+    category: "Pipeline",
+    description: "Anzahl der vollständig übergebenen Verkäufe im Zeitraum.",
+    interpretation:
+      "Volumen-Indikator: Wie viele Deals wurden abgeschlossen? Ergänzt den Umsatz um die Stückzahl.",
+    format: "number",
+    timeMode: "range",
+    compute: ({ processes, range }) => {
+      const sold = processes.filter((p) => handoverInRange(p, range.from, range.to));
+      return { value: sold.length, display: fmt(sold.length, "number"), sub: range.label };
     },
   },
 ];
@@ -468,9 +457,9 @@ export const KPI_BY_CATEGORY = (() => {
 // Default-Pin-Set
 export const DEFAULT_PINNED_KPIS = [
   "revenue_year",
-  "revenue_month",
   "profit_year",
-  "profit_month",
+  "margin_avg",
   "stock_value",
   "stock_count",
+  "active_processes",
 ];

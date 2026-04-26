@@ -3,11 +3,12 @@
 
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Pin, PinOff, GripVertical, Info } from "lucide-react";
+import { Pin, PinOff, GripVertical, Info, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useDashboardStore } from "@/store/dashboardStore";
 import { useProcessStore } from "@/store/processStore";
 import { KpiDef } from "@/lib/kpis";
+import { useKpiRange } from "@/context/KpiRangeContext";
 import { useMemo } from "react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -22,13 +23,14 @@ export const KpiCard = ({ kpi, variant = "catalog", dragHandleProps }: KpiCardPr
   const processes = useProcessStore((s) => s.processes);
   const offers = useProcessStore((s) => s.offers);
   const customers = useProcessStore((s) => s.customers);
+  const { range } = useKpiRange();
 
   const togglePin = useDashboardStore((s) => s.togglePin);
   const pinned = useDashboardStore((s) => s.pinnedKpis.includes(kpi.id));
 
   const result = useMemo(
-    () => kpi.compute({ vehicles, processes, offers, customers }),
-    [kpi, vehicles, processes, offers, customers]
+    () => kpi.compute({ vehicles, processes, offers, customers, range }),
+    [kpi, vehicles, processes, offers, customers, range]
   );
 
   return (
@@ -43,6 +45,18 @@ export const KpiCard = ({ kpi, variant = "catalog", dragHandleProps }: KpiCardPr
           <p className="text-xs uppercase tracking-wider text-muted-foreground font-medium truncate">
             {kpi.label}
           </p>
+          {kpi.timeMode === "range" && (
+            <Tooltip delayDuration={150}>
+              <TooltipTrigger asChild>
+                <span className="text-primary-glow/70 shrink-0" aria-label="Zeitraum-abhängig">
+                  <Clock className="size-3" />
+                </span>
+              </TooltipTrigger>
+              <TooltipContent side="top" className="text-xs">
+                Wert für: {range.label}
+              </TooltipContent>
+            </Tooltip>
+          )}
           <Tooltip delayDuration={150}>
             <TooltipTrigger asChild>
               <button
