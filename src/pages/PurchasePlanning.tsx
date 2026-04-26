@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -6,11 +6,16 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { useProcessStore } from "@/store/processStore";
 import { formatCurrency, formatDate, PurchasePlanStatus, VEHICLE_TYPE_LABELS, VehicleType, FuelType, Transmission } from "@/data/process";
 import { Plus, Search, Truck, CheckCircle2, Clock, Package, Ban } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+
+type PlanSortKey = "expected_asc" | "expected_desc" | "created_desc" | "price_asc" | "price_desc" | "supplier";
 
 const STATUS_META: Record<PurchasePlanStatus, { label: string; className: string; icon: any }> = {
   open: { label: "Offen", className: "bg-info/15 text-info border-info/30", icon: Clock },
