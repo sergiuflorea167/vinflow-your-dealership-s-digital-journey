@@ -7,10 +7,11 @@ import { GoalsPanel, computeGoalProgress } from "@/components/dashboard/GoalsPan
 import { useProcessStore } from "@/store/processStore";
 import {
   PROCESS_STEPS, VEHICLE_TYPE_LABELS, VehicleType, formatCurrency,
-  vehicleTotalCostsGross, stepIndex,
+  vehicleTotalCostsGross, COST_CATEGORY_LABELS, CostCategory,
 } from "@/data/process";
 import {
   TrendingUp, Car, Workflow, Euro, Timer, Target, Wallet, Layers, Activity as ActivityIcon, FileCheck2,
+  Receipt, Banknote,
 } from "lucide-react";
 
 const daysBetween = (a: string, b: string) =>
@@ -25,8 +26,43 @@ const KPIs = () => {
   const goals = useProcessStore((s) => s.goals);
 
   const stats = useMemo(() => {
+    // ----- Verkäufe (Übergabe abgeschlossen) -----
     const sold = processes.filter((p) => p.steps.delivery_confirmation?.status === "completed");
     const revenue = sold.reduce((s, p) => s + (p.fields.finalPrice ?? 0), 0);
+
+    // ----- Tatsächliche Umsätze (Schlussrechnung gestellt) -----
+    const invoiced = processes.filter((p) => p.steps.invoicing?.status === "completed");
+    const invoicedRevenue = invoiced.reduce((s, p) => s + (p.fields.finalPrice ?? 0), 0);
+
+    // ----- Anzahlungen / Cashflow -----
+    const downPaymentsReceived = processes.reduce((s, p) => {
+      const dp = p.fields.downPayment;
+      return s + (dp?.received ? dp.amount ?? 0 : 0);
+    }, 0);
+    const downPaymentsOpen = processes.reduce((s, p) => {
+      const dp = p.fields.downPayment;
+      return s + (dp && !dp.received ? dp.amount ?? 0 : 0);
+    }, 0);
+
+    // Gebuchter Umsatz = invoicierter Umsatz + erhaltene Anzahlungen aus noch nicht invoicierten Vorgängen
+    const dpInInvoiced = invoiced.reduce((s, p) => s + (p.fields.downPayment?.received ? (p.fields.downPayment.amount ?? 0) : 0), 0);
+    const bookedRevenue = invoicedRevenue + (downPaymentsReceived - dpInInvoiced);
+
+    // Pipeline-Wert: Vorgänge in Arbeit (noch nicht Übergabe), basierend auf finalPrice
+    const pipelineValue = processes
+      .filter((p) => p.steps.delivery_confirmation?.status !== "completed")
+      .reduce((s, p) => s + (p.fields.finalPrice ?? 0), 0);
+
+    // Offene Forderungen: invoicing completed, delivery noch nicht
+    const openReceivables = processes
+      .filter((p) => p.steps.invoicing?.status === "completed" && p.steps.delivery_confirmation?.status !== "completed")
+      .reduce((s, p) => {
+        const total = p.fields.finalPrice ?? 0;
+        const dp = p.fields.downPayment?.received ? (p.fields.downPayment.amount ?? 0) : 0;
+        return s + Math.max(0, total - dp);
+      }, 0);
+
+    // ----- Gewinn (auf verkaufte Fahrzeuge) -----
     const profit = sold.reduce((s, p) => {
       const v = vehicles.find((x) => x.id === p.vehicleId);
       if (!v) return s;
@@ -34,29 +70,49 @@ const KPIs = () => {
       return s + ((p.fields.finalPrice ?? 0) - ek);
     }, 0);
 
+    // ----- Bestand -----
     const inStock = vehicles.filter((v) => v.status === "in_stock");
     const reserved = vehicles.filter((v) => v.status === "reserved");
-    const stockValue = [...inStock, ...reserved].reduce((s, v) => s + v.listPrice, 0);
-    const stockCost = [...inStock, ...reserved].reduce((s, v) => s + v.purchasePrice + vehicleTotalCostsGross(v), 0);
+    const stockVehicles = [...inStock, ...reserved];
+    const stockValue = stockVehicles.reduce((s, v) => s + v.listPrice, 0);
+    const stockEK = stockVehicles.reduce((s, v) => s + v.purchasePrice, 0);
+    const stockCosts = stockVehicles.reduce((s, v) => s + vehicleTotalCostsGross(v), 0);
+    const stockTotalCost = stockEK + stockCosts;
 
+    // ----- Kosten gesamt (alle Fahrzeuge) -----
+    const totalCostsAll = vehicles.reduce((s, v) => s + vehicleTotalCostsGross(v), 0);
+    const costsByCategory: Record<string, number> = {};
+    vehicles.forEach((v) => {
+      v.costs.forEach((c) => {
+        const gross = c.netAmount * (1 + c.vatRate / 100);
+        costsByCategory[c.category] = (costsByCategory[c.category] ?? 0) + gross;
+      });
+    });
+    const costsSold = sold.reduce((s, p) => {
+      const v = vehicles.find((x) => x.id === p.vehicleId);
+      return s + (v ? vehicleTotalCostsGross(v) : 0);
+    }, 0);
+    const avgCostPerVehicle = vehicles.length ? totalCostsAll / vehicles.length : 0;
+
+    // ----- Conversion -----
     const offersSent = offers.filter((o) => o.status === "sent" || o.status === "accepted" || o.status === "rejected");
     const offersAccepted = offers.filter((o) => o.status === "accepted").length;
     const conversionRate = offersSent.length ? (offersAccepted / offersSent.length) * 100 : 0;
 
-    // Bestandsalter (Tage seit arrivedAt)
+    // ----- Bestandsalter -----
     const now = Date.now();
-    const ages = [...inStock, ...reserved]
+    const ages = stockVehicles
       .filter((v) => v.arrivedAt)
       .map((v) => (now - new Date(v.arrivedAt!).getTime()) / 86400000);
     const avgAge = ages.length ? ages.reduce((s, n) => s + n, 0) / ages.length : 0;
 
-    // Durchlaufzeit (Vorgang erstellt → Übergabe abgeschlossen)
+    // ----- Durchlaufzeit -----
     const cycleTimes = sold
       .filter((p) => p.steps.delivery_confirmation?.completedAt)
       .map((p) => daysBetween(p.createdAt, p.steps.delivery_confirmation!.completedAt!));
     const avgCycle = cycleTimes.length ? cycleTimes.reduce((s, n) => s + n, 0) / cycleTimes.length : 0;
 
-    // Marge in %
+    // ----- Marge -----
     const avgMarginPct = sold.length
       ? sold.reduce((acc, p) => {
           const v = vehicles.find((x) => x.id === p.vehicleId);
@@ -66,9 +122,14 @@ const KPIs = () => {
           return acc + (sale > 0 ? ((sale - ek) / sale) * 100 : 0);
         }, 0) / sold.length
       : 0;
+    const avgProfitPerSale = sold.length ? profit / sold.length : 0;
 
     return {
-      sold, revenue, profit, inStock, reserved, stockValue, stockCost,
+      sold, revenue, invoiced, invoicedRevenue, downPaymentsReceived, downPaymentsOpen, bookedRevenue,
+      pipelineValue, openReceivables,
+      profit, avgProfitPerSale,
+      inStock, reserved, stockVehicles, stockValue, stockEK, stockCosts, stockTotalCost,
+      totalCostsAll, costsByCategory, costsSold, avgCostPerVehicle,
       offersSent: offersSent.length, offersAccepted, conversionRate,
       avgAge, avgCycle, avgMarginPct,
     };
@@ -149,23 +210,82 @@ const KPIs = () => {
           </div>
         </div>
 
-        {/* Top KPI strip */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <Kpi icon={Euro} label="Umsatz (verkauft)" value={formatCurrency(stats.revenue)} sub={`${stats.sold.length} Übergaben`} accent />
-          <Kpi icon={TrendingUp} label="Gewinn" value={formatCurrency(stats.profit)} sub={`Ø Marge ${stats.avgMarginPct.toFixed(1)}%`} />
-          <Kpi icon={Wallet} label="Bestandswert" value={formatCurrency(stats.stockValue)} sub={`EK ${formatCurrency(stats.stockCost)}`} />
-          <Kpi icon={Car} label="Bestand" value={`${stats.inStock.length + stats.reserved.length}`} sub={`${stats.reserved.length} reserviert`} />
-        </div>
-
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <Kpi icon={Workflow} label="Aktive Vorgänge" value={`${processes.filter((p) => p.steps.delivery_confirmation?.status !== "completed").length}`} />
-          <Kpi icon={FileCheck2} label="Conversion (Angebote)" value={`${stats.conversionRate.toFixed(0)}%`} sub={`${stats.offersAccepted}/${stats.offersSent} angenommen`} />
-          <Kpi icon={Timer} label="Ø Durchlaufzeit" value={`${stats.avgCycle.toFixed(1)} Tage`} sub="Vorgang → Übergabe" />
-          <Kpi icon={Target} label="Ø Standzeit" value={`${stats.avgAge.toFixed(0)} Tage`} sub="Bestand im Hof" />
-        </div>
-
-        {/* Goals */}
+        {/* Goals zuerst – Motivation */}
         <GoalsPanel />
+
+        {/* Umsatz */}
+        <div>
+          <h2 className="text-sm uppercase tracking-wider text-muted-foreground font-semibold mb-3">Umsatz & Cashflow</h2>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <Kpi icon={Euro} label="Umsatz (gebucht)" value={formatCurrency(stats.bookedRevenue)} sub="Anzahlungen + Schlussrechnungen" accent />
+            <Kpi icon={Receipt} label="Umsatz (Rechnungen)" value={formatCurrency(stats.invoicedRevenue)} sub={`${stats.invoiced.length} Rechnungen gestellt`} />
+            <Kpi icon={Banknote} label="Anzahlungen erhalten" value={formatCurrency(stats.downPaymentsReceived)} sub={stats.downPaymentsOpen > 0 ? `${formatCurrency(stats.downPaymentsOpen)} offen` : "Alle eingegangen"} />
+            <Kpi icon={Wallet} label="Offene Forderungen" value={formatCurrency(stats.openReceivables)} sub="Rechnung gestellt, noch nicht bezahlt" />
+          </div>
+        </div>
+
+        {/* Verkauf */}
+        <div>
+          <h2 className="text-sm uppercase tracking-wider text-muted-foreground font-semibold mb-3">Verkauf & Marge</h2>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <Kpi icon={TrendingUp} label="Gewinn (verkauft)" value={formatCurrency(stats.profit)} sub={`${stats.sold.length} Übergaben · Ø ${formatCurrency(stats.avgProfitPerSale)}`} />
+            <Kpi icon={Target} label="Ø Marge" value={`${stats.avgMarginPct.toFixed(1)}%`} sub={`Auf ${stats.sold.length} Verkäufe`} />
+            <Kpi icon={FileCheck2} label="Conversion" value={`${stats.conversionRate.toFixed(0)}%`} sub={`${stats.offersAccepted}/${stats.offersSent} Angebote`} />
+            <Kpi icon={Workflow} label="Pipeline-Wert" value={formatCurrency(stats.pipelineValue)} sub={`${processes.filter((p) => p.steps.delivery_confirmation?.status !== "completed").length} aktive Vorgänge`} />
+          </div>
+        </div>
+
+        {/* Bestand */}
+        <div>
+          <h2 className="text-sm uppercase tracking-wider text-muted-foreground font-semibold mb-3">Bestand</h2>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <Kpi icon={Wallet} label="Bestand (VK)" value={formatCurrency(stats.stockValue)} sub={`EK ${formatCurrency(stats.stockEK)}`} />
+            <Kpi icon={Car} label="Fahrzeuge" value={`${stats.stockVehicles.length}`} sub={`${stats.reserved.length} reserviert · ${stats.inStock.length} frei`} />
+            <Kpi icon={Timer} label="Ø Standzeit" value={`${stats.avgAge.toFixed(0)} Tage`} sub="Bestand im Hof" />
+            <Kpi icon={Layers} label="Ø Durchlaufzeit" value={`${stats.avgCycle.toFixed(1)} Tage`} sub="Vorgang → Übergabe" />
+          </div>
+        </div>
+
+        {/* Kosten */}
+        <div>
+          <h2 className="text-sm uppercase tracking-wider text-muted-foreground font-semibold mb-3">Kosten</h2>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <Kpi icon={Wallet} label="Kosten gesamt" value={formatCurrency(stats.totalCostsAll)} sub="Werkstatt, Aufbereitung, Transport …" accent />
+            <Kpi icon={Wallet} label="Kosten am Bestand" value={formatCurrency(stats.stockCosts)} sub="Aktive Fahrzeuge" />
+            <Kpi icon={Wallet} label="Kosten verkauft" value={formatCurrency(stats.costsSold)} sub={`${stats.sold.length} Verkäufe`} />
+            <Kpi icon={Wallet} label="Ø Kosten / Fahrzeug" value={formatCurrency(stats.avgCostPerVehicle)} sub="Über gesamten Bestand" />
+          </div>
+        </div>
+
+        {/* Kosten nach Kategorie */}
+        <Card className="p-6 bg-card border-border shadow-card">
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <h2 className="text-xl font-display font-semibold">Kosten nach Kategorie</h2>
+              <p className="text-sm text-muted-foreground mt-1">Brutto, alle Fahrzeuge</p>
+            </div>
+            <Wallet className="size-5 text-muted-foreground" />
+          </div>
+          <div className="space-y-3">
+            {Object.entries(stats.costsByCategory).length === 0 && (
+              <p className="text-sm text-muted-foreground">Noch keine Kosten erfasst.</p>
+            )}
+            {Object.entries(stats.costsByCategory)
+              .sort((a, b) => b[1] - a[1])
+              .map(([cat, value]) => {
+                const pct = stats.totalCostsAll > 0 ? (value / stats.totalCostsAll) * 100 : 0;
+                return (
+                  <div key={cat}>
+                    <div className="flex items-center justify-between text-sm mb-1.5">
+                      <span className="font-medium">{COST_CATEGORY_LABELS[cat as CostCategory] ?? cat}</span>
+                      <span className="text-muted-foreground text-xs">{formatCurrency(value)} · {pct.toFixed(1)}%</span>
+                    </div>
+                    <Progress value={pct} className="h-2" />
+                  </div>
+                );
+              })}
+          </div>
+        </Card>
 
         {/* Step timing */}
         <Card className="p-6 bg-card border-border shadow-card">

@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { useMemo } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -6,24 +7,48 @@ import { Badge } from "@/components/ui/badge";
 import { ProcessCard } from "@/components/process/ProcessCard";
 import { GoalsPanel } from "@/components/dashboard/GoalsPanel";
 import { useProcessStore } from "@/store/processStore";
-import { PROCESS_STEPS, formatCurrency, stepIndex } from "@/data/process";
-import { ArrowUpRight, TrendingUp, Workflow, FileCheck2, Car } from "lucide-react";
+import { PROCESS_STEPS, formatCurrency, vehicleTotalCostsGross } from "@/data/process";
+import { ArrowUpRight, TrendingUp, Workflow, FileCheck2, Car, Euro, Wallet, Receipt } from "lucide-react";
 
 const Dashboard = () => {
   const processes = useProcessStore((s) => s.processes);
   const vehicles = useProcessStore((s) => s.vehicles);
   const offers = useProcessStore((s) => s.offers);
 
-  const active = processes.filter((p) => stepIndex(p.currentStep) < PROCESS_STEPS.length - 1
-    || p.steps[p.currentStep].status !== "completed");
-  const inOutbound = processes.filter((p) => p.currentStep === "outbound_check").length;
-  const fleetValue = vehicles.filter((v) => v.status === "in_stock" || v.status === "reserved")
-    .reduce((s, v) => s + v.listPrice, 0);
-  const docsArchived = processes.reduce(
-    (s, p) => s + Object.values(p.steps).filter((x) => x.status === "completed").length,
-    0
-  );
-  const openOffers = offers.filter((o) => o.status === "sent").length;
+  const metrics = useMemo(() => {
+    const active = processes.filter((p) => p.steps.delivery_confirmation?.status !== "completed");
+    const inOutbound = processes.filter((p) => p.currentStep === "outbound_check").length;
+
+    // Bestand
+    const stockVehicles = vehicles.filter((v) => v.status === "in_stock" || v.status === "reserved");
+    const fleetValue = stockVehicles.reduce((s, v) => s + v.listPrice, 0);
+    const fleetEK = stockVehicles.reduce((s, v) => s + v.purchasePrice + vehicleTotalCostsGross(v), 0);
+
+    // Umsatz „dynamisch" = bereits gebuchter Cashflow (Anzahlungen erhalten + Schlussrechnungen)
+    // Anzahlungen
+    const downPaymentsReceived = processes.reduce((s, p) => {
+      const dp = p.fields.downPayment;
+      return s + (dp?.received ? dp.amount ?? 0 : 0);
+    }, 0);
+    // Tatsächlicher Umsatz = Schlussrechnung gestellt (invoicing completed) → finalPrice fließt vollständig ein
+    const invoicedProcesses = processes.filter((p) => p.steps.invoicing?.status === "completed");
+    const invoicedRevenue = invoicedProcesses.reduce((s, p) => s + (p.fields.finalPrice ?? 0), 0);
+
+    // „Gebuchter Umsatz" = Anzahlungen + Restzahlungen (Schlussrechnung). Doppelt gezählte Anzahlungen
+    // bei bereits invoicierten Vorgängen abziehen.
+    const dpAlreadyInvoiced = invoicedProcesses.reduce((s, p) => s + (p.fields.downPayment?.received ? (p.fields.downPayment.amount ?? 0) : 0), 0);
+    const bookedRevenue = invoicedRevenue + (downPaymentsReceived - dpAlreadyInvoiced);
+
+    // Kosten am Bestand (alle aktiven Fahrzeuge)
+    const stockCosts = stockVehicles.reduce((s, v) => s + vehicleTotalCostsGross(v), 0);
+
+    const docsArchived = processes.reduce(
+      (s, p) => s + Object.values(p.steps).filter((x) => x.status === "completed").length, 0
+    );
+    const openOffers = offers.filter((o) => o.status === "sent").length;
+
+    return { active, inOutbound, stockVehicles, fleetValue, fleetEK, downPaymentsReceived, invoicedRevenue, bookedRevenue, stockCosts, docsArchived, openOffers };
+  }, [processes, vehicles, offers]);
 
   const byStep = PROCESS_STEPS.map((step) => ({
     step,
@@ -65,14 +90,22 @@ const Dashboard = () => {
           </div>
         </div>
 
+        {/* Goals zuerst – Morgen-Motivation */}
+        <GoalsPanel />
+
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <KpiCard icon={Workflow} label="Aktive Vorgänge" value={active.length.toString()} accent />
-          <KpiCard icon={Car} label="Bestand (Wert)" value={formatCurrency(fleetValue)} sub={`${vehicles.length} Fahrzeuge`} />
-          <KpiCard icon={FileCheck2} label="Belege archiviert" value={docsArchived.toString()} />
-          <KpiCard icon={TrendingUp} label="Offene Angebote" value={openOffers.toString()} sub={`${inOutbound} in Kontrolle`} />
+          <KpiCard icon={Euro} label="Umsatz (gebucht)" value={formatCurrency(metrics.bookedRevenue)} sub="Anzahlungen + Rechnungen" accent />
+          <KpiCard icon={Receipt} label="Umsatz (Rechnungen)" value={formatCurrency(metrics.invoicedRevenue)} sub={`${processes.filter((p) => p.steps.invoicing?.status === "completed").length} Rechnungen gestellt`} />
+          <KpiCard icon={Wallet} label="Bestand (VK-Wert)" value={formatCurrency(metrics.fleetValue)} sub={`EK ${formatCurrency(metrics.fleetEK)}`} />
+          <KpiCard icon={Workflow} label="Aktive Vorgänge" value={metrics.active.length.toString()} sub={`${metrics.inOutbound} in Kontrolle · ${metrics.openOffers} offene Angebote`} />
         </div>
 
-        <GoalsPanel />
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <KpiCard icon={Car} label="Bestand" value={`${metrics.stockVehicles.length}`} sub={`${vehicles.length} Fahrzeuge gesamt`} />
+          <KpiCard icon={TrendingUp} label="Anzahlungen erhalten" value={formatCurrency(metrics.downPaymentsReceived)} sub="Cashflow im Prozess" />
+          <KpiCard icon={Wallet} label="Bestandskosten" value={formatCurrency(metrics.stockCosts)} sub="Werkstatt + Aufbereitung + Transport" />
+          <KpiCard icon={FileCheck2} label="Belege archiviert" value={metrics.docsArchived.toString()} sub="PDF-Kundenbelege" />
+        </div>
 
         <Card className="p-6 bg-card border-border shadow-card">
           <div className="flex items-center justify-between mb-6">
