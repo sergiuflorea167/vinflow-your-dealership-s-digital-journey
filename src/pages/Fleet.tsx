@@ -11,6 +11,7 @@ import {
 import { useProcessStore } from "@/store/processStore";
 import {
   formatCurrency,
+  formatDate,
   VehicleStatus,
   VEHICLE_TYPE_LABELS,
   VehicleType,
@@ -21,12 +22,11 @@ import { toast } from "sonner";
 import { VehicleIntakeDialog } from "@/components/fleet/VehicleIntakeDialog";
 import { cn } from "@/lib/utils";
 import { useTopbarSearch } from "@/context/TopbarSearchContext";
+import { SortableTh, SortState } from "@/components/shared/SortableTh";
 
 type FleetSortKey =
-  | "newest" | "oldest"
-  | "price_asc" | "price_desc"
-  | "mileage_asc" | "mileage_desc"
-  | "make";
+  | "name" | "type" | "year" | "mileage" | "power" | "color"
+  | "location" | "hu" | "stockDays" | "price" | "margin" | "openOffers" | "status";
 
 const STATUS_META: Record<VehicleStatus, { label: string; className: string }> = {
   planned:  { label: "Geplant",    className: "bg-info/15 text-info border-info/30" },
@@ -34,6 +34,8 @@ const STATUS_META: Record<VehicleStatus, { label: string; className: string }> =
   reserved: { label: "Reserviert", className: "bg-warning/15 text-warning border-warning/30" },
   sold:     { label: "Verkauft",   className: "bg-muted text-muted-foreground border-border" },
 };
+
+const STATUS_ORDER: Record<VehicleStatus, number> = { in_stock: 0, reserved: 1, planned: 2, sold: 3 };
 
 const Fleet = () => {
   const navigate = useNavigate();
