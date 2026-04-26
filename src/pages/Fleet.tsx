@@ -208,23 +208,25 @@ const Fleet = () => {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-border bg-background/30 text-left text-xs uppercase tracking-wider text-muted-foreground">
-                    <th className="px-5 py-3 font-medium">Fahrzeug</th>
-                    <th className="px-5 py-3 font-medium">Typ</th>
-                    <th className="px-5 py-3 font-medium">EZ / km</th>
-                    <th className="px-5 py-3 font-medium">Farbe</th>
-                    <th className="px-5 py-3 font-medium">Stellplatz</th>
-                    <th className="px-5 py-3 font-medium text-right">Listenpreis</th>
-                    <th className="px-5 py-3 font-medium text-right">Marge¹</th>
-                    <th className="px-5 py-3 font-medium text-center">Angebote</th>
-                    <th className="px-5 py-3 font-medium">Status</th>
+                  <tr className="border-b border-border bg-background/30">
+                    <SortableTh label="Fahrzeug" sortKey="name" state={sort} onChange={setSort} />
+                    <SortableTh label="Typ" sortKey="type" state={sort} onChange={setSort} />
+                    <SortableTh label="EZ / km" sortKey="mileage" state={sort} onChange={setSort} />
+                    <SortableTh label="Leistung" sortKey="power" state={sort} onChange={setSort} align="right" />
+                    <SortableTh label="HU" sortKey="hu" state={sort} onChange={setSort} />
+                    <SortableTh label="Stellplatz" sortKey="location" state={sort} onChange={setSort} />
+                    <SortableTh label="Tage" sortKey="stockDays" state={sort} onChange={setSort} align="right" />
+                    <SortableTh label="VK-Preis" sortKey="price" state={sort} onChange={setSort} align="right" />
+                    <SortableTh label="Marge¹" sortKey="margin" state={sort} onChange={setSort} align="right" />
+                    <SortableTh label="Angebote" sortKey="openOffers" state={sort} onChange={setSort} align="center" />
+                    <SortableTh label="Status" sortKey="status" state={sort} onChange={setSort} />
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map(({ vehicle, openOffers }) => {
+                  {filtered.map(({ vehicle, openOffers, margin, stockDays }) => {
                     const meta = STATUS_META[vehicle.status];
-                    const ek = vehicle.purchasePrice + vehicleTotalCostsGross(vehicle);
-                    const margin = vehicle.listPrice - ek;
+                    const huDate = vehicle.hu ? new Date(vehicle.hu) : null;
+                    const huSoon = huDate ? (huDate.getTime() - Date.now()) / 86400000 < 90 : false;
                     return (
                       <tr
                         key={vehicle.id}
@@ -238,17 +240,31 @@ const Fleet = () => {
                             </div>
                             <div className="min-w-0">
                               <p className="font-medium text-foreground truncate">{vehicle.make} {vehicle.model}</p>
-                              <p className="font-mono text-[10px] text-muted-foreground truncate">VIN {vehicle.vin}</p>
+                              <p className="text-[10px] text-muted-foreground truncate">{vehicle.color} · {vehicle.id}</p>
                             </div>
                           </div>
                         </td>
                         <td className="px-5 py-4 text-xs text-muted-foreground">{VEHICLE_TYPE_LABELS[vehicle.type]}</td>
                         <td className="px-5 py-4 text-xs text-muted-foreground whitespace-nowrap">
-                          <div>{vehicle.year}</div>
+                          <div className="text-foreground">{vehicle.year}</div>
                           <div>{vehicle.mileage.toLocaleString("de-DE")} km</div>
                         </td>
-                        <td className="px-5 py-4 text-xs text-foreground truncate max-w-[140px]">{vehicle.color}</td>
-                        <td className="px-5 py-4 text-xs text-muted-foreground truncate max-w-[180px]">{vehicle.location.name}</td>
+                        <td className="px-5 py-4 text-xs text-foreground text-right whitespace-nowrap">
+                          {vehicle.power_hp} <span className="text-muted-foreground">PS</span>
+                        </td>
+                        <td className={cn(
+                          "px-5 py-4 text-xs whitespace-nowrap",
+                          huSoon ? "text-warning font-medium" : "text-muted-foreground",
+                        )}>
+                          {vehicle.hu ? formatDate(vehicle.hu) : "–"}
+                        </td>
+                        <td className="px-5 py-4 text-xs text-muted-foreground truncate max-w-[160px]">{vehicle.location.name}</td>
+                        <td className={cn(
+                          "px-5 py-4 text-xs text-right font-medium whitespace-nowrap",
+                          stockDays > 90 ? "text-warning" : stockDays > 60 ? "text-foreground" : "text-muted-foreground",
+                        )}>
+                          {stockDays}
+                        </td>
                         <td className="px-5 py-4 text-right font-semibold whitespace-nowrap">{formatCurrency(vehicle.listPrice)}</td>
                         <td className={cn(
                           "px-5 py-4 text-right font-semibold whitespace-nowrap",
