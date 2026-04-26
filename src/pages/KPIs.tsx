@@ -40,7 +40,7 @@ const KPIs = () => {
   const processes = useProcessStore((s) => s.processes);
   const customers = useProcessStore((s) => s.customers);
   const activities = useProcessStore((s) => s.activities);
-  const purchasePlans = useProcessStore((s) => s.purchasePlans);
+  
 
   const pinnedCount = useDashboardStore((s) => s.pinnedKpis.length);
   const resetToDefault = useDashboardStore((s) => s.resetToDefault);
