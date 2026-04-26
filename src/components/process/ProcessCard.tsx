@@ -4,11 +4,16 @@ import { Badge } from "@/components/ui/badge";
 import { ChevronRight } from "lucide-react";
 import { Process, PROCESS_STEPS, formatCurrency, stepIndex } from "@/data/process";
 import { ProcessStepper } from "./ProcessStepper";
+import { useProcessStore } from "@/store/processStore";
 
 export const ProcessCard = ({ process }: { process: Process }) => {
+  const vehicle = useProcessStore((s) => s.getVehicle(process.vehicleId));
+  const customer = useProcessStore((s) => s.getCustomer(process.customerId));
   const idx = stepIndex(process.currentStep);
   const currentStep = PROCESS_STEPS[idx];
-  const progress = Math.round(((idx) / (PROCESS_STEPS.length - 1)) * 100);
+  const progress = Math.round((idx / (PROCESS_STEPS.length - 1)) * 100);
+
+  if (!vehicle || !customer) return null;
 
   return (
     <Link to={`/vorgaenge/${process.id}`}>
@@ -22,9 +27,9 @@ export const ProcessCard = ({ process }: { process: Process }) => {
               </Badge>
             </div>
             <p className="text-base font-display font-semibold text-foreground truncate">
-              {process.vehicle.make} {process.vehicle.model}
+              {vehicle.make} {vehicle.model}
             </p>
-            <p className="font-mono text-xs text-muted-foreground mt-0.5">VIN {process.vehicle.vin}</p>
+            <p className="font-mono text-xs text-muted-foreground mt-0.5">VIN {vehicle.vin}</p>
           </div>
           <ChevronRight className="size-4 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-smooth" />
         </div>
@@ -32,11 +37,13 @@ export const ProcessCard = ({ process }: { process: Process }) => {
         <div className="grid grid-cols-3 gap-3 mb-5 pb-5 border-b border-border/50">
           <div>
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Kunde</p>
-            <p className="text-sm text-foreground font-medium truncate mt-0.5">{process.customer.name}</p>
+            <p className="text-sm text-foreground font-medium truncate mt-0.5">{customer.name}</p>
           </div>
           <div>
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Preis</p>
-            <p className="text-sm text-foreground font-semibold mt-0.5">{formatCurrency(process.vehicle.price)}</p>
+            <p className="text-sm text-foreground font-semibold mt-0.5">
+              {formatCurrency(process.fields.finalPrice ?? vehicle.listPrice)}
+            </p>
           </div>
           <div>
             <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Fortschritt</p>
