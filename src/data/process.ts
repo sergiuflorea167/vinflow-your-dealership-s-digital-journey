@@ -57,6 +57,9 @@ export interface Todo {
   priority: TodoPriority;
   done: boolean;
   dueDate?: string;
+  /** Optionale Uhrzeit (HH:mm). Nur in Verbindung mit dueDate sinnvoll. */
+  startTime?: string;
+  endTime?: string;
   scope: TodoScope;
   vehicleId?: string;
   processId?: string;
@@ -65,6 +68,67 @@ export interface Todo {
   createdAt: string;
   completedAt?: string;
   createdBy: string;
+  /** Auto-erzeugte Verknüpfung zu einem Calendar-Event (1:1) */
+  calendarEventId?: string;
+}
+
+// ---------- Kalender ----------
+
+export type CalendarEventType =
+  | "appointment"   // klassischer Termin
+  | "todo"          // verlinkt mit einem To-Do
+  | "block"         // Tagesstruktur-Block (Fokus, Pause …)
+  | "viewing"       // Fahrzeug-Besichtigung
+  | "handover"      // Abholung / Übergabe
+  | "call"          // Telefonat
+  | "internal";     // intern / sonstiges
+
+export const CALENDAR_EVENT_TYPE_LABELS: Record<CalendarEventType, string> = {
+  appointment: "Termin",
+  todo:        "To-Do",
+  block:       "Tagesblock",
+  viewing:     "Besichtigung",
+  handover:    "Übergabe",
+  call:        "Telefonat",
+  internal:    "Intern",
+};
+
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  description?: string;
+  /** ISO Datum YYYY-MM-DD */
+  date: string;
+  /** HH:mm */
+  startTime: string;
+  /** HH:mm */
+  endTime: string;
+  type: CalendarEventType;
+  /** Hex- oder Token-Farbe (optional, sonst aus type) */
+  color?: string;
+  location?: string;
+  vehicleId?: string;
+  processId?: string;
+  customerId?: string;
+  /** verlinktes To-Do */
+  todoId?: string;
+  done?: boolean;
+  createdAt: string;
+  createdBy: string;
+}
+
+/** Vorlage für die Tagesstruktur (z. B. „Verkaufstag") */
+export interface DayTemplate {
+  id: string;
+  name: string;
+  description?: string;
+  blocks: Array<{
+    id: string;
+    title: string;
+    startTime: string;   // HH:mm
+    endTime: string;     // HH:mm
+    type: CalendarEventType;
+  }>;
 }
 
 // ---------- Fahrzeug ----------
