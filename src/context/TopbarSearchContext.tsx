@@ -75,14 +75,15 @@ export const useTopbarSearch = (cfg: TopbarSearchConfig | null) => {
 
   useEffect(() => {
     if (!enabled) return;
-    const proxy: TopbarSearchConfig = {
+    const makeProxy = (): TopbarSearchConfig => ({
       get placeholder() { return latestRef.current?.placeholder ?? ""; },
       get fields() { return latestRef.current?.fields ?? []; },
       get value() { return latestRef.current?.value ?? ""; },
       get field() { return latestRef.current?.field ?? ""; },
       onChange: (v) => latestRef.current?.onChange(v),
       onFieldChange: (f) => latestRef.current?.onFieldChange(f),
-    };
+    });
+    const proxy = makeProxy();
     store.current = proxy;
     notify(store);
     return () => {
@@ -93,9 +94,18 @@ export const useTopbarSearch = (cfg: TopbarSearchConfig | null) => {
     };
   }, [enabled, placeholder, fieldsKey, store]);
 
-  // Notify subscribers (Topbar) on every render so the controlled input
-  // reflects the latest `value` from the page state.
+  // On every page render, replace the snapshot with a fresh wrapper so
+  // useSyncExternalStore in the Topbar picks up the new `value`/`field`.
   useEffect(() => {
-    if (enabled) notify(store);
+    if (!enabled || !store.current) return;
+    store.current = {
+      get placeholder() { return latestRef.current?.placeholder ?? ""; },
+      get fields() { return latestRef.current?.fields ?? []; },
+      get value() { return latestRef.current?.value ?? ""; },
+      get field() { return latestRef.current?.field ?? ""; },
+      onChange: (v) => latestRef.current?.onChange(v),
+      onFieldChange: (f) => latestRef.current?.onFieldChange(f),
+    };
+    notify(store);
   });
 };
