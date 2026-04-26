@@ -228,6 +228,9 @@ const Customers = () => {
             </div>
           </Card>
         )}
+
+        {/* ---------- Kunden-Protokoll ---------- */}
+        <ActivityLog items={customerActivities} title="Kunden-Protokoll" maxItems={50} />
       </div>
     </AppShell>
   );
