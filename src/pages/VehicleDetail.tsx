@@ -245,18 +245,21 @@ const VehicleDetail = () => {
                     offer.status === "accepted" ? "bg-success/5 border-success/30" : "bg-background/40 border-border hover:border-primary/40"
                   )}>
                     <div className="flex items-center justify-between gap-4">
-                      <div className="flex items-center gap-3 min-w-0">
+                      <RouterLink
+                        to={`/angebote/${offer.id}`}
+                        className="flex items-center gap-3 min-w-0 flex-1 group"
+                      >
                         <div className="size-10 rounded-lg bg-secondary grid place-items-center text-secondary-foreground font-display font-bold text-sm shrink-0">
                           {cust?.name.split(" ").map((n) => n[0]).slice(0, 2).join("") ?? "?"}
                         </div>
                         <div className="min-w-0">
                           <div className="flex items-center gap-2">
-                            <p className="font-display font-semibold text-foreground truncate">{cust?.name ?? "Unbekannt"}</p>
+                            <p className="font-display font-semibold text-foreground truncate group-hover:text-primary-glow transition-smooth">{cust?.name ?? "Unbekannt"}</p>
                             <Badge className={meta.className}>{meta.label}</Badge>
                           </div>
                           <p className="text-xs text-muted-foreground font-mono">{offer.id} · gültig bis {formatDate(offer.validUntil)}</p>
                         </div>
-                      </div>
+                      </RouterLink>
                       <div className="text-right shrink-0">
                         <p className="font-display text-xl font-bold text-foreground">{formatCurrency(offer.price)}</p>
                         <p className="text-[10px] text-muted-foreground uppercase tracking-wider">erstellt {formatDate(offer.createdAt)}</p>
@@ -265,6 +268,11 @@ const VehicleDetail = () => {
 
                     {offer.status === "sent" && canAcceptMore && (
                       <div className="flex items-center gap-2 mt-3 pt-3 border-t border-border">
+                        <Button asChild size="sm" variant="outline" className="gap-1.5">
+                          <RouterLink to={`/angebote/${offer.id}`}>
+                            <FileText className="size-3.5" /> Beleg öffnen
+                          </RouterLink>
+                        </Button>
                         <Button size="sm" variant="outline" onClick={() => { updateOfferStatus(offer.id, "rejected"); toast.message("Angebot abgelehnt."); }} className="gap-1.5">
                           <X className="size-3.5" /> Ablehnen
                         </Button>
@@ -280,6 +288,11 @@ const VehicleDetail = () => {
                     )}
                     {offer.status === "draft" && (
                       <div className="flex items-center gap-2 mt-3 pt-3 border-t border-border">
+                        <Button asChild size="sm" variant="outline" className="gap-1.5">
+                          <RouterLink to={`/angebote/${offer.id}`}>
+                            <FileText className="size-3.5" /> Felder ausfüllen
+                          </RouterLink>
+                        </Button>
                         <Button size="sm" variant="outline" onClick={() => { updateOfferStatus(offer.id, "sent"); toast.success("Angebot versendet."); }} className="gap-1.5">
                           <Send className="size-3.5" /> Senden
                         </Button>
