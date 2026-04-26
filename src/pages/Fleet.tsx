@@ -16,10 +16,11 @@ import {
   VehicleType,
   vehicleTotalCostsGross,
 } from "@/data/process";
-import { Car, Search, Plus } from "lucide-react";
+import { Car, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { VehicleIntakeDialog } from "@/components/fleet/VehicleIntakeDialog";
 import { cn } from "@/lib/utils";
+import { useTopbarSearch } from "@/context/TopbarSearchContext";
 
 type FleetSortKey =
   | "newest" | "oldest"
@@ -43,10 +44,27 @@ const Fleet = () => {
   const addVehicle = useProcessStore((s) => s.addVehicle);
 
   const [query, setQuery] = useState("");
+  const [searchField, setSearchField] = useState<"all" | "vin" | "make" | "model" | "color" | "location">("all");
   const [filter, setFilter] = useState<"all" | VehicleStatus>("all");
   const [typeFilter, setTypeFilter] = useState<"all" | VehicleType>("all");
   const [sortKey, setSortKey] = useState<FleetSortKey>("newest");
   const [intakeOpen, setIntakeOpen] = useState(false);
+
+  useTopbarSearch({
+    placeholder: "Bestand durchsuchen…",
+    value: query,
+    onChange: setQuery,
+    field: searchField,
+    onFieldChange: (f) => setSearchField(f as typeof searchField),
+    fields: [
+      { key: "all",      label: "Alle Felder" },
+      { key: "vin",      label: "VIN" },
+      { key: "make",     label: "Marke" },
+      { key: "model",    label: "Modell" },
+      { key: "color",    label: "Farbe" },
+      { key: "location", label: "Stellplatz" },
+    ],
+  });
 
   const data = useMemo(() => {
     return vehicles.map((v) => {
@@ -63,12 +81,15 @@ const Fleet = () => {
       if (typeFilter !== "all" && vehicle.type !== typeFilter) return false;
       if (!query.trim()) return true;
       const q = query.toLowerCase();
-      return (
-        vehicle.vin.toLowerCase().includes(q) ||
-        vehicle.make.toLowerCase().includes(q) ||
-        vehicle.model.toLowerCase().includes(q) ||
-        vehicle.color.toLowerCase().includes(q)
-      );
+      const fields: Record<typeof searchField, string> = {
+        all: `${vehicle.vin} ${vehicle.make} ${vehicle.model} ${vehicle.color} ${vehicle.location.name}`,
+        vin: vehicle.vin,
+        make: vehicle.make,
+        model: vehicle.model,
+        color: vehicle.color,
+        location: vehicle.location.name,
+      };
+      return fields[searchField].toLowerCase().includes(q);
     });
 
     return [...list].sort((a, b) => {
@@ -83,7 +104,7 @@ const Fleet = () => {
         case "make":         return `${va.make} ${va.model}`.localeCompare(`${vb.make} ${vb.model}`);
       }
     });
-  }, [data, filter, typeFilter, query, sortKey]);
+  }, [data, filter, typeFilter, query, searchField, sortKey]);
 
   const stats = {
     total: vehicles.length,
