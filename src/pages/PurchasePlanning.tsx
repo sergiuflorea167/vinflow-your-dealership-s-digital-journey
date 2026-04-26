@@ -65,7 +65,7 @@ const PurchasePlanning = () => {
         <div className="flex items-end justify-between gap-4">
           <div>
             <h1 className="font-display text-3xl font-bold tracking-tight">Einkaufsplanung</h1>
-            <p className="text-sm text-muted-foreground mt-1">Plane Fahrzeugankäufe – beim Eintreffen wandern sie automatisch in die Flotte.</p>
+            <p className="text-sm text-muted-foreground mt-1">Plane Fahrzeugankäufe – beim Eintreffen wandern sie automatisch in den Bestand.</p>
           </div>
           <NewPlanDialog open={dialogOpen} onOpenChange={setDialogOpen} onSubmit={(p) => { addPlan(p); toast.success("Einkauf geplant."); setDialogOpen(false); }} />
         </div>
@@ -164,7 +164,7 @@ const PurchasePlanning = () => {
                         )}
                         {p.status === "received" && (
                           <span className="text-xs text-success inline-flex items-center gap-1.5">
-                            <CheckCircle2 className="size-3.5" /> In Flotte
+                            <CheckCircle2 className="size-3.5" /> Im Bestand
                           </span>
                         )}
                       </td>
