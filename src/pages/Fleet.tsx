@@ -50,12 +50,12 @@ const Fleet = () => {
   const [sortKey, setSortKey] = useState<FleetSortKey>("newest");
   const [intakeOpen, setIntakeOpen] = useState(false);
 
-  useTopbarSearch({
+  const topbarSearch = useMemo(() => ({
     placeholder: "Bestand durchsuchen…",
     value: query,
     onChange: setQuery,
     field: searchField,
-    onFieldChange: (f) => setSearchField(f as typeof searchField),
+    onFieldChange: (f: string) => setSearchField(f as typeof searchField),
     fields: [
       { key: "all",      label: "Alle Felder" },
       { key: "vin",      label: "VIN" },
@@ -64,7 +64,9 @@ const Fleet = () => {
       { key: "color",    label: "Farbe" },
       { key: "location", label: "Stellplatz" },
     ],
-  });
+  }), [query, searchField]);
+
+  useTopbarSearch(topbarSearch);
 
   const data = useMemo(() => {
     return vehicles.map((v) => {

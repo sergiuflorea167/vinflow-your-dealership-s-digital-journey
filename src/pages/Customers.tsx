@@ -24,19 +24,21 @@ const Customers = () => {
   const [filter, setFilter] = useState<CustomerFilter>("all");
   const [sortKey, setSortKey] = useState<CustomerSortKey>("name");
 
-  useTopbarSearch({
+  const topbarSearch = useMemo(() => ({
     placeholder: "Kunden durchsuchen…",
     value: query,
     onChange: setQuery,
     field: searchField,
-    onFieldChange: (f) => setSearchField(f as typeof searchField),
+    onFieldChange: (f: string) => setSearchField(f as typeof searchField),
     fields: [
       { key: "all",   label: "Alle Felder" },
       { key: "name",  label: "Name" },
       { key: "email", label: "E-Mail" },
       { key: "city",  label: "Stadt" },
     ],
-  });
+  }), [query, searchField]);
+
+  useTopbarSearch(topbarSearch);
 
   const enriched = useMemo(
     () =>

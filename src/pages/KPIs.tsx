@@ -45,18 +45,20 @@ const KPIs = () => {
   const [searchField, setSearchField] = useState<"all" | "label" | "description">("all");
   const [tab, setTab] = useState<KpiCategory>("Umsatz");
 
-  useTopbarSearch({
+  const topbarSearch = useMemo(() => ({
     placeholder: "KPI suchen…",
     value: query,
     onChange: setQuery,
     field: searchField,
-    onFieldChange: (f) => setSearchField(f as typeof searchField),
+    onFieldChange: (f: string) => setSearchField(f as typeof searchField),
     fields: [
       { key: "all",         label: "Alle Felder" },
       { key: "label",       label: "Name" },
       { key: "description", label: "Beschreibung" },
     ],
-  });
+  }), [query, searchField]);
+
+  useTopbarSearch(topbarSearch);
 
   const kpisFor = (cat: KpiCategory): KpiDef[] =>
     KPI_CATALOG.filter((k) => {
