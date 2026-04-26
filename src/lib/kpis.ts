@@ -215,7 +215,7 @@ export const KPI_CATALOG: KpiDef[] = [
     category: "Verkauf & Marge",
     description: "Durchschnittlicher Gewinn pro Übergabe im gewählten Zeitraum.",
     interpretation:
-      "Steuerungsgröße für die Profitabilität eines „typischen" Deals. Sinkt → Einkauf oder Pricing prüfen.",
+      'Steuerungsgröße für die Profitabilität eines „typischen" Deals. Sinkt → Einkauf oder Pricing prüfen.',
     format: "currency",
     timeMode: "range",
     compute: ({ processes, vehicles, range }) => {
@@ -370,7 +370,7 @@ export const KPI_CATALOG: KpiDef[] = [
     category: "Kosten",
     description: "Durchschnittliche Brutto-Kosten je Fahrzeug (Stichtag).",
     interpretation:
-      "Wie viel muss ein „typisches" Fahrzeug zusätzlich verkraften, bevor es marktfähig ist? Hoch → Einkaufsqualität verbessern.",
+      'Wie viel muss ein „typisches" Fahrzeug zusätzlich verkraften, bevor es marktfähig ist? Hoch → Einkaufsqualität verbessern.',
     format: "currency",
     timeMode: "static",
     compute: ({ vehicles }) => {
@@ -387,7 +387,7 @@ export const KPI_CATALOG: KpiDef[] = [
     category: "Pipeline",
     description: "Vorgänge ohne abgeschlossene Übergabe (Stichtag).",
     interpretation:
-      "Operative Arbeitslast. Hoher Wert in „in Kontrolle" = Übergaben stehen kurz bevor (gut für Cashflow).",
+      'Operative Arbeitslast. Hoher Wert in „in Kontrolle" = Übergaben stehen kurz bevor (gut für Cashflow).',
     format: "number",
     timeMode: "static",
     compute: ({ processes }) => {
