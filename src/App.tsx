@@ -8,6 +8,9 @@ import NotFound from "./pages/NotFound.tsx";
 import ProcessList from "./pages/ProcessList.tsx";
 import ProcessDetail from "./pages/ProcessDetail.tsx";
 import Fleet from "./pages/Fleet.tsx";
+import VehicleDetail from "./pages/VehicleDetail.tsx";
+import PurchasePlanning from "./pages/PurchasePlanning.tsx";
+import Customers from "./pages/Customers.tsx";
 
 const queryClient = new QueryClient();
 
@@ -19,9 +22,12 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />
+          <Route path="/einkaufsplanung" element={<PurchasePlanning />} />
+          <Route path="/flotte" element={<Fleet />} />
+          <Route path="/flotte/:id" element={<VehicleDetail />} />
           <Route path="/vorgaenge" element={<ProcessList />} />
           <Route path="/vorgaenge/:id" element={<ProcessDetail />} />
-          <Route path="/flotte" element={<Fleet />} />
+          <Route path="/kunden" element={<Customers />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
