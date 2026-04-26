@@ -5,9 +5,14 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { useProcessStore } from "@/store/processStore";
-import { formatCurrency, Vehicle, VehicleStatus } from "@/data/process";
-import { Car, Search, Gauge, Calendar, Palette, Hash, ArrowRight, FileText } from "lucide-react";
+import { formatCurrency, Vehicle, VehicleStatus, VEHICLE_TYPE_LABELS, VehicleType, vehicleTotalCostsGross } from "@/data/process";
+import { Car, Search, Gauge, Calendar, Palette, Hash, ArrowRight, FileText, ArrowDownAZ, ArrowUpAZ } from "lucide-react";
+
+type FleetSortKey = "newest" | "oldest" | "price_asc" | "price_desc" | "mileage_asc" | "mileage_desc" | "make";
 
 const Fleet = () => {
   const vehicles = useProcessStore((s) => s.vehicles);
