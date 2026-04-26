@@ -95,6 +95,7 @@ interface State {
   // ------- Todos -------
   addTodo: (t: Omit<Todo, "id" | "createdAt" | "createdBy" | "done">) => Todo;
   toggleTodo: (id: string) => void;
+  updateTodo: (id: string, patch: Partial<Omit<Todo, "id" | "createdAt" | "createdBy">>) => void;
   removeTodo: (id: string) => void;
 
   // ------- Goals & Settings -------
@@ -591,12 +592,22 @@ export const useProcessStore = create<State>()(
             const todo = state.todos.find((t) => t.id === id);
             return {
               ...state,
-              todos: state.todos.map((t) => (t.id === id ? { ...t, done: !t.done } : t)),
+              todos: state.todos.map((t) =>
+                t.id === id
+                  ? { ...t, done: !t.done, completedAt: !t.done ? new Date().toISOString() : undefined }
+                  : t,
+              ),
               activities: todo && !todo.done
                 ? logActivity(state, "todo_completed", `To-Do erledigt: ${todo.title}`, { vehicleId: todo.vehicleId, processId: todo.processId })
                 : state.activities,
             };
           }),
+
+        updateTodo: (id, patch) =>
+          set((state) => ({
+            ...state,
+            todos: state.todos.map((t) => (t.id === id ? { ...t, ...patch } : t)),
+          })),
 
         removeTodo: (id) =>
           set((state) => {
