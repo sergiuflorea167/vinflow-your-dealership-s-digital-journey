@@ -36,6 +36,8 @@ const ProcessDetail = () => {
   const completeStep = useProcessStore((s) => s.completeStep);
   const skipStep = useProcessStore((s) => s.skipStep);
   const cancelStep = useProcessStore((s) => s.cancelStep);
+  const bookStep = useProcessStore((s) => s.bookStep);
+  const unbookStep = useProcessStore((s) => s.unbookStep);
   const updateFields = useProcessStore((s) => s.updateProcessFields);
   const toggleChk = useProcessStore((s) => s.toggleOutboundChecklistItem);
   const addChk = useProcessStore((s) => s.addOutboundChecklistItem);
