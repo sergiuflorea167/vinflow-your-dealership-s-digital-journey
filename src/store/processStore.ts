@@ -423,6 +423,74 @@ export const useProcessStore = create<State>()(
             vehicles: state.vehicles.map((v) => (v.id !== vehicleId ? v : { ...v, costs: v.costs.filter((c) => c.id !== costId) })),
           })),
 
+        setVehicleListed: (vehicleId, listed) =>
+          set((state) => {
+            const vehicle = state.vehicles.find((v) => v.id === vehicleId);
+            if (!vehicle) return state;
+
+            const nowIso = new Date().toISOString();
+            const updatedVehicles = state.vehicles.map((v) =>
+              v.id !== vehicleId
+                ? v
+                : {
+                    ...v,
+                    listed: listed
+                      ? { active: true, listedAt: nowIso, portals: v.listed?.portals }
+                      : { active: false, listedAt: v.listed?.listedAt, portals: v.listed?.portals },
+                  }
+            );
+
+            // Auto-To-Do „Inserat erstellen" finden (offen, am Fahrzeug, mit Tag „auto").
+            const findAutoTodo = (todos: Todo[]) =>
+              todos.find(
+                (t) =>
+                  t.vehicleId === vehicleId &&
+                  !t.done &&
+                  t.title === "Inserat erstellen" &&
+                  (t.tags ?? []).includes("auto")
+              );
+
+            let updatedTodos = state.todos;
+            if (listed) {
+              const open = findAutoTodo(state.todos);
+              if (open) {
+                updatedTodos = state.todos.map((t) =>
+                  t.id === open.id ? { ...t, done: true, completedAt: nowIso } : t
+                );
+              }
+            } else {
+              if (!findAutoTodo(state.todos)) {
+                const newTodo: Todo = {
+                  id: `TD-${String(state.todos.length + 1).padStart(3, "0")}`,
+                  title: "Inserat erstellen",
+                  description: `Online-Inserat für ${vehicle.make} ${vehicle.model} (${vehicle.id}) anlegen.`,
+                  priority: "medium",
+                  scope: "internal_fleet",
+                  done: false,
+                  vehicleId,
+                  tags: ["inserat", "auto"],
+                  createdAt: nowIso,
+                  createdBy: state.settings.userName || "System",
+                };
+                updatedTodos = [newTodo, ...state.todos];
+              }
+            }
+
+            return {
+              ...state,
+              vehicles: updatedVehicles,
+              todos: updatedTodos,
+              activities: logActivity(
+                state,
+                "vehicle_updated",
+                listed
+                  ? `${vehicle.make} ${vehicle.model} als inseriert markiert`
+                  : `${vehicle.make} ${vehicle.model} nicht mehr inseriert`,
+                { vehicleId, meta: { listed } }
+              ),
+            };
+          }),
+
         // ------- Customer -------
         addCustomer: (c) => {
           const id = nextNumericId("C", get().customers);
