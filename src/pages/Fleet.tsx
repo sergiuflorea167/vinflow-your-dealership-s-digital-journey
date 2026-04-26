@@ -11,6 +11,7 @@ import {
 import { useProcessStore } from "@/store/processStore";
 import {
   formatCurrency,
+  formatDate,
   VehicleStatus,
   VEHICLE_TYPE_LABELS,
   VehicleType,
@@ -21,12 +22,11 @@ import { toast } from "sonner";
 import { VehicleIntakeDialog } from "@/components/fleet/VehicleIntakeDialog";
 import { cn } from "@/lib/utils";
 import { useTopbarSearch } from "@/context/TopbarSearchContext";
+import { SortableTh, SortState } from "@/components/shared/SortableTh";
 
 type FleetSortKey =
-  | "newest" | "oldest"
-  | "price_asc" | "price_desc"
-  | "mileage_asc" | "mileage_desc"
-  | "make";
+  | "name" | "type" | "year" | "mileage" | "power" | "color"
+  | "location" | "hu" | "stockDays" | "price" | "margin" | "openOffers" | "status";
 
 const STATUS_META: Record<VehicleStatus, { label: string; className: string }> = {
   planned:  { label: "Geplant",    className: "bg-info/15 text-info border-info/30" },
@@ -34,6 +34,8 @@ const STATUS_META: Record<VehicleStatus, { label: string; className: string }> =
   reserved: { label: "Reserviert", className: "bg-warning/15 text-warning border-warning/30" },
   sold:     { label: "Verkauft",   className: "bg-muted text-muted-foreground border-border" },
 };
+
+const STATUS_ORDER: Record<VehicleStatus, number> = { in_stock: 0, reserved: 1, planned: 2, sold: 3 };
 
 const Fleet = () => {
   const navigate = useNavigate();
@@ -47,7 +49,7 @@ const Fleet = () => {
   const [searchField, setSearchField] = useState<"all" | "vin" | "make" | "model" | "color" | "location">("all");
   const [filter, setFilter] = useState<"all" | VehicleStatus>("all");
   const [typeFilter, setTypeFilter] = useState<"all" | VehicleType>("all");
-  const [sortKey, setSortKey] = useState<FleetSortKey>("newest");
+  const [sort, setSort] = useState<SortState<FleetSortKey>>({ key: "stockDays", dir: "asc" });
   const [intakeOpen, setIntakeOpen] = useState(false);
 
   const topbarSearch = useMemo(() => ({
@@ -69,11 +71,17 @@ const Fleet = () => {
   useTopbarSearch(topbarSearch);
 
   const data = useMemo(() => {
+    const now = Date.now();
     return vehicles.map((v) => {
       const vehicleOffers = offers.filter((o) => o.vehicleId === v.id);
       const openOffers = vehicleOffers.filter((o) => o.status === "sent" || o.status === "draft").length;
       const proc = processes.find((p) => p.vehicleId === v.id);
-      return { vehicle: v, openOffers, processId: proc?.id };
+      const ek = v.purchasePrice + vehicleTotalCostsGross(v);
+      const margin = v.listPrice - ek;
+      const stockDays = v.arrivedAt
+        ? Math.max(0, Math.floor((now - new Date(v.arrivedAt).getTime()) / 86400000))
+        : 0;
+      return { vehicle: v, openOffers, processId: proc?.id, margin, stockDays };
     });
   }, [vehicles, offers, processes]);
 
@@ -94,19 +102,30 @@ const Fleet = () => {
       return fields[searchField].toLowerCase().includes(q);
     });
 
+    const dirMul = sort.dir === "asc" ? 1 : -1;
     return [...list].sort((a, b) => {
       const va = a.vehicle, vb = b.vehicle;
-      switch (sortKey) {
-        case "newest":       return (new Date(vb.arrivedAt ?? 0).getTime() - new Date(va.arrivedAt ?? 0).getTime());
-        case "oldest":       return (new Date(va.arrivedAt ?? 0).getTime() - new Date(vb.arrivedAt ?? 0).getTime());
-        case "price_asc":    return va.listPrice - vb.listPrice;
-        case "price_desc":   return vb.listPrice - va.listPrice;
-        case "mileage_asc":  return va.mileage - vb.mileage;
-        case "mileage_desc": return vb.mileage - va.mileage;
-        case "make":         return `${va.make} ${va.model}`.localeCompare(`${vb.make} ${vb.model}`);
+      let cmp = 0;
+      switch (sort.key) {
+        case "name":       cmp = `${va.make} ${va.model}`.localeCompare(`${vb.make} ${vb.model}`); break;
+        case "type":       cmp = VEHICLE_TYPE_LABELS[va.type].localeCompare(VEHICLE_TYPE_LABELS[vb.type]); break;
+        case "year":       cmp = va.year - vb.year; break;
+        case "mileage":    cmp = va.mileage - vb.mileage; break;
+        case "power":      cmp = va.power_hp - vb.power_hp; break;
+        case "color":      cmp = va.color.localeCompare(vb.color); break;
+        case "location":   cmp = va.location.name.localeCompare(vb.location.name); break;
+        case "hu":         cmp = (va.hu ?? "").localeCompare(vb.hu ?? ""); break;
+        case "stockDays":  cmp = b.stockDays - a.stockDays; break; // default: ältester zuerst → invertiere unten
+        case "price":      cmp = va.listPrice - vb.listPrice; break;
+        case "margin":     cmp = a.margin - b.margin; break;
+        case "openOffers": cmp = a.openOffers - b.openOffers; break;
+        case "status":     cmp = STATUS_ORDER[va.status] - STATUS_ORDER[vb.status]; break;
       }
+      // stockDays asc = "längste im Bestand zuerst" intuitiv
+      if (sort.key === "stockDays") return cmp * (sort.dir === "asc" ? 1 : -1);
+      return cmp * dirMul;
     });
-  }, [data, filter, typeFilter, query, searchField, sortKey]);
+  }, [data, filter, typeFilter, query, searchField, sort]);
 
   const stats = {
     total: vehicles.length,
@@ -161,18 +180,7 @@ const Fleet = () => {
                 ))}
               </SelectContent>
             </Select>
-            <Select value={sortKey} onValueChange={(v) => setSortKey(v as FleetSortKey)}>
-              <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="newest">Neueste zuerst</SelectItem>
-                <SelectItem value="oldest">Älteste zuerst</SelectItem>
-                <SelectItem value="price_desc">Preis ↓</SelectItem>
-                <SelectItem value="price_asc">Preis ↑</SelectItem>
-                <SelectItem value="mileage_asc">Kilometer ↑</SelectItem>
-                <SelectItem value="mileage_desc">Kilometer ↓</SelectItem>
-                <SelectItem value="make">Marke / Modell A-Z</SelectItem>
-              </SelectContent>
-            </Select>
+            <span className="text-xs text-muted-foreground ml-1">Sortierung per Klick auf Spaltenkopf</span>
           </div>
           <div className="flex gap-2 flex-wrap">
             {([
@@ -200,23 +208,25 @@ const Fleet = () => {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-border bg-background/30 text-left text-xs uppercase tracking-wider text-muted-foreground">
-                    <th className="px-5 py-3 font-medium">Fahrzeug</th>
-                    <th className="px-5 py-3 font-medium">Typ</th>
-                    <th className="px-5 py-3 font-medium">EZ / km</th>
-                    <th className="px-5 py-3 font-medium">Farbe</th>
-                    <th className="px-5 py-3 font-medium">Stellplatz</th>
-                    <th className="px-5 py-3 font-medium text-right">Listenpreis</th>
-                    <th className="px-5 py-3 font-medium text-right">Marge¹</th>
-                    <th className="px-5 py-3 font-medium text-center">Angebote</th>
-                    <th className="px-5 py-3 font-medium">Status</th>
+                  <tr className="border-b border-border bg-background/30">
+                    <SortableTh label="Fahrzeug" sortKey="name" state={sort} onChange={setSort} />
+                    <SortableTh label="Typ" sortKey="type" state={sort} onChange={setSort} />
+                    <SortableTh label="EZ / km" sortKey="mileage" state={sort} onChange={setSort} />
+                    <SortableTh label="Leistung" sortKey="power" state={sort} onChange={setSort} align="right" />
+                    <SortableTh label="HU" sortKey="hu" state={sort} onChange={setSort} />
+                    <SortableTh label="Stellplatz" sortKey="location" state={sort} onChange={setSort} />
+                    <SortableTh label="Tage" sortKey="stockDays" state={sort} onChange={setSort} align="right" />
+                    <SortableTh label="VK-Preis" sortKey="price" state={sort} onChange={setSort} align="right" />
+                    <SortableTh label="Marge¹" sortKey="margin" state={sort} onChange={setSort} align="right" />
+                    <SortableTh label="Angebote" sortKey="openOffers" state={sort} onChange={setSort} align="center" />
+                    <SortableTh label="Status" sortKey="status" state={sort} onChange={setSort} />
                   </tr>
                 </thead>
                 <tbody>
-                  {filtered.map(({ vehicle, openOffers }) => {
+                  {filtered.map(({ vehicle, openOffers, margin, stockDays }) => {
                     const meta = STATUS_META[vehicle.status];
-                    const ek = vehicle.purchasePrice + vehicleTotalCostsGross(vehicle);
-                    const margin = vehicle.listPrice - ek;
+                    const huDate = vehicle.hu ? new Date(vehicle.hu) : null;
+                    const huSoon = huDate ? (huDate.getTime() - Date.now()) / 86400000 < 90 : false;
                     return (
                       <tr
                         key={vehicle.id}
@@ -230,17 +240,31 @@ const Fleet = () => {
                             </div>
                             <div className="min-w-0">
                               <p className="font-medium text-foreground truncate">{vehicle.make} {vehicle.model}</p>
-                              <p className="font-mono text-[10px] text-muted-foreground truncate">VIN {vehicle.vin}</p>
+                              <p className="text-[10px] text-muted-foreground truncate">{vehicle.color} · {vehicle.id}</p>
                             </div>
                           </div>
                         </td>
                         <td className="px-5 py-4 text-xs text-muted-foreground">{VEHICLE_TYPE_LABELS[vehicle.type]}</td>
                         <td className="px-5 py-4 text-xs text-muted-foreground whitespace-nowrap">
-                          <div>{vehicle.year}</div>
+                          <div className="text-foreground">{vehicle.year}</div>
                           <div>{vehicle.mileage.toLocaleString("de-DE")} km</div>
                         </td>
-                        <td className="px-5 py-4 text-xs text-foreground truncate max-w-[140px]">{vehicle.color}</td>
-                        <td className="px-5 py-4 text-xs text-muted-foreground truncate max-w-[180px]">{vehicle.location.name}</td>
+                        <td className="px-5 py-4 text-xs text-foreground text-right whitespace-nowrap">
+                          {vehicle.power_hp} <span className="text-muted-foreground">PS</span>
+                        </td>
+                        <td className={cn(
+                          "px-5 py-4 text-xs whitespace-nowrap",
+                          huSoon ? "text-warning font-medium" : "text-muted-foreground",
+                        )}>
+                          {vehicle.hu ? formatDate(vehicle.hu) : "–"}
+                        </td>
+                        <td className="px-5 py-4 text-xs text-muted-foreground truncate max-w-[160px]">{vehicle.location.name}</td>
+                        <td className={cn(
+                          "px-5 py-4 text-xs text-right font-medium whitespace-nowrap",
+                          stockDays > 90 ? "text-warning" : stockDays > 60 ? "text-foreground" : "text-muted-foreground",
+                        )}>
+                          {stockDays}
+                        </td>
                         <td className="px-5 py-4 text-right font-semibold whitespace-nowrap">{formatCurrency(vehicle.listPrice)}</td>
                         <td className={cn(
                           "px-5 py-4 text-right font-semibold whitespace-nowrap",
