@@ -1,15 +1,42 @@
 import { NavLink } from "react-router-dom";
-import { Workflow, Car, Users, ShoppingCart } from "lucide-react";
+import { LayoutDashboard, Workflow, Car, Users, ShoppingCart, ListChecks, BarChart3, Settings as SettingsIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const nav = [
-  { to: "/einkaufsplanung", label: "Einkaufsplanung", icon: ShoppingCart },
+type NavItem = { to: string; label: string; icon: any };
+
+const dashboardItem: NavItem = { to: "/", label: "Dashboard", icon: LayoutDashboard };
+
+const mainNav: NavItem[] = [
   { to: "/flotte", label: "Flotte", icon: Car },
   { to: "/vorgaenge", label: "Vorgänge", icon: Workflow },
+  { to: "/einkaufsplanung", label: "Einkaufsplanung", icon: ShoppingCart },
+  { to: "/todos", label: "To-Dos", icon: ListChecks },
   { to: "/kunden", label: "Kunden", icon: Users },
+  { to: "/kpis", label: "KPIs", icon: BarChart3 },
 ];
 
+const settingsItem: NavItem = { to: "/einstellungen", label: "Einstellungen", icon: SettingsIcon };
+
 export const Sidebar = () => {
+  const renderItem = ({ to, label, icon: Icon }: NavItem) => (
+    <NavLink
+      key={to}
+      to={to}
+      end={to === "/"}
+      className={({ isActive }) =>
+        cn(
+          "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-smooth",
+          isActive
+            ? "bg-sidebar-accent text-sidebar-accent-foreground shadow-card"
+            : "text-sidebar-foreground/70 hover:text-sidebar-accent-foreground hover:bg-sidebar-accent/50"
+        )
+      }
+    >
+      <Icon className="size-4" />
+      <span>{label}</span>
+    </NavLink>
+  );
+
   return (
     <aside className="hidden md:flex w-64 shrink-0 flex-col border-r border-sidebar-border bg-sidebar">
       <NavLink to="/" className="flex items-center gap-3 px-6 h-16 border-b border-sidebar-border hover:opacity-90 transition-smooth">
@@ -22,33 +49,19 @@ export const Sidebar = () => {
         </div>
       </NavLink>
 
-      <nav className="flex-1 px-3 py-6 space-y-1">
-        {nav.map(({ to, label, icon: Icon }) => (
-          <NavLink
-            key={to}
-            to={to}
-            className={({ isActive }) =>
-              cn(
-                "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-smooth",
-                isActive
-                  ? "bg-sidebar-accent text-sidebar-accent-foreground shadow-card"
-                  : "text-sidebar-foreground/70 hover:text-sidebar-accent-foreground hover:bg-sidebar-accent/50"
-              )
-            }
-          >
-            <Icon className="size-4" />
-            <span>{label}</span>
-          </NavLink>
-        ))}
-      </nav>
+      <nav className="flex-1 px-3 py-5 flex flex-col gap-1 overflow-y-auto">
+        {renderItem(dashboardItem)}
 
-      <div className="m-3 p-4 rounded-xl bg-gradient-brand/20 border border-primary/20 relative overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-glow pointer-events-none" />
-        <div className="relative">
-          <p className="text-xs font-semibold text-sidebar-accent-foreground">VINflow Pro</p>
-          <p className="text-xs text-muted-foreground mt-1">Cloud-Sync, E-Signaturen, Buchhaltung.</p>
-        </div>
-      </div>
+        <div className="my-3 mx-3 h-px bg-sidebar-border/70" />
+
+        {mainNav.map(renderItem)}
+
+        <div className="flex-1" />
+
+        <div className="my-3 mx-3 h-px bg-sidebar-border/70" />
+
+        {renderItem(settingsItem)}
+      </nav>
     </aside>
   );
 };
