@@ -84,6 +84,8 @@ interface State {
   addOfferCustomerTodo: (offerId: string, title: string) => void;
   removeOfferCustomerTodo: (offerId: string, todoId: string) => void;
   acceptOffer: (offerId: string) => Process | undefined;
+  /** Direkter Verkauf ohne formelles Angebot. */
+  startProcessForVehicle: (args: { vehicleId: string; customerId: string; price: number }) => Process | undefined;
 
   // ------- Purchase plan -------
   addPurchasePlan: (p: Omit<PurchasePlan, "id" | "createdAt" | "status"> & { status?: PurchasePlan["status"] }) => PurchasePlan;
