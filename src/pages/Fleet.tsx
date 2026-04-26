@@ -17,17 +17,21 @@ import {
   VehicleType,
   vehicleTotalCostsGross,
 } from "@/data/process";
-import { Car, Plus } from "lucide-react";
+import { Car, Megaphone, Plus } from "lucide-react";
 import { toast } from "sonner";
 import { VehicleIntakeDialog } from "@/components/fleet/VehicleIntakeDialog";
 import { cn } from "@/lib/utils";
 import { useTopbarSearch } from "@/context/TopbarSearchContext";
 import { SortableTh, SortState } from "@/components/shared/SortableTh";
 import { DataTableShell } from "@/components/shared/DataTableShell";
+import { Switch } from "@/components/ui/switch";
+import {
+  Tooltip, TooltipContent, TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 type FleetSortKey =
   | "name" | "type" | "year" | "mileage" | "power" | "color"
-  | "location" | "hu" | "stockDays" | "price" | "margin" | "openOffers" | "status";
+  | "location" | "hu" | "stockDays" | "price" | "margin" | "openOffers" | "status" | "listed";
 
 const STATUS_META: Record<VehicleStatus, { label: string; className: string }> = {
   planned:  { label: "Geplant",    className: "bg-info/15 text-info border-info/30" },
@@ -38,6 +42,8 @@ const STATUS_META: Record<VehicleStatus, { label: string; className: string }> =
 
 const STATUS_ORDER: Record<VehicleStatus, number> = { in_stock: 0, reserved: 1, planned: 2, sold: 3 };
 
+type ListedFilter = "all" | "listed" | "not_listed";
+
 const Fleet = () => {
   const navigate = useNavigate();
   const vehicles = useProcessStore((s) => s.vehicles);
@@ -45,11 +51,13 @@ const Fleet = () => {
   const processes = useProcessStore((s) => s.processes);
   const locations = useProcessStore((s) => s.settings.locations);
   const addVehicle = useProcessStore((s) => s.addVehicle);
+  const setVehicleListed = useProcessStore((s) => s.setVehicleListed);
 
   const [query, setQuery] = useState("");
   const [searchField, setSearchField] = useState<"all" | "vin" | "make" | "model" | "color" | "location">("all");
   const [filter, setFilter] = useState<"all" | VehicleStatus>("all");
   const [typeFilter, setTypeFilter] = useState<"all" | VehicleType>("all");
+  const [listedFilter, setListedFilter] = useState<ListedFilter>("all");
   const [sort, setSort] = useState<SortState<FleetSortKey>>({ key: "stockDays", dir: "asc" });
   const [intakeOpen, setIntakeOpen] = useState(false);
 
@@ -90,6 +98,8 @@ const Fleet = () => {
     const list = data.filter(({ vehicle }) => {
       if (filter !== "all" && vehicle.status !== filter) return false;
       if (typeFilter !== "all" && vehicle.type !== typeFilter) return false;
+      if (listedFilter === "listed" && !vehicle.listed?.active) return false;
+      if (listedFilter === "not_listed" && vehicle.listed?.active) return false;
       if (!query.trim()) return true;
       const q = query.toLowerCase();
       const fields: Record<typeof searchField, string> = {
@@ -121,18 +131,21 @@ const Fleet = () => {
         case "margin":     cmp = a.margin - b.margin; break;
         case "openOffers": cmp = a.openOffers - b.openOffers; break;
         case "status":     cmp = STATUS_ORDER[va.status] - STATUS_ORDER[vb.status]; break;
+        case "listed":     cmp = Number(!!va.listed?.active) - Number(!!vb.listed?.active); break;
       }
       // stockDays asc = "längste im Bestand zuerst" intuitiv
       if (sort.key === "stockDays") return cmp * (sort.dir === "asc" ? 1 : -1);
       return cmp * dirMul;
     });
-  }, [data, filter, typeFilter, query, searchField, sort]);
+  }, [data, filter, typeFilter, listedFilter, query, searchField, sort]);
 
   const stats = {
     total: vehicles.length,
     in_stock: vehicles.filter((v) => v.status === "in_stock").length,
     reserved: vehicles.filter((v) => v.status === "reserved").length,
     sold: vehicles.filter((v) => v.status === "sold").length,
+    listed: vehicles.filter((v) => v.listed?.active).length,
+    notListed: vehicles.filter((v) => v.status !== "sold" && !v.listed?.active).length,
   };
 
   return (
@@ -154,15 +167,17 @@ const Fleet = () => {
         </div>
 
         {/* KPI-Strip kompakt */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 shrink-0">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 shrink-0">
           {[
-            { label: "Gesamt", value: stats.total, accent: "text-primary" },
-            { label: "Im Bestand", value: stats.in_stock, accent: "text-success" },
-            { label: "Reserviert", value: stats.reserved, accent: "text-warning" },
-            { label: "Verkauft", value: stats.sold, accent: "text-muted-foreground" },
-          ].map(({ label, value, accent }) => (
+            { label: "Gesamt", value: stats.total, icon: Car, accent: "text-primary" },
+            { label: "Im Bestand", value: stats.in_stock, icon: Car, accent: "text-success" },
+            { label: "Reserviert", value: stats.reserved, icon: Car, accent: "text-warning" },
+            { label: "Verkauft", value: stats.sold, icon: Car, accent: "text-muted-foreground" },
+            { label: "Inseriert", value: stats.listed, icon: Megaphone, accent: "text-primary-glow" },
+            { label: "Nicht inseriert", value: stats.notListed, icon: Megaphone, accent: "text-destructive" },
+          ].map(({ label, value, icon: Icon, accent }) => (
             <Card key={label} className="px-3 py-2 flex items-center gap-3">
-              <Car className={`size-4 ${accent}`} />
+              <Icon className={`size-4 ${accent}`} />
               <div>
                 <p className="text-[10px] text-muted-foreground uppercase tracking-wider leading-none">{label}</p>
                 <p className="font-display text-lg font-bold leading-tight">{value}</p>
@@ -180,6 +195,14 @@ const Fleet = () => {
               {Object.entries(VEHICLE_TYPE_LABELS).map(([k, v]) => (
                 <SelectItem key={k} value={k}>{v}</SelectItem>
               ))}
+            </SelectContent>
+          </Select>
+          <Select value={listedFilter} onValueChange={(v) => setListedFilter(v as ListedFilter)}>
+            <SelectTrigger className="w-[160px] h-8 text-xs"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Alle Inserate</SelectItem>
+              <SelectItem value="listed">Nur inseriert ({stats.listed})</SelectItem>
+              <SelectItem value="not_listed">Nicht inseriert ({stats.notListed})</SelectItem>
             </SelectContent>
           </Select>
           <div className="flex gap-1.5 flex-wrap">
@@ -221,6 +244,7 @@ const Fleet = () => {
                   <SortableTh label="VK" sortKey="price" state={sort} onChange={setSort} align="right" />
                   <SortableTh label="Marge¹" sortKey="margin" state={sort} onChange={setSort} align="right" />
                   <SortableTh label="Ang." sortKey="openOffers" state={sort} onChange={setSort} align="center" />
+                  <SortableTh label="Inseriert" sortKey="listed" state={sort} onChange={setSort} align="center" />
                   <SortableTh label="Status" sortKey="status" state={sort} onChange={setSort} />
                 </tr>
               </thead>
@@ -274,6 +298,31 @@ const Fleet = () => {
                         ) : (
                           <span className="text-muted-foreground">–</span>
                         )}
+                      </td>
+                      <td className="text-center" onClick={(e) => e.stopPropagation()}>
+                        <Tooltip delayDuration={200}>
+                          <TooltipTrigger asChild>
+                            <span className="inline-flex items-center justify-center">
+                              <Switch
+                                checked={!!vehicle.listed?.active}
+                                onCheckedChange={(checked) => {
+                                  setVehicleListed(vehicle.id, checked);
+                                  toast.success(
+                                    checked
+                                      ? `${vehicle.make} ${vehicle.model} als inseriert markiert.`
+                                      : `Inserat zurückgenommen — neues To-Do erstellt.`
+                                  );
+                                }}
+                                aria-label="Inseriert"
+                              />
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="text-xs max-w-xs">
+                            {vehicle.listed?.active
+                              ? `Aktiv inseriert${vehicle.listed.listedAt ? ` seit ${formatDate(vehicle.listed.listedAt)}` : ""}.`
+                              : "Noch nicht online inseriert. Ein To-Do „Inserat erstellen“ ist offen."}
+                          </TooltipContent>
+                        </Tooltip>
                       </td>
                       <td><Badge className={cn(meta.className, "text-[10px] px-1.5 py-0")}>{meta.label}</Badge></td>
                     </tr>
