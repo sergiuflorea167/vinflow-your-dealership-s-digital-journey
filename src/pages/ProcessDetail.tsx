@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useParams, Link, Navigate } from "react-router-dom";
 import { ArrowLeft, FileText, Lock, CheckCircle2, ArrowRight, Download, Archive, AlertCircle } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
@@ -50,7 +50,7 @@ const ProcessDetail = () => {
   const checklistDone = process.checklist.filter((c) => c.done).length;
   const checklistTotal = process.checklist.length;
 
-  const validation = useMemo(() => validateStep(selectedKey, process.fields, checklistDone, checklistTotal), [selectedKey, process.fields, checklistDone, checklistTotal]);
+  const validation = validateStep(selectedKey, process.fields, checklistDone, checklistTotal);
 
   const handleComplete = () => {
     if (!validation.ok) {
