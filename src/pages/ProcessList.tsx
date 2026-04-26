@@ -452,6 +452,97 @@ const ProcessList = () => {
             </DataTableShell>
           </TabsContent>
 
+          {/* -------- Archivierte Vorgänge -------- */}
+          <TabsContent value="archived" className="space-y-3 mt-0">
+            <Card className="px-3 py-2 bg-card border-border shrink-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <Select value={archSortKey} onValueChange={(v) => setArchSortKey(v as ProcessSortKey)}>
+                  <SelectTrigger className="w-[170px] h-8 text-xs bg-background/40">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="updated">Sort.: Abgeschlossen</SelectItem>
+                    <SelectItem value="created">Sort.: Erstellt</SelectItem>
+                    <SelectItem value="price">Sort.: Preis</SelectItem>
+                    <SelectItem value="customer">Sort.: Kunde</SelectItem>
+                    <SelectItem value="id">Sort.: Vorgangs-Nr.</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => setArchSortDir((d) => (d === "asc" ? "desc" : "asc"))}
+                  aria-label="Richtung wechseln"
+                >
+                  {archSortDir === "asc" ? <ArrowUpAZ className="size-4" /> : <ArrowDownAZ className="size-4" />}
+                </Button>
+                <p className="text-[11px] text-muted-foreground ml-auto">
+                  Vorgänge, deren letzter Schritt („{PROCESS_STEPS[PROCESS_STEPS.length - 1].shortLabel}") abgeschlossen wurde.
+                </p>
+              </div>
+            </Card>
+
+            <DataTableShell footer={<>{filteredArchived.length} archivierte Vorgänge</>}>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Vorgang</th>
+                    <th>Fahrzeug / VIN</th>
+                    <th>Kunde</th>
+                    <th className="text-right">Preis</th>
+                    <th>Abgeschlossen</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredArchived.map(({ p, vehicle, customer }) => {
+                    const completedAt = p.steps[LAST_STEP_KEY]?.completedAt ?? p.updatedAt;
+                    return (
+                      <tr key={p.id} className="hover:bg-surface-elevated/40 transition-smooth group">
+                        <td>
+                          <Link to={`/vorgaenge/${p.id}`} className="font-display font-semibold text-foreground hover:text-primary-glow">
+                            {p.id}
+                          </Link>
+                        </td>
+                        <td>
+                          <p className="font-medium text-foreground leading-tight">{vehicle!.make} {vehicle!.model}</p>
+                          <p className="font-mono text-[10px] text-muted-foreground leading-tight">{vehicle!.vin}</p>
+                        </td>
+                        <td>
+                          <p className="text-foreground leading-tight">{customer!.name}</p>
+                          <p className="text-[10px] text-muted-foreground leading-tight">{customer!.city}</p>
+                        </td>
+                        <td className="text-right font-semibold text-foreground whitespace-nowrap">
+                          {formatCurrency(p.fields.finalPrice ?? vehicle!.listPrice)}
+                        </td>
+                        <td className="whitespace-nowrap">
+                          <Badge variant="outline" className="border-success/40 text-success text-[10px] px-1.5 py-0 gap-1">
+                            <CheckCircle2 className="size-3" /> {formatDate(completedAt)}
+                          </Badge>
+                        </td>
+                        <td>
+                          <Link to={`/vorgaenge/${p.id}`}>
+                            <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-smooth">
+                              <ChevronRight className="size-4" />
+                            </Button>
+                          </Link>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {filteredArchived.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="px-3 py-12 text-center text-muted-foreground">
+                        Noch keine archivierten Vorgänge.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </DataTableShell>
+          </TabsContent>
+
           {/* -------- Angebote -------- */}
           <TabsContent value="offers" className="space-y-3 mt-0">
             <Card className="px-3 py-2 bg-card border-border shrink-0">
