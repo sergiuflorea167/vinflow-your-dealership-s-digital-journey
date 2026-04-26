@@ -7,7 +7,7 @@ type NavItem = { to: string; label: string; icon: any };
 const dashboardItem: NavItem = { to: "/", label: "Dashboard", icon: LayoutDashboard };
 
 const mainNav: NavItem[] = [
-  { to: "/flotte", label: "Flotte", icon: Car },
+  { to: "/bestand", label: "Bestand", icon: Car },
   { to: "/vorgaenge", label: "Vorgänge", icon: Workflow },
   { to: "/einkaufsplanung", label: "Einkaufsplanung", icon: ShoppingCart },
   { to: "/todos", label: "To-Dos", icon: ListChecks },
