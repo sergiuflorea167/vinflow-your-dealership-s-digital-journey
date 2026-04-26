@@ -51,11 +51,13 @@ const Fleet = () => {
   const processes = useProcessStore((s) => s.processes);
   const locations = useProcessStore((s) => s.settings.locations);
   const addVehicle = useProcessStore((s) => s.addVehicle);
+  const setVehicleListed = useProcessStore((s) => s.setVehicleListed);
 
   const [query, setQuery] = useState("");
   const [searchField, setSearchField] = useState<"all" | "vin" | "make" | "model" | "color" | "location">("all");
   const [filter, setFilter] = useState<"all" | VehicleStatus>("all");
   const [typeFilter, setTypeFilter] = useState<"all" | VehicleType>("all");
+  const [listedFilter, setListedFilter] = useState<ListedFilter>("all");
   const [sort, setSort] = useState<SortState<FleetSortKey>>({ key: "stockDays", dir: "asc" });
   const [intakeOpen, setIntakeOpen] = useState(false);
 
