@@ -889,8 +889,8 @@ export const useProcessStore = create<State>()(
       };
     },
     {
-      name: "vinflow-store-v4",
-      version: 4,
+      name: "vinflow-store-v5",
+      version: 5,
       partialize: (s) => ({
         vehicles: s.vehicles,
         customers: s.customers,
@@ -904,8 +904,35 @@ export const useProcessStore = create<State>()(
       }),
       onRehydrateStorage: () => (state) => {
         if (!state) return;
-        // Sicherstellen, dass nicht-inserierte, aktive Fahrzeuge ein offenes
-        // Auto-To-Do „Inserat erstellen" mit 3 Tagen Fälligkeit haben.
+
+        // ---- Migration: PurchasePlan-Schema v5 ----
+        // Alte Pläne können noch alte Status-Werte ("open"/"ordered") haben
+        // und kein source/noteEntries-Feld – defensiv auffüllen.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        state.purchasePlans = (state.purchasePlans ?? []).map((p: any) => {
+          const legacyStatusMap: Record<string, PurchasePlan["status"]> = {
+            open: "tracking",
+            ordered: "won",
+          };
+          const status: PurchasePlan["status"] =
+            legacyStatusMap[p.status as string] ?? p.status ?? "tracking";
+
+          const noteEntries: PurchasePlanNote[] = Array.isArray(p.noteEntries)
+            ? p.noteEntries
+            : p.notes
+              ? [{ id: `pn-legacy-${p.id}`, text: String(p.notes), createdAt: p.createdAt ?? new Date().toISOString(), createdBy: "System" }]
+              : [];
+
+          return {
+            ...p,
+            status,
+            source: p.source ?? "other",
+            supplier: p.supplier ?? "–",
+            noteEntries,
+          } as PurchasePlan;
+        });
+
+        // ---- Auto-To-Do „Inserat erstellen" sicherstellen ----
         const nowIso = new Date().toISOString();
         const newTodos: Todo[] = [];
         let counter = state.todos.length;
