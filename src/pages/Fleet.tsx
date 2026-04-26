@@ -180,18 +180,7 @@ const Fleet = () => {
                 ))}
               </SelectContent>
             </Select>
-            <Select value={sortKey} onValueChange={(v) => setSortKey(v as FleetSortKey)}>
-              <SelectTrigger className="w-[180px]"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="newest">Neueste zuerst</SelectItem>
-                <SelectItem value="oldest">Älteste zuerst</SelectItem>
-                <SelectItem value="price_desc">Preis ↓</SelectItem>
-                <SelectItem value="price_asc">Preis ↑</SelectItem>
-                <SelectItem value="mileage_asc">Kilometer ↑</SelectItem>
-                <SelectItem value="mileage_desc">Kilometer ↓</SelectItem>
-                <SelectItem value="make">Marke / Modell A-Z</SelectItem>
-              </SelectContent>
-            </Select>
+            <span className="text-xs text-muted-foreground ml-1">Sortierung per Klick auf Spaltenkopf</span>
           </div>
           <div className="flex gap-2 flex-wrap">
             {([
