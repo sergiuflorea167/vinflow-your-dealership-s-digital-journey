@@ -113,7 +113,7 @@ const CustomersPanel = () => {
       ) : (
         <div className="overflow-auto max-h-[55vh]">
           <table className="w-full text-xs">
-            <thead>
+            <thead className="sticky top-0 z-10 bg-background/95 backdrop-blur">
               <tr className="border-b border-border bg-background/30 text-left text-xs uppercase tracking-wider text-muted-foreground">
                 <th className="px-3 py-2 font-medium">Kunde</th>
                 <th className="px-3 py-2 font-medium">E-Mail</th>
@@ -233,7 +233,7 @@ const PartnersPanel = () => {
         ) : (
           <div className="overflow-auto max-h-[55vh]">
             <table className="w-full text-xs">
-              <thead>
+              <thead className="sticky top-0 z-10 bg-background/95 backdrop-blur">
                 <tr className="border-b border-border bg-background/30 text-left text-xs uppercase tracking-wider text-muted-foreground">
                   <th className="px-3 py-2 font-medium">Partner</th>
                   <th className="px-3 py-2 font-medium">Typ</th>
@@ -455,7 +455,7 @@ const LocationsPanel = () => {
       ) : (
         <div className="overflow-auto max-h-[55vh]">
           <table className="w-full text-xs">
-            <thead>
+            <thead className="sticky top-0 z-10 bg-background/95 backdrop-blur">
               <tr className="border-b border-border bg-background/30 text-left text-xs uppercase tracking-wider text-muted-foreground">
                 <th className="px-3 py-2 font-medium">Standort</th>
                 <th className="px-3 py-2 font-medium text-center">Belegt mit</th>
