@@ -210,23 +210,82 @@ const KPIs = () => {
           </div>
         </div>
 
-        {/* Top KPI strip */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <Kpi icon={Euro} label="Umsatz (verkauft)" value={formatCurrency(stats.revenue)} sub={`${stats.sold.length} Übergaben`} accent />
-          <Kpi icon={TrendingUp} label="Gewinn" value={formatCurrency(stats.profit)} sub={`Ø Marge ${stats.avgMarginPct.toFixed(1)}%`} />
-          <Kpi icon={Wallet} label="Bestandswert" value={formatCurrency(stats.stockValue)} sub={`EK ${formatCurrency(stats.stockCost)}`} />
-          <Kpi icon={Car} label="Bestand" value={`${stats.inStock.length + stats.reserved.length}`} sub={`${stats.reserved.length} reserviert`} />
-        </div>
-
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <Kpi icon={Workflow} label="Aktive Vorgänge" value={`${processes.filter((p) => p.steps.delivery_confirmation?.status !== "completed").length}`} />
-          <Kpi icon={FileCheck2} label="Conversion (Angebote)" value={`${stats.conversionRate.toFixed(0)}%`} sub={`${stats.offersAccepted}/${stats.offersSent} angenommen`} />
-          <Kpi icon={Timer} label="Ø Durchlaufzeit" value={`${stats.avgCycle.toFixed(1)} Tage`} sub="Vorgang → Übergabe" />
-          <Kpi icon={Target} label="Ø Standzeit" value={`${stats.avgAge.toFixed(0)} Tage`} sub="Bestand im Hof" />
-        </div>
-
-        {/* Goals */}
+        {/* Goals zuerst – Motivation */}
         <GoalsPanel />
+
+        {/* Umsatz */}
+        <div>
+          <h2 className="text-sm uppercase tracking-wider text-muted-foreground font-semibold mb-3">Umsatz & Cashflow</h2>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <Kpi icon={Euro} label="Umsatz (gebucht)" value={formatCurrency(stats.bookedRevenue)} sub="Anzahlungen + Schlussrechnungen" accent />
+            <Kpi icon={Receipt} label="Umsatz (Rechnungen)" value={formatCurrency(stats.invoicedRevenue)} sub={`${stats.invoiced.length} Rechnungen gestellt`} />
+            <Kpi icon={Banknote} label="Anzahlungen erhalten" value={formatCurrency(stats.downPaymentsReceived)} sub={stats.downPaymentsOpen > 0 ? `${formatCurrency(stats.downPaymentsOpen)} offen` : "Alle eingegangen"} />
+            <Kpi icon={Wallet} label="Offene Forderungen" value={formatCurrency(stats.openReceivables)} sub="Rechnung gestellt, noch nicht bezahlt" />
+          </div>
+        </div>
+
+        {/* Verkauf */}
+        <div>
+          <h2 className="text-sm uppercase tracking-wider text-muted-foreground font-semibold mb-3">Verkauf & Marge</h2>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <Kpi icon={TrendingUp} label="Gewinn (verkauft)" value={formatCurrency(stats.profit)} sub={`${stats.sold.length} Übergaben · Ø ${formatCurrency(stats.avgProfitPerSale)}`} />
+            <Kpi icon={Target} label="Ø Marge" value={`${stats.avgMarginPct.toFixed(1)}%`} sub={`Auf ${stats.sold.length} Verkäufe`} />
+            <Kpi icon={FileCheck2} label="Conversion" value={`${stats.conversionRate.toFixed(0)}%`} sub={`${stats.offersAccepted}/${stats.offersSent} Angebote`} />
+            <Kpi icon={Workflow} label="Pipeline-Wert" value={formatCurrency(stats.pipelineValue)} sub={`${processes.filter((p) => p.steps.delivery_confirmation?.status !== "completed").length} aktive Vorgänge`} />
+          </div>
+        </div>
+
+        {/* Bestand */}
+        <div>
+          <h2 className="text-sm uppercase tracking-wider text-muted-foreground font-semibold mb-3">Bestand</h2>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <Kpi icon={Wallet} label="Bestand (VK)" value={formatCurrency(stats.stockValue)} sub={`EK ${formatCurrency(stats.stockEK)}`} />
+            <Kpi icon={Car} label="Fahrzeuge" value={`${stats.stockVehicles.length}`} sub={`${stats.reserved.length} reserviert · ${stats.inStock.length} frei`} />
+            <Kpi icon={Timer} label="Ø Standzeit" value={`${stats.avgAge.toFixed(0)} Tage`} sub="Bestand im Hof" />
+            <Kpi icon={Layers} label="Ø Durchlaufzeit" value={`${stats.avgCycle.toFixed(1)} Tage`} sub="Vorgang → Übergabe" />
+          </div>
+        </div>
+
+        {/* Kosten */}
+        <div>
+          <h2 className="text-sm uppercase tracking-wider text-muted-foreground font-semibold mb-3">Kosten</h2>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <Kpi icon={Wallet} label="Kosten gesamt" value={formatCurrency(stats.totalCostsAll)} sub="Werkstatt, Aufbereitung, Transport …" accent />
+            <Kpi icon={Wallet} label="Kosten am Bestand" value={formatCurrency(stats.stockCosts)} sub="Aktive Fahrzeuge" />
+            <Kpi icon={Wallet} label="Kosten verkauft" value={formatCurrency(stats.costsSold)} sub={`${stats.sold.length} Verkäufe`} />
+            <Kpi icon={Wallet} label="Ø Kosten / Fahrzeug" value={formatCurrency(stats.avgCostPerVehicle)} sub="Über gesamten Bestand" />
+          </div>
+        </div>
+
+        {/* Kosten nach Kategorie */}
+        <Card className="p-6 bg-card border-border shadow-card">
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <h2 className="text-xl font-display font-semibold">Kosten nach Kategorie</h2>
+              <p className="text-sm text-muted-foreground mt-1">Brutto, alle Fahrzeuge</p>
+            </div>
+            <Wallet className="size-5 text-muted-foreground" />
+          </div>
+          <div className="space-y-3">
+            {Object.entries(stats.costsByCategory).length === 0 && (
+              <p className="text-sm text-muted-foreground">Noch keine Kosten erfasst.</p>
+            )}
+            {Object.entries(stats.costsByCategory)
+              .sort((a, b) => b[1] - a[1])
+              .map(([cat, value]) => {
+                const pct = stats.totalCostsAll > 0 ? (value / stats.totalCostsAll) * 100 : 0;
+                return (
+                  <div key={cat}>
+                    <div className="flex items-center justify-between text-sm mb-1.5">
+                      <span className="font-medium">{COST_CATEGORY_LABELS[cat as CostCategory] ?? cat}</span>
+                      <span className="text-muted-foreground text-xs">{formatCurrency(value)} · {pct.toFixed(1)}%</span>
+                    </div>
+                    <Progress value={pct} className="h-2" />
+                  </div>
+                );
+              })}
+          </div>
+        </Card>
 
         {/* Step timing */}
         <Card className="p-6 bg-card border-border shadow-card">
