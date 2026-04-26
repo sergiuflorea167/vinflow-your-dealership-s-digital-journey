@@ -180,7 +180,7 @@ const ProcessList = () => {
         <Tabs
           value={tab}
           onValueChange={(v) => setTab(v as "list" | "documents")}
-          className="flex flex-col min-h-0 flex-1 gap-3"
+          className="flex flex-col flex-1 min-h-0 gap-3 [&>[role=tabpanel]]:flex [&>[role=tabpanel]]:flex-col [&>[role=tabpanel]]:flex-1 [&>[role=tabpanel]]:min-h-0"
         >
           <TabsList className="shrink-0 self-start">
             <TabsTrigger value="list">Liste ({processes.length})</TabsTrigger>
