@@ -34,6 +34,7 @@ const Dashboard = () => {
   const processes = useProcessStore((s) => s.processes);
   const todos = useProcessStore((s) => s.todos);
   const vehicles = useProcessStore((s) => s.vehicles);
+  const calendarEvents = useProcessStore((s) => s.calendarEvents);
   const toggleTodo = useProcessStore((s) => s.toggleTodo);
 
   const byStep = useMemo(
