@@ -63,6 +63,10 @@ interface State {
   getTodosFor: (q: { vehicleId?: string; processId?: string; scope?: TodoScope }) => Todo[];
 
   // ------- Process -------
+  /** Schritt verbindlich „buchen" (Validierung in UI). Pflichtfelder werden fixiert, Beleg ist aber noch nicht erzeugt. */
+  bookStep: (processId: string, stepKey: ProcessStepKey) => void;
+  /** Buchung wieder lösen (z. B. um Felder zu korrigieren). */
+  unbookStep: (processId: string, stepKey: ProcessStepKey) => void;
   completeStep: (processId: string, stepKey: ProcessStepKey) => void;
   skipStep: (processId: string, stepKey: ProcessStepKey) => void;
   cancelStep: (processId: string, stepKey: ProcessStepKey) => void;
