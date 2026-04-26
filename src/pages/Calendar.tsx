@@ -546,6 +546,7 @@ const CalendarPage = () => {
               onCreate={() => openCreate({ date: toISO(anchorDate), type: "block" })}
               onEdit={setEditEvent}
               onToggleDone={toggleCalendarEventDone}
+              onCommit={handleEventCommit}
             />
           </TabsContent>
 
