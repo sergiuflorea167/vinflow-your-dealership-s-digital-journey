@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -6,11 +6,16 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { useProcessStore } from "@/store/processStore";
 import { formatCurrency, formatDate, PurchasePlanStatus, VEHICLE_TYPE_LABELS, VehicleType, FuelType, Transmission } from "@/data/process";
 import { Plus, Search, Truck, CheckCircle2, Clock, Package, Ban } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+
+type PlanSortKey = "expected_asc" | "expected_desc" | "created_desc" | "price_asc" | "price_desc" | "supplier";
 
 const STATUS_META: Record<PurchasePlanStatus, { label: string; className: string; icon: any }> = {
   open: { label: "Offen", className: "bg-info/15 text-info border-info/30", icon: Clock },
@@ -28,15 +33,28 @@ const PurchasePlanning = () => {
 
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<"all" | PurchasePlanStatus>("all");
+  const [sortKey, setSortKey] = useState<PlanSortKey>("expected_asc");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [receiveDialog, setReceiveDialog] = useState<{ planId: string } | null>(null);
 
-  const filtered = plans.filter((p) => {
-    if (filter !== "all" && p.status !== filter) return false;
-    if (!query) return true;
-    const q = query.toLowerCase();
-    return p.make.toLowerCase().includes(q) || p.model.toLowerCase().includes(q) || p.supplier.toLowerCase().includes(q);
-  });
+  const filtered = useMemo(() => {
+    const list = plans.filter((p) => {
+      if (filter !== "all" && p.status !== filter) return false;
+      if (!query) return true;
+      const q = query.toLowerCase();
+      return p.make.toLowerCase().includes(q) || p.model.toLowerCase().includes(q) || p.supplier.toLowerCase().includes(q);
+    });
+    return [...list].sort((a, b) => {
+      switch (sortKey) {
+        case "expected_asc": return new Date(a.expectedAt).getTime() - new Date(b.expectedAt).getTime();
+        case "expected_desc": return new Date(b.expectedAt).getTime() - new Date(a.expectedAt).getTime();
+        case "created_desc": return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+        case "price_asc": return a.targetPrice - b.targetPrice;
+        case "price_desc": return b.targetPrice - a.targetPrice;
+        case "supplier": return a.supplier.localeCompare(b.supplier);
+      }
+    });
+  }, [plans, query, filter, sortKey]);
 
   const planForReceive = receiveDialog ? plans.find((p) => p.id === receiveDialog.planId) : undefined;
 
@@ -69,10 +87,25 @@ const PurchasePlanning = () => {
           })}
         </div>
 
-        <Card className="p-4 flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-            <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Marke, Modell, Lieferant…" className="pl-9" />
+        <Card className="p-4 space-y-3">
+          <div className="flex flex-col md:flex-row gap-3 md:items-center">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+              <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Marke, Modell, Lieferant…" className="pl-9" />
+            </div>
+            <Select value={sortKey} onValueChange={(v) => setSortKey(v as PlanSortKey)}>
+              <SelectTrigger className="w-[200px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="expected_asc">Erwartet ↑ (am nächsten)</SelectItem>
+                <SelectItem value="expected_desc">Erwartet ↓</SelectItem>
+                <SelectItem value="created_desc">Zuletzt geplant</SelectItem>
+                <SelectItem value="price_desc">Zielpreis ↓</SelectItem>
+                <SelectItem value="price_asc">Zielpreis ↑</SelectItem>
+                <SelectItem value="supplier">Lieferant A-Z</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div className="flex gap-2 flex-wrap">
             {([
@@ -80,6 +113,7 @@ const PurchasePlanning = () => {
               { key: "open", label: "Offen" },
               { key: "ordered", label: "Bestellt" },
               { key: "received", label: "Eingetroffen" },
+              { key: "cancelled", label: "Storniert" },
             ] as const).map((f) => (
               <Button key={f.key} size="sm" variant={filter === f.key ? "default" : "outline"} onClick={() => setFilter(f.key)}>
                 {f.label}

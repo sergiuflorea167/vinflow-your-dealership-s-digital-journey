@@ -6,54 +6,22 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ProcessCard } from "@/components/process/ProcessCard";
 import { GoalsPanel } from "@/components/dashboard/GoalsPanel";
+import { PinnedKpiGrid } from "@/components/dashboard/PinnedKpiGrid";
 import { useProcessStore } from "@/store/processStore";
-import { PROCESS_STEPS, formatCurrency, vehicleTotalCostsGross } from "@/data/process";
-import { ArrowUpRight, TrendingUp, Workflow, FileCheck2, Car, Euro, Wallet, Receipt } from "lucide-react";
+import { PROCESS_STEPS } from "@/data/process";
+import { ArrowUpRight, Settings2 } from "lucide-react";
 
 const Dashboard = () => {
   const processes = useProcessStore((s) => s.processes);
-  const vehicles = useProcessStore((s) => s.vehicles);
-  const offers = useProcessStore((s) => s.offers);
 
-  const metrics = useMemo(() => {
-    const active = processes.filter((p) => p.steps.delivery_confirmation?.status !== "completed");
-    const inOutbound = processes.filter((p) => p.currentStep === "outbound_check").length;
-
-    // Bestand
-    const stockVehicles = vehicles.filter((v) => v.status === "in_stock" || v.status === "reserved");
-    const fleetValue = stockVehicles.reduce((s, v) => s + v.listPrice, 0);
-    const fleetEK = stockVehicles.reduce((s, v) => s + v.purchasePrice + vehicleTotalCostsGross(v), 0);
-
-    // Umsatz „dynamisch" = bereits gebuchter Cashflow (Anzahlungen erhalten + Schlussrechnungen)
-    // Anzahlungen
-    const downPaymentsReceived = processes.reduce((s, p) => {
-      const dp = p.fields.downPayment;
-      return s + (dp?.received ? dp.amount ?? 0 : 0);
-    }, 0);
-    // Tatsächlicher Umsatz = Schlussrechnung gestellt (invoicing completed) → finalPrice fließt vollständig ein
-    const invoicedProcesses = processes.filter((p) => p.steps.invoicing?.status === "completed");
-    const invoicedRevenue = invoicedProcesses.reduce((s, p) => s + (p.fields.finalPrice ?? 0), 0);
-
-    // „Gebuchter Umsatz" = Anzahlungen + Restzahlungen (Schlussrechnung). Doppelt gezählte Anzahlungen
-    // bei bereits invoicierten Vorgängen abziehen.
-    const dpAlreadyInvoiced = invoicedProcesses.reduce((s, p) => s + (p.fields.downPayment?.received ? (p.fields.downPayment.amount ?? 0) : 0), 0);
-    const bookedRevenue = invoicedRevenue + (downPaymentsReceived - dpAlreadyInvoiced);
-
-    // Kosten am Bestand (alle aktiven Fahrzeuge)
-    const stockCosts = stockVehicles.reduce((s, v) => s + vehicleTotalCostsGross(v), 0);
-
-    const docsArchived = processes.reduce(
-      (s, p) => s + Object.values(p.steps).filter((x) => x.status === "completed").length, 0
-    );
-    const openOffers = offers.filter((o) => o.status === "sent").length;
-
-    return { active, inOutbound, stockVehicles, fleetValue, fleetEK, downPaymentsReceived, invoicedRevenue, bookedRevenue, stockCosts, docsArchived, openOffers };
-  }, [processes, vehicles, offers]);
-
-  const byStep = PROCESS_STEPS.map((step) => ({
-    step,
-    count: processes.filter((p) => p.currentStep === step.key && p.steps[step.key].status !== "completed").length,
-  }));
+  const byStep = useMemo(
+    () =>
+      PROCESS_STEPS.map((step) => ({
+        step,
+        count: processes.filter((p) => p.currentStep === step.key && p.steps[step.key].status !== "completed").length,
+      })),
+    [processes]
+  );
 
   return (
     <AppShell>
@@ -90,21 +58,25 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Goals zuerst – Morgen-Motivation */}
+        {/* Morgen-Motivation */}
         <GoalsPanel />
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <KpiCard icon={Euro} label="Umsatz (gebucht)" value={formatCurrency(metrics.bookedRevenue)} sub="Anzahlungen + Rechnungen" accent />
-          <KpiCard icon={Receipt} label="Umsatz (Rechnungen)" value={formatCurrency(metrics.invoicedRevenue)} sub={`${processes.filter((p) => p.steps.invoicing?.status === "completed").length} Rechnungen gestellt`} />
-          <KpiCard icon={Wallet} label="Bestand (VK-Wert)" value={formatCurrency(metrics.fleetValue)} sub={`EK ${formatCurrency(metrics.fleetEK)}`} />
-          <KpiCard icon={Workflow} label="Aktive Vorgänge" value={metrics.active.length.toString()} sub={`${metrics.inOutbound} in Kontrolle · ${metrics.openOffers} offene Angebote`} />
-        </div>
-
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <KpiCard icon={Car} label="Bestand" value={`${metrics.stockVehicles.length}`} sub={`${vehicles.length} Fahrzeuge gesamt`} />
-          <KpiCard icon={TrendingUp} label="Anzahlungen erhalten" value={formatCurrency(metrics.downPaymentsReceived)} sub="Cashflow im Prozess" />
-          <KpiCard icon={Wallet} label="Bestandskosten" value={formatCurrency(metrics.stockCosts)} sub="Werkstatt + Aufbereitung + Transport" />
-          <KpiCard icon={FileCheck2} label="Belege archiviert" value={metrics.docsArchived.toString()} sub="PDF-Kundenbelege" />
+        {/* Frei konfigurierbare KPIs */}
+        <div>
+          <div className="flex items-center justify-between mb-5">
+            <div>
+              <h2 className="text-xl font-display font-semibold">Deine KPIs</h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                Per Drag &amp; Drop sortieren · in der KPI-Übersicht weitere Kennzahlen anpinnen.
+              </p>
+            </div>
+            <Button variant="outline" size="sm" asChild>
+              <Link to="/kpis">
+                <Settings2 className="size-4 mr-1.5" /> KPIs verwalten
+              </Link>
+            </Button>
+          </div>
+          <PinnedKpiGrid />
         </div>
 
         <Card className="p-6 bg-card border-border shadow-card">
@@ -114,7 +86,7 @@ const Dashboard = () => {
               <p className="text-sm text-muted-foreground mt-1">Vorgänge je Prozessschritt</p>
             </div>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3">
             {byStep.map(({ step, count }, i) => (
               <div
                 key={step.key}
@@ -151,30 +123,5 @@ const Dashboard = () => {
     </AppShell>
   );
 };
-
-const KpiCard = ({
-  icon: Icon,
-  label,
-  value,
-  sub,
-  accent,
-}: {
-  icon: any;
-  label: string;
-  value: string;
-  sub?: string;
-  accent?: boolean;
-}) => (
-  <Card className={`p-5 bg-card border-border shadow-card ${accent ? "ring-1 ring-primary/30" : ""}`}>
-    <div className="flex items-start justify-between mb-3">
-      <span className="text-xs uppercase tracking-wider text-muted-foreground font-medium">{label}</span>
-      <div className={`size-8 rounded-lg grid place-items-center ${accent ? "bg-gradient-brand shadow-glow" : "bg-secondary"}`}>
-        <Icon className="size-4 text-primary-foreground" />
-      </div>
-    </div>
-    <p className="text-2xl font-display font-bold text-foreground">{value}</p>
-    {sub && <p className="text-xs text-muted-foreground mt-1">{sub}</p>}
-  </Card>
-);
 
 export default Dashboard;

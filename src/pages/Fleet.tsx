@@ -5,9 +5,14 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import { useProcessStore } from "@/store/processStore";
-import { formatCurrency, Vehicle, VehicleStatus } from "@/data/process";
-import { Car, Search, Gauge, Calendar, Palette, Hash, ArrowRight, FileText } from "lucide-react";
+import { formatCurrency, Vehicle, VehicleStatus, VEHICLE_TYPE_LABELS, VehicleType, vehicleTotalCostsGross } from "@/data/process";
+import { Car, Search, Gauge, Calendar, Palette, Hash, ArrowRight, FileText, ArrowDownAZ, ArrowUpAZ } from "lucide-react";
+
+type FleetSortKey = "newest" | "oldest" | "price_asc" | "price_desc" | "mileage_asc" | "mileage_desc" | "make";
 
 const Fleet = () => {
   const vehicles = useProcessStore((s) => s.vehicles);
@@ -15,6 +20,8 @@ const Fleet = () => {
   const processes = useProcessStore((s) => s.processes);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<"all" | VehicleStatus>("all");
+  const [typeFilter, setTypeFilter] = useState<"all" | VehicleType>("all");
+  const [sortKey, setSortKey] = useState<FleetSortKey>("newest");
 
   const data = useMemo(() => {
     return vehicles.map((v) => {
@@ -25,17 +32,33 @@ const Fleet = () => {
     });
   }, [vehicles, offers, processes]);
 
-  const filtered = data.filter(({ vehicle }) => {
-    if (filter !== "all" && vehicle.status !== filter) return false;
-    if (!query.trim()) return true;
-    const q = query.toLowerCase();
-    return (
-      vehicle.vin.toLowerCase().includes(q) ||
-      vehicle.make.toLowerCase().includes(q) ||
-      vehicle.model.toLowerCase().includes(q) ||
-      vehicle.color.toLowerCase().includes(q)
-    );
-  });
+  const filtered = useMemo(() => {
+    const list = data.filter(({ vehicle }) => {
+      if (filter !== "all" && vehicle.status !== filter) return false;
+      if (typeFilter !== "all" && vehicle.type !== typeFilter) return false;
+      if (!query.trim()) return true;
+      const q = query.toLowerCase();
+      return (
+        vehicle.vin.toLowerCase().includes(q) ||
+        vehicle.make.toLowerCase().includes(q) ||
+        vehicle.model.toLowerCase().includes(q) ||
+        vehicle.color.toLowerCase().includes(q)
+      );
+    });
+
+    return [...list].sort((a, b) => {
+      const va = a.vehicle, vb = b.vehicle;
+      switch (sortKey) {
+        case "newest": return (new Date(vb.arrivedAt ?? 0).getTime() - new Date(va.arrivedAt ?? 0).getTime());
+        case "oldest": return (new Date(va.arrivedAt ?? 0).getTime() - new Date(vb.arrivedAt ?? 0).getTime());
+        case "price_asc": return va.listPrice - vb.listPrice;
+        case "price_desc": return vb.listPrice - va.listPrice;
+        case "mileage_asc": return va.mileage - vb.mileage;
+        case "mileage_desc": return vb.mileage - va.mileage;
+        case "make": return `${va.make} ${va.model}`.localeCompare(`${vb.make} ${vb.model}`);
+      }
+    });
+  }, [data, filter, typeFilter, query, sortKey]);
 
   const stats = {
     total: vehicles.length,
@@ -76,22 +99,51 @@ const Fleet = () => {
           ))}
         </div>
 
-        <Card className="p-4 flex flex-col md:flex-row gap-3 md:items-center md:justify-between">
-          <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-            <Input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="VIN, Marke, Modell oder Farbe…"
-              className="pl-9"
-            />
+        <Card className="p-4 space-y-3">
+          <div className="flex flex-col md:flex-row gap-3 md:items-center">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+              <Input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="VIN, Marke, Modell oder Farbe…"
+                className="pl-9"
+              />
+            </div>
+            <div className="flex gap-2 items-center flex-wrap">
+              <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as "all" | VehicleType)}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Alle Typen</SelectItem>
+                  {Object.entries(VEHICLE_TYPE_LABELS).map(([k, v]) => (
+                    <SelectItem key={k} value={k}>{v}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={sortKey} onValueChange={(v) => setSortKey(v as FleetSortKey)}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="newest">Neueste zuerst</SelectItem>
+                  <SelectItem value="oldest">Älteste zuerst</SelectItem>
+                  <SelectItem value="price_desc">Preis ↓</SelectItem>
+                  <SelectItem value="price_asc">Preis ↑</SelectItem>
+                  <SelectItem value="mileage_asc">Kilometer ↑</SelectItem>
+                  <SelectItem value="mileage_desc">Kilometer ↓</SelectItem>
+                  <SelectItem value="make">Marke / Modell A-Z</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <div className="flex gap-2 flex-wrap">
             {([
-              { key: "all", label: "Alle" },
-              { key: "in_stock", label: "Bestand" },
-              { key: "reserved", label: "Reserviert" },
-              { key: "sold", label: "Verkauft" },
+              { key: "all", label: `Alle (${stats.total})` },
+              { key: "in_stock", label: `Bestand (${stats.in_stock})` },
+              { key: "reserved", label: `Reserviert (${stats.reserved})` },
+              { key: "sold", label: `Verkauft (${stats.sold})` },
             ] as const).map((f) => (
               <Button
                 key={f.key}

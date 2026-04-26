@@ -1,141 +1,60 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { GoalsPanel, computeGoalProgress } from "@/components/dashboard/GoalsPanel";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { GoalsPanel } from "@/components/dashboard/GoalsPanel";
+import { KpiCard } from "@/components/kpi/KpiCard";
 import { useProcessStore } from "@/store/processStore";
+import { useDashboardStore } from "@/store/dashboardStore";
 import {
   PROCESS_STEPS, VEHICLE_TYPE_LABELS, VehicleType, formatCurrency,
   vehicleTotalCostsGross, COST_CATEGORY_LABELS, CostCategory,
 } from "@/data/process";
-import {
-  TrendingUp, Car, Workflow, Euro, Timer, Target, Wallet, Layers, Activity as ActivityIcon, FileCheck2,
-  Receipt, Banknote,
-} from "lucide-react";
+import { KPI_CATALOG, KpiCategory } from "@/lib/kpis";
+import { Timer, Layers, Activity as ActivityIcon, Wallet, Search, Pin, RotateCcw } from "lucide-react";
 
 const daysBetween = (a: string, b: string) =>
   Math.max(0, (new Date(b).getTime() - new Date(a).getTime()) / 86400000);
 
+const CATEGORIES: KpiCategory[] = ["Umsatz", "Verkauf & Marge", "Bestand", "Kosten", "Pipeline"];
+
 const KPIs = () => {
   const vehicles = useProcessStore((s) => s.vehicles);
   const processes = useProcessStore((s) => s.processes);
-  const offers = useProcessStore((s) => s.offers);
   const customers = useProcessStore((s) => s.customers);
   const activities = useProcessStore((s) => s.activities);
-  const goals = useProcessStore((s) => s.goals);
 
-  const stats = useMemo(() => {
-    // ----- Verkäufe (Übergabe abgeschlossen) -----
-    const sold = processes.filter((p) => p.steps.delivery_confirmation?.status === "completed");
-    const revenue = sold.reduce((s, p) => s + (p.fields.finalPrice ?? 0), 0);
+  const pinnedCount = useDashboardStore((s) => s.pinnedKpis.length);
+  const resetToDefault = useDashboardStore((s) => s.resetToDefault);
 
-    // ----- Tatsächliche Umsätze (Schlussrechnung gestellt) -----
-    const invoiced = processes.filter((p) => p.steps.invoicing?.status === "completed");
-    const invoicedRevenue = invoiced.reduce((s, p) => s + (p.fields.finalPrice ?? 0), 0);
+  const [query, setQuery] = useState("");
+  const [activeCat, setActiveCat] = useState<KpiCategory | "alle">("alle");
 
-    // ----- Anzahlungen / Cashflow -----
-    const downPaymentsReceived = processes.reduce((s, p) => {
-      const dp = p.fields.downPayment;
-      return s + (dp?.received ? dp.amount ?? 0 : 0);
-    }, 0);
-    const downPaymentsOpen = processes.reduce((s, p) => {
-      const dp = p.fields.downPayment;
-      return s + (dp && !dp.received ? dp.amount ?? 0 : 0);
-    }, 0);
+  const filteredKpis = useMemo(() => {
+    return KPI_CATALOG.filter((k) => {
+      if (activeCat !== "alle" && k.category !== activeCat) return false;
+      if (!query.trim()) return true;
+      const q = query.toLowerCase();
+      return k.label.toLowerCase().includes(q) || k.description.toLowerCase().includes(q);
+    });
+  }, [query, activeCat]);
 
-    // Gebuchter Umsatz = invoicierter Umsatz + erhaltene Anzahlungen aus noch nicht invoicierten Vorgängen
-    const dpInInvoiced = invoiced.reduce((s, p) => s + (p.fields.downPayment?.received ? (p.fields.downPayment.amount ?? 0) : 0), 0);
-    const bookedRevenue = invoicedRevenue + (downPaymentsReceived - dpInInvoiced);
-
-    // Pipeline-Wert: Vorgänge in Arbeit (noch nicht Übergabe), basierend auf finalPrice
-    const pipelineValue = processes
-      .filter((p) => p.steps.delivery_confirmation?.status !== "completed")
-      .reduce((s, p) => s + (p.fields.finalPrice ?? 0), 0);
-
-    // Offene Forderungen: invoicing completed, delivery noch nicht
-    const openReceivables = processes
-      .filter((p) => p.steps.invoicing?.status === "completed" && p.steps.delivery_confirmation?.status !== "completed")
-      .reduce((s, p) => {
-        const total = p.fields.finalPrice ?? 0;
-        const dp = p.fields.downPayment?.received ? (p.fields.downPayment.amount ?? 0) : 0;
-        return s + Math.max(0, total - dp);
-      }, 0);
-
-    // ----- Gewinn (auf verkaufte Fahrzeuge) -----
-    const profit = sold.reduce((s, p) => {
-      const v = vehicles.find((x) => x.id === p.vehicleId);
-      if (!v) return s;
-      const ek = v.purchasePrice + vehicleTotalCostsGross(v);
-      return s + ((p.fields.finalPrice ?? 0) - ek);
-    }, 0);
-
-    // ----- Bestand -----
-    const inStock = vehicles.filter((v) => v.status === "in_stock");
-    const reserved = vehicles.filter((v) => v.status === "reserved");
-    const stockVehicles = [...inStock, ...reserved];
-    const stockValue = stockVehicles.reduce((s, v) => s + v.listPrice, 0);
-    const stockEK = stockVehicles.reduce((s, v) => s + v.purchasePrice, 0);
-    const stockCosts = stockVehicles.reduce((s, v) => s + vehicleTotalCostsGross(v), 0);
-    const stockTotalCost = stockEK + stockCosts;
-
-    // ----- Kosten gesamt (alle Fahrzeuge) -----
-    const totalCostsAll = vehicles.reduce((s, v) => s + vehicleTotalCostsGross(v), 0);
-    const costsByCategory: Record<string, number> = {};
+  // ---- Sekundäre Visualisierungen (nicht als KPI-Karte, weil aggregierte Listen) ----
+  const totalCostsAll = useMemo(() => vehicles.reduce((s, v) => s + vehicleTotalCostsGross(v), 0), [vehicles]);
+  const costsByCategory = useMemo(() => {
+    const map: Record<string, number> = {};
     vehicles.forEach((v) => {
       v.costs.forEach((c) => {
         const gross = c.netAmount * (1 + c.vatRate / 100);
-        costsByCategory[c.category] = (costsByCategory[c.category] ?? 0) + gross;
+        map[c.category] = (map[c.category] ?? 0) + gross;
       });
     });
-    const costsSold = sold.reduce((s, p) => {
-      const v = vehicles.find((x) => x.id === p.vehicleId);
-      return s + (v ? vehicleTotalCostsGross(v) : 0);
-    }, 0);
-    const avgCostPerVehicle = vehicles.length ? totalCostsAll / vehicles.length : 0;
+    return map;
+  }, [vehicles]);
 
-    // ----- Conversion -----
-    const offersSent = offers.filter((o) => o.status === "sent" || o.status === "accepted" || o.status === "rejected");
-    const offersAccepted = offers.filter((o) => o.status === "accepted").length;
-    const conversionRate = offersSent.length ? (offersAccepted / offersSent.length) * 100 : 0;
-
-    // ----- Bestandsalter -----
-    const now = Date.now();
-    const ages = stockVehicles
-      .filter((v) => v.arrivedAt)
-      .map((v) => (now - new Date(v.arrivedAt!).getTime()) / 86400000);
-    const avgAge = ages.length ? ages.reduce((s, n) => s + n, 0) / ages.length : 0;
-
-    // ----- Durchlaufzeit -----
-    const cycleTimes = sold
-      .filter((p) => p.steps.delivery_confirmation?.completedAt)
-      .map((p) => daysBetween(p.createdAt, p.steps.delivery_confirmation!.completedAt!));
-    const avgCycle = cycleTimes.length ? cycleTimes.reduce((s, n) => s + n, 0) / cycleTimes.length : 0;
-
-    // ----- Marge -----
-    const avgMarginPct = sold.length
-      ? sold.reduce((acc, p) => {
-          const v = vehicles.find((x) => x.id === p.vehicleId);
-          if (!v) return acc;
-          const ek = v.purchasePrice + vehicleTotalCostsGross(v);
-          const sale = p.fields.finalPrice ?? 0;
-          return acc + (sale > 0 ? ((sale - ek) / sale) * 100 : 0);
-        }, 0) / sold.length
-      : 0;
-    const avgProfitPerSale = sold.length ? profit / sold.length : 0;
-
-    return {
-      sold, revenue, invoiced, invoicedRevenue, downPaymentsReceived, downPaymentsOpen, bookedRevenue,
-      pipelineValue, openReceivables,
-      profit, avgProfitPerSale,
-      inStock, reserved, stockVehicles, stockValue, stockEK, stockCosts, stockTotalCost,
-      totalCostsAll, costsByCategory, costsSold, avgCostPerVehicle,
-      offersSent: offersSent.length, offersAccepted, conversionRate,
-      avgAge, avgCycle, avgMarginPct,
-    };
-  }, [vehicles, processes, offers]);
-
-  // Pipeline by step
   const pipeline = useMemo(
     () =>
       PROCESS_STEPS.map((step) => ({
@@ -145,7 +64,6 @@ const KPIs = () => {
     [processes]
   );
 
-  // Avg Step durations between consecutive completed steps
   const stepDurations = useMemo(() => {
     return PROCESS_STEPS.slice(0, -1).map((step, i) => {
       const next = PROCESS_STEPS[i + 1];
@@ -160,7 +78,6 @@ const KPIs = () => {
     });
   }, [processes]);
 
-  // Vehicle type breakdown
   const typeBreakdown = useMemo(() => {
     const map = new Map<VehicleType, { count: number; value: number }>();
     vehicles.forEach((v) => {
@@ -175,13 +92,10 @@ const KPIs = () => {
       .sort((a, b) => b.count - a.count);
   }, [vehicles]);
 
-  // Top customers by order value
   const topCustomers = useMemo(() => {
     return customers
       .map((c) => {
-        const value = processes
-          .filter((p) => p.customerId === c.id)
-          .reduce((s, p) => s + (p.fields.finalPrice ?? 0), 0);
+        const value = processes.filter((p) => p.customerId === c.id).reduce((s, p) => s + (p.fields.finalPrice ?? 0), 0);
         const count = processes.filter((p) => p.customerId === c.id).length;
         return { ...c, value, count };
       })
@@ -190,7 +104,6 @@ const KPIs = () => {
       .slice(0, 5);
   }, [customers, processes]);
 
-  // User activity
   const activityByUser = useMemo(() => {
     const map = new Map<string, number>();
     activities.forEach((a) => map.set(a.user, (map.get(a.user) ?? 0) + 1));
@@ -203,59 +116,84 @@ const KPIs = () => {
         <div className="flex items-end justify-between gap-6 flex-wrap">
           <div>
             <Badge variant="outline" className="border-primary/30 text-primary-glow mb-3">Analytics</Badge>
-            <h1 className="text-3xl lg:text-4xl font-display font-bold tracking-tight">KPIs & Statistiken</h1>
+            <h1 className="text-3xl lg:text-4xl font-display font-bold tracking-tight">KPIs &amp; Statistiken</h1>
             <p className="text-muted-foreground mt-2 max-w-2xl">
-              Alle wichtigen Kennzahlen auf einen Blick – Umsatz, Marge, Durchlaufzeiten und Bestand.
+              Pin KPIs ans Dashboard, um sie täglich im Blick zu haben. Alle Werte werden live berechnet.
             </p>
           </div>
+          <div className="flex items-center gap-2">
+            <Badge variant="outline" className="border-primary/30 text-primary-glow gap-1.5">
+              <Pin className="size-3 fill-current" /> {pinnedCount} angepinnt
+            </Badge>
+            <Button variant="outline" size="sm" onClick={resetToDefault}>
+              <RotateCcw className="size-3.5 mr-1.5" /> Standard
+            </Button>
+          </div>
         </div>
 
-        {/* Goals zuerst – Motivation */}
         <GoalsPanel />
 
-        {/* Umsatz */}
-        <div>
-          <h2 className="text-sm uppercase tracking-wider text-muted-foreground font-semibold mb-3">Umsatz & Cashflow</h2>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <Kpi icon={Euro} label="Umsatz (gebucht)" value={formatCurrency(stats.bookedRevenue)} sub="Anzahlungen + Schlussrechnungen" accent />
-            <Kpi icon={Receipt} label="Umsatz (Rechnungen)" value={formatCurrency(stats.invoicedRevenue)} sub={`${stats.invoiced.length} Rechnungen gestellt`} />
-            <Kpi icon={Banknote} label="Anzahlungen erhalten" value={formatCurrency(stats.downPaymentsReceived)} sub={stats.downPaymentsOpen > 0 ? `${formatCurrency(stats.downPaymentsOpen)} offen` : "Alle eingegangen"} />
-            <Kpi icon={Wallet} label="Offene Forderungen" value={formatCurrency(stats.openReceivables)} sub="Rechnung gestellt, noch nicht bezahlt" />
+        {/* Filter */}
+        <Card className="p-4 bg-card border-border">
+          <div className="flex flex-col md:flex-row gap-3 md:items-center">
+            <div className="relative flex-1 max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+              <Input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="KPI suchen…"
+                className="pl-9 bg-background/40"
+              />
+            </div>
+            <div className="flex gap-2 flex-wrap">
+              <Button
+                size="sm"
+                variant={activeCat === "alle" ? "default" : "outline"}
+                onClick={() => setActiveCat("alle")}
+              >
+                Alle ({KPI_CATALOG.length})
+              </Button>
+              {CATEGORIES.map((c) => {
+                const count = KPI_CATALOG.filter((k) => k.category === c).length;
+                return (
+                  <Button
+                    key={c}
+                    size="sm"
+                    variant={activeCat === c ? "default" : "outline"}
+                    onClick={() => setActiveCat(c)}
+                  >
+                    {c} ({count})
+                  </Button>
+                );
+              })}
+            </div>
           </div>
-        </div>
+        </Card>
 
-        {/* Verkauf */}
-        <div>
-          <h2 className="text-sm uppercase tracking-wider text-muted-foreground font-semibold mb-3">Verkauf & Marge</h2>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <Kpi icon={TrendingUp} label="Gewinn (verkauft)" value={formatCurrency(stats.profit)} sub={`${stats.sold.length} Übergaben · Ø ${formatCurrency(stats.avgProfitPerSale)}`} />
-            <Kpi icon={Target} label="Ø Marge" value={`${stats.avgMarginPct.toFixed(1)}%`} sub={`Auf ${stats.sold.length} Verkäufe`} />
-            <Kpi icon={FileCheck2} label="Conversion" value={`${stats.conversionRate.toFixed(0)}%`} sub={`${stats.offersAccepted}/${stats.offersSent} Angebote`} />
-            <Kpi icon={Workflow} label="Pipeline-Wert" value={formatCurrency(stats.pipelineValue)} sub={`${processes.filter((p) => p.steps.delivery_confirmation?.status !== "completed").length} aktive Vorgänge`} />
+        {/* KPI-Katalog */}
+        {activeCat === "alle" ? (
+          CATEGORIES.map((cat) => {
+            const items = filteredKpis.filter((k) => k.category === cat);
+            if (items.length === 0) return null;
+            return (
+              <div key={cat}>
+                <h2 className="text-sm uppercase tracking-wider text-muted-foreground font-semibold mb-3">{cat}</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {items.map((kpi) => <KpiCard key={kpi.id} kpi={kpi} />)}
+                </div>
+              </div>
+            );
+          })
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {filteredKpis.map((kpi) => <KpiCard key={kpi.id} kpi={kpi} />)}
+            {filteredKpis.length === 0 && (
+              <Card className="p-8 col-span-full text-center text-muted-foreground text-sm">
+                Keine KPIs gefunden.
+              </Card>
+            )}
           </div>
-        </div>
-
-        {/* Bestand */}
-        <div>
-          <h2 className="text-sm uppercase tracking-wider text-muted-foreground font-semibold mb-3">Bestand</h2>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <Kpi icon={Wallet} label="Bestand (VK)" value={formatCurrency(stats.stockValue)} sub={`EK ${formatCurrency(stats.stockEK)}`} />
-            <Kpi icon={Car} label="Fahrzeuge" value={`${stats.stockVehicles.length}`} sub={`${stats.reserved.length} reserviert · ${stats.inStock.length} frei`} />
-            <Kpi icon={Timer} label="Ø Standzeit" value={`${stats.avgAge.toFixed(0)} Tage`} sub="Bestand im Hof" />
-            <Kpi icon={Layers} label="Ø Durchlaufzeit" value={`${stats.avgCycle.toFixed(1)} Tage`} sub="Vorgang → Übergabe" />
-          </div>
-        </div>
-
-        {/* Kosten */}
-        <div>
-          <h2 className="text-sm uppercase tracking-wider text-muted-foreground font-semibold mb-3">Kosten</h2>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            <Kpi icon={Wallet} label="Kosten gesamt" value={formatCurrency(stats.totalCostsAll)} sub="Werkstatt, Aufbereitung, Transport …" accent />
-            <Kpi icon={Wallet} label="Kosten am Bestand" value={formatCurrency(stats.stockCosts)} sub="Aktive Fahrzeuge" />
-            <Kpi icon={Wallet} label="Kosten verkauft" value={formatCurrency(stats.costsSold)} sub={`${stats.sold.length} Verkäufe`} />
-            <Kpi icon={Wallet} label="Ø Kosten / Fahrzeug" value={formatCurrency(stats.avgCostPerVehicle)} sub="Über gesamten Bestand" />
-          </div>
-        </div>
+        )}
 
         {/* Kosten nach Kategorie */}
         <Card className="p-6 bg-card border-border shadow-card">
@@ -267,13 +205,13 @@ const KPIs = () => {
             <Wallet className="size-5 text-muted-foreground" />
           </div>
           <div className="space-y-3">
-            {Object.entries(stats.costsByCategory).length === 0 && (
+            {Object.entries(costsByCategory).length === 0 && (
               <p className="text-sm text-muted-foreground">Noch keine Kosten erfasst.</p>
             )}
-            {Object.entries(stats.costsByCategory)
+            {Object.entries(costsByCategory)
               .sort((a, b) => b[1] - a[1])
               .map(([cat, value]) => {
-                const pct = stats.totalCostsAll > 0 ? (value / stats.totalCostsAll) * 100 : 0;
+                const pct = totalCostsAll > 0 ? (value / totalCostsAll) * 100 : 0;
                 return (
                   <div key={cat}>
                     <div className="flex items-center justify-between text-sm mb-1.5">
@@ -335,14 +273,12 @@ const KPIs = () => {
           </div>
         </Card>
 
-        {/* Type breakdown + Top customers */}
+        {/* Typ + Top-Kunden */}
         <div className="grid lg:grid-cols-2 gap-4">
           <Card className="p-6 bg-card border-border shadow-card">
-            <div className="flex items-center justify-between mb-5">
-              <div>
-                <h2 className="text-xl font-display font-semibold">Bestand nach Fahrzeugtyp</h2>
-                <p className="text-sm text-muted-foreground mt-1">Verteilung & Wert</p>
-              </div>
+            <div className="mb-5">
+              <h2 className="text-xl font-display font-semibold">Bestand nach Fahrzeugtyp</h2>
+              <p className="text-sm text-muted-foreground mt-1">Verteilung &amp; Wert</p>
             </div>
             <div className="space-y-3">
               {typeBreakdown.length === 0 && (
@@ -361,11 +297,9 @@ const KPIs = () => {
           </Card>
 
           <Card className="p-6 bg-card border-border shadow-card">
-            <div className="flex items-center justify-between mb-5">
-              <div>
-                <h2 className="text-xl font-display font-semibold">Top-Kunden</h2>
-                <p className="text-sm text-muted-foreground mt-1">Nach Auftragswert</p>
-              </div>
+            <div className="mb-5">
+              <h2 className="text-xl font-display font-semibold">Top-Kunden</h2>
+              <p className="text-sm text-muted-foreground mt-1">Nach Auftragswert</p>
             </div>
             <div className="space-y-3">
               {topCustomers.length === 0 && (
@@ -413,20 +347,5 @@ const KPIs = () => {
     </AppShell>
   );
 };
-
-const Kpi = ({
-  icon: Icon, label, value, sub, accent,
-}: { icon: any; label: string; value: string; sub?: string; accent?: boolean }) => (
-  <Card className={`p-5 bg-card border-border shadow-card ${accent ? "ring-1 ring-primary/30" : ""}`}>
-    <div className="flex items-start justify-between mb-3">
-      <span className="text-xs uppercase tracking-wider text-muted-foreground font-medium">{label}</span>
-      <div className={`size-8 rounded-lg grid place-items-center ${accent ? "bg-gradient-brand shadow-glow" : "bg-secondary"}`}>
-        <Icon className="size-4 text-primary-foreground" />
-      </div>
-    </div>
-    <p className="text-2xl font-display font-bold">{value}</p>
-    {sub && <p className="text-xs text-muted-foreground mt-1">{sub}</p>}
-  </Card>
-);
 
 export default KPIs;
