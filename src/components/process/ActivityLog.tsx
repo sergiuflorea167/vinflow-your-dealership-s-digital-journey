@@ -6,6 +6,7 @@ import {
 
 const ICONS: Record<Activity["type"], any> = {
   vehicle_added: Plus,
+  vehicle_updated: Edit,
   vehicle_location_changed: MapPin,
   vehicle_cost_added: Receipt,
   purchase_planned: ShoppingCart,
