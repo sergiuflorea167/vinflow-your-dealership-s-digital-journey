@@ -68,16 +68,9 @@ const Customers = () => {
         city: e.customer.city,
       };
       return fields[searchField].toLowerCase().includes(q);
-    });
-    return [...list].sort((a, b) => {
-      switch (sortKey) {
-        case "name": return a.customer.name.localeCompare(b.customer.name);
-        case "city": return a.customer.city.localeCompare(b.customer.city);
-        case "offers": return b.offerCount - a.offerCount;
-        case "processes": return b.processCount - a.processCount;
-        case "value": return b.value - a.value;
-      }
-    });
+  // search/filter dependencies
+  const _filteredDeps = [enriched, query, searchField, filter, sortKey];
+  void _filteredDeps;
   }, [enriched, query, filter, sortKey]);
 
   return (
