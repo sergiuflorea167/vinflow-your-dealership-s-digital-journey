@@ -3,7 +3,7 @@ import { NavLink } from "react-router-dom";
 import {
   LayoutDashboard, Workflow, Car, ShoppingCart, ListChecks,
   BarChart3, Settings as SettingsIcon, ChevronLeft, ChevronRight,
-  Database,
+  Database, Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -31,7 +31,8 @@ const groups: NavGroup[] = [
   {
     label: "Auswertung",
     items: [
-      { to: "/kpis", label: "KPIs", icon: BarChart3 },
+      { to: "/kpis",     label: "KPIs",      icon: BarChart3 },
+      { to: "/insights", label: "Insight+",  icon: Sparkles },
     ],
   },
   {
