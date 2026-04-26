@@ -88,6 +88,77 @@ const Dashboard = () => {
         {/* Morgen-Motivation */}
         <GoalsPanel />
 
+        {/* Heute fällige To-Dos */}
+        <Card className="p-6 bg-card border-border shadow-card">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="size-9 rounded-lg bg-warning/15 text-warning flex items-center justify-center">
+                <CalendarCheck2 className="size-5" />
+              </div>
+              <div>
+                <h2 className="text-xl font-display font-semibold">Heute fällig</h2>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  {todayTodos.length === 0
+                    ? "Keine offenen To-Dos für heute – alles im Griff."
+                    : `${todayTodos.length} offene${todayTodos.length === 1 ? "s" : ""} To-Do${todayTodos.length === 1 ? "" : "s"} mit Fälligkeit heute`}
+                </p>
+              </div>
+            </div>
+            <Button variant="ghost" size="sm" asChild>
+              <Link to="/todos">Alle To-Dos</Link>
+            </Button>
+          </div>
+
+          {todayTodos.length > 0 && (
+            <ul className="divide-y divide-border/60">
+              {todayTodos.slice(0, 6).map((t) => {
+                const veh = t.vehicleId ? vehicleMap[t.vehicleId] : undefined;
+                return (
+                  <li
+                    key={t.id}
+                    className="flex items-center gap-3 py-2.5 group"
+                  >
+                    <Checkbox
+                      checked={t.done}
+                      onCheckedChange={() => toggleTodo(t.id)}
+                      aria-label="Als erledigt markieren"
+                    />
+                    <span className={cn("size-2 rounded-full shrink-0", PRIORITY_DOT[t.priority])} />
+                    <button
+                      type="button"
+                      onClick={() => navigate("/todos")}
+                      className="flex-1 text-left text-sm text-foreground truncate hover:text-primary-glow transition-smooth"
+                    >
+                      {t.title}
+                    </button>
+                    {veh && (
+                      <button
+                        type="button"
+                        onClick={() => navigate(`/bestand/${veh.id}`)}
+                        className="hidden md:inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary-glow truncate max-w-[180px]"
+                      >
+                        <Car className="size-3 shrink-0" />
+                        <span className="truncate">{veh.make} {veh.model}</span>
+                      </button>
+                    )}
+                    {t.assignee && (
+                      <span className="hidden lg:inline text-xs text-muted-foreground truncate max-w-[120px]">
+                        {t.assignee}
+                      </span>
+                    )}
+                  </li>
+                );
+              })}
+              {todayTodos.length > 6 && (
+                <li className="pt-2 text-xs text-muted-foreground">
+                  +{todayTodos.length - 6} weitere –{" "}
+                  <Link to="/todos" className="text-primary-glow hover:underline">in der Liste anzeigen</Link>
+                </li>
+              )}
+            </ul>
+          )}
+        </Card>
+
         {/* Frei konfigurierbare KPIs */}
         <div>
           <div className="flex items-center justify-between mb-5">
