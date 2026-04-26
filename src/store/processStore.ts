@@ -696,7 +696,8 @@ export const useProcessStore = create<State>()(
       };
     },
     {
-      name: "vinflow-store-v2",
+      name: "vinflow-store-v3",
+      version: 3,
       partialize: (s) => ({
         vehicles: s.vehicles,
         customers: s.customers,
