@@ -15,10 +15,11 @@ import {
 } from "@/data/process";
 import { KPI_CATALOG, KpiCategory, KpiDef } from "@/lib/kpis";
 import {
-  Timer, Layers, Activity as ActivityIcon, Wallet, Pin, RotateCcw,
+  Layers, Activity as ActivityIcon, Wallet, Pin, RotateCcw,
   TrendingUp, Target, Workflow, Car,
 } from "lucide-react";
 import { useTopbarSearch } from "@/context/TopbarSearchContext";
+import { ProcessTimeAnalyzer } from "@/components/kpi/ProcessTimeAnalyzer";
 
 const daysBetween = (a: string, b: string) =>
   Math.max(0, (new Date(b).getTime() - new Date(a).getTime()) / 86400000);
@@ -252,30 +253,7 @@ const KPIs = () => {
               </div>
             </Card>
 
-            <Card className="p-6 bg-card border-border shadow-card">
-              <div className="flex items-center justify-between mb-5">
-                <div>
-                  <h2 className="text-xl font-display font-semibold">Prozesszeiten</h2>
-                  <p className="text-sm text-muted-foreground mt-1">Ø Tage zwischen abgeschlossenen Schritten</p>
-                </div>
-                <Timer className="size-5 text-muted-foreground" />
-              </div>
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {stepDurations.map(({ from, to, avg, samples }) => {
-                  const intensity = Math.min(1, avg / 7);
-                  return (
-                    <div key={from.key} className="rounded-xl border border-border bg-background/40 p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-[11px] text-muted-foreground">{from.shortLabel} → {to.shortLabel}</span>
-                        <span className="text-[10px] text-muted-foreground">{samples} Vorg.</span>
-                      </div>
-                      <p className="text-2xl font-display font-bold">{avg.toFixed(1)} <span className="text-xs font-normal text-muted-foreground">Tage</span></p>
-                      <Progress value={intensity * 100} className="h-1.5 mt-3" />
-                    </div>
-                  );
-                })}
-              </div>
-            </Card>
+            <ProcessTimeAnalyzer processes={processes} />
           </TabsContent>
 
           {/* Kosten */}
