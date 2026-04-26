@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { useParams, Link, Navigate } from "react-router-dom";
-import { ArrowLeft, FileText, Lock, CheckCircle2, ArrowRight, Download, Archive, AlertCircle, SkipForward } from "lucide-react";
+import { ArrowLeft, FileText, Lock, CheckCircle2, ArrowRight, Download, Archive, AlertCircle, SkipForward, RotateCcw } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { ProcessStepper } from "@/components/process/ProcessStepper";
 import { ActivityLog } from "@/components/process/ActivityLog";
@@ -11,6 +11,10 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { useProcessStore } from "@/store/processStore";
 import {
   PROCESS_STEPS, ProcessStepKey, ProcessFields, formatCurrency, formatDate, stepIndex,
@@ -31,6 +35,7 @@ const ProcessDetail = () => {
 
   const completeStep = useProcessStore((s) => s.completeStep);
   const skipStep = useProcessStore((s) => s.skipStep);
+  const cancelStep = useProcessStore((s) => s.cancelStep);
   const updateFields = useProcessStore((s) => s.updateProcessFields);
   const toggleChk = useProcessStore((s) => s.toggleOutboundChecklistItem);
   const addChk = useProcessStore((s) => s.addOutboundChecklistItem);
