@@ -886,6 +886,11 @@ export const MOCK_PURCHASE_PLANS: PurchasePlan[] = [
   { id: "PP-2025-016", type: "suv", make: "Tesla", model: "Model Y Long Range", year: 2025, targetPrice: 44000, supplier: "Direktimport NL", expectedAt: "2025-05-22", status: "open", createdAt: isoDaysAgo(5) },
   { id: "PP-2025-017", type: "limousine", make: "Mercedes-Benz", model: "S 580", year: 2024, targetPrice: 92000, supplier: "MB Auktion Bremen", expectedAt: "2025-05-30", status: "ordered", createdAt: isoDaysAgo(3) },
   { id: "PP-2025-018", type: "kleinwagen", make: "Renault", model: "Clio TCe 90", year: 2024, targetPrice: 14500, supplier: "Renault Großhandel", expectedAt: "2025-06-05", status: "open", createdAt: isoDaysAgo(2) },
+  { id: "PP-2025-019", type: "kombi", make: "BMW", model: "M3 Touring Competition", year: 2024, targetPrice: 102000, supplier: "BMW Direktimport", expectedAt: "2025-06-12", status: "open", createdAt: isoDaysAgo(1) },
+  { id: "PP-2025-020", type: "suv", make: "Land Rover", model: "Defender 110 P400e", year: 2024, targetPrice: 84000, supplier: "JLR Auktion Köln", expectedAt: "2025-06-18", status: "ordered", createdAt: isoDaysAgo(4) },
+  { id: "PP-2025-021", type: "limousine", make: "Polestar", model: "Polestar 2 Long Range", year: 2024, targetPrice: 41500, supplier: "Direktimport NL", expectedAt: "2025-06-22", status: "open", createdAt: isoDaysAgo(2) },
+  { id: "PP-2025-022", type: "kleinwagen", make: "Toyota", model: "Yaris GR", year: 2024, targetPrice: 35900, supplier: "Toyota Auktion", expectedAt: "2025-07-01", status: "open", createdAt: isoDaysAgo(1) },
+  { id: "PP-2025-023", type: "transporter", make: "Mercedes-Benz", model: "Sprinter 319 CDI", year: 2024, targetPrice: 48500, supplier: "MB Großhandel", expectedAt: "2025-07-08", status: "ordered", createdAt: isoDaysAgo(6) },
 ];
 
 export const MOCK_OFFERS: Offer[] = [
