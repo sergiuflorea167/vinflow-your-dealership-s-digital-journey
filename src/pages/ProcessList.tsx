@@ -50,7 +50,7 @@ const ProcessList = () => {
   const companyName = useProcessStore((s) => s.settings.companyName);
 
   // ---- Tabs ----
-  const [tab, setTab] = useState<"list" | "offers" | "documents">("list");
+  const [tab, setTab] = useState<"list" | "archived" | "offers" | "documents">("list");
 
   // ---- Liste ----
   const [q, setQ] = useState("");
@@ -58,6 +58,12 @@ const ProcessList = () => {
   const [filter, setFilter] = useState<string>("all");
   const [sortKey, setSortKey] = useState<ProcessSortKey>("updated");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+
+  // ---- Archivierte Vorgänge ----
+  const [archQ, setArchQ] = useState("");
+  const [archQField, setArchQField] = useState<"all" | "id" | "vin" | "vehicle" | "customer">("all");
+  const [archSortKey, setArchSortKey] = useState<ProcessSortKey>("updated");
+  const [archSortDir, setArchSortDir] = useState<"asc" | "desc">("desc");
 
   const enriched = useMemo(
     () =>
@@ -67,8 +73,11 @@ const ProcessList = () => {
     [processes, getVehicle, getCustomer]
   );
 
+  const activeEnriched = useMemo(() => enriched.filter((e) => !isProcessArchived(e.p)), [enriched]);
+  const archivedEnriched = useMemo(() => enriched.filter((e) => isProcessArchived(e.p)), [enriched]);
+
   const filtered = useMemo(() => {
-    const list = enriched.filter(({ p, vehicle, customer }) => {
+    const list = activeEnriched.filter(({ p, vehicle, customer }) => {
       if (filter !== "all" && p.currentStep !== filter) return false;
       if (!q) return true;
       const s = q.toLowerCase();
@@ -93,7 +102,32 @@ const ProcessList = () => {
       }
     });
     return sorted;
-  }, [enriched, q, qField, filter, sortKey, sortDir]);
+  }, [activeEnriched, q, qField, filter, sortKey, sortDir]);
+
+  const filteredArchived = useMemo(() => {
+    const list = archivedEnriched.filter(({ p, vehicle, customer }) => {
+      if (!archQ) return true;
+      const s = archQ.toLowerCase();
+      const fields: Record<typeof archQField, string> = {
+        all: `${p.id} ${vehicle!.vin} ${vehicle!.make} ${vehicle!.model} ${customer!.name}`,
+        id: p.id,
+        vin: vehicle!.vin,
+        vehicle: `${vehicle!.make} ${vehicle!.model}`,
+        customer: customer!.name,
+      };
+      return fields[archQField].toLowerCase().includes(s);
+    });
+    return [...list].sort((a, b) => {
+      const dir = archSortDir === "asc" ? 1 : -1;
+      switch (archSortKey) {
+        case "updated": return (new Date(a.p.updatedAt).getTime() - new Date(b.p.updatedAt).getTime()) * dir;
+        case "created": return (new Date(a.p.createdAt).getTime() - new Date(b.p.createdAt).getTime()) * dir;
+        case "price": return ((a.p.fields.finalPrice ?? a.vehicle!.listPrice) - (b.p.fields.finalPrice ?? b.vehicle!.listPrice)) * dir;
+        case "id": return a.p.id.localeCompare(b.p.id) * dir;
+        case "customer": return a.customer!.name.localeCompare(b.customer!.name) * dir;
+      }
+    });
+  }, [archivedEnriched, archQ, archQField, archSortKey, archSortDir]);
 
   // ---- Angebote ----
   const [offerQ, setOfferQ] = useState("");
