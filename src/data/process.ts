@@ -1351,6 +1351,104 @@ export const MOCK_GOALS: Goal[] = [
   { id: "G-003", metric: "profit", period: "quarter", target: 120000, startDate: new Date(today.getFullYear(), Math.floor(today.getMonth()/3)*3, 1).toISOString(), endDate: new Date(today.getFullYear(), Math.floor(today.getMonth()/3)*3 + 3, 0).toISOString(), label: "Gewinnziel Quartal" },
 ];
 
+// ---------- Kalender-Mocks ----------
+
+const isoToday = (offset = 0) => {
+  const d = new Date(today);
+  d.setDate(d.getDate() + offset);
+  return d.toISOString().slice(0, 10);
+};
+
+export const MOCK_CALENDAR_EVENTS: CalendarEvent[] = [
+  {
+    id: "EV-001",
+    title: "Besichtigung BMW M5",
+    description: "Kunde Hr. Weber, Probefahrt eingeplant.",
+    date: isoToday(0),
+    startTime: "10:00",
+    endTime: "11:00",
+    type: "viewing",
+    vehicleId: "V-021",
+    location: "Showroom",
+    createdAt: new Date().toISOString(),
+    createdBy: "Admin",
+  },
+  {
+    id: "EV-002",
+    title: "Telefonat Auto Müller GmbH",
+    description: "Rückruf wg. Großabnahme.",
+    date: isoToday(0),
+    startTime: "14:30",
+    endTime: "15:00",
+    type: "call",
+    customerId: "C-027",
+    createdAt: new Date().toISOString(),
+    createdBy: "Admin",
+  },
+  {
+    id: "EV-003",
+    title: "Übergabe Tesla Model Y",
+    date: isoToday(1),
+    startTime: "09:00",
+    endTime: "10:30",
+    type: "handover",
+    location: "Showroom Premium",
+    createdAt: new Date().toISOString(),
+    createdBy: "Admin",
+  },
+  {
+    id: "EV-004",
+    title: "Fokuszeit – Angebote schreiben",
+    date: isoToday(0),
+    startTime: "08:00",
+    endTime: "09:30",
+    type: "block",
+    createdAt: new Date().toISOString(),
+    createdBy: "Admin",
+  },
+];
+
+export const DEFAULT_DAY_TEMPLATES: DayTemplate[] = [
+  {
+    id: "DT-VERKAUF",
+    name: "Verkaufstag",
+    description: "Klassischer Tag mit Kundenfokus.",
+    blocks: [
+      { id: "b1", title: "Posteingang & Anrufe",   startTime: "08:00", endTime: "09:00", type: "call" },
+      { id: "b2", title: "Angebote schreiben",     startTime: "09:00", endTime: "10:30", type: "block" },
+      { id: "b3", title: "Kundenbesichtigungen",   startTime: "10:30", endTime: "13:00", type: "viewing" },
+      { id: "b4", title: "Mittagspause",           startTime: "13:00", endTime: "14:00", type: "block" },
+      { id: "b5", title: "Übergaben",              startTime: "14:00", endTime: "16:00", type: "handover" },
+      { id: "b6", title: "Tagesabschluss / CRM",   startTime: "16:00", endTime: "17:30", type: "internal" },
+    ],
+  },
+  {
+    id: "DT-WERKSTATT",
+    name: "Werkstatt-Tag",
+    description: "Fokus auf Bestand, Aufbereitung, Logistik.",
+    blocks: [
+      { id: "b1", title: "Bestand-Check",          startTime: "08:00", endTime: "09:00", type: "internal" },
+      { id: "b2", title: "Werkstatt-Koordination", startTime: "09:00", endTime: "11:00", type: "internal" },
+      { id: "b3", title: "Aufbereiter abstimmen",  startTime: "11:00", endTime: "12:00", type: "call" },
+      { id: "b4", title: "Mittagspause",           startTime: "12:00", endTime: "13:00", type: "block" },
+      { id: "b5", title: "Inserate & Fotos",       startTime: "13:00", endTime: "16:00", type: "block" },
+      { id: "b6", title: "Tagesabschluss",         startTime: "16:00", endTime: "17:00", type: "internal" },
+    ],
+  },
+  {
+    id: "DT-EINKAUF",
+    name: "Einkaufstag",
+    description: "Plattformen sichten, Auktionen, Verhandlungen.",
+    blocks: [
+      { id: "b1", title: "Plattformen sichten",    startTime: "08:00", endTime: "10:00", type: "block" },
+      { id: "b2", title: "Verhandlungen",          startTime: "10:00", endTime: "12:00", type: "call" },
+      { id: "b3", title: "Mittagspause",           startTime: "12:00", endTime: "13:00", type: "block" },
+      { id: "b4", title: "Auktionen / Bieten",     startTime: "13:00", endTime: "15:00", type: "block" },
+      { id: "b5", title: "Logistik organisieren",  startTime: "15:00", endTime: "17:00", type: "internal" },
+    ],
+  },
+];
+
 export const DEFAULT_SETTINGS: Settings = {
   userName: "Admin",
   companyName: "VINflow Autohaus GmbH",
