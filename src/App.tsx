@@ -48,6 +48,7 @@ const App = () => (
           <Route path="/kpis" element={<KPIs />} />
           <Route path="/insights" element={<Insights />} />
           <Route path="/todos" element={<Todos />} />
+          <Route path="/kalender" element={<Calendar />} />
           <Route path="/stammdaten" element={<Stammdaten />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
