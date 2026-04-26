@@ -113,6 +113,17 @@ interface State {
   updateTodo: (id: string, patch: Partial<Omit<Todo, "id" | "createdAt" | "createdBy">>) => void;
   removeTodo: (id: string) => void;
 
+  // ------- Calendar -------
+  addCalendarEvent: (e: Omit<CalendarEvent, "id" | "createdAt" | "createdBy">) => CalendarEvent;
+  updateCalendarEvent: (id: string, patch: Partial<Omit<CalendarEvent, "id" | "createdAt" | "createdBy">>) => void;
+  removeCalendarEvent: (id: string) => void;
+  toggleCalendarEventDone: (id: string) => void;
+  /** Tagesstruktur aus einem Template erzeugen (überschreibt vorhandene Blöcke des Tages). */
+  applyDayTemplate: (templateId: string, date: string) => void;
+  /** Day-Template anlegen / aktualisieren / löschen. */
+  upsertDayTemplate: (tpl: DayTemplate) => void;
+  removeDayTemplate: (id: string) => void;
+
   // ------- Goals & Settings -------
   addGoal: (g: Omit<Goal, "id">) => Goal;
   updateGoal: (id: string, patch: Partial<Goal>) => void;
