@@ -112,21 +112,21 @@ const CustomersPanel = () => {
         <div className="p-12 text-center text-muted-foreground text-sm">Keine Kunden gefunden.</div>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full text-xs">
             <thead>
               <tr className="border-b border-border bg-background/30 text-left text-xs uppercase tracking-wider text-muted-foreground">
-                <th className="px-5 py-3 font-medium">Kunde</th>
-                <th className="px-5 py-3 font-medium">E-Mail</th>
-                <th className="px-5 py-3 font-medium">Telefon</th>
-                <th className="px-5 py-3 font-medium">Stadt</th>
-                <th className="px-5 py-3 font-medium text-center">Angebote</th>
-                <th className="px-5 py-3 font-medium text-center">Vorgänge</th>
+                <th className="px-3 py-2 font-medium">Kunde</th>
+                <th className="px-3 py-2 font-medium">E-Mail</th>
+                <th className="px-3 py-2 font-medium">Telefon</th>
+                <th className="px-3 py-2 font-medium">Stadt</th>
+                <th className="px-3 py-2 font-medium text-center">Angebote</th>
+                <th className="px-3 py-2 font-medium text-center">Vorgänge</th>
               </tr>
             </thead>
             <tbody>
               {filtered.map(({ customer, offerCount, processCount }) => (
                 <tr key={customer.id} className="border-b border-border/50 hover:bg-surface-elevated/40 transition-smooth">
-                  <td className="px-5 py-3.5">
+                  <td className="px-3 py-2">
                     <div className="flex items-center gap-3">
                       <div className="size-9 rounded-lg bg-gradient-brand grid place-items-center text-primary-foreground font-display font-bold text-xs shrink-0">
                         {customer.name.split(" ").map((n) => n[0]).slice(0, 2).join("")}
@@ -137,17 +137,17 @@ const CustomersPanel = () => {
                       </div>
                     </div>
                   </td>
-                  <td className="px-5 py-3.5 text-xs text-muted-foreground truncate max-w-[220px]">{customer.email}</td>
-                  <td className="px-5 py-3.5 text-xs text-muted-foreground whitespace-nowrap">{customer.phone}</td>
-                  <td className="px-5 py-3.5 text-xs text-foreground truncate max-w-[160px]">
+                  <td className="px-3 py-2 text-xs text-muted-foreground truncate max-w-[220px]">{customer.email}</td>
+                  <td className="px-3 py-2 text-xs text-muted-foreground whitespace-nowrap">{customer.phone}</td>
+                  <td className="px-3 py-2 text-xs text-foreground truncate max-w-[160px]">
                     {`${customer.zip ?? ""} ${customer.city}`.trim()}
                   </td>
-                  <td className="px-5 py-3.5 text-center">
+                  <td className="px-3 py-2 text-center">
                     {offerCount > 0
                       ? <span className="inline-flex items-center justify-center min-w-6 h-6 px-2 rounded-full bg-primary/15 text-primary-glow text-xs font-semibold">{offerCount}</span>
                       : <span className="text-xs text-muted-foreground">–</span>}
                   </td>
-                  <td className="px-5 py-3.5 text-center">
+                  <td className="px-3 py-2 text-center">
                     {processCount > 0
                       ? <Badge variant="outline" className="border-success/30 text-success">{processCount}</Badge>
                       : <span className="text-xs text-muted-foreground">–</span>}
@@ -232,41 +232,41 @@ const PartnersPanel = () => {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-xs">
               <thead>
                 <tr className="border-b border-border bg-background/30 text-left text-xs uppercase tracking-wider text-muted-foreground">
-                  <th className="px-5 py-3 font-medium">Partner</th>
-                  <th className="px-5 py-3 font-medium">Typ</th>
-                  <th className="px-5 py-3 font-medium">Ansprechpartner</th>
-                  <th className="px-5 py-3 font-medium">Kontakt</th>
-                  <th className="px-5 py-3 font-medium">Adresse</th>
-                  <th className="px-5 py-3 font-medium text-right">Aktionen</th>
+                  <th className="px-3 py-2 font-medium">Partner</th>
+                  <th className="px-3 py-2 font-medium">Typ</th>
+                  <th className="px-3 py-2 font-medium">Ansprechpartner</th>
+                  <th className="px-3 py-2 font-medium">Kontakt</th>
+                  <th className="px-3 py-2 font-medium">Adresse</th>
+                  <th className="px-3 py-2 font-medium text-right">Aktionen</th>
                 </tr>
               </thead>
               <tbody>
                 {filtered.map((p) => (
                   <tr key={p.id} className="border-b border-border/50 hover:bg-surface-elevated/40 transition-smooth">
-                    <td className="px-5 py-3.5">
+                    <td className="px-3 py-2">
                       <p className="font-medium text-foreground truncate">{p.name}</p>
                       <p className="font-mono text-[10px] text-muted-foreground truncate">{p.id}</p>
                     </td>
-                    <td className="px-5 py-3.5">
+                    <td className="px-3 py-2">
                       <Badge variant="outline" className={KIND_BADGE[p.kind]}>{PARTNER_KIND_LABELS[p.kind]}</Badge>
                     </td>
-                    <td className="px-5 py-3.5 text-xs text-foreground truncate max-w-[180px]">
+                    <td className="px-3 py-2 text-xs text-foreground truncate max-w-[180px]">
                       {p.contactPerson || <span className="text-muted-foreground italic">—</span>}
                     </td>
-                    <td className="px-5 py-3.5 text-xs text-muted-foreground">
+                    <td className="px-3 py-2 text-xs text-muted-foreground">
                       <div className="flex flex-col gap-0.5">
                         {p.email && <span className="inline-flex items-center gap-1.5"><Mail className="size-3" /> {p.email}</span>}
                         {p.phone && <span className="inline-flex items-center gap-1.5"><Phone className="size-3" /> {p.phone}</span>}
                         {!p.email && !p.phone && <span className="italic">—</span>}
                       </div>
                     </td>
-                    <td className="px-5 py-3.5 text-xs text-muted-foreground truncate max-w-[220px]">
+                    <td className="px-3 py-2 text-xs text-muted-foreground truncate max-w-[220px]">
                       {p.address || <span className="italic">—</span>}
                     </td>
-                    <td className="px-5 py-3.5">
+                    <td className="px-3 py-2">
                       <div className="flex items-center justify-end gap-1">
                         <Button variant="ghost" size="icon" className="size-8" onClick={() => openEdit(p)} aria-label="Bearbeiten">
                           <Pencil className="size-3.5 text-muted-foreground" />
@@ -454,12 +454,12 @@ const LocationsPanel = () => {
         <div className="p-12 text-center text-muted-foreground text-sm">Noch keine Standorte angelegt.</div>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full text-xs">
             <thead>
               <tr className="border-b border-border bg-background/30 text-left text-xs uppercase tracking-wider text-muted-foreground">
-                <th className="px-5 py-3 font-medium">Standort</th>
-                <th className="px-5 py-3 font-medium text-center">Belegt mit</th>
-                <th className="px-5 py-3 font-medium text-right">Aktion</th>
+                <th className="px-3 py-2 font-medium">Standort</th>
+                <th className="px-3 py-2 font-medium text-center">Belegt mit</th>
+                <th className="px-3 py-2 font-medium text-right">Aktion</th>
               </tr>
             </thead>
             <tbody>
@@ -467,13 +467,13 @@ const LocationsPanel = () => {
                 const count = usage[loc] ?? 0;
                 return (
                   <tr key={loc} className="border-b border-border/50 hover:bg-surface-elevated/40 transition-smooth">
-                    <td className="px-5 py-3.5">
+                    <td className="px-3 py-2">
                       <div className="flex items-center gap-2">
                         <MapPin className="size-4 text-info shrink-0" />
                         <span className="font-medium text-foreground">{loc}</span>
                       </div>
                     </td>
-                    <td className="px-5 py-3.5 text-center">
+                    <td className="px-3 py-2 text-center">
                       {count > 0 ? (
                         <Badge variant="outline" className="border-primary/30 text-primary-glow">
                           {count} Fahrzeug{count !== 1 ? "e" : ""}
@@ -482,7 +482,7 @@ const LocationsPanel = () => {
                         <span className="text-xs text-muted-foreground">leer</span>
                       )}
                     </td>
-                    <td className="px-5 py-3.5">
+                    <td className="px-3 py-2">
                       <div className="flex justify-end">
                         <Button
                           variant="ghost" size="icon"
