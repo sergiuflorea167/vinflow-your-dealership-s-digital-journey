@@ -41,11 +41,6 @@ const ProcessDetail = () => {
 
   const selectedKey = selected ?? process?.currentStep ?? "offer";
 
-  const validation = useMemo(
-    () => validateStep(selectedKey, process?.fields ?? {}, process?.outboundChecklist.filter((c) => c.done).length ?? 0, process?.outboundChecklist.length ?? 0),
-    [selectedKey, process?.fields, process?.outboundChecklist]
-  );
-
   if (!process || !vehicle || !customer) return <Navigate to="/vorgaenge" replace />;
   const selectedStep = PROCESS_STEPS.find((s) => s.key === selectedKey)!;
   const selectedIdx = stepIndex(selectedKey);
