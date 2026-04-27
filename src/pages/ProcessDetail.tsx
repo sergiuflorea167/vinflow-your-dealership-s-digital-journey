@@ -22,6 +22,7 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { downloadBelegPdf } from "@/lib/pdf";
+import { CustomerPortalCard } from "@/components/process/CustomerPortalCard";
 
 const ProcessDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -299,6 +300,14 @@ const ProcessDetail = () => {
 
           {/* Right column */}
           <div className="space-y-6">
+            <CustomerPortalCard
+              processId={process.id}
+              customerName={customer.name}
+              customerEmail={customer.email}
+              vehicleLabel={`${vehicle.make} ${vehicle.model}`}
+              companyName={companyName}
+            />
+
             <Card className="p-6 bg-card border-border shadow-card">
               <h3 className="font-display font-semibold text-sm mb-4">Kunde</h3>
               <div className="space-y-3 text-sm">
