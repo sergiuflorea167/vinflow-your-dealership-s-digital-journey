@@ -75,10 +75,6 @@ const Dashboard = () => {
               </Badge>
               <h1 className="text-4xl lg:text-5xl font-display font-bold tracking-tight text-foreground">
                 Willkommen zurück, Sergiu.
-              </h1>
-              <p className="text-muted-foreground mt-3 max-w-2xl">
-                Von der Einkaufsplanung bis zur Übergabe – jeder Schritt erzeugt einen archivierten Kunden-Beleg.
-              </p>
             </div>
             <div className="flex flex-wrap gap-3">
               <Button variant="outline" className="border-border/60" asChild>
