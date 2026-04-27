@@ -15,18 +15,18 @@ import { cn } from "@/lib/utils";
 
 const EVENT_DOT: Record<CalendarEventType, string> = {
   appointment: "bg-primary",
-  todo:        "bg-warning",
-  block:       "bg-muted-foreground",
-  viewing:     "bg-info",
-  handover:    "bg-success",
-  call:        "bg-accent-foreground",
-  internal:    "bg-secondary-foreground",
+  todo: "bg-warning",
+  block: "bg-muted-foreground",
+  viewing: "bg-info",
+  handover: "bg-success",
+  call: "bg-accent-foreground",
+  internal: "bg-secondary-foreground",
 };
 
 const PRIORITY_DOT: Record<TodoPriority, string> = {
-  high:   "bg-destructive",
+  high: "bg-destructive",
   medium: "bg-warning",
-  low:    "bg-info",
+  low: "bg-info",
 };
 
 const Dashboard = () => {
@@ -43,29 +43,25 @@ const Dashboard = () => {
         step,
         count: processes.filter((p) => p.currentStep === step.key && p.steps[step.key].status !== "completed").length,
       })),
-    [processes]
+    [processes],
   );
 
   const todayISO = new Date().toISOString().slice(0, 10);
   const todayTodos = useMemo(
-    () => todos
-      .filter((t) => !t.done && t.dueDate === todayISO)
-      .sort((a, b) => {
-        const w = { high: 0, medium: 1, low: 2 } as const;
-        return w[a.priority] - w[b.priority];
-      }),
-    [todos, todayISO]
+    () =>
+      todos
+        .filter((t) => !t.done && t.dueDate === todayISO)
+        .sort((a, b) => {
+          const w = { high: 0, medium: 1, low: 2 } as const;
+          return w[a.priority] - w[b.priority];
+        }),
+    [todos, todayISO],
   );
   const todayEvents = useMemo(
-    () => calendarEvents
-      .filter((e) => e.date === todayISO)
-      .sort((a, b) => a.startTime.localeCompare(b.startTime)),
-    [calendarEvents, todayISO]
+    () => calendarEvents.filter((e) => e.date === todayISO).sort((a, b) => a.startTime.localeCompare(b.startTime)),
+    [calendarEvents, todayISO],
   );
-  const vehicleMap = useMemo(
-    () => Object.fromEntries(vehicles.map((v) => [v.id, v])),
-    [vehicles]
-  );
+  const vehicleMap = useMemo(() => Object.fromEntries(vehicles.map((v) => [v.id, v])), [vehicles]);
 
   return (
     <AppShell>
@@ -78,7 +74,7 @@ const Dashboard = () => {
                 VIN-basierte Vorgangskette
               </Badge>
               <h1 className="text-4xl lg:text-5xl font-display font-bold tracking-tight text-foreground">
-                Willkommen zurück.
+                Willkommen zurück, Sergiu.
               </h1>
               <p className="text-muted-foreground mt-3 max-w-2xl">
                 Von der Einkaufsplanung bis zur Übergabe – jeder Schritt erzeugt einen archivierten Kunden-Beleg.
@@ -136,7 +132,10 @@ const Dashboard = () => {
                   <button
                     type="button"
                     onClick={() => navigate("/kalender")}
-                    className={cn("flex-1 text-left text-sm text-foreground truncate hover:text-primary-glow transition-smooth", e.done && "line-through opacity-60")}
+                    className={cn(
+                      "flex-1 text-left text-sm text-foreground truncate hover:text-primary-glow transition-smooth",
+                      e.done && "line-through opacity-60",
+                    )}
                   >
                     {e.title}
                   </button>
@@ -145,7 +144,8 @@ const Dashboard = () => {
                   </Badge>
                   {e.location && (
                     <span className="hidden lg:inline-flex items-center gap-1 text-xs text-muted-foreground truncate max-w-[160px]">
-                      <MapPin className="size-3 shrink-0" /><span className="truncate">{e.location}</span>
+                      <MapPin className="size-3 shrink-0" />
+                      <span className="truncate">{e.location}</span>
                     </span>
                   )}
                 </li>
@@ -153,7 +153,9 @@ const Dashboard = () => {
               {todayEvents.length > 6 && (
                 <li className="pt-2 text-xs text-muted-foreground">
                   +{todayEvents.length - 6} weitere –{" "}
-                  <Link to="/kalender" className="text-primary-glow hover:underline">im Kalender anzeigen</Link>
+                  <Link to="/kalender" className="text-primary-glow hover:underline">
+                    im Kalender anzeigen
+                  </Link>
                 </li>
               )}
             </ul>
@@ -186,10 +188,7 @@ const Dashboard = () => {
               {todayTodos.slice(0, 6).map((t) => {
                 const veh = t.vehicleId ? vehicleMap[t.vehicleId] : undefined;
                 return (
-                  <li
-                    key={t.id}
-                    className="flex items-center gap-3 py-2.5 group"
-                  >
+                  <li key={t.id} className="flex items-center gap-3 py-2.5 group">
                     <Checkbox
                       checked={t.done}
                       onCheckedChange={() => toggleTodo(t.id)}
@@ -210,7 +209,9 @@ const Dashboard = () => {
                         className="hidden md:inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary-glow truncate max-w-[180px]"
                       >
                         <Car className="size-3 shrink-0" />
-                        <span className="truncate">{veh.make} {veh.model}</span>
+                        <span className="truncate">
+                          {veh.make} {veh.model}
+                        </span>
                       </button>
                     )}
                     {t.assignee && (
@@ -224,7 +225,9 @@ const Dashboard = () => {
               {todayTodos.length > 6 && (
                 <li className="pt-2 text-xs text-muted-foreground">
                   +{todayTodos.length - 6} weitere –{" "}
-                  <Link to="/todos" className="text-primary-glow hover:underline">in der Liste anzeigen</Link>
+                  <Link to="/todos" className="text-primary-glow hover:underline">
+                    in der Liste anzeigen
+                  </Link>
                 </li>
               )}
             </ul>
