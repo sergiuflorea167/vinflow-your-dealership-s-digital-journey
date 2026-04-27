@@ -46,6 +46,12 @@ const Dashboard = () => {
     [processes],
   );
 
+  const LAST_STEP_KEY = PROCESS_STEPS[PROCESS_STEPS.length - 1].key;
+  const activeProcesses = useMemo(
+    () => processes.filter((p) => p.steps?.[LAST_STEP_KEY]?.status !== "completed"),
+    [processes, LAST_STEP_KEY],
+  );
+
   const todayISO = new Date().toISOString().slice(0, 10);
   const todayTodos = useMemo(
     () =>
@@ -284,9 +290,14 @@ const Dashboard = () => {
             </Button>
           </div>
           <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {processes.slice(0, 6).map((p) => (
+            {activeProcesses.slice(0, 6).map((p) => (
               <ProcessCard key={p.id} process={p} />
             ))}
+            {activeProcesses.length === 0 && (
+              <p className="text-sm text-muted-foreground col-span-full">
+                Keine aktiven Vorgänge – alle abgeschlossen.
+              </p>
+            )}
           </div>
         </div>
       </div>
