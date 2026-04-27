@@ -46,6 +46,12 @@ const Dashboard = () => {
     [processes],
   );
 
+  const LAST_STEP_KEY = PROCESS_STEPS[PROCESS_STEPS.length - 1].key;
+  const activeProcesses = useMemo(
+    () => processes.filter((p) => p.steps?.[LAST_STEP_KEY]?.status !== "completed"),
+    [processes, LAST_STEP_KEY],
+  );
+
   const todayISO = new Date().toISOString().slice(0, 10);
   const todayTodos = useMemo(
     () =>
