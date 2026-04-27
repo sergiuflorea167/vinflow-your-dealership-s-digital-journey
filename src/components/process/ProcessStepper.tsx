@@ -13,6 +13,38 @@ interface Props {
 export const ProcessStepper = ({ currentStep, selectedStep, onSelect, compact, steps }: Props) => {
   const currentIdx = stepIndex(currentStep);
 
+  if (compact) {
+    return (
+      <ol className="flex items-center w-full gap-1">
+        {PROCESS_STEPS.map((step, i) => {
+          const status = steps?.[step.key]?.status;
+          const isSkipped = status === "skipped";
+          const isCompleted = status === "completed" || (i < currentIdx && status !== "skipped");
+          const isActive = i === currentIdx && !isCompleted && !isSkipped;
+          const isLast = i === PROCESS_STEPS.length - 1;
+          return (
+            <li key={step.key} className="flex items-center flex-1 min-w-0" title={step.shortLabel}>
+              <div
+                className={cn(
+                  "size-5 shrink-0 rounded-full grid place-items-center border transition-smooth font-display text-[10px] font-semibold",
+                  isCompleted && "bg-success border-success text-success-foreground",
+                  isSkipped && "bg-muted border-muted-foreground/30 text-muted-foreground",
+                  isActive && "bg-primary border-primary text-primary-foreground shadow-glow",
+                  !isCompleted && !isActive && !isSkipped && "bg-card border-border text-muted-foreground",
+                )}
+              >
+                {isCompleted ? <Check className="size-3" /> : isSkipped ? <SkipForward className="size-2.5" /> : i + 1}
+              </div>
+              {!isLast && (
+                <div className={cn("h-[2px] flex-1 mx-0.5 transition-smooth", i < currentIdx ? "bg-success" : "bg-border")} />
+              )}
+            </li>
+          );
+        })}
+      </ol>
+    );
+  }
+
   return (
     <div className="w-full overflow-x-auto">
       <ol className="flex items-start min-w-max gap-0">
@@ -49,19 +81,17 @@ export const ProcessStepper = ({ currentStep, selectedStep, onSelect, compact, s
                 >
                   {isCompleted ? <Check className="size-4" /> : isSkipped ? <SkipForward className="size-3.5" /> : i + 1}
                 </div>
-                {!compact && (
-                  <div className="text-center px-1">
-                    <p className={cn(
-                      "text-[11px] font-semibold leading-tight",
-                      isActive && "text-primary-glow",
-                      isCompleted && "text-foreground",
-                      isSkipped && "text-muted-foreground line-through",
-                      isLocked && "text-muted-foreground"
-                    )}>
-                      {step.shortLabel}
-                    </p>
-                  </div>
-                )}
+                <div className="text-center px-1">
+                  <p className={cn(
+                    "text-[11px] font-semibold leading-tight",
+                    isActive && "text-primary-glow",
+                    isCompleted && "text-foreground",
+                    isSkipped && "text-muted-foreground line-through",
+                    isLocked && "text-muted-foreground"
+                  )}>
+                    {step.shortLabel}
+                  </p>
+                </div>
               </button>
               {!isLast && (
                 <div className="flex-1 h-9 grid place-items-center">
