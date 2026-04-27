@@ -284,9 +284,14 @@ const Dashboard = () => {
             </Button>
           </div>
           <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {processes.slice(0, 6).map((p) => (
+            {activeProcesses.slice(0, 6).map((p) => (
               <ProcessCard key={p.id} process={p} />
             ))}
+            {activeProcesses.length === 0 && (
+              <p className="text-sm text-muted-foreground col-span-full">
+                Keine aktiven Vorgänge – alle abgeschlossen.
+              </p>
+            )}
           </div>
         </div>
       </div>
