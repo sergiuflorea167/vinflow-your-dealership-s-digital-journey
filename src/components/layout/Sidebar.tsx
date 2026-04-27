@@ -116,8 +116,8 @@ export const Sidebar = () => {
           )}
         >
           <NavLink to="/" className="flex items-center gap-3 hover:opacity-90 transition-smooth min-w-0">
-            <div className="size-9 rounded-xl bg-gradient-brand grid place-items-center shadow-glow shrink-0">
-              <span className="font-display font-bold text-primary-foreground text-lg">V</span>
+            <div className="size-9 rounded-xl bg-white grid place-items-center shadow-glow shrink-0 overflow-hidden">
+              <img src="/favicon.png" alt="VINflow Logo" className="size-7 object-contain" />
             </div>
             {!collapsed && (
               <div className="flex flex-col leading-tight min-w-0">
