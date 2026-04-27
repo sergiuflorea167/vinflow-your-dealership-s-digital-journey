@@ -17,6 +17,7 @@ import OfferDetail from "./pages/OfferDetail.tsx";
 import Todos from "./pages/Todos.tsx";
 import Calendar from "./pages/Calendar.tsx";
 import Stammdaten from "./pages/Stammdaten.tsx";
+import CustomerTracking from "./pages/CustomerTracking.tsx";
 import { TopbarSearchProvider } from "./context/TopbarSearchContext";
 import { KpiRangeProvider } from "./context/KpiRangeContext";
 
@@ -52,6 +53,7 @@ const App = () => (
           <Route path="/todos" element={<Todos />} />
           <Route path="/kalender" element={<Calendar />} />
           <Route path="/stammdaten" element={<Stammdaten />} />
+          <Route path="/track/:token" element={<CustomerTracking />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>
