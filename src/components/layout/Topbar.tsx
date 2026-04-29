@@ -4,13 +4,10 @@ import { Button } from "@/components/ui/button";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { useProcessStore } from "@/store/processStore";
 import { useTopbarSearchConfig } from "@/context/TopbarSearchContext";
+import { UserMenu } from "./UserMenu";
 
 export const Topbar = () => {
-  const userName = useProcessStore((s) => s.settings.userName);
-  const initials = (userName || "AD").split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase() || "AD";
-
   const config = useTopbarSearchConfig();
   const disabled = !config;
 
@@ -44,9 +41,7 @@ export const Topbar = () => {
         <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
           <Bell className="size-4" />
         </Button>
-        <div className="ml-2 size-9 rounded-full bg-secondary grid place-items-center text-sm font-semibold text-secondary-foreground border border-border">
-          {initials}
-        </div>
+        <UserMenu />
       </div>
     </header>
   );
