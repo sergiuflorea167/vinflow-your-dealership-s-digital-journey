@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ProcessCard } from "@/components/process/ProcessCard";
 import { GoalsPanel } from "@/components/dashboard/GoalsPanel";
+import { DashboardHero } from "@/components/dashboard/DashboardHero";
 import { PinnedKpiGrid } from "@/components/dashboard/PinnedKpiGrid";
 import { useProcessStore } from "@/store/processStore";
 import { PROCESS_STEPS, TodoPriority, CALENDAR_EVENT_TYPE_LABELS, CalendarEventType } from "@/data/process";
