@@ -499,6 +499,13 @@ export interface Settings {
   companyName: string;
   locations: string[];     // freie Stellplatz-Liste
   partners: Partner[];
+  // Profil – optional für Rückwärtskompatibilität
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  phone?: string;
+  role?: string;
+  avatarUrl?: string;
 }
 
 // ---------- Helpers ----------
@@ -1452,7 +1459,13 @@ export const DEFAULT_DAY_TEMPLATES: DayTemplate[] = [
 ];
 
 export const DEFAULT_SETTINGS: Settings = {
-  userName: "Admin",
+  userName: "Sergiu-Razvan Florea",
+  firstName: "Sergiu-Razvan",
+  lastName: "Florea",
+  email: "sergiu.florea@vinflow.de",
+  phone: "+49 151 2233 4455",
+  role: "Geschäftsführer",
+  avatarUrl: "",
   companyName: "VINflow Autohaus GmbH",
   locations: [
     "Hof A · Platz 01", "Hof A · Platz 02", "Hof A · Platz 03", "Hof A · Platz 04", "Hof A · Platz 05",

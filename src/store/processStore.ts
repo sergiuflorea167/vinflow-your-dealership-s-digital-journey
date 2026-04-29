@@ -1186,6 +1186,21 @@ export const useProcessStore = create<State>()(
         if (!Array.isArray(state.calendarEvents)) state.calendarEvents = MOCK_CALENDAR_EVENTS;
         if (!Array.isArray(state.dayTemplates))   state.dayTemplates   = DEFAULT_DAY_TEMPLATES;
 
+        // ---- Profil-Migration: Default-Nutzer Sergiu-Razvan Florea ----
+        const s = state.settings ?? DEFAULT_SETTINGS;
+        const isLegacyUser = !s.userName || s.userName === "Admin";
+        state.settings = {
+          ...DEFAULT_SETTINGS,
+          ...s,
+          userName: isLegacyUser ? DEFAULT_SETTINGS.userName : s.userName,
+          firstName: s.firstName ?? (isLegacyUser ? DEFAULT_SETTINGS.firstName : s.userName?.split(" ")[0]),
+          lastName:  s.lastName  ?? (isLegacyUser ? DEFAULT_SETTINGS.lastName  : s.userName?.split(" ").slice(1).join(" ")),
+          email:     s.email     ?? DEFAULT_SETTINGS.email,
+          phone:     s.phone     ?? DEFAULT_SETTINGS.phone,
+          role:      s.role      ?? DEFAULT_SETTINGS.role,
+          avatarUrl: s.avatarUrl ?? "",
+        };
+
         // ---- Migration: PurchasePlan-Schema v5 ----
         // Alte Pläne können noch alte Status-Werte ("open"/"ordered") haben
         // und kein source/noteEntries-Feld – defensiv auffüllen.
