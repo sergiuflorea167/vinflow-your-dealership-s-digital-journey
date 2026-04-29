@@ -43,31 +43,29 @@ export const DashboardHero = ({ activeCount, todoCount, eventCount }: Props) => 
   const greeting = greetingFor(now.getHours());
 
   return (
-    <section className="relative overflow-hidden rounded-3xl border border-border bg-gradient-surface">
-      {/* Decorative animated glow blobs */}
-      <div className="pointer-events-none absolute -top-40 -right-32 size-[28rem] rounded-full bg-primary/25 blur-3xl animate-pulse" />
-      <div className="pointer-events-none absolute -bottom-48 -left-24 size-[28rem] rounded-full bg-accent/20 blur-3xl" />
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_25%_15%,hsl(var(--primary)/0.18),transparent_55%)]" />
+    <section className="relative overflow-hidden rounded-2xl border border-border bg-gradient-surface">
+      {/* Decorative glow blobs */}
+      <div className="pointer-events-none absolute -top-32 -right-24 size-80 rounded-full bg-primary/25 blur-3xl animate-pulse" />
+      <div className="pointer-events-none absolute -bottom-32 -left-16 size-72 rounded-full bg-accent/20 blur-3xl" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_25%_15%,hsl(var(--primary)/0.15),transparent_55%)]" />
       <div className="pointer-events-none absolute inset-0 opacity-[0.04] mix-blend-overlay"
            style={{ backgroundImage: "radial-gradient(hsl(var(--foreground)) 1px, transparent 1px)", backgroundSize: "22px 22px" }} />
 
-      <div className="relative p-8 lg:p-12">
-        <div className="grid lg:grid-cols-[1.4fr_1fr] gap-10 items-center">
+      <div className="relative p-5 lg:p-6">
+        <div className="grid lg:grid-cols-[1.5fr_1fr] gap-5 items-center">
           {/* Left: Greeting */}
-          <div className="space-y-5">
-            <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-[11px] font-mono uppercase tracking-[0.18em] text-primary-glow">
-              <Sparkles className="size-3.5" />
+          <div className="space-y-2.5">
+            <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-[10px] font-mono uppercase tracking-[0.16em] text-primary-glow">
+              <Sparkles className="size-3" />
               <span>{formatDateLong(now)} · {formatTime(now)}</span>
             </div>
 
-            <h1 className="font-display font-bold tracking-tight leading-[1.02] text-foreground text-4xl lg:text-5xl xl:text-6xl">
-              <span className="block text-muted-foreground/90 text-2xl lg:text-3xl xl:text-4xl font-semibold mb-2">
-                {greeting},
-              </span>
-              <span className="block">{firstName}.</span>
+            <h1 className="font-display font-bold tracking-tight leading-[1.05] text-foreground text-2xl lg:text-3xl">
+              <span className="text-muted-foreground/90 font-semibold">{greeting}, </span>
+              <span>{firstName}.</span>
             </h1>
 
-            <p className="text-base lg:text-lg text-muted-foreground leading-relaxed max-w-xl">
+            <p className="text-sm text-muted-foreground leading-relaxed max-w-xl">
               {activeCount === 0
                 ? "Keine offenen Vorgänge – Zeit für Strategie und Einkauf."
                 : (
@@ -81,22 +79,22 @@ export const DashboardHero = ({ activeCount, todoCount, eventCount }: Props) => 
               }
             </p>
 
-            <div className="flex flex-wrap gap-2 pt-1">
-              <Badge variant="outline" className="border-primary/30 text-primary-glow bg-primary/5">
-                <TrendingUp className="size-3 mr-1.5" />
+            <div className="flex flex-wrap gap-1.5 pt-0.5">
+              <Badge variant="outline" className="border-primary/30 text-primary-glow bg-primary/5 text-[10px] py-0">
+                <TrendingUp className="size-3 mr-1" />
                 {settings.role || "Team"}
               </Badge>
-              <Badge variant="outline" className="border-border/60 text-muted-foreground">
+              <Badge variant="outline" className="border-border/60 text-muted-foreground text-[10px] py-0">
                 {settings.companyName}
               </Badge>
             </div>
           </div>
 
           {/* Right: Quick stats panel */}
-          <div className="grid grid-cols-3 lg:grid-cols-1 gap-3">
-            <HeroStat icon={<Activity className="size-4" />}     label="Aktive Vorgänge" value={activeCount} accent="primary" />
-            <HeroStat icon={<ListTodo className="size-4" />}     label="To-Dos heute"    value={todoCount}   accent="warning" />
-            <HeroStat icon={<CalendarDays className="size-4" />} label="Termine heute"   value={eventCount}  accent="info" />
+          <div className="grid grid-cols-3 lg:grid-cols-3 gap-2">
+            <HeroStat icon={<Activity className="size-3.5" />}     label="Aktiv"   value={activeCount} accent="primary" />
+            <HeroStat icon={<ListTodo className="size-3.5" />}     label="To-Dos"  value={todoCount}   accent="warning" />
+            <HeroStat icon={<CalendarDays className="size-3.5" />} label="Termine" value={eventCount}  accent="info" />
           </div>
         </div>
       </div>
@@ -113,11 +111,11 @@ const accentClass = {
 const HeroStat = ({
   icon, label, value, accent,
 }: { icon: React.ReactNode; label: string; value: number; accent: keyof typeof accentClass }) => (
-  <div className={`relative overflow-hidden rounded-2xl border bg-gradient-to-br backdrop-blur-sm px-4 py-3 ${accentClass[accent]}`}>
-    <div className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider opacity-90">
+  <div className={`relative overflow-hidden rounded-xl border bg-gradient-to-br backdrop-blur-sm px-3 py-2 ${accentClass[accent]}`}>
+    <div className="flex items-center gap-1 text-[9px] font-mono uppercase tracking-wider opacity-90">
       {icon}<span className="truncate">{label}</span>
     </div>
-    <div className="text-3xl lg:text-4xl font-display font-bold mt-1 text-foreground tabular-nums">
+    <div className="text-2xl font-display font-bold mt-0.5 text-foreground tabular-nums">
       {value}
     </div>
   </div>
