@@ -72,34 +72,11 @@ const Dashboard = () => {
   return (
     <AppShell>
       <div className="space-y-8 animate-fade-in">
-        <div className="relative overflow-hidden rounded-2xl border border-border bg-gradient-surface p-8">
-          <div className="absolute inset-0 bg-gradient-glow pointer-events-none" />
-          <div className="relative flex flex-col lg:flex-row lg:items-end lg:justify-between gap-6">
-            <div>
-              <Badge variant="outline" className="border-primary/30 text-primary-glow mb-4">
-                VIN-basierte Vorgangskette
-              </Badge>
-              <h1 className="text-4xl lg:text-5xl font-display font-bold tracking-tight text-foreground">
-                Willkommen zurück, Sergiu.
-              </h1>
-            </div>
-            <div className="flex flex-wrap gap-3">
-              <Button variant="outline" className="border-border/60" asChild>
-                <Link to="/einkaufsplanung">
-                  Einkauf <ArrowUpRight className="size-4 ml-2" />
-                </Link>
-              </Button>
-              <Button variant="outline" className="border-border/60" asChild>
-                <Link to="/bestand">
-                  Bestand <ArrowUpRight className="size-4 ml-2" />
-                </Link>
-              </Button>
-              <Button className="bg-gradient-brand hover:opacity-90 shadow-elegant" asChild>
-                <Link to="/vorgaenge">Alle Vorgänge</Link>
-              </Button>
-            </div>
-          </div>
-        </div>
+        <DashboardHero
+          activeCount={activeProcesses.length}
+          todoCount={todayTodos.length}
+          eventCount={todayEvents.length}
+        />
 
         {/* Morgen-Motivation */}
         <GoalsPanel />
