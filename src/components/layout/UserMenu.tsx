@@ -14,10 +14,12 @@ import { Label } from "@/components/ui/label";
 import { User, Settings as SettingsIcon, LogOut, Camera, Mail, Phone, Briefcase } from "lucide-react";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
+import { useT } from "@/lib/i18n";
 
 export const UserMenu = () => {
   const settings = useProcessStore((s) => s.settings);
   const updateSettings = useProcessStore((s) => s.updateSettings);
+  const t = useT();
 
   const [open, setOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -49,7 +51,7 @@ export const UserMenu = () => {
       ...draft,
       userName: fullName || draft.userName || "Nutzer",
     });
-    toast.success("Profil gespeichert");
+    toast.success(t("profile.saved"));
     setOpen(false);
   };
 
@@ -85,17 +87,17 @@ export const UserMenu = () => {
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={openDialog}>
-            <User className="size-4 mr-2" /> Profil bearbeiten
+            <User className="size-4 mr-2" /> {t("menu.editProfile")}
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
-            <Link to="/stammdaten"><SettingsIcon className="size-4 mr-2" /> Stammdaten & Einstellungen</Link>
+            <Link to="/stammdaten"><SettingsIcon className="size-4 mr-2" /> {t("menu.settings")}</Link>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem
-            onClick={() => toast.info("Demo-Modus – Logout aktuell deaktiviert")}
+            onClick={() => toast.info(t("menu.logout.demo"))}
             className="text-muted-foreground"
           >
-            <LogOut className="size-4 mr-2" /> Abmelden
+            <LogOut className="size-4 mr-2" /> {t("menu.logout")}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -103,9 +105,9 @@ export const UserMenu = () => {
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Profil bearbeiten</DialogTitle>
+            <DialogTitle>{t("profile.title")}</DialogTitle>
             <DialogDescription>
-              Diese Daten erscheinen im Dashboard, in Belegen und im Aktivitätslog.
+              {t("profile.desc")}
             </DialogDescription>
           </DialogHeader>
 
@@ -126,40 +128,40 @@ export const UserMenu = () => {
             </button>
             <input ref={fileRef} type="file" accept="image/*" hidden onChange={onAvatarChange} />
             <div className="text-xs text-muted-foreground">
-              Klicke auf das Bild, um ein Foto<br />hochzuladen.
+              {t("profile.uploadHint")}
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label className="text-xs">Vorname</Label>
+              <Label className="text-xs">{t("profile.firstName")}</Label>
               <Input value={draft.firstName ?? ""} onChange={(e) => setDraft({ ...draft, firstName: e.target.value })} />
             </div>
             <div>
-              <Label className="text-xs">Nachname</Label>
+              <Label className="text-xs">{t("profile.lastName")}</Label>
               <Input value={draft.lastName ?? ""} onChange={(e) => setDraft({ ...draft, lastName: e.target.value })} />
             </div>
             <div className="col-span-2">
-              <Label className="text-xs flex items-center gap-1.5"><Briefcase className="size-3" /> Rolle / Position</Label>
-              <Input value={draft.role ?? ""} onChange={(e) => setDraft({ ...draft, role: e.target.value })} placeholder="z. B. Geschäftsführer" />
+              <Label className="text-xs flex items-center gap-1.5"><Briefcase className="size-3" /> {t("profile.role")}</Label>
+              <Input value={draft.role ?? ""} onChange={(e) => setDraft({ ...draft, role: e.target.value })} placeholder={t("profile.rolePlaceholder")} />
             </div>
             <div className="col-span-2">
-              <Label className="text-xs flex items-center gap-1.5"><Mail className="size-3" /> E-Mail</Label>
+              <Label className="text-xs flex items-center gap-1.5"><Mail className="size-3" /> {t("profile.email")}</Label>
               <Input type="email" value={draft.email ?? ""} onChange={(e) => setDraft({ ...draft, email: e.target.value })} />
             </div>
             <div className="col-span-2">
-              <Label className="text-xs flex items-center gap-1.5"><Phone className="size-3" /> Telefon</Label>
+              <Label className="text-xs flex items-center gap-1.5"><Phone className="size-3" /> {t("profile.phone")}</Label>
               <Input value={draft.phone ?? ""} onChange={(e) => setDraft({ ...draft, phone: e.target.value })} />
             </div>
             <div className="col-span-2">
-              <Label className="text-xs">Firma</Label>
+              <Label className="text-xs">{t("profile.company")}</Label>
               <Input value={draft.companyName} onChange={(e) => setDraft({ ...draft, companyName: e.target.value })} />
             </div>
           </div>
 
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setOpen(false)}>Abbrechen</Button>
-            <Button onClick={save} className="bg-gradient-brand">Speichern</Button>
+            <Button variant="ghost" onClick={() => setOpen(false)}>{t("profile.cancel")}</Button>
+            <Button onClick={save} className="bg-gradient-brand">{t("profile.save")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
