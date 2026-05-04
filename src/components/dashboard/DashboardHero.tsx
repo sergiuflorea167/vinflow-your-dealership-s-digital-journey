@@ -2,23 +2,22 @@ import { useEffect, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { useProcessStore } from "@/store/processStore";
 import { Sparkles, ListTodo, CalendarDays, Activity, TrendingUp } from "lucide-react";
+import { useLang, useT } from "@/lib/i18n";
 
-const greetingFor = (h: number) => {
-  if (h < 5)  return "Gute Nacht";
-  if (h < 11) return "Guten Morgen";
-  if (h < 14) return "Hallo";
-  if (h < 18) return "Guten Tag";
-  if (h < 23) return "Guten Abend";
-  return "Gute Nacht";
+const greetingFor = (h: number, t: (k: string) => string) => {
+  if (h < 5)  return t("greeting.evening");
+  if (h < 11) return t("greeting.morning");
+  if (h < 18) return t("greeting.day");
+  return t("greeting.evening");
 };
 
-const formatDateLong = (d: Date) =>
-  new Intl.DateTimeFormat("de-DE", {
+const formatDateLong = (d: Date, locale: string) =>
+  new Intl.DateTimeFormat(locale, {
     weekday: "long", day: "2-digit", month: "long", year: "numeric",
   }).format(d);
 
-const formatTime = (d: Date) =>
-  new Intl.DateTimeFormat("de-DE", { hour: "2-digit", minute: "2-digit" }).format(d);
+const formatTime = (d: Date, locale: string) =>
+  new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit" }).format(d);
 
 interface Props {
   activeCount: number;
@@ -28,6 +27,9 @@ interface Props {
 
 export const DashboardHero = ({ activeCount, todoCount, eventCount }: Props) => {
   const settings = useProcessStore((s) => s.settings);
+  const t = useT();
+  const lang = useLang();
+  const locale = lang === "en" ? "en-GB" : "de-DE";
 
   const firstName =
     (settings.firstName && settings.firstName.trim()) ||
@@ -36,11 +38,11 @@ export const DashboardHero = ({ activeCount, todoCount, eventCount }: Props) => 
 
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
-    const t = setInterval(() => setNow(new Date()), 30_000);
-    return () => clearInterval(t);
+    const tick = setInterval(() => setNow(new Date()), 30_000);
+    return () => clearInterval(tick);
   }, []);
 
-  const greeting = greetingFor(now.getHours());
+  const greeting = greetingFor(now.getHours(), t);
 
   return (
     <section className="relative overflow-hidden rounded-2xl border border-border bg-gradient-surface">
@@ -57,7 +59,7 @@ export const DashboardHero = ({ activeCount, todoCount, eventCount }: Props) => 
           <div className="space-y-2.5">
             <div className="inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-2.5 py-0.5 text-[10px] font-mono uppercase tracking-[0.16em] text-primary-glow">
               <Sparkles className="size-3" />
-              <span>{formatDateLong(now)} · {formatTime(now)}</span>
+              <span>{formatDateLong(now, locale)} · {formatTime(now, locale)}</span>
             </div>
 
             <h1 className="font-display font-bold tracking-tight leading-[1.05] text-foreground text-2xl lg:text-3xl">
@@ -67,8 +69,17 @@ export const DashboardHero = ({ activeCount, todoCount, eventCount }: Props) => 
 
             <p className="text-sm text-muted-foreground leading-relaxed max-w-xl">
               {activeCount === 0
-                ? "Keine offenen Vorgänge – Zeit für Strategie und Einkauf."
-                : (
+                ? (lang === "en"
+                    ? "No open processes – time for strategy and purchasing."
+                    : "Keine offenen Vorgänge – Zeit für Strategie und Einkauf.")
+                : lang === "en" ? (
+                  <>
+                    You have{" "}
+                    <span className="text-foreground font-semibold">{activeCount} active process{activeCount === 1 ? "" : "es"}</span>
+                    , <span className="text-foreground font-semibold">{todoCount} to-do{todoCount === 1 ? "" : "s"}</span> due today
+                    and <span className="text-foreground font-semibold">{eventCount} appointment{eventCount === 1 ? "" : "s"}</span> in the calendar.
+                  </>
+                ) : (
                   <>
                     Du hast{" "}
                     <span className="text-foreground font-semibold">{activeCount} aktive Vorgäng{activeCount === 1 ? "" : "e"}</span>
@@ -92,9 +103,9 @@ export const DashboardHero = ({ activeCount, todoCount, eventCount }: Props) => 
 
           {/* Right: Quick stats panel */}
           <div className="grid grid-cols-3 lg:grid-cols-3 gap-2">
-            <HeroStat icon={<Activity className="size-3.5" />}     label="Aktiv"   value={activeCount} accent="primary" />
-            <HeroStat icon={<ListTodo className="size-3.5" />}     label="To-Dos"  value={todoCount}   accent="warning" />
-            <HeroStat icon={<CalendarDays className="size-3.5" />} label="Termine" value={eventCount}  accent="info" />
+            <HeroStat icon={<Activity className="size-3.5" />}     label={lang === "en" ? "Active"   : "Aktiv"}   value={activeCount} accent="primary" />
+            <HeroStat icon={<ListTodo className="size-3.5" />}     label={lang === "en" ? "To-Dos"   : "To-Dos"}  value={todoCount}   accent="warning" />
+            <HeroStat icon={<CalendarDays className="size-3.5" />} label={lang === "en" ? "Events"   : "Termine"} value={eventCount}  accent="info" />
           </div>
         </div>
       </div>
