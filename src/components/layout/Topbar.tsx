@@ -6,10 +6,13 @@ import {
 } from "@/components/ui/select";
 import { useTopbarSearchConfig } from "@/context/TopbarSearchContext";
 import { UserMenu } from "./UserMenu";
+import { LanguageSwitcher } from "./LanguageSwitcher";
+import { useT } from "@/lib/i18n";
 
 export const Topbar = () => {
   const config = useTopbarSearchConfig();
   const disabled = !config;
+  const t = useT();
 
   return (
     <header className="h-16 shrink-0 border-b border-border bg-card/40 backdrop-blur-md flex items-center gap-3 px-6">
@@ -20,7 +23,7 @@ export const Topbar = () => {
             value={config?.value ?? ""}
             onChange={(e) => config?.onChange(e.target.value)}
             disabled={disabled}
-            placeholder={config?.placeholder ?? "Suche…"}
+            placeholder={config?.placeholder ?? t("search.placeholder")}
             className="pl-9 bg-background/40 border-border/60 focus-visible:ring-primary"
           />
         </div>
@@ -37,8 +40,9 @@ export const Topbar = () => {
           </Select>
         )}
       </div>
-      <div className="flex items-center gap-2 ml-auto">
-        <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
+      <div className="flex items-center gap-1 ml-auto">
+        <LanguageSwitcher />
+        <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground" aria-label={t("topbar.notifications")}>
           <Bell className="size-4" />
         </Button>
         <UserMenu />
