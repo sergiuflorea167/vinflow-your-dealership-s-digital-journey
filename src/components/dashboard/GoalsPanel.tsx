@@ -265,6 +265,15 @@ export const GoalsPanel = () => {
                 <span className="text-xs font-display font-bold text-primary-glow ml-1">Ø {Math.round(avgPct)}%</span>
               </div>
             )}
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={askVincent}
+              className="border-primary/40 text-primary-glow hover:bg-primary/10"
+            >
+              <Sparkles className="size-4 mr-1.5" />
+              Vincent helfen lassen
+            </Button>
             <Dialog open={open} onOpenChange={setOpen}>
               <DialogTrigger asChild>
                 <Button size="sm" className="bg-gradient-brand hover:opacity-90 shadow-elegant">
