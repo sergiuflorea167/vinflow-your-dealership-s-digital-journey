@@ -53,9 +53,9 @@ interface Station {
 }
 
 const LIFECYCLE_STATIONS: Station[] = [
-  { key: "purchase_planned", label: "Einkaufsplanung angelegt", shortLabel: "Einkaufsplanung", description: "Aufnahme in Einkaufsplanung (per VIN).", group: "lifecycle" },
-  { key: "arrived", label: "Bestandszugang", shortLabel: "Bestandszugang", description: "Fahrzeug ist physisch im Bestand.", group: "lifecycle" },
-  { key: "listed", label: "Online inseriert", shortLabel: "Inseriert", description: "Fahrzeug aktiv vermarktet.", group: "lifecycle" },
+  { key: "purchase_planned", label: "Einkaufsplanung", shortLabel: "Einkaufsplanung", description: "Aufnahme in Einkaufsplanung (per VIN).", group: "lifecycle" },
+  { key: "arrived", label: "Bestand", shortLabel: "Bestand", description: "Fahrzeug ist physisch im Bestand.", group: "lifecycle" },
+  { key: "listed", label: "Bestand (inseriert)", shortLabel: "Inseriert", description: "Fahrzeug aktiv vermarktet.", group: "lifecycle" },
 ];
 
 const PROCESS_STATIONS: Station[] = PROCESS_STEPS.map((s) => ({
