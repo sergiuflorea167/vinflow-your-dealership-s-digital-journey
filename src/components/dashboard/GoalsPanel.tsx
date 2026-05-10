@@ -191,9 +191,27 @@ export const GoalsPanel = () => {
     [goals, processes, vehicles]
   );
 
+  const firstName = useProcessStore((s) => s.settings?.firstName);
   const avgPct = enriched.length ? enriched.reduce((s, g) => s + g.pct, 0) / enriched.length : 0;
   const reached = enriched.filter((g) => g.pct >= 100).length;
-  const mood = motivation(avgPct, enriched.length, t);
+  const mood = personalizedMotivation(enriched, firstName);
+
+  const askVincent = () => {
+    let prompt: string;
+    if (enriched.length === 0) {
+      prompt =
+        "Ich habe noch kein Ziel gesetzt. Welche realistischen Monats- und Jahresziele empfiehlst du mir basierend auf meinen aktuellen Zahlen (Umsatz, verkaufte Fahrzeuge, Marge)? Gib mir konkrete Werte.";
+    } else {
+      const focus = [...enriched].sort((a, b) => a.pct - b.pct)[0];
+      const remaining = Math.max(0, focus.goal.target - focus.value);
+      const remStr =
+        focus.goal.metric === "vehicles_sold"
+          ? `${Math.ceil(remaining)} Fahrzeuge`
+          : formatCurrency(remaining);
+      prompt = `Hilf mir, mein Ziel "${focus.goal.label}" zu erreichen. Aktuell ${Math.round(focus.pct)} % – es fehlen noch ${remStr} bis ${formatDate(focus.goal.endDate)}. Was sollte ich konkret in den nächsten Tagen tun? Schau auf meinen Bestand (Standzeit, Marge), offene Vorgänge und To-Dos und gib mir 3–5 priorisierte Aktionen.`;
+    }
+    window.dispatchEvent(new CustomEvent("vincent:open", { detail: { prompt } }));
+  };
 
   const handleSave = () => {
     const tv = parseFloat(target.replace(",", "."));
