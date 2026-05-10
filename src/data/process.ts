@@ -1278,7 +1278,7 @@ export const MOCK_PROCESSES: Process[] = [
     customerTodosOC: [],
     outboundChecklist: DEFAULT_OUTBOUND_CHECKLIST().map((c) => ({ ...c, done: true })),
   },
-  // Vorgang #12: Renault Master (V-027) - Anzahlung erhalten, AB als nächstes
+  // Vorgang #12: Mercedes Sprinter (V-027) - Anzahlung erhalten, AB als nächstes
   {
     id: "VF-2025-0146", vehicleId: "V-027", customerId: "C-028", acceptedOfferId: "OFR-2025-0253",
     createdAt: isoDaysAgo(11), updatedAt: isoDaysAgo(3),
