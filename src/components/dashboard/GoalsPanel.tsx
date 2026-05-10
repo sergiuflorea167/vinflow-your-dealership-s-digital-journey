@@ -58,14 +58,13 @@ const periodRange = (period: GoalPeriod): { start: Date; end: Date } => {
   };
 };
 
-export const computeGoalProgress = (
+const computeGoalProgress = (
   goal: Goal,
   ctx: { processes: ReturnType<typeof useProcessStore.getState>["processes"]; vehicles: ReturnType<typeof useProcessStore.getState>["vehicles"] }
 ) => {
   const start = new Date(goal.startDate);
   const end = new Date(goal.endDate);
 
-  // Gezählt wird zum Zeitpunkt der Übergabe (delivery_confirmation completed)
   const handovers = ctx.processes.filter((p) => {
     const rec = p.steps.delivery_confirmation;
     if (!rec || rec.status !== "completed" || !rec.completedAt) return false;
