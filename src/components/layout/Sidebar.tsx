@@ -10,45 +10,47 @@ import { Button } from "@/components/ui/button";
 import {
   Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useT } from "@/lib/i18n";
 
-type NavItem = { to: string; label: string; icon: any };
-type NavGroup = { label: string; items: NavItem[] };
+type NavItem = { to: string; labelKey: string; icon: any };
+type NavGroup = { labelKey: string; items: NavItem[] };
 
 const overview: NavItem[] = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard },
+  { to: "/", labelKey: "nav.dashboard", icon: LayoutDashboard },
 ];
 
 const groups: NavGroup[] = [
   {
-    label: "Tagesgeschäft",
+    labelKey: "nav.group.daily",
     items: [
-      { to: "/bestand",         label: "Bestand",         icon: Car },
-      { to: "/vorgaenge",       label: "Vorgänge",        icon: Workflow },
-      { to: "/einkaufsplanung", label: "Einkaufsplanung", icon: ShoppingCart },
-      { to: "/todos",           label: "To-Dos",          icon: ListChecks },
-      { to: "/kalender",        label: "Kalender",        icon: CalendarDays },
+      { to: "/bestand",         labelKey: "nav.fleet",      icon: Car },
+      { to: "/vorgaenge",       labelKey: "nav.processes",  icon: Workflow },
+      { to: "/einkaufsplanung", labelKey: "nav.purchasing", icon: ShoppingCart },
+      { to: "/todos",           labelKey: "nav.todos",      icon: ListChecks },
+      { to: "/kalender",        labelKey: "nav.calendar",   icon: CalendarDays },
     ],
   },
   {
-    label: "Auswertung",
+    labelKey: "nav.group.analytics",
     items: [
-      { to: "/kpis",     label: "KPIs",      icon: BarChart3 },
-      { to: "/insights", label: "Insight+",  icon: Sparkles },
+      { to: "/kpis",     labelKey: "nav.kpis",     icon: BarChart3 },
+      { to: "/insights", labelKey: "nav.insights", icon: Sparkles },
     ],
   },
   {
-    label: "Stammdaten",
+    labelKey: "nav.group.master",
     items: [
-      { to: "/stammdaten", label: "Stammdaten", icon: Database },
+      { to: "/stammdaten", labelKey: "nav.master", icon: Database },
     ],
   },
 ];
 
-const settingsItem: NavItem = { to: "/einstellungen", label: "Einstellungen", icon: SettingsIcon };
+const settingsItem: NavItem = { to: "/einstellungen", labelKey: "nav.settings", icon: SettingsIcon };
 
 const STORAGE_KEY = "vinflow.sidebar.collapsed";
 
 export const Sidebar = () => {
+  const t = useT();
   const [collapsed, setCollapsed] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
     return window.localStorage.getItem(STORAGE_KEY) === "1";
@@ -58,7 +60,8 @@ export const Sidebar = () => {
     window.localStorage.setItem(STORAGE_KEY, collapsed ? "1" : "0");
   }, [collapsed]);
 
-  const renderItem = ({ to, label, icon: Icon }: NavItem) => {
+  const renderItem = ({ to, labelKey, icon: Icon }: NavItem) => {
+    const label = t(labelKey);
     const link = (
       <NavLink
         key={to}
@@ -91,10 +94,10 @@ export const Sidebar = () => {
   };
 
   const renderGroup = (group: NavGroup) => (
-    <div key={group.label} className="flex flex-col gap-1">
+    <div key={group.labelKey} className="flex flex-col gap-1">
       {!collapsed && (
         <p className="px-3 pt-2 pb-1 text-[10px] uppercase tracking-widest text-muted-foreground/70 font-semibold">
-          {group.label}
+          {t(group.labelKey)}
         </p>
       )}
       {group.items.map(renderItem)}
@@ -130,7 +133,7 @@ export const Sidebar = () => {
               size="icon"
               className="size-8 text-sidebar-foreground/70 hover:text-sidebar-accent-foreground"
               onClick={() => setCollapsed(true)}
-              aria-label="Menü einklappen"
+              aria-label={t("nav.collapse")}
             >
               <ChevronLeft className="size-4" />
             </Button>
@@ -146,12 +149,12 @@ export const Sidebar = () => {
                   size="icon"
                   className="size-8 text-sidebar-foreground/70 hover:text-sidebar-accent-foreground"
                   onClick={() => setCollapsed(false)}
-                  aria-label="Menü ausklappen"
+                  aria-label={t("nav.expand")}
                 >
                   <ChevronRight className="size-4" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="right">Menü ausklappen</TooltipContent>
+              <TooltipContent side="right">{t("nav.expand")}</TooltipContent>
             </Tooltip>
           </div>
         )}
@@ -160,7 +163,7 @@ export const Sidebar = () => {
           {overview.map(renderItem)}
 
           {groups.map((g, i) => (
-            <div key={g.label} className="flex flex-col gap-1">
+            <div key={g.labelKey} className="flex flex-col gap-1">
               <div className="my-1 mx-3 h-px bg-sidebar-border/70" />
               {renderGroup(g)}
             </div>
