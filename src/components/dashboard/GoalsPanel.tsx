@@ -16,18 +16,19 @@ import { useProcessStore } from "@/store/processStore";
 import { Goal, GoalMetric, GoalPeriod, formatCurrency, formatDate, vehicleTotalCostsGross } from "@/data/process";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { useT } from "@/lib/i18n";
 
-const METRIC_LABEL: Record<GoalMetric, string> = {
-  revenue: "Umsatz",
-  vehicles_sold: "Verkaufte Fahrzeuge",
-  profit: "Gewinn",
+const METRIC_KEY: Record<GoalMetric, string> = {
+  revenue: "goals.metric.revenue",
+  vehicles_sold: "goals.metric.vehicles_sold",
+  profit: "goals.metric.profit",
 };
 
-const PERIOD_LABEL: Record<GoalPeriod, string> = {
-  week: "Woche",
-  month: "Monat",
-  quarter: "Quartal",
-  year: "Jahr",
+const PERIOD_KEY: Record<GoalPeriod, string> = {
+  week: "goals.period.week",
+  month: "goals.period.month",
+  quarter: "goals.period.quarter",
+  year: "goals.period.year",
 };
 
 const periodRange = (period: GoalPeriod): { start: Date; end: Date } => {
@@ -87,16 +88,17 @@ export const computeGoalProgress = (
 const formatValue = (metric: GoalMetric, value: number) =>
   metric === "vehicles_sold" ? `${Math.round(value)}` : formatCurrency(value);
 
-const motivation = (avgPct: number, count: number) => {
-  if (count === 0) return { headline: "Bereit für deinen Tag?", sub: "Setz dir ein Ziel und leg los." };
-  if (avgPct >= 100) return { headline: "Ziel erreicht. Stark!", sub: "Lass uns das nächste Level angehen." };
-  if (avgPct >= 75) return { headline: "Endspurt!", sub: "Du bist fast am Ziel – bleib dran." };
-  if (avgPct >= 50) return { headline: "Halbzeit. Sauber.", sub: "Weiter so – das schaffst du." };
-  if (avgPct >= 25) return { headline: "Guten Morgen. Auf geht's.", sub: "Die ersten Meter sind gemacht." };
-  return { headline: "Heute ist dein Tag.", sub: "Jeder Vorgang bringt dich näher ans Ziel." };
+const motivation = (avgPct: number, count: number, t: (k: string) => string) => {
+  if (count === 0) return { headline: t("goals.mood.start.headline"), sub: t("goals.mood.start.sub") };
+  if (avgPct >= 100) return { headline: t("goals.mood.done.headline"), sub: t("goals.mood.done.sub") };
+  if (avgPct >= 75) return { headline: t("goals.mood.sprint.headline"), sub: t("goals.mood.sprint.sub") };
+  if (avgPct >= 50) return { headline: t("goals.mood.half.headline"), sub: t("goals.mood.half.sub") };
+  if (avgPct >= 25) return { headline: t("goals.mood.early.headline"), sub: t("goals.mood.early.sub") };
+  return { headline: t("goals.mood.zero.headline"), sub: t("goals.mood.zero.sub") };
 };
 
 export const GoalsPanel = () => {
+  const t = useT();
   const goals = useProcessStore((s) => s.goals);
   const processes = useProcessStore((s) => s.processes);
   const vehicles = useProcessStore((s) => s.vehicles);
@@ -131,18 +133,18 @@ export const GoalsPanel = () => {
 
   const avgPct = enriched.length ? enriched.reduce((s, g) => s + g.pct, 0) / enriched.length : 0;
   const reached = enriched.filter((g) => g.pct >= 100).length;
-  const mood = motivation(avgPct, enriched.length);
+  const mood = motivation(avgPct, enriched.length, t);
 
   const handleSave = () => {
-    const t = parseFloat(target.replace(",", "."));
-    if (!t || t <= 0) { toast.error("Bitte gültigen Zielwert eingeben."); return; }
+    const tv = parseFloat(target.replace(",", "."));
+    if (!tv || tv <= 0) { toast.error(t("goals.invalid")); return; }
     const { start, end } = periodRange(period);
     addGoal({
-      metric, period, target: t,
+      metric, period, target: tv,
       startDate: start.toISOString(), endDate: end.toISOString(),
-      label: label.trim() || `${METRIC_LABEL[metric]} ${PERIOD_LABEL[period]}`,
+      label: label.trim() || `${t(METRIC_KEY[metric])} ${t(PERIOD_KEY[period])}`,
     });
-    toast.success("Ziel gesetzt.");
+    toast.success(t("goals.saved"));
     setOpen(false); setTarget(""); setLabel("");
   };
 
@@ -168,7 +170,7 @@ export const GoalsPanel = () => {
             </div>
             <div className="min-w-0">
               <Badge variant="outline" className="border-primary/30 text-primary-glow text-[10px] mb-2">
-                Deine Ziele heute
+                {t("goals.badge")}
               </Badge>
               <h2 className="text-2xl lg:text-3xl font-display font-bold tracking-tight leading-tight">
                 {mood.headline}
@@ -181,62 +183,62 @@ export const GoalsPanel = () => {
             {enriched.length > 0 && (
               <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full border border-border bg-background/60">
                 <span className="text-xs font-mono text-muted-foreground">{reached}/{enriched.length}</span>
-                <span className="text-xs text-muted-foreground">erreicht</span>
+                <span className="text-xs text-muted-foreground">{t("goals.reached")}</span>
                 <span className="text-xs font-display font-bold text-primary-glow ml-1">Ø {Math.round(avgPct)}%</span>
               </div>
             )}
             <Dialog open={open} onOpenChange={setOpen}>
               <DialogTrigger asChild>
                 <Button size="sm" className="bg-gradient-brand hover:opacity-90 shadow-elegant">
-                  <Plus className="size-4 mr-1.5" /> Ziel
+                  <Plus className="size-4 mr-1.5" /> {t("goals.new")}
                 </Button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Neues Ziel</DialogTitle>
+                  <DialogTitle>{t("goals.dialog.title")}</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4 pt-2">
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <Label className="text-xs">Kennzahl</Label>
+                      <Label className="text-xs">{t("goals.metric")}</Label>
                       <Select value={metric} onValueChange={(v) => setMetric(v as GoalMetric)}>
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="revenue">Umsatz</SelectItem>
-                          <SelectItem value="vehicles_sold">Verkaufte Fahrzeuge</SelectItem>
-                          <SelectItem value="profit">Gewinn</SelectItem>
+                          <SelectItem value="revenue">{t("goals.metric.revenue")}</SelectItem>
+                          <SelectItem value="vehicles_sold">{t("goals.metric.vehicles_sold")}</SelectItem>
+                          <SelectItem value="profit">{t("goals.metric.profit")}</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                     <div>
-                      <Label className="text-xs">Zeitraum</Label>
+                      <Label className="text-xs">{t("goals.period")}</Label>
                       <Select value={period} onValueChange={(v) => setPeriod(v as GoalPeriod)}>
                         <SelectTrigger><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="week">Woche</SelectItem>
-                          <SelectItem value="month">Monat</SelectItem>
-                          <SelectItem value="quarter">Quartal</SelectItem>
-                          <SelectItem value="year">Jahr</SelectItem>
+                          <SelectItem value="week">{t("goals.period.week")}</SelectItem>
+                          <SelectItem value="month">{t("goals.period.month")}</SelectItem>
+                          <SelectItem value="quarter">{t("goals.period.quarter")}</SelectItem>
+                          <SelectItem value="year">{t("goals.period.year")}</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                   </div>
                   <div>
-                    <Label className="text-xs">Zielwert {metric === "vehicles_sold" ? "(Stück)" : "(€)"}</Label>
+                    <Label className="text-xs">{t("goals.target")} {metric === "vehicles_sold" ? "(#)" : "(€)"}</Label>
                     <Input
                       type="number" inputMode="decimal"
-                      placeholder={metric === "vehicles_sold" ? "z. B. 8" : "z. B. 250000"}
+                      placeholder={metric === "vehicles_sold" ? "8" : "250000"}
                       value={target} onChange={(e) => setTarget(e.target.value)}
                     />
                   </div>
                   <div>
-                    <Label className="text-xs">Bezeichnung (optional)</Label>
-                    <Input placeholder="z. B. Umsatzziel März" value={label} onChange={(e) => setLabel(e.target.value)} />
+                    <Label className="text-xs">{t("goals.label")}</Label>
+                    <Input placeholder={t("goals.label.placeholder")} value={label} onChange={(e) => setLabel(e.target.value)} />
                   </div>
                 </div>
                 <DialogFooter>
-                  <Button variant="ghost" onClick={() => setOpen(false)}>Abbrechen</Button>
-                  <Button onClick={handleSave} className="bg-gradient-brand">Speichern</Button>
+                  <Button variant="ghost" onClick={() => setOpen(false)}>{t("common.cancel")}</Button>
+                  <Button onClick={handleSave} className="bg-gradient-brand">{t("common.save")}</Button>
                 </DialogFooter>
               </DialogContent>
             </Dialog>
@@ -244,7 +246,7 @@ export const GoalsPanel = () => {
               size="icon"
               variant="ghost"
               onClick={() => setCollapsed((c) => !c)}
-              aria-label={collapsed ? "Ziele anzeigen" : "Ziele minimieren"}
+              aria-label={collapsed ? t("goals.show") : t("goals.collapse")}
             >
               {collapsed ? <ChevronDown className="size-4" /> : <ChevronUp className="size-4" />}
             </Button>
@@ -265,9 +267,9 @@ export const GoalsPanel = () => {
             {enriched.length === 0 ? (
               <div className="rounded-xl border border-dashed border-border p-10 text-center bg-background/40">
                 <Target className="size-10 mx-auto text-primary-glow mb-3" />
-                <h3 className="text-lg font-display font-semibold mb-1">Setz dir ein Ziel.</h3>
+                <h3 className="text-lg font-display font-semibold mb-1">{t("goals.empty.title")}</h3>
                 <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                  Umsatz, Stückzahl oder Gewinn – pro Woche, Monat, Quartal oder Jahr. Du siehst den Fortschritt jeden Morgen live.
+                  {t("goals.empty.sub")}
                 </p>
               </div>
             ) : (
@@ -286,16 +288,16 @@ export const GoalsPanel = () => {
                         <div className="min-w-0">
                           <div className="flex items-center gap-2 mb-1">
                             <Badge variant="outline" className="border-primary/30 text-primary-glow text-[10px]">
-                              {PERIOD_LABEL[goal.period]}
+                              {t(PERIOD_KEY[goal.period])}
                             </Badge>
-                            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">{METRIC_LABEL[goal.metric]}</span>
+                            <span className="text-[10px] uppercase tracking-wider text-muted-foreground">{t(METRIC_KEY[goal.metric])}</span>
                           </div>
                           <p className="text-sm font-semibold truncate">{goal.label}</p>
                         </div>
                         <button
-                          onClick={() => { removeGoal(goal.id); toast.message("Ziel entfernt."); }}
+                          onClick={() => { removeGoal(goal.id); toast.message(t("goals.removed")); }}
                           className="opacity-0 group-hover:opacity-100 transition-smooth text-muted-foreground hover:text-destructive"
-                          aria-label="Ziel löschen"
+                          aria-label={t("goals.delete")}
                         >
                           <Trash2 className="size-3.5" />
                         </button>
@@ -303,7 +305,7 @@ export const GoalsPanel = () => {
 
                       <div className="flex items-end justify-between mb-3">
                         <span className="text-3xl font-display font-bold tracking-tight">{formatValue(goal.metric, value)}</span>
-                        <span className="text-xs text-muted-foreground">von {formatValue(goal.metric, goal.target)}</span>
+                        <span className="text-xs text-muted-foreground">{t("goals.of")} {formatValue(goal.metric, goal.target)}</span>
                       </div>
 
                       <Progress value={pct} className={cn("h-2.5", reached && "[&>div]:bg-primary-glow")} />
