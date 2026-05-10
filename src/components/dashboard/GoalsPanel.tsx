@@ -233,7 +233,11 @@ export const GoalsPanel = () => {
   const firstName = useProcessStore((s) => s.settings?.firstName);
   const avgPct = enriched.length ? enriched.reduce((s, g) => s + g.pct, 0) / enriched.length : 0;
   const reached = enriched.filter((g) => g.pct >= 100).length;
-  const mood = personalizedMotivation(enriched, firstName);
+  const [moodSeed, setMoodSeed] = useState(() => Math.floor(Math.random() * 100000));
+  const mood = useMemo(
+    () => personalizedMotivation(enriched, firstName, moodSeed),
+    [enriched, firstName, moodSeed],
+  );
 
   const askVincent = () => {
     let prompt: string;
