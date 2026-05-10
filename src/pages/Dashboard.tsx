@@ -92,16 +92,19 @@ const Dashboard = () => {
                 <CalendarDays className="size-5" />
               </div>
               <div>
-                <h2 className="text-xl font-display font-semibold">Heutige Termine</h2>
+                <h2 className="text-xl font-display font-semibold">{t("dash.todayAppointments")}</h2>
                 <p className="text-sm text-muted-foreground mt-0.5">
                   {todayEvents.length === 0
-                    ? "Heute keine Termine eingeplant."
-                    : `${todayEvents.length} Termin${todayEvents.length === 1 ? "" : "e"} im Kalender`}
+                    ? t("dash.todayAppointments.none")
+                    : (todayEvents.length === 1
+                        ? t("dash.todayAppointments.count.one")
+                        : t("dash.todayAppointments.count")
+                      ).replace("{n}", String(todayEvents.length))}
                 </p>
               </div>
             </div>
             <Button variant="ghost" size="sm" asChild>
-              <Link to="/kalender">Zum Kalender</Link>
+              <Link to="/kalender">{t("dash.toCalendar")}</Link>
             </Button>
           </div>
           {todayEvents.length > 0 && (
@@ -135,9 +138,9 @@ const Dashboard = () => {
               ))}
               {todayEvents.length > 6 && (
                 <li className="pt-2 text-xs text-muted-foreground">
-                  +{todayEvents.length - 6} weitere –{" "}
+                  +{todayEvents.length - 6} {t("dash.moreOthers")} –{" "}
                   <Link to="/kalender" className="text-primary-glow hover:underline">
-                    im Kalender anzeigen
+                    {t("dash.moreInCalendar")}
                   </Link>
                 </li>
               )}
@@ -153,16 +156,19 @@ const Dashboard = () => {
                 <CalendarCheck2 className="size-5" />
               </div>
               <div>
-                <h2 className="text-xl font-display font-semibold">Heute fällig</h2>
+                <h2 className="text-xl font-display font-semibold">{t("dash.todayDue")}</h2>
                 <p className="text-sm text-muted-foreground mt-0.5">
                   {todayTodos.length === 0
-                    ? "Keine offenen To-Dos für heute – alles im Griff."
-                    : `${todayTodos.length} offene${todayTodos.length === 1 ? "s" : ""} To-Do${todayTodos.length === 1 ? "" : "s"} mit Fälligkeit heute`}
+                    ? t("dash.todayDue.none")
+                    : (todayTodos.length === 1
+                        ? t("dash.todayDue.count.one")
+                        : t("dash.todayDue.count")
+                      ).replace("{n}", String(todayTodos.length))}
                 </p>
               </div>
             </div>
             <Button variant="ghost" size="sm" asChild>
-              <Link to="/todos">Alle To-Dos</Link>
+              <Link to="/todos">{t("dash.allTodos")}</Link>
             </Button>
           </div>
 
@@ -175,7 +181,7 @@ const Dashboard = () => {
                     <Checkbox
                       checked={t.done}
                       onCheckedChange={() => toggleTodo(t.id)}
-                      aria-label="Als erledigt markieren"
+                      aria-label={t("dash.markDone")}
                     />
                     <span className={cn("size-2 rounded-full shrink-0", PRIORITY_DOT[t.priority])} />
                     <button
@@ -207,9 +213,9 @@ const Dashboard = () => {
               })}
               {todayTodos.length > 6 && (
                 <li className="pt-2 text-xs text-muted-foreground">
-                  +{todayTodos.length - 6} weitere –{" "}
+                  +{todayTodos.length - 6} {t("dash.moreOthers")} –{" "}
                   <Link to="/todos" className="text-primary-glow hover:underline">
-                    in der Liste anzeigen
+                    {t("dash.moreInList")}
                   </Link>
                 </li>
               )}
@@ -221,14 +227,14 @@ const Dashboard = () => {
         <div>
           <div className="flex items-center justify-between mb-5">
             <div>
-              <h2 className="text-xl font-display font-semibold">Deine KPIs</h2>
+              <h2 className="text-xl font-display font-semibold">{t("dash.yourKpis")}</h2>
               <p className="text-sm text-muted-foreground mt-1">
-                Per Drag &amp; Drop sortieren · in der KPI-Übersicht weitere Kennzahlen anpinnen.
+                {t("dash.yourKpis.sub")}
               </p>
             </div>
             <Button variant="outline" size="sm" asChild>
               <Link to="/kpis">
-                <Settings2 className="size-4 mr-1.5" /> KPIs verwalten
+                <Settings2 className="size-4 mr-1.5" /> {t("dash.manageKpis")}
               </Link>
             </Button>
           </div>
@@ -238,8 +244,8 @@ const Dashboard = () => {
         <Card className="p-6 bg-card border-border shadow-card">
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h2 className="text-xl font-display font-semibold">Pipeline-Übersicht</h2>
-              <p className="text-sm text-muted-foreground mt-1">Vorgänge je Prozessschritt</p>
+              <h2 className="text-xl font-display font-semibold">{t("dash.pipeline")}</h2>
+              <p className="text-sm text-muted-foreground mt-1">{t("dash.pipeline.sub")}</p>
             </div>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3">
@@ -262,11 +268,11 @@ const Dashboard = () => {
         <div>
           <div className="flex items-center justify-between mb-5">
             <div>
-              <h2 className="text-xl font-display font-semibold">Aktive Vorgänge</h2>
-              <p className="text-sm text-muted-foreground mt-1">Klick auf einen Vorgang für die volle Prozesskette</p>
+              <h2 className="text-xl font-display font-semibold">{t("dash.activeProcesses")}</h2>
+              <p className="text-sm text-muted-foreground mt-1">{t("dash.activeProcesses.sub")}</p>
             </div>
             <Button variant="ghost" size="sm" asChild>
-              <Link to="/vorgaenge">Alle anzeigen</Link>
+              <Link to="/vorgaenge">{t("common.showAll")}</Link>
             </Button>
           </div>
           <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -275,7 +281,7 @@ const Dashboard = () => {
             ))}
             {activeProcesses.length === 0 && (
               <p className="text-sm text-muted-foreground col-span-full">
-                Keine aktiven Vorgänge – alle abgeschlossen.
+                {t("dash.activeProcesses.empty")}
               </p>
             )}
           </div>
