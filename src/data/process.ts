@@ -1102,8 +1102,8 @@ export const MOCK_PROCESSES: Process[] = [
       delivery_confirmation: { status: "completed", completedAt: isoDaysAgo(2), documentArchived: true },
     },
     fields: {
-      finalPrice: 78900,
-      downPayment: { amount: 10000, dueDate: "2025-04-05", method: "Überweisung", received: true, receivedDate: "2025-04-04" },
+      finalPrice: 38900,
+      downPayment: { amount: 5000, dueDate: "2025-04-05", method: "Überweisung", received: true, receivedDate: "2025-04-04" },
       orderConfirmation: { orderDate: "2025-04-06", deliveryDate: "2025-04-25", paymentTerms: "Restzahlung bei Übergabe" },
       invoicing: { invoiceNumber: "RE-2025-0418", invoiceDate: isoDaysAgo(5).slice(0, 10), dueDate: "2025-05-06" },
       purchaseContract: { contractNumber: "KV-2025-0418", contractDate: isoDaysAgo(3).slice(0, 10), warrantyMonths: 12, place: "München" },
@@ -1139,7 +1139,7 @@ export const MOCK_PROCESSES: Process[] = [
       delivery_confirmation: { status: "completed", completedAt: isoDaysAgo(8), documentArchived: true },
     },
     fields: {
-      finalPrice: 49800,
+      finalPrice: 32900,
       orderConfirmation: { orderDate: isoDaysAgo(50).slice(0, 10), deliveryDate: isoDaysAgo(10).slice(0, 10), paymentTerms: "Sofort bei Übergabe" },
       invoicing: { invoiceNumber: "RE-2025-0405", invoiceDate: isoDaysAgo(15).slice(0, 10), dueDate: isoDaysAgo(1).slice(0, 10) },
       purchaseContract: { contractNumber: "KV-2025-0405", contractDate: isoDaysAgo(10).slice(0, 10), warrantyMonths: 12, place: "Dresden" },
@@ -1162,8 +1162,8 @@ export const MOCK_PROCESSES: Process[] = [
       delivery_confirmation: { status: "completed", completedAt: isoDaysAgo(18), documentArchived: true },
     },
     fields: {
-      finalPrice: 46500,
-      downPayment: { amount: 6000, dueDate: isoDaysAgo(60).slice(0, 10), method: "Überweisung", received: true, receivedDate: isoDaysAgo(60).slice(0, 10) },
+      finalPrice: 36900,
+      downPayment: { amount: 5000, dueDate: isoDaysAgo(60).slice(0, 10), method: "Überweisung", received: true, receivedDate: isoDaysAgo(60).slice(0, 10) },
       orderConfirmation: { orderDate: isoDaysAgo(55).slice(0, 10), deliveryDate: isoDaysAgo(20).slice(0, 10), paymentTerms: "Restzahlung bei Übergabe" },
       invoicing: { invoiceNumber: "RE-2025-0395", invoiceDate: isoDaysAgo(25).slice(0, 10), dueDate: isoDaysAgo(11).slice(0, 10) },
       purchaseContract: { contractNumber: "KV-2025-0395", contractDate: isoDaysAgo(20).slice(0, 10), warrantyMonths: 12, place: "Frankfurt" },
@@ -1186,8 +1186,8 @@ export const MOCK_PROCESSES: Process[] = [
       delivery_confirmation: { status: "completed", completedAt: isoDaysAgo(25), documentArchived: true },
     },
     fields: {
-      finalPrice: 58400,
-      downPayment: { amount: 8000, dueDate: isoDaysAgo(70).slice(0, 10), method: "Überweisung", received: true, receivedDate: isoDaysAgo(70).slice(0, 10) },
+      finalPrice: 39900,
+      downPayment: { amount: 5000, dueDate: isoDaysAgo(70).slice(0, 10), method: "Überweisung", received: true, receivedDate: isoDaysAgo(70).slice(0, 10) },
       orderConfirmation: { orderDate: isoDaysAgo(65).slice(0, 10), deliveryDate: isoDaysAgo(28).slice(0, 10), paymentTerms: "Restzahlung bei Übergabe" },
       invoicing: { invoiceNumber: "RE-2025-0382", invoiceDate: isoDaysAgo(32).slice(0, 10), dueDate: isoDaysAgo(18).slice(0, 10) },
       purchaseContract: { contractNumber: "KV-2025-0382", contractDate: isoDaysAgo(28).slice(0, 10), warrantyMonths: 24, place: "Berlin" },
@@ -1210,8 +1210,8 @@ export const MOCK_PROCESSES: Process[] = [
       delivery_confirmation: { status: "completed", completedAt: isoDaysAgo(40), documentArchived: true },
     },
     fields: {
-      finalPrice: 134900,
-      downPayment: { amount: 25000, dueDate: isoDaysAgo(80).slice(0, 10), method: "Überweisung", received: true, receivedDate: isoDaysAgo(80).slice(0, 10) },
+      finalPrice: 39800,
+      downPayment: { amount: 5000, dueDate: isoDaysAgo(80).slice(0, 10), method: "Überweisung", received: true, receivedDate: isoDaysAgo(80).slice(0, 10) },
       orderConfirmation: { orderDate: isoDaysAgo(75).slice(0, 10), deliveryDate: isoDaysAgo(43).slice(0, 10), paymentTerms: "Restzahlung bei Übergabe" },
       invoicing: { invoiceNumber: "RE-2025-0331", invoiceDate: isoDaysAgo(46).slice(0, 10), dueDate: isoDaysAgo(32).slice(0, 10) },
       purchaseContract: { contractNumber: "KV-2025-0331", contractDate: isoDaysAgo(43).slice(0, 10), warrantyMonths: 24, place: "Hannover" },
@@ -1246,8 +1246,8 @@ export const MOCK_PROCESSES: Process[] = [
       delivery_confirmation: { status: "completed", completedAt: isoDaysAgo(12), documentArchived: true },
     },
     fields: {
-      finalPrice: 168900,
-      downPayment: { amount: 30000, dueDate: isoDaysAgo(68).slice(0, 10), method: "Überweisung", received: true, receivedDate: isoDaysAgo(68).slice(0, 10) },
+      finalPrice: 39900,
+      downPayment: { amount: 5000, dueDate: isoDaysAgo(68).slice(0, 10), method: "Überweisung", received: true, receivedDate: isoDaysAgo(68).slice(0, 10) },
       orderConfirmation: { orderDate: isoDaysAgo(60).slice(0, 10), deliveryDate: isoDaysAgo(13).slice(0, 10), paymentTerms: "Restzahlung bei Übergabe" },
       invoicing: { invoiceNumber: "RE-2025-0438", invoiceDate: isoDaysAgo(15).slice(0, 10), dueDate: isoDaysAgo(1).slice(0, 10) },
       purchaseContract: { contractNumber: "KV-2025-0438", contractDate: isoDaysAgo(13).slice(0, 10), warrantyMonths: 24, place: "Stuttgart" },
@@ -1270,7 +1270,7 @@ export const MOCK_PROCESSES: Process[] = [
       delivery_confirmation: { status: "completed", completedAt: isoDaysAgo(5), documentArchived: true },
     },
     fields: {
-      finalPrice: 58400,
+      finalPrice: 36900,
       orderConfirmation: { orderDate: isoDaysAgo(50).slice(0, 10), deliveryDate: isoDaysAgo(7).slice(0, 10), paymentTerms: "Sofort bei Übergabe" },
       invoicing: { invoiceNumber: "RE-2025-0445", invoiceDate: isoDaysAgo(10).slice(0, 10), dueDate: isoDaysAgo(0).slice(0, 10) },
       purchaseContract: { contractNumber: "KV-2025-0445", contractDate: isoDaysAgo(7).slice(0, 10), warrantyMonths: 24, place: "Dresden" },
