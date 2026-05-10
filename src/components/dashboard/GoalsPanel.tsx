@@ -239,19 +239,19 @@ export const GoalsPanel = () => {
     [enriched, firstName, moodSeed],
   );
 
-  const askVincent = () => {
+  const askVincentForGoal = (goalId?: string) => {
     let prompt: string;
-    if (enriched.length === 0) {
+    const target = goalId ? enriched.find((g) => g.goal.id === goalId) : undefined;
+    if (!target) {
       prompt =
         "Ich habe noch kein Ziel gesetzt. Welche realistischen Monats- und Jahresziele empfiehlst du mir basierend auf meinen aktuellen Zahlen (Umsatz, verkaufte Fahrzeuge, Marge)? Gib mir konkrete Werte.";
     } else {
-      const focus = [...enriched].sort((a, b) => a.pct - b.pct)[0];
-      const remaining = Math.max(0, focus.goal.target - focus.value);
+      const remaining = Math.max(0, target.goal.target - target.value);
       const remStr =
-        focus.goal.metric === "vehicles_sold"
+        target.goal.metric === "vehicles_sold"
           ? `${Math.ceil(remaining)} Fahrzeuge`
           : formatCurrency(remaining);
-      prompt = `Hilf mir, mein Ziel "${focus.goal.label}" zu erreichen. Aktuell ${Math.round(focus.pct)} % – es fehlen noch ${remStr} bis ${formatDate(focus.goal.endDate)}. Was sollte ich konkret in den nächsten Tagen tun? Schau auf meinen Bestand (Standzeit, Marge), offene Vorgänge und To-Dos und gib mir 3–5 priorisierte Aktionen.`;
+      prompt = `Hilf mir, mein Ziel "${target.goal.label}" zu erreichen. Aktuell ${Math.round(target.pct)} % – es fehlen noch ${remStr} bis ${formatDate(target.goal.endDate)}. Was sollte ich konkret in den nächsten Tagen tun? Schau auf meinen Bestand (Standzeit, Marge), offene Vorgänge und To-Dos und gib mir 3–5 priorisierte Aktionen.`;
     }
     window.dispatchEvent(new CustomEvent("vincent:open", { detail: { prompt } }));
   };
