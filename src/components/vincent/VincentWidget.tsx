@@ -44,6 +44,19 @@ export const VincentWidget = () => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, open]);
 
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<{ prompt?: string }>).detail;
+      setOpen(true);
+      if (detail?.prompt) {
+        setTimeout(() => send(detail.prompt!), 150);
+      }
+    };
+    window.addEventListener("vincent:open", handler as EventListener);
+    return () => window.removeEventListener("vincent:open", handler as EventListener);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages, streaming, lang]);
+
   const send = async (text: string) => {
     const trimmed = text.trim();
     if (!trimmed || streaming) return;
