@@ -113,6 +113,11 @@ const useEventDrag = ({
   event, pxPerMin, containerRef, dayColumnWidth, weekStartISO, dayCount = 1, onCommit,
 }: UseEventDragOptions) => {
   const [preview, setPreview] = useState<{ startMin: number; endMin: number; date: string } | null>(null);
+  const previewRef = useRef<{ startMin: number; endMin: number; date: string } | null>(null);
+  const setPreviewBoth = (p: { startMin: number; endMin: number; date: string } | null) => {
+    previewRef.current = p;
+    setPreview(p);
+  };
   const stateRef = useRef<{
     mode: DragMode;
     startY: number;
