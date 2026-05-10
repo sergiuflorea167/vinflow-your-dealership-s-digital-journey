@@ -87,13 +87,74 @@ const computeGoalProgress = (
 const formatValue = (metric: GoalMetric, value: number) =>
   metric === "vehicles_sold" ? `${Math.round(value)}` : formatCurrency(value);
 
-const motivation = (avgPct: number, count: number, t: (k: string) => string) => {
-  if (count === 0) return { headline: t("goals.mood.start.headline"), sub: t("goals.mood.start.sub") };
-  if (avgPct >= 100) return { headline: t("goals.mood.done.headline"), sub: t("goals.mood.done.sub") };
-  if (avgPct >= 75) return { headline: t("goals.mood.sprint.headline"), sub: t("goals.mood.sprint.sub") };
-  if (avgPct >= 50) return { headline: t("goals.mood.half.headline"), sub: t("goals.mood.half.sub") };
-  if (avgPct >= 25) return { headline: t("goals.mood.early.headline"), sub: t("goals.mood.early.sub") };
-  return { headline: t("goals.mood.zero.headline"), sub: t("goals.mood.zero.sub") };
+type EnrichedGoal = { goal: Goal; value: number; pct: number };
+
+const daysLeft = (endISO: string) => {
+  const ms = new Date(endISO).getTime() - Date.now();
+  return Math.max(0, Math.ceil(ms / (1000 * 60 * 60 * 24)));
+};
+
+const periodNoun = (p: GoalPeriod) =>
+  p === "week" ? "diese Woche" : p === "month" ? "diesen Monat" : p === "quarter" ? "dieses Quartal" : "dieses Jahr";
+
+const personalizedMotivation = (enriched: EnrichedGoal[], firstName?: string) => {
+  const name = firstName?.trim() ? `, ${firstName.trim()}` : "";
+
+  if (enriched.length === 0) {
+    return {
+      headline: `Lass uns dein erstes Ziel setzen${name}.`,
+      sub: "Definiere ein Umsatz-, Stück- oder Margen-Ziel – ich rechne den Fortschritt live aus deinen Vorgängen.",
+    };
+  }
+
+  const reached = enriched.filter((g) => g.pct >= 100);
+  const open = enriched.filter((g) => g.pct < 100);
+
+  if (open.length === 0) {
+    return {
+      headline: `Alle ${enriched.length} Ziele erreicht${name} – stark!`,
+      sub: "Setz dir jetzt das nächste Level oder genieß den Moment. Du hast es verdient.",
+    };
+  }
+
+  // Closest to finish
+  const focus = [...open].sort((a, b) => b.pct - a.pct)[0];
+  const remainingNum = Math.max(0, focus.goal.target - focus.value);
+  const remaining =
+    focus.goal.metric === "vehicles_sold"
+      ? `${Math.ceil(remainingNum)} Fahrzeug${Math.ceil(remainingNum) === 1 ? "" : "e"}`
+      : formatCurrency(remainingNum);
+  const days = daysLeft(focus.goal.endDate);
+  const period = periodNoun(focus.goal.period);
+
+  if (focus.pct >= 90) {
+    return {
+      headline: `Nur noch ${remaining}${name} – Ziel "${focus.goal.label}" ist greifbar.`,
+      sub: `Bei ${Math.round(focus.pct)} %. Noch ${days} Tag${days === 1 ? "" : "e"} ${period} – das holst du.`,
+    };
+  }
+  if (focus.pct >= 60) {
+    return {
+      headline: `${Math.round(focus.pct)} % von "${focus.goal.label}" – Endspurt${name}.`,
+      sub: `Es fehlen ${remaining}. ${reached.length > 0 ? `${reached.length} andere Ziele schon im Sack. ` : ""}Halte das Tempo.`,
+    };
+  }
+  if (focus.pct >= 30) {
+    return {
+      headline: `Solide Halbzeit${name}: ${Math.round(focus.pct)} % auf "${focus.goal.label}".`,
+      sub: `Noch ${remaining} bis zum Ziel, ${days} Tage Zeit. Wenn du jetzt gezielt Standzeit-Bestand pushst, sitzt das.`,
+    };
+  }
+  if (focus.pct > 0) {
+    return {
+      headline: `Erste ${Math.round(focus.pct)} % stehen${name} – jetzt Drehzahl raus.`,
+      sub: `${remaining} fehlen für "${focus.goal.label}". Plane heute 2–3 konkrete Aktionen, dann läuft's.`,
+    };
+  }
+  return {
+    headline: `Frischer Start${name}: 0 % auf "${focus.goal.label}".`,
+    sub: `Du hast ${days} Tag${days === 1 ? "" : "e"} ${period}. Eine fokussierte Woche reicht oft schon, um sichtbar Fahrt aufzunehmen.`,
+  };
 };
 
 export const GoalsPanel = () => {
@@ -130,9 +191,27 @@ export const GoalsPanel = () => {
     [goals, processes, vehicles]
   );
 
+  const firstName = useProcessStore((s) => s.settings?.firstName);
   const avgPct = enriched.length ? enriched.reduce((s, g) => s + g.pct, 0) / enriched.length : 0;
   const reached = enriched.filter((g) => g.pct >= 100).length;
-  const mood = motivation(avgPct, enriched.length, t);
+  const mood = personalizedMotivation(enriched, firstName);
+
+  const askVincent = () => {
+    let prompt: string;
+    if (enriched.length === 0) {
+      prompt =
+        "Ich habe noch kein Ziel gesetzt. Welche realistischen Monats- und Jahresziele empfiehlst du mir basierend auf meinen aktuellen Zahlen (Umsatz, verkaufte Fahrzeuge, Marge)? Gib mir konkrete Werte.";
+    } else {
+      const focus = [...enriched].sort((a, b) => a.pct - b.pct)[0];
+      const remaining = Math.max(0, focus.goal.target - focus.value);
+      const remStr =
+        focus.goal.metric === "vehicles_sold"
+          ? `${Math.ceil(remaining)} Fahrzeuge`
+          : formatCurrency(remaining);
+      prompt = `Hilf mir, mein Ziel "${focus.goal.label}" zu erreichen. Aktuell ${Math.round(focus.pct)} % – es fehlen noch ${remStr} bis ${formatDate(focus.goal.endDate)}. Was sollte ich konkret in den nächsten Tagen tun? Schau auf meinen Bestand (Standzeit, Marge), offene Vorgänge und To-Dos und gib mir 3–5 priorisierte Aktionen.`;
+    }
+    window.dispatchEvent(new CustomEvent("vincent:open", { detail: { prompt } }));
+  };
 
   const handleSave = () => {
     const tv = parseFloat(target.replace(",", "."));
@@ -186,6 +265,15 @@ export const GoalsPanel = () => {
                 <span className="text-xs font-display font-bold text-primary-glow ml-1">Ø {Math.round(avgPct)}%</span>
               </div>
             )}
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={askVincent}
+              className="border-primary/40 text-primary-glow hover:bg-primary/10"
+            >
+              <Sparkles className="size-4 mr-1.5" />
+              Vincent helfen lassen
+            </Button>
             <Dialog open={open} onOpenChange={setOpen}>
               <DialogTrigger asChild>
                 <Button size="sm" className="bg-gradient-brand hover:opacity-90 shadow-elegant">
