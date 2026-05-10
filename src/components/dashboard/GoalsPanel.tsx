@@ -294,7 +294,7 @@ export const GoalsPanel = () => {
               ) : (
                 <Sparkles className="size-6 text-primary-foreground" />
               )}
-            </div>
+            </button>
             <div className="min-w-0">
               <Badge variant="outline" className="border-primary/30 text-primary-glow text-[10px] mb-2">
                 {t("goals.badge")}
