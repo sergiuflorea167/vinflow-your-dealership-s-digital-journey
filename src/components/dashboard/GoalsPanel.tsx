@@ -11,6 +11,10 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import {
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent,
+  DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 import { Plus, Target, Trash2, Sparkles, ChevronDown, ChevronUp, Trophy, Flame } from "lucide-react";
 import { useProcessStore } from "@/store/processStore";
 import { Goal, GoalMetric, GoalPeriod, formatCurrency, formatDate, vehicleTotalCostsGross } from "@/data/process";
@@ -239,19 +243,19 @@ export const GoalsPanel = () => {
     [enriched, firstName, moodSeed],
   );
 
-  const askVincent = () => {
+  const askVincentForGoal = (goalId?: string) => {
     let prompt: string;
-    if (enriched.length === 0) {
+    const target = goalId ? enriched.find((g) => g.goal.id === goalId) : undefined;
+    if (!target) {
       prompt =
         "Ich habe noch kein Ziel gesetzt. Welche realistischen Monats- und Jahresziele empfiehlst du mir basierend auf meinen aktuellen Zahlen (Umsatz, verkaufte Fahrzeuge, Marge)? Gib mir konkrete Werte.";
     } else {
-      const focus = [...enriched].sort((a, b) => a.pct - b.pct)[0];
-      const remaining = Math.max(0, focus.goal.target - focus.value);
+      const remaining = Math.max(0, target.goal.target - target.value);
       const remStr =
-        focus.goal.metric === "vehicles_sold"
+        target.goal.metric === "vehicles_sold"
           ? `${Math.ceil(remaining)} Fahrzeuge`
           : formatCurrency(remaining);
-      prompt = `Hilf mir, mein Ziel "${focus.goal.label}" zu erreichen. Aktuell ${Math.round(focus.pct)} % – es fehlen noch ${remStr} bis ${formatDate(focus.goal.endDate)}. Was sollte ich konkret in den nächsten Tagen tun? Schau auf meinen Bestand (Standzeit, Marge), offene Vorgänge und To-Dos und gib mir 3–5 priorisierte Aktionen.`;
+      prompt = `Hilf mir, mein Ziel "${target.goal.label}" zu erreichen. Aktuell ${Math.round(target.pct)} % – es fehlen noch ${remStr} bis ${formatDate(target.goal.endDate)}. Was sollte ich konkret in den nächsten Tagen tun? Schau auf meinen Bestand (Standzeit, Marge), offene Vorgänge und To-Dos und gib mir 3–5 priorisierte Aktionen.`;
     }
     window.dispatchEvent(new CustomEvent("vincent:open", { detail: { prompt } }));
   };
@@ -314,15 +318,50 @@ export const GoalsPanel = () => {
                 <span className="text-xs font-display font-bold text-primary-glow ml-1">Ø {Math.round(avgPct)}%</span>
               </div>
             )}
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={askVincent}
-              className="border-primary/40 text-primary-glow hover:bg-primary/10"
-            >
-              <Sparkles className="size-4 mr-1.5" />
-              Vincent helfen lassen
-            </Button>
+            {enriched.length === 0 ? (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => askVincentForGoal()}
+                className="border-primary/40 text-primary-glow hover:bg-primary/10"
+              >
+                <Sparkles className="size-4 mr-1.5" />
+                Vincent helfen lassen
+              </Button>
+            ) : (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="border-primary/40 text-primary-glow hover:bg-primary/10"
+                  >
+                    <Sparkles className="size-4 mr-1.5" />
+                    Vincent helfen lassen
+                    <ChevronDown className="size-3.5 ml-1.5 opacity-70" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-72">
+                  <DropdownMenuLabel>Bei welchem Ziel soll Vincent helfen?</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {enriched.map(({ goal, pct }) => (
+                    <DropdownMenuItem
+                      key={goal.id}
+                      onClick={() => askVincentForGoal(goal.id)}
+                      className="flex items-start gap-2 py-2"
+                    >
+                      <Target className="size-3.5 mt-0.5 text-primary-glow shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{goal.label}</p>
+                        <p className="text-[11px] text-muted-foreground">
+                          {t(PERIOD_KEY[goal.period])} · {Math.round(pct)} %
+                        </p>
+                      </div>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
             <Dialog open={open} onOpenChange={setOpen}>
               <DialogTrigger asChild>
                 <Button size="sm" className="bg-gradient-brand hover:opacity-90 shadow-elegant">
