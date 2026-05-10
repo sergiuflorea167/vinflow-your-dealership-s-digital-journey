@@ -314,15 +314,50 @@ export const GoalsPanel = () => {
                 <span className="text-xs font-display font-bold text-primary-glow ml-1">Ø {Math.round(avgPct)}%</span>
               </div>
             )}
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={askVincent}
-              className="border-primary/40 text-primary-glow hover:bg-primary/10"
-            >
-              <Sparkles className="size-4 mr-1.5" />
-              Vincent helfen lassen
-            </Button>
+            {enriched.length === 0 ? (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => askVincentForGoal()}
+                className="border-primary/40 text-primary-glow hover:bg-primary/10"
+              >
+                <Sparkles className="size-4 mr-1.5" />
+                Vincent helfen lassen
+              </Button>
+            ) : (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="border-primary/40 text-primary-glow hover:bg-primary/10"
+                  >
+                    <Sparkles className="size-4 mr-1.5" />
+                    Vincent helfen lassen
+                    <ChevronDown className="size-3.5 ml-1.5 opacity-70" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-72">
+                  <DropdownMenuLabel>Bei welchem Ziel soll Vincent helfen?</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {enriched.map(({ goal, pct }) => (
+                    <DropdownMenuItem
+                      key={goal.id}
+                      onClick={() => askVincentForGoal(goal.id)}
+                      className="flex items-start gap-2 py-2"
+                    >
+                      <Target className="size-3.5 mt-0.5 text-primary-glow shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{goal.label}</p>
+                        <p className="text-[11px] text-muted-foreground">
+                          {t(PERIOD_KEY[goal.period])} · {Math.round(pct)} %
+                        </p>
+                      </div>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
             <Dialog open={open} onOpenChange={setOpen}>
               <DialogTrigger asChild>
                 <Button size="sm" className="bg-gradient-brand hover:opacity-90 shadow-elegant">
