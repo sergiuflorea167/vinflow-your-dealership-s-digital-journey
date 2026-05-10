@@ -935,8 +935,8 @@ const StationSelect = ({
       <SelectContent>
         {lifecycle.length > 0 && (
           <>
-            <div className="px-2 py-1 text-[10px] uppercase tracking-wider text-muted-foreground">Lebenszyklus</div>
-            {lifecycle.map((s) => <SelectItem key={s.key} value={s.key}>● {s.label}</SelectItem>)}
+            <div className="px-2 py-1 text-[10px] uppercase tracking-wider text-muted-foreground">Einkaufsplanung; Bestand; Bestand (inseriert)</div>
+            {lifecycle.map((s) => <SelectItem key={s.key} value={s.key}>{s.label}</SelectItem>)}
           </>
         )}
         {process.length > 0 && (
