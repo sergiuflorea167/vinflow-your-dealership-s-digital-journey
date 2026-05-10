@@ -174,22 +174,22 @@ const Dashboard = () => {
 
           {todayTodos.length > 0 && (
             <ul className="divide-y divide-border/60">
-              {todayTodos.slice(0, 6).map((t) => {
-                const veh = t.vehicleId ? vehicleMap[t.vehicleId] : undefined;
+              {todayTodos.slice(0, 6).map((todo) => {
+                const veh = todo.vehicleId ? vehicleMap[todo.vehicleId] : undefined;
                 return (
-                  <li key={t.id} className="flex items-center gap-3 py-2.5 group">
+                  <li key={todo.id} className="flex items-center gap-3 py-2.5 group">
                     <Checkbox
-                      checked={t.done}
-                      onCheckedChange={() => toggleTodo(t.id)}
+                      checked={todo.done}
+                      onCheckedChange={() => toggleTodo(todo.id)}
                       aria-label={t("dash.markDone")}
                     />
-                    <span className={cn("size-2 rounded-full shrink-0", PRIORITY_DOT[t.priority])} />
+                    <span className={cn("size-2 rounded-full shrink-0", PRIORITY_DOT[todo.priority])} />
                     <button
                       type="button"
                       onClick={() => navigate("/todos")}
                       className="flex-1 text-left text-sm text-foreground truncate hover:text-primary-glow transition-smooth"
                     >
-                      {t.title}
+                      {todo.title}
                     </button>
                     {veh && (
                       <button
@@ -203,9 +203,9 @@ const Dashboard = () => {
                         </span>
                       </button>
                     )}
-                    {t.assignee && (
+                    {todo.assignee && (
                       <span className="hidden lg:inline text-xs text-muted-foreground truncate max-w-[120px]">
-                        {t.assignee}
+                        {todo.assignee}
                       </span>
                     )}
                   </li>
