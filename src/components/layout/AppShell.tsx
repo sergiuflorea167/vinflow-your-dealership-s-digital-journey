@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
+import { VincentWidget } from "@/components/vincent/VincentWidget";
 
 export const AppShell = ({ children }: { children: ReactNode }) => {
   return (
@@ -12,6 +13,7 @@ export const AppShell = ({ children }: { children: ReactNode }) => {
           <div className="max-w-[1400px] mx-auto px-6 py-6">{children}</div>
         </main>
       </div>
+      <VincentWidget />
     </div>
   );
 };
