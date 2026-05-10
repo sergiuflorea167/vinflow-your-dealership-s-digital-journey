@@ -13,6 +13,7 @@ import { useProcessStore } from "@/store/processStore";
 import { PROCESS_STEPS, TodoPriority, CALENDAR_EVENT_TYPE_LABELS, CalendarEventType } from "@/data/process";
 import { ArrowUpRight, Settings2, CalendarCheck2, Car, CalendarDays, Clock, MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useT } from "@/lib/i18n";
 
 const EVENT_DOT: Record<CalendarEventType, string> = {
   appointment: "bg-primary",
@@ -32,6 +33,7 @@ const PRIORITY_DOT: Record<TodoPriority, string> = {
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const t = useT();
   const processes = useProcessStore((s) => s.processes);
   const todos = useProcessStore((s) => s.todos);
   const vehicles = useProcessStore((s) => s.vehicles);
