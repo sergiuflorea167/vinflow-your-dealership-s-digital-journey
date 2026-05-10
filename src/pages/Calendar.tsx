@@ -164,11 +164,11 @@ const useEventDrag = ({
       const duration = s.origEnd - s.origStart;
       let newStart = snap(s.origStart + dyMin);
       newStart = Math.max(DAY_START_MIN, Math.min(DAY_END_MIN - duration, newStart));
-      setPreview({ startMin: newStart, endMin: newStart + duration, date: newDate });
+      setPreviewBoth({ startMin: newStart, endMin: newStart + duration, date: newDate });
     } else {
       let newEnd = snap(s.origEnd + dyMin);
       newEnd = Math.max(s.origStart + SNAP_MIN, Math.min(DAY_END_MIN, newEnd));
-      setPreview({ startMin: s.origStart, endMin: newEnd, date: s.origDate });
+      setPreviewBoth({ startMin: s.origStart, endMin: newEnd, date: s.origDate });
     }
   };
 
@@ -176,9 +176,9 @@ const useEventDrag = ({
     const s = stateRef.current;
     if (!s) return;
     try { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId); } catch { /* noop */ }
-    const p = preview;
+    const p = previewRef.current;
     stateRef.current = null;
-    setPreview(null);
+    setPreviewBoth(null);
     if (!p || !s.moved) return;
     const startTime = minutesToHHMM(p.startMin);
     const endTime = minutesToHHMM(p.endMin);
