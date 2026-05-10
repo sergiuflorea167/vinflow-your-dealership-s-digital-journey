@@ -280,7 +280,13 @@ export const GoalsPanel = () => {
         {/* Hero header */}
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="flex items-start gap-4 min-w-0">
-            <div className="size-12 rounded-2xl bg-gradient-brand grid place-items-center shadow-glow shrink-0">
+            <button
+              type="button"
+              onClick={() => setMoodSeed(Math.floor(Math.random() * 100000))}
+              className="size-12 rounded-2xl bg-gradient-brand grid place-items-center shadow-glow shrink-0 hover:opacity-90 transition-smooth"
+              aria-label="Andere Motivation anzeigen"
+              title="Andere Motivation anzeigen"
+            >
               {avgPct >= 100 ? (
                 <Trophy className="size-6 text-primary-foreground" />
               ) : avgPct >= 50 ? (
