@@ -10,41 +10,42 @@ import { Button } from "@/components/ui/button";
 import {
   Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { useT } from "@/lib/i18n";
 
-type NavItem = { to: string; label: string; icon: any };
-type NavGroup = { label: string; items: NavItem[] };
+type NavItem = { to: string; labelKey: string; icon: any };
+type NavGroup = { labelKey: string; items: NavItem[] };
 
 const overview: NavItem[] = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard },
+  { to: "/", labelKey: "nav.dashboard", icon: LayoutDashboard },
 ];
 
 const groups: NavGroup[] = [
   {
-    label: "Tagesgeschäft",
+    labelKey: "nav.group.daily",
     items: [
-      { to: "/bestand",         label: "Bestand",         icon: Car },
-      { to: "/vorgaenge",       label: "Vorgänge",        icon: Workflow },
-      { to: "/einkaufsplanung", label: "Einkaufsplanung", icon: ShoppingCart },
-      { to: "/todos",           label: "To-Dos",          icon: ListChecks },
-      { to: "/kalender",        label: "Kalender",        icon: CalendarDays },
+      { to: "/bestand",         labelKey: "nav.fleet",      icon: Car },
+      { to: "/vorgaenge",       labelKey: "nav.processes",  icon: Workflow },
+      { to: "/einkaufsplanung", labelKey: "nav.purchasing", icon: ShoppingCart },
+      { to: "/todos",           labelKey: "nav.todos",      icon: ListChecks },
+      { to: "/kalender",        labelKey: "nav.calendar",   icon: CalendarDays },
     ],
   },
   {
-    label: "Auswertung",
+    labelKey: "nav.group.analytics",
     items: [
-      { to: "/kpis",     label: "KPIs",      icon: BarChart3 },
-      { to: "/insights", label: "Insight+",  icon: Sparkles },
+      { to: "/kpis",     labelKey: "nav.kpis",     icon: BarChart3 },
+      { to: "/insights", labelKey: "nav.insights", icon: Sparkles },
     ],
   },
   {
-    label: "Stammdaten",
+    labelKey: "nav.group.master",
     items: [
-      { to: "/stammdaten", label: "Stammdaten", icon: Database },
+      { to: "/stammdaten", labelKey: "nav.master", icon: Database },
     ],
   },
 ];
 
-const settingsItem: NavItem = { to: "/einstellungen", label: "Einstellungen", icon: SettingsIcon };
+const settingsItem: NavItem = { to: "/einstellungen", labelKey: "nav.settings", icon: SettingsIcon };
 
 const STORAGE_KEY = "vinflow.sidebar.collapsed";
 
