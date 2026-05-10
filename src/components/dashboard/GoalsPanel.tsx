@@ -97,27 +97,38 @@ const daysLeft = (endISO: string) => {
 const periodNoun = (p: GoalPeriod) =>
   p === "week" ? "diese Woche" : p === "month" ? "diesen Monat" : p === "quarter" ? "dieses Quartal" : "dieses Jahr";
 
-const personalizedMotivation = (enriched: EnrichedGoal[], firstName?: string) => {
+const pick = <T,>(arr: T[], seed: number) => arr[Math.abs(seed) % arr.length];
+
+const personalizedMotivation = (enriched: EnrichedGoal[], firstName: string | undefined, seed: number) => {
   const name = firstName?.trim() ? `, ${firstName.trim()}` : "";
 
   if (enriched.length === 0) {
-    return {
-      headline: `Lass uns dein erstes Ziel setzen${name}.`,
-      sub: "Definiere ein Umsatz-, Stück- oder Margen-Ziel – ich rechne den Fortschritt live aus deinen Vorgängen.",
-    };
+    return pick(
+      [
+        { headline: `Lass uns dein erstes Ziel setzen${name}.`, sub: "Definiere ein Umsatz-, Stück- oder Margen-Ziel – ich rechne den Fortschritt live aus deinen Vorgängen." },
+        { headline: `Ohne Ziel kein Kurs${name}.`, sub: "Setz dir jetzt ein Monats- oder Jahresziel – ich tracke automatisch jede Übergabe." },
+        { headline: `Was willst du diesen Monat reißen${name}?`, sub: "Ein klares Ziel verändert, wie du jeden Vorgang angehst. Leg los." },
+        { headline: `Bereit für dein nächstes Level${name}?`, sub: "Ein konkretes Ziel ist der schnellste Weg zu mehr Fokus und Marge." },
+      ],
+      seed,
+    );
   }
 
   const reached = enriched.filter((g) => g.pct >= 100);
   const open = enriched.filter((g) => g.pct < 100);
 
   if (open.length === 0) {
-    return {
-      headline: `Alle ${enriched.length} Ziele erreicht${name} – stark!`,
-      sub: "Setz dir jetzt das nächste Level oder genieß den Moment. Du hast es verdient.",
-    };
+    return pick(
+      [
+        { headline: `Alle ${enriched.length} Ziele erreicht${name} – stark!`, sub: "Setz dir jetzt das nächste Level oder genieß den Moment. Du hast es verdient." },
+        { headline: `Volltreffer${name}: ${enriched.length}/${enriched.length} Ziele im Sack.`, sub: "Zeit, die Latte ein Stück höher zu legen. Was traust du dir als Nächstes zu?" },
+        { headline: `Mission erfüllt${name}.`, sub: "Selten zu sehen. Genieß den Moment – und plan schon den nächsten Push." },
+        { headline: `Du läufst über Plan${name}.`, sub: "Alle Ziele grün. Heute darfst du dich kurz auf die Schulter klopfen." },
+      ],
+      seed,
+    );
   }
 
-  // Closest to finish
   const focus = [...open].sort((a, b) => b.pct - a.pct)[0];
   const remainingNum = Math.max(0, focus.goal.target - focus.value);
   const remaining =
@@ -125,36 +136,64 @@ const personalizedMotivation = (enriched: EnrichedGoal[], firstName?: string) =>
       ? `${Math.ceil(remainingNum)} Fahrzeug${Math.ceil(remainingNum) === 1 ? "" : "e"}`
       : formatCurrency(remainingNum);
   const days = daysLeft(focus.goal.endDate);
+  const dayWord = `${days} Tag${days === 1 ? "" : "e"}`;
   const period = periodNoun(focus.goal.period);
+  const pctR = Math.round(focus.pct);
 
   if (focus.pct >= 90) {
-    return {
-      headline: `Nur noch ${remaining}${name} – Ziel "${focus.goal.label}" ist greifbar.`,
-      sub: `Bei ${Math.round(focus.pct)} %. Noch ${days} Tag${days === 1 ? "" : "e"} ${period} – das holst du.`,
-    };
+    return pick(
+      [
+        { headline: `Nur noch ${remaining}${name} – "${focus.goal.label}" ist greifbar.`, sub: `Bei ${pctR} %. Noch ${dayWord} ${period} – das holst du.` },
+        { headline: `Endspurt${name}: ${remaining} bis zum Ziel.`, sub: `${pctR} % stehen. Eine gute Woche und "${focus.goal.label}" ist erledigt.` },
+        { headline: `Riechst du das${name}? Das ist der Sieg.`, sub: `Nur ${remaining} fehlen auf "${focus.goal.label}". ${dayWord} Zeit – locker drin.` },
+        { headline: `Letzter Schritt${name} – ${pctR} % geschafft.`, sub: `${remaining} bis "${focus.goal.label}". Jetzt nicht den Fuß vom Gas.` },
+      ],
+      seed,
+    );
   }
   if (focus.pct >= 60) {
-    return {
-      headline: `${Math.round(focus.pct)} % von "${focus.goal.label}" – Endspurt${name}.`,
-      sub: `Es fehlen ${remaining}. ${reached.length > 0 ? `${reached.length} andere Ziele schon im Sack. ` : ""}Halte das Tempo.`,
-    };
+    const reachedNote = reached.length > 0 ? `${reached.length} andere Ziele schon im Sack. ` : "";
+    return pick(
+      [
+        { headline: `${pctR} % von "${focus.goal.label}" – Endspurt${name}.`, sub: `Es fehlen ${remaining}. ${reachedNote}Halte das Tempo.` },
+        { headline: `Du bist auf Kurs${name}: ${pctR} %.`, sub: `Noch ${remaining} bis "${focus.goal.label}", ${dayWord} ${period}. Sauber dranbleiben.` },
+        { headline: `${remaining} trennen dich vom Ziel${name}.`, sub: `${pctR} % stehen schon. Plan deine Woche entlang dieses Ziels und du holst es.` },
+        { headline: `Zwei Drittel sind drin${name}.`, sub: `${remaining} fehlen auf "${focus.goal.label}". Jetzt zählt jeder abgeschlossene Vorgang.` },
+      ],
+      seed,
+    );
   }
   if (focus.pct >= 30) {
-    return {
-      headline: `Solide Halbzeit${name}: ${Math.round(focus.pct)} % auf "${focus.goal.label}".`,
-      sub: `Noch ${remaining} bis zum Ziel, ${days} Tage Zeit. Wenn du jetzt gezielt Standzeit-Bestand pushst, sitzt das.`,
-    };
+    return pick(
+      [
+        { headline: `Solide Halbzeit${name}: ${pctR} % auf "${focus.goal.label}".`, sub: `Noch ${remaining} bis zum Ziel, ${dayWord} Zeit. Push gezielt deinen Standzeit-Bestand.` },
+        { headline: `Du bist mittendrin${name}.`, sub: `${pctR} % geschafft, ${remaining} fehlen. Welche 2 Fahrzeuge bringst du diese Woche raus?` },
+        { headline: `${pctR} % – guter Rhythmus${name}.`, sub: `${remaining} bis "${focus.goal.label}". Mit ${dayWord} Restzeit absolut machbar.` },
+        { headline: `Halbzeit-Check${name}: läuft.`, sub: `Noch ${remaining} bis zum Ziel. Heute eine Stunde Fokus auf die heißesten Leads – das zahlt ein.` },
+      ],
+      seed,
+    );
   }
   if (focus.pct > 0) {
-    return {
-      headline: `Erste ${Math.round(focus.pct)} % stehen${name} – jetzt Drehzahl raus.`,
-      sub: `${remaining} fehlen für "${focus.goal.label}". Plane heute 2–3 konkrete Aktionen, dann läuft's.`,
-    };
+    return pick(
+      [
+        { headline: `Erste ${pctR} % stehen${name} – jetzt Drehzahl raus.`, sub: `${remaining} fehlen für "${focus.goal.label}". Plane heute 2–3 konkrete Aktionen, dann läuft's.` },
+        { headline: `Du bist losgefahren${name}.`, sub: `${pctR} % von "${focus.goal.label}" – ${remaining} stehen noch aus. Tempo aufbauen.` },
+        { headline: `Anfang gemacht${name}: ${pctR} %.`, sub: `Noch ${remaining} bis zum Ziel, ${dayWord} Zeit. Welcher Vorgang lässt sich heute schließen?` },
+        { headline: `Kleiner Vorsprung${name}, große Chance.`, sub: `${remaining} bis "${focus.goal.label}". Wenn du jetzt fokussierst, drehst du die Woche.` },
+      ],
+      seed,
+    );
   }
-  return {
-    headline: `Frischer Start${name}: 0 % auf "${focus.goal.label}".`,
-    sub: `Du hast ${days} Tag${days === 1 ? "" : "e"} ${period}. Eine fokussierte Woche reicht oft schon, um sichtbar Fahrt aufzunehmen.`,
-  };
+  return pick(
+    [
+      { headline: `Frischer Start${name}: 0 % auf "${focus.goal.label}".`, sub: `Du hast ${dayWord} ${period}. Eine fokussierte Woche reicht oft schon, um Fahrt aufzunehmen.` },
+      { headline: `Weißes Blatt${name}.`, sub: `${remaining} bis "${focus.goal.label}". Der erste Abschluss ist der schwerste – pack ihn heute.` },
+      { headline: `Noch alles offen${name}.`, sub: `${dayWord} ${period}, um "${focus.goal.label}" zu drehen. Was ist der nächste konkrete Schritt?` },
+      { headline: `Startblock${name}.`, sub: `${remaining} fehlen. Klein anfangen, dranbleiben – das wird.` },
+    ],
+    seed,
+  );
 };
 
 export const GoalsPanel = () => {
@@ -194,7 +233,11 @@ export const GoalsPanel = () => {
   const firstName = useProcessStore((s) => s.settings?.firstName);
   const avgPct = enriched.length ? enriched.reduce((s, g) => s + g.pct, 0) / enriched.length : 0;
   const reached = enriched.filter((g) => g.pct >= 100).length;
-  const mood = personalizedMotivation(enriched, firstName);
+  const [moodSeed, setMoodSeed] = useState(() => Math.floor(Math.random() * 100000));
+  const mood = useMemo(
+    () => personalizedMotivation(enriched, firstName, moodSeed),
+    [enriched, firstName, moodSeed],
+  );
 
   const askVincent = () => {
     let prompt: string;
@@ -237,7 +280,13 @@ export const GoalsPanel = () => {
         {/* Hero header */}
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="flex items-start gap-4 min-w-0">
-            <div className="size-12 rounded-2xl bg-gradient-brand grid place-items-center shadow-glow shrink-0">
+            <button
+              type="button"
+              onClick={() => setMoodSeed(Math.floor(Math.random() * 100000))}
+              className="size-12 rounded-2xl bg-gradient-brand grid place-items-center shadow-glow shrink-0 hover:opacity-90 transition-smooth"
+              aria-label="Andere Motivation anzeigen"
+              title="Andere Motivation anzeigen"
+            >
               {avgPct >= 100 ? (
                 <Trophy className="size-6 text-primary-foreground" />
               ) : avgPct >= 50 ? (
@@ -245,7 +294,7 @@ export const GoalsPanel = () => {
               ) : (
                 <Sparkles className="size-6 text-primary-foreground" />
               )}
-            </div>
+            </button>
             <div className="min-w-0">
               <Badge variant="outline" className="border-primary/30 text-primary-glow text-[10px] mb-2">
                 {t("goals.badge")}
