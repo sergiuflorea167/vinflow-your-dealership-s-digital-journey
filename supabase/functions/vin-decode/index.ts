@@ -1,10 +1,7 @@
 // VIN-Decoder
-// Strategie:
-// 1) NHTSA vPIC (kostenlos, ohne Key) liefert verifizierte Stammdaten
-//    (Marke, Modell, Baujahr, Karosserie, Motor, PS, Kraftstoff, Getriebe).
-//    Funktioniert sehr gut für europäische VAG-/BMW-/MB-VINs.
-// 2) Lovable AI veredelt die Antwort (Modell-Variante, Ausstattungs-Stichworte,
-//    Plausi-Check). Stammdaten von NHTSA überschreiben AI immer, wenn vorhanden.
+// Quelle: freevindecoder.eu. Diese Quelle ist für europäische VINs verlässlicher
+// als der US-fokussierte NHTSA/vPIC-Datensatz und wird daher immer als Basis
+// verwendet. KI ergänzt nur Felder, die freevindecoder.eu nicht ausgibt.
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -70,6 +67,34 @@ const TRANS_MAP: Record<string, string> = {
   "continuously variable transmission (cvt)": "CVT",
 };
 
+const SOURCE_URL = "https://www.freevindecoder.eu";
+
+const htmlDecode = (value: string) =>
+  value
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&#039;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/\s+/g, " ")
+    .trim();
+
+function stripTags(value: string) {
+  return htmlDecode(value.replace(/<[^>]*>/g, " "));
+}
+
+function extractRows(html: string): Record<string, string> {
+  const rows: Record<string, string> = {};
+  const rowRegex = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
+  let rowMatch: RegExpExecArray | null;
+  while ((rowMatch = rowRegex.exec(html))) {
+    const cells = [...rowMatch[1].matchAll(/<t[hd][^>]*>([\s\S]*?)<\/t[hd]>/gi)].map((m) => stripTags(m[1]));
+    if (cells.length >= 2 && cells[0] && cells[1]) rows[cells[0].toLowerCase()] = cells[1];
+  }
+  return rows;
+}
+
 function mapValue(map: Record<string, string>, raw?: string): string | undefined {
   if (!raw) return undefined;
   const k = raw.toLowerCase().trim();
@@ -80,56 +105,26 @@ function mapValue(map: Record<string, string>, raw?: string): string | undefined
   return undefined;
 }
 
-// VIN-Modelljahr aus Position 10 + Disambiguierung über Position 7.
-// Pos 7 ist eine Ziffer für Modelljahre 2010–2039, ein Buchstabe für 1980–2009.
-function guessModelYearFromVin(vin: string): number | undefined {
-  if (vin.length < 10) return undefined;
-  const code = vin[9].toUpperCase();
-  // 30-Jahres-Zyklus: jedes Zeichen steht für zwei mögliche Jahre.
-  const TABLE_OLD: Record<string, number> = {
-    A:1980,B:1981,C:1982,D:1983,E:1984,F:1985,G:1986,H:1987,J:1988,K:1989,
-    L:1990,M:1991,N:1992,P:1993,R:1994,S:1995,T:1996,V:1997,W:1998,X:1999,
-    Y:2000,"1":2001,"2":2002,"3":2003,"4":2004,"5":2005,"6":2006,"7":2007,"8":2008,"9":2009,
-  };
-  const oldYear = TABLE_OLD[code];
-  if (!oldYear) return undefined;
-  const newYear = oldYear + 30;
-  const pos7 = vin[6];
-  const isDigitPos7 = /[0-9]/.test(pos7);
-  // Ziffer auf Pos. 7 → modernes Schema (2010+); Buchstabe → altes Schema.
-  return isDigitPos7 ? newYear : oldYear;
-}
-
-async function fetchNHTSA(vin: string, modelYear?: number) {
-  const qs = modelYear ? `?format=json&modelyear=${modelYear}` : `?format=json`;
-  const res = await fetch(`https://vpic.nhtsa.dot.gov/api/vehicles/decodevin/${vin}${qs}`);
-  if (!res.ok) return null;
-  return res.json();
-}
-
-async function decodeViaNHTSA(vin: string): Promise<Decoded | null> {
+async function decodeViaFreeVinDecoder(vin: string): Promise<Decoded | null> {
   try {
-    const guessedYear = guessModelYearFromVin(vin);
-    const json = await fetchNHTSA(vin, guessedYear);
-    if (!json) return null;
-    const rows: Array<{ Variable: string; Value: string | null }> = json?.Results ?? [];
-    const get = (name: string) =>
-      rows.find((r) => r.Variable === name)?.Value?.trim() || undefined;
+    const res = await fetch(`${SOURCE_URL}/${vin}`, {
+      headers: { "User-Agent": "Mozilla/5.0 VINflow/1.0" },
+    });
+    if (!res.ok) return null;
+    const html = await res.text();
+    const rows = extractRows(html);
 
-    const make = get("Make");
+    const make = rows["make"];
     if (!make) return null;
-    const model = get("Model");
-    const yearStr = get("Model Year");
-    const body = get("Body Class");
-    const fuelPrim = get("Fuel Type - Primary");
-    const fuelSec = get("Fuel Type - Secondary");
-    const trans = get("Transmission Style");
-    const hp = get("Engine Brake (hp) From") || get("Engine Power (hp)");
-    const displ = get("Displacement (L)");
-
-    let fuel = mapValue(FUEL_MAP, fuelPrim);
-    if (fuelSec && fuel === "Benzin") fuel = "Hybrid";
-    if (fuelSec && /electric/i.test(fuelSec) && fuelPrim) fuel = "Plug-in-Hybrid";
+    const model = rows["model"] || rows["model name"] || rows["vehicle"];
+    const yearStr = rows["model year"] || rows["year"];
+    const body = rows["body"] || rows["body class"] || rows["vehicle type"];
+    const fuel = mapValue(FUEL_MAP, rows["fuel"] || rows["fuel type"]);
+    const trans = mapValue(TRANS_MAP, rows["transmission"] || rows["gearbox"]);
+    const hpRaw = rows["power"] || rows["engine power"] || rows["horsepower"];
+    const displRaw = rows["displacement"] || rows["engine displacement"];
+    const hpMatch = hpRaw?.match(/\d+(?:[.,]\d+)?/);
+    const displMatch = displRaw?.match(/\d+(?:[.,]\d+)?/);
 
     return {
       make: make.charAt(0) + make.slice(1).toLowerCase(),
@@ -137,10 +132,10 @@ async function decodeViaNHTSA(vin: string): Promise<Decoded | null> {
       year: yearStr ? Number(yearStr) : undefined,
       type: mapValue(TYPE_MAP, body),
       fuel,
-      transmission: mapValue(TRANS_MAP, trans),
-      power_hp: hp ? Math.round(Number(hp)) : undefined,
-      displacement_l: displ ? Number(displ) : undefined,
-      source: "nhtsa",
+      transmission: trans,
+      power_hp: hpMatch ? Math.round(Number(hpMatch[0].replace(",", "."))) : undefined,
+      displacement_l: displMatch ? Number(displMatch[0].replace(",", ".")) : undefined,
+      source: "freevindecoder",
     };
   } catch (_e) {
     return null;
@@ -152,10 +147,11 @@ async function enrichViaAI(vin: string, base: Decoded | null): Promise<Decoded |
   if (!KEY) return null;
 
   const sys = `Du bist VIN- und Fahrzeug-Experte für den deutschen Markt.
-Aufgabe: Aus VIN + bereits verifizierten Stammdaten ergänzt du fehlende Felder
-(Modellvariante, typische Ausstattung, deutsche HSN/TSN sofern aus Modelljahr/
-Motorisierung eindeutig ableitbar). Erfinde NICHTS – im Zweifel weglassen oder
-"confidence" niedriger setzen. Antworte ausschließlich als gültiges JSON:
+Aufgabe: Aus VIN + Daten von freevindecoder.eu ergänzt du fehlende Felder
+für deutsche Händler. Wenn freevindecoder.eu nur Marke/Baujahr liefert, darfst
+du anhand der VIN-Struktur und bekannter EU-Modellcodes plausibel ergänzen.
+Bei deutschen KBA-Daten HSN/TSN nur ausgeben, wenn diese für Modelljahr/Motor
+wirklich eindeutig sind. Antworte ausschließlich als gültiges JSON:
 
 {
   "make": string|null,
@@ -173,7 +169,7 @@ Motorisierung eindeutig ableitbar). Erfinde NICHTS – im Zweifel weglassen oder
 }`;
 
   const userPrompt = `VIN: ${vin}
-Verifizierte Stammdaten (NHTSA): ${JSON.stringify(base ?? {})}
+Quelle freevindecoder.eu: ${JSON.stringify(base ?? {})}
 Bitte ergänzen.`;
 
   try {
@@ -213,26 +209,25 @@ Deno.serve(async (req) => {
       });
     }
 
-    const [nhtsa, ai] = await Promise.all([
-      decodeViaNHTSA(v),
-      enrichViaAI(v, null), // AI bekommt parallel VIN, finale Merge-Logik unten
-    ]);
+    const base = await decodeViaFreeVinDecoder(v);
+    const ai = await enrichViaAI(v, base);
 
-    // Merge: NHTSA gewinnt bei Stammdaten (verifiziert), AI füllt nur Lücken.
+    // Merge: freevindecoder.eu ist immer die feste Quelle; KI füllt nur Lücken
+    // und darf das Modell präzisieren, wenn die Quelle nur Marke/Baujahr liefert.
     const merged: Decoded = {
-      make: nhtsa?.make ?? ai?.make ?? undefined,
-      model: nhtsa?.model ?? ai?.model ?? undefined,
-      year: nhtsa?.year ?? ai?.year ?? undefined,
-      type: nhtsa?.type ?? ai?.type ?? undefined,
-      fuel: nhtsa?.fuel ?? ai?.fuel ?? undefined,
-      transmission: nhtsa?.transmission ?? ai?.transmission ?? undefined,
-      power_hp: nhtsa?.power_hp ?? ai?.power_hp ?? undefined,
-      displacement_l: nhtsa?.displacement_l ?? ai?.displacement_l ?? undefined,
+      make: base?.make ?? ai?.make ?? undefined,
+      model: ai?.model ?? base?.model ?? undefined,
+      year: base?.year ?? ai?.year ?? undefined,
+      type: base?.type ?? ai?.type ?? undefined,
+      fuel: base?.fuel ?? ai?.fuel ?? undefined,
+      transmission: base?.transmission ?? ai?.transmission ?? undefined,
+      power_hp: base?.power_hp ?? ai?.power_hp ?? undefined,
+      displacement_l: base?.displacement_l ?? ai?.displacement_l ?? undefined,
       hsn: ai?.hsn ?? undefined,
       tsn: ai?.tsn ?? undefined,
       features: Array.isArray(ai?.features) ? ai!.features : [],
-      confidence: nhtsa ? Math.max(0.85, ai?.confidence ?? 0.5) : ai?.confidence ?? 0.4,
-      source: nhtsa ? (ai ? "nhtsa+ai" : "nhtsa") : ai ? "ai" : "none",
+      confidence: base ? Math.min(0.95, Math.max(0.78, ai?.confidence ?? 0.78)) : ai?.confidence ?? 0.4,
+      source: base ? (ai ? "freevindecoder+ai" : "freevindecoder") : ai ? "ai" : "none",
     };
 
     if (!merged.make) {
