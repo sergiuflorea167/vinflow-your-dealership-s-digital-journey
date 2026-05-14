@@ -5,6 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { FuelType, Transmission, VehicleType, VEHICLE_TYPE_LABELS, Vehicle } from "@/data/process";
+import { ScanLine, Loader2, Sparkles } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 export interface VehicleIntakePayload {
   vin: string;
@@ -55,6 +58,40 @@ export const VehicleIntakeDialog = ({ open, onOpenChange, locations, preset, tit
   const [purchasePrice, setPurchasePrice] = useState(preset?.targetPrice ?? 0);
   const [listPrice, setListPrice] = useState(preset?.targetPrice ? Math.round(preset.targetPrice * 1.2) : 0);
   const [location, setLocation] = useState(locations[0] ?? "Hof A · Platz 01");
+  const [features, setFeatures] = useState<string[]>([]);
+  const [scanning, setScanning] = useState(false);
+
+  const scanVin = async () => {
+    const v = vin.trim().toUpperCase();
+    if (v.length < 11) {
+      toast.error("Bitte zuerst eine gültige VIN eingeben (mind. 11 Zeichen).");
+      return;
+    }
+    setScanning(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("vin-decode", { body: { vin: v } });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      const d = data as any;
+      if (d.make) setMake(d.make);
+      if (d.model) setModel(d.model);
+      if (d.year) setYear(Number(d.year));
+      if (d.type) setType(d.type);
+      if (d.fuel) setFuel(d.fuel);
+      if (d.transmission) setTransmission(d.transmission);
+      if (d.power_hp) setHp(Number(d.power_hp));
+      if (d.color && !color) setColor(d.color);
+      if (Array.isArray(d.features)) setFeatures(d.features);
+      const conf = typeof d.confidence === "number" ? Math.round(d.confidence * 100) : null;
+      toast.success(
+        `VIN gescannt – Felder ausgefüllt${conf !== null ? ` · ${conf}% Sicherheit` : ""}. Bitte prüfen.`,
+      );
+    } catch (e: any) {
+      toast.error("VIN-Scan fehlgeschlagen: " + (e?.message ?? "unbekannt"));
+    } finally {
+      setScanning(false);
+    }
+  };
 
   // Reset fields whenever the dialog is (re-)opened, so presets apply correctly.
   useEffect(() => {
@@ -74,6 +111,7 @@ export const VehicleIntakeDialog = ({ open, onOpenChange, locations, preset, tit
     setPurchasePrice(preset?.targetPrice ?? 0);
     setListPrice(preset?.targetPrice ? Math.round(preset.targetPrice * 1.2) : 0);
     setLocation(locations[0] ?? "Hof A · Platz 01");
+    setFeatures([]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
@@ -104,8 +142,23 @@ export const VehicleIntakeDialog = ({ open, onOpenChange, locations, preset, tit
           <FormField label="Marke *"><Input value={make} onChange={(e) => setMake(e.target.value)} placeholder="z. B. BMW" /></FormField>
           <FormField label="Modell *"><Input value={model} onChange={(e) => setModel(e.target.value)} placeholder="z. B. X3 xDrive30d" /></FormField>
           <FormField label="Baujahr *"><Input type="number" value={year} onChange={(e) => setYear(Number(e.target.value))} /></FormField>
-          <FormField label="VIN (17-stellig) *">
-            <Input value={vin} onChange={(e) => setVin(e.target.value.toUpperCase())} placeholder="WBA8E9G50GNT12345" maxLength={17} className="font-mono" />
+          <FormField label="VIN (17-stellig) *" full>
+            <div className="flex gap-2">
+              <Input value={vin} onChange={(e) => setVin(e.target.value.toUpperCase())} placeholder="WBA8E9G50GNT12345" maxLength={17} className="font-mono flex-1" />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={scanVin}
+                disabled={scanning || vin.trim().length < 11}
+                className="shrink-0 gap-2 border-primary/40 hover:border-primary hover:bg-primary/10"
+              >
+                {scanning ? <Loader2 className="size-4 animate-spin" /> : <ScanLine className="size-4" />}
+                {scanning ? "Scanne…" : "VIN scannen"}
+              </Button>
+            </div>
+            <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1">
+              <Sparkles className="size-3" /> Füllt Marke, Modell, Baujahr, Motor & Ausstattung automatisch.
+            </p>
           </FormField>
           <FormField label="Farbe *"><Input value={color} onChange={(e) => setColor(e.target.value)} placeholder="z. B. Mineralweiß" /></FormField>
           <FormField label="Kilometer *"><Input type="number" value={mileage || ""} onChange={(e) => setMileage(Number(e.target.value))} /></FormField>
@@ -129,6 +182,20 @@ export const VehicleIntakeDialog = ({ open, onOpenChange, locations, preset, tit
               {locations.map((l) => <option key={l} value={l}>{l}</option>)}
             </select>
           </FormField>
+          {features.length > 0 && (
+            <FormField label="Erkannte Ausstattung & Merkmale" full>
+              <div className="flex flex-wrap gap-1.5 rounded-md border border-primary/30 bg-primary/5 p-2.5">
+                {features.map((f, i) => (
+                  <span
+                    key={i}
+                    className="inline-flex items-center gap-1 rounded-full bg-background/60 border border-border px-2 py-0.5 text-[11px]"
+                  >
+                    <Sparkles className="size-2.5 text-primary" /> {f}
+                  </span>
+                ))}
+              </div>
+            </FormField>
+          )}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Abbrechen</Button>
