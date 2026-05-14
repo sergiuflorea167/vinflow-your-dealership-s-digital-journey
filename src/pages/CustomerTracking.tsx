@@ -457,9 +457,8 @@ const SegmentedCodeInput = ({
     >
       <div className="flex w-full items-stretch justify-between gap-0 flex-nowrap">
         {SEGMENTS.map((seg, i) => (
-          <>
+          <React.Fragment key={i}>
             <div
-              key={i}
               className="flex flex-col items-center gap-3 min-w-0 px-3 sm:px-5"
               style={{ flex: `${seg.length} ${seg.length} 0` }}
             >
@@ -486,9 +485,9 @@ const SegmentedCodeInput = ({
               <span className="h-10 text-center text-[10px] text-muted-foreground leading-tight">{seg.hint}</span>
             </div>
             {i < SEGMENTS.length - 1 && (
-              <div key={`sep-${i}`} className="w-px self-stretch bg-border/60" aria-hidden="true" />
+              <div className="w-px self-stretch bg-border/60" aria-hidden="true" />
             )}
-          </>
+          </React.Fragment>
         ))}
       </div>
 
