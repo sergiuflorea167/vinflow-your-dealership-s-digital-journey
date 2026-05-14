@@ -11,7 +11,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { User, Settings as SettingsIcon, LogOut, Camera, Mail, Phone, Briefcase } from "lucide-react";
+import { User, Settings as SettingsIcon, LogOut, Camera, Mail, Phone, Briefcase, Palette, Check } from "lucide-react";
+import { PDF_THEMES } from "@/lib/pdf";
+import { cn } from "@/lib/utils";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { useT } from "@/lib/i18n";
