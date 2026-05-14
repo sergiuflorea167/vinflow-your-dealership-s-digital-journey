@@ -47,6 +47,13 @@ const CustomerTracking = () => {
   const customer = remoteSnapshot?.customer ?? localCustomer;
   const offer = remoteSnapshot?.offer ?? localOffer;
   const companyName = remoteSnapshot?.companyName ?? storeCompanyName;
+  const storeSettings = useProcessStore((s) => s.settings);
+  const contact = remoteSnapshot?.contact ?? {
+    name: storeSettings.userName || "Ihr Ansprechpartner",
+    email: storeSettings.email || "",
+    phone: storeSettings.phone || "",
+    role: storeSettings.role,
+  };
 
   if (loadingRemote && (!localProcess || !localVehicle || !localCustomer)) {
     return (
