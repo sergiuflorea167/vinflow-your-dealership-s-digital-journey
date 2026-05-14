@@ -1,11 +1,11 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import {
   CheckCircle2, Clock, Download, FileText, Lock, MapPin, Package, Phone, Mail, Car, Calendar as CalendarIcon, ShieldCheck,
 } from "lucide-react";
 import { useProcessStore } from "@/store/processStore";
 import { PROCESS_STEPS, formatCurrency, formatDate, stepIndex } from "@/data/process";
-import { findProcessIdForToken } from "@/lib/customerLink";
+import { findProcessIdForToken, loadCustomerTrackingSnapshot, type CustomerTrackingSnapshot } from "@/lib/customerLink";
 import { downloadBelegPdf } from "@/lib/pdf";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -13,18 +13,54 @@ import logo from "@/assets/logo.png";
 
 const CustomerTracking = () => {
   const { token } = useParams<{ token: string }>();
+  const [remoteSnapshot, setRemoteSnapshot] = useState<CustomerTrackingSnapshot | null>(null);
+  const [loadingRemote, setLoadingRemote] = useState(true);
   const processes = useProcessStore((s) => s.processes);
-  const companyName = useProcessStore((s) => s.settings.companyName);
+  const storeCompanyName = useProcessStore((s) => s.settings.companyName);
 
-  const processId = useMemo(
+  useEffect(() => {
+    let active = true;
+    if (!token) {
+      setLoadingRemote(false);
+      return;
+    }
+    setLoadingRemote(true);
+    loadCustomerTrackingSnapshot(token)
+      .then((snapshot) => { if (active) setRemoteSnapshot(snapshot); })
+      .catch(() => { if (active) setRemoteSnapshot(null); })
+      .finally(() => { if (active) setLoadingRemote(false); });
+    return () => { active = false; };
+  }, [token]);
+
+  const localProcessId = useMemo(
     () => (token ? findProcessIdForToken(token, processes.map((p) => p.id)) : undefined),
     [token, processes]
   );
 
-  const process = useProcessStore((s) => (processId ? s.processes.find((p) => p.id === processId) : undefined));
-  const vehicle = useProcessStore((s) => process && s.getVehicle(process.vehicleId));
-  const customer = useProcessStore((s) => process && s.getCustomer(process.customerId));
-  const offer = useProcessStore((s) => process && s.getOffer(process.acceptedOfferId));
+  const localProcess = useProcessStore((s) => (localProcessId ? s.processes.find((p) => p.id === localProcessId) : undefined));
+  const localVehicle = useProcessStore((s) => localProcess && s.getVehicle(localProcess.vehicleId));
+  const localCustomer = useProcessStore((s) => localProcess && s.getCustomer(localProcess.customerId));
+  const localOffer = useProcessStore((s) => localProcess && s.getOffer(localProcess.acceptedOfferId));
+
+  const process = remoteSnapshot?.process ?? localProcess;
+  const vehicle = remoteSnapshot?.vehicle ?? localVehicle;
+  const customer = remoteSnapshot?.customer ?? localCustomer;
+  const offer = remoteSnapshot?.offer ?? localOffer;
+  const companyName = remoteSnapshot?.companyName ?? storeCompanyName;
+
+  if (loadingRemote && (!localProcess || !localVehicle || !localCustomer)) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/10 grid place-items-center p-6">
+        <div className="max-w-md text-center space-y-4">
+          <div className="size-16 rounded-2xl bg-card border border-border grid place-items-center mx-auto">
+            <Clock className="size-7 text-primary-glow animate-pulse" />
+          </div>
+          <h1 className="font-display text-2xl font-bold">Vorgang wird geladen</h1>
+          <p className="text-sm text-muted-foreground">Einen Moment bitte, der Kundenlink wird synchronisiert.</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!process || !vehicle || !customer) {
     return (
@@ -57,7 +93,7 @@ const CustomerTracking = () => {
     new Date(new Date(process.createdAt).getTime() + 14 * 86400000).toISOString().slice(0, 10);
 
   const handleDownload = (key: typeof PROCESS_STEPS[number]["key"]) => {
-    downloadBelegPdf({ process, vehicle, customer, offer, stepKey: key, companyName });
+    downloadBelegPdf({ process, vehicle, customer, offer: offer ?? undefined, stepKey: key, companyName });
   };
 
   return (
