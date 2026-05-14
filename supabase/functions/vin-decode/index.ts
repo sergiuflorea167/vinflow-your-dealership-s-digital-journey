@@ -105,56 +105,26 @@ function mapValue(map: Record<string, string>, raw?: string): string | undefined
   return undefined;
 }
 
-// VIN-Modelljahr aus Position 10 + Disambiguierung über Position 7.
-// Pos 7 ist eine Ziffer für Modelljahre 2010–2039, ein Buchstabe für 1980–2009.
-function guessModelYearFromVin(vin: string): number | undefined {
-  if (vin.length < 10) return undefined;
-  const code = vin[9].toUpperCase();
-  // 30-Jahres-Zyklus: jedes Zeichen steht für zwei mögliche Jahre.
-  const TABLE_OLD: Record<string, number> = {
-    A:1980,B:1981,C:1982,D:1983,E:1984,F:1985,G:1986,H:1987,J:1988,K:1989,
-    L:1990,M:1991,N:1992,P:1993,R:1994,S:1995,T:1996,V:1997,W:1998,X:1999,
-    Y:2000,"1":2001,"2":2002,"3":2003,"4":2004,"5":2005,"6":2006,"7":2007,"8":2008,"9":2009,
-  };
-  const oldYear = TABLE_OLD[code];
-  if (!oldYear) return undefined;
-  const newYear = oldYear + 30;
-  const pos7 = vin[6];
-  const isDigitPos7 = /[0-9]/.test(pos7);
-  // Ziffer auf Pos. 7 → modernes Schema (2010+); Buchstabe → altes Schema.
-  return isDigitPos7 ? newYear : oldYear;
-}
-
-async function fetchNHTSA(vin: string, modelYear?: number) {
-  const qs = modelYear ? `?format=json&modelyear=${modelYear}` : `?format=json`;
-  const res = await fetch(`https://vpic.nhtsa.dot.gov/api/vehicles/decodevin/${vin}${qs}`);
-  if (!res.ok) return null;
-  return res.json();
-}
-
-async function decodeViaNHTSA(vin: string): Promise<Decoded | null> {
+async function decodeViaFreeVinDecoder(vin: string): Promise<Decoded | null> {
   try {
-    const guessedYear = guessModelYearFromVin(vin);
-    const json = await fetchNHTSA(vin, guessedYear);
-    if (!json) return null;
-    const rows: Array<{ Variable: string; Value: string | null }> = json?.Results ?? [];
-    const get = (name: string) =>
-      rows.find((r) => r.Variable === name)?.Value?.trim() || undefined;
+    const res = await fetch(`${SOURCE_URL}/${vin}`, {
+      headers: { "User-Agent": "Mozilla/5.0 VINflow/1.0" },
+    });
+    if (!res.ok) return null;
+    const html = await res.text();
+    const rows = extractRows(html);
 
-    const make = get("Make");
+    const make = rows["make"];
     if (!make) return null;
-    const model = get("Model");
-    const yearStr = get("Model Year");
-    const body = get("Body Class");
-    const fuelPrim = get("Fuel Type - Primary");
-    const fuelSec = get("Fuel Type - Secondary");
-    const trans = get("Transmission Style");
-    const hp = get("Engine Brake (hp) From") || get("Engine Power (hp)");
-    const displ = get("Displacement (L)");
-
-    let fuel = mapValue(FUEL_MAP, fuelPrim);
-    if (fuelSec && fuel === "Benzin") fuel = "Hybrid";
-    if (fuelSec && /electric/i.test(fuelSec) && fuelPrim) fuel = "Plug-in-Hybrid";
+    const model = rows["model"] || rows["model name"] || rows["vehicle"];
+    const yearStr = rows["model year"] || rows["year"];
+    const body = rows["body"] || rows["body class"] || rows["vehicle type"];
+    const fuel = mapValue(FUEL_MAP, rows["fuel"] || rows["fuel type"]);
+    const trans = mapValue(TRANS_MAP, rows["transmission"] || rows["gearbox"]);
+    const hpRaw = rows["power"] || rows["engine power"] || rows["horsepower"];
+    const displRaw = rows["displacement"] || rows["engine displacement"];
+    const hpMatch = hpRaw?.match(/\d+(?:[.,]\d+)?/);
+    const displMatch = displRaw?.match(/\d+(?:[.,]\d+)?/);
 
     return {
       make: make.charAt(0) + make.slice(1).toLowerCase(),
@@ -162,10 +132,10 @@ async function decodeViaNHTSA(vin: string): Promise<Decoded | null> {
       year: yearStr ? Number(yearStr) : undefined,
       type: mapValue(TYPE_MAP, body),
       fuel,
-      transmission: mapValue(TRANS_MAP, trans),
-      power_hp: hp ? Math.round(Number(hp)) : undefined,
-      displacement_l: displ ? Number(displ) : undefined,
-      source: "nhtsa",
+      transmission: trans,
+      power_hp: hpMatch ? Math.round(Number(hpMatch[0].replace(",", "."))) : undefined,
+      displacement_l: displMatch ? Number(displMatch[0].replace(",", ".")) : undefined,
+      source: "freevindecoder",
     };
   } catch (_e) {
     return null;
