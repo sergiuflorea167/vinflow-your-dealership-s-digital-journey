@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useSearchParams } from "react-router-dom";
 import {
   CheckCircle2, Clock, Download, FileText, Lock, MapPin, Package, Phone, Mail, Car, Calendar as CalendarIcon, ShieldCheck,
 } from "lucide-react";
@@ -15,6 +15,8 @@ import logo from "@/assets/logo.png";
 
 const CustomerTracking = () => {
   const { token } = useParams<{ token: string }>();
+  const [searchParams] = useSearchParams();
+  const staffPreview = searchParams.get("staff") === "1";
   const [remoteSnapshot, setRemoteSnapshot] = useState<CustomerTrackingSnapshot | null>(null);
   const [loadingRemote, setLoadingRemote] = useState(true);
   const processes = useProcessStore((s) => s.processes);
@@ -60,7 +62,7 @@ const CustomerTracking = () => {
   // Sicherheits-Code Gate – bei jedem Seiten-Reload neu anfordern (kein Persistieren).
   const [codeInput, setCodeInput] = useState("");
   const [codeError, setCodeError] = useState<string | null>(null);
-  const [unlocked, setUnlocked] = useState(false);
+  const [unlocked, setUnlocked] = useState(staffPreview);
 
   if (loadingRemote && (!localProcess || !localVehicle || !localCustomer)) {
     return (
