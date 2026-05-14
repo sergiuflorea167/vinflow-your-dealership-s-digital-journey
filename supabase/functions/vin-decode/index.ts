@@ -206,6 +206,20 @@ Bitte ergänzen.`;
   }
 }
 
+function cleanAi(ai: Decoded | null, base: Decoded | null): Decoded | null {
+  if (!ai) return null;
+  const out: Decoded = { ...ai };
+  if (base?.make) out.make = undefined;
+  if (base?.model) out.model = undefined;
+  if (base?.year) out.year = undefined;
+  if (base?.type) out.type = undefined;
+  if (base?.fuel) out.fuel = undefined;
+  if (base?.transmission) out.transmission = undefined;
+  if (base?.power_hp) out.power_hp = undefined;
+  if (base?.displacement_l) out.displacement_l = undefined;
+  return out;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
@@ -219,7 +233,7 @@ Deno.serve(async (req) => {
     }
 
     const base = await decodeViaFreeVinDecoder(v);
-    const ai = await enrichViaAI(v, base);
+    const ai = cleanAi(await enrichViaAI(v, base), base);
 
     // Merge: freevindecoder.eu ist immer die feste Quelle; KI füllt nur Lücken
     // und darf das Modell präzisieren, wenn die Quelle nur Marke/Baujahr liefert.
