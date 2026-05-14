@@ -61,7 +61,7 @@ export const CustomerPortalCard = ({ processId, customerName, customerEmail, veh
     event.preventDefault();
     try {
       await ensureSnapshot();
-      window.open(url, "_blank", "noopener,noreferrer");
+      window.open(staffUrl, "_blank", "noopener,noreferrer");
     } catch {
       toast.error("Konnte Kundenlink nicht synchronisieren");
     }
