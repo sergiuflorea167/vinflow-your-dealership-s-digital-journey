@@ -62,7 +62,7 @@ const CustomerTracking = () => {
   // Sicherheits-Code Gate – bei jedem Seiten-Reload neu anfordern (kein Persistieren).
   const [codeInput, setCodeInput] = useState("");
   const [codeError, setCodeError] = useState<string | null>(null);
-  const [unlocked, setUnlocked] = useState(false);
+  const [unlocked, setUnlocked] = useState(staffPreview);
 
   if (loadingRemote && (!localProcess || !localVehicle || !localCustomer)) {
     return (
