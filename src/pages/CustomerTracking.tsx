@@ -114,23 +114,13 @@ const CustomerTracking = () => {
             </div>
           </div>
 
-          <div className="rounded-xl bg-muted/30 border border-border p-4 text-xs text-muted-foreground space-y-2">
-            <p className="font-semibold text-foreground">So setzt sich Ihr Code zusammen:</p>
-            <ol className="list-decimal pl-5 space-y-1">
-              <li>Erster Buchstabe Ihres Vornamens</li>
-              <li>Erster Buchstabe Ihres Nachnamens</li>
-              <li>Erste Ziffer Ihrer Postleitzahl</li>
-              <li>Ihr Geburtsmonat (zweistellig, z.&nbsp;B. <span className="font-mono">04</span>)</li>
-              <li>Ihr Geburtsjahr (vierstellig, z.&nbsp;B. <span className="font-mono">1985</span>)</li>
-              <li>Letztes Zeichen Ihrer Postleitzahl</li>
-            </ol>
-            <p>Beispiel: <span className="font-mono">MM8041985 0</span> → <span className="font-mono">MM80419850</span></p>
-          </div>
+          <p className="text-xs text-muted-foreground">
+            Geben Sie Ihren persönlichen Code Zelle für Zelle ein – jede Zelle ist beschriftet.
+          </p>
 
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (matchesCustomerAccessCode(codeInput, customer)) {
+          <SegmentedCodeInput
+            onSubmit={(value) => {
+              if (matchesCustomerAccessCode(value, customer)) {
                 try { sessionStorage.setItem(storageKey, expectedCode); } catch { /* noop */ }
                 setCodeError(null);
                 setUnlocked(true);
@@ -138,21 +128,8 @@ const CustomerTracking = () => {
                 setCodeError("Code ist nicht korrekt. Bitte prüfen Sie Ihre Angaben.");
               }
             }}
-            className="space-y-3"
-          >
-            <Input
-              autoFocus
-              value={codeInput}
-              onChange={(e) => setCodeInput(normalizeAccessCode(e.target.value))}
-              placeholder="z. B. MM80419850"
-              className="font-mono tracking-widest text-center text-lg"
-              maxLength={20}
-            />
-            {codeError && <p className="text-xs text-destructive">{codeError}</p>}
-            <Button type="submit" className="w-full bg-gradient-brand hover:opacity-90">
-              Vorgang öffnen
-            </Button>
-          </form>
+            error={codeError}
+          />
 
           <p className="text-[11px] text-muted-foreground text-center">
             Aus Sicherheitsgründen geschützt. Bei Problemen wenden Sie sich bitte an Ihren Händler.
