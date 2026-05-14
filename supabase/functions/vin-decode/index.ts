@@ -235,11 +235,10 @@ Deno.serve(async (req) => {
     const base = await decodeViaFreeVinDecoder(v);
     const ai = cleanAi(await enrichViaAI(v, base), base);
 
-    // Merge: freevindecoder.eu ist immer die feste Quelle; KI füllt nur Lücken
-    // und darf das Modell präzisieren, wenn die Quelle nur Marke/Baujahr liefert.
+    // Merge: freevindecoder.eu ist immer die feste Quelle; KI füllt nur Lücken.
     const merged: Decoded = {
       make: base?.make ?? ai?.make ?? undefined,
-      model: ai?.model ?? base?.model ?? undefined,
+      model: base?.model ?? ai?.model ?? undefined,
       year: base?.year ?? ai?.year ?? undefined,
       type: base?.type ?? ai?.type ?? undefined,
       fuel: base?.fuel ?? ai?.fuel ?? undefined,
