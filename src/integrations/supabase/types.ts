@@ -46,19 +46,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      get_customer_tracking_snapshot: {
-        Args: { _token: string }
-        Returns: Json
-      }
-      upsert_customer_tracking_snapshot: {
-        Args: {
-          _expires_at?: string
-          _process_id: string
-          _snapshot: Json
-          _token: string
-        }
-        Returns: undefined
-      }
+      [_ in never]: never
     }
     Enums: {
       [_ in never]: never
