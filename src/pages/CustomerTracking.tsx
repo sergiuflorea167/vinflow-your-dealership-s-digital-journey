@@ -370,4 +370,140 @@ const HeroStat = ({ icon, label, value, sub }: { icon: React.ReactNode; label: s
   </div>
 );
 
+type Segment = {
+  key: string;
+  label: string;
+  length: number;
+  mode: "alpha" | "digit" | "any";
+  hint?: string;
+};
+
+const SEGMENTS: Segment[] = [
+  { key: "vn", label: "Vorname", length: 1, mode: "alpha", hint: "1. Buchstabe" },
+  { key: "nn", label: "Nachname", length: 1, mode: "alpha", hint: "1. Buchstabe" },
+  { key: "p1", label: "PLZ", length: 1, mode: "digit", hint: "1. Ziffer" },
+  { key: "mm", label: "Geburtsmonat", length: 2, mode: "digit", hint: "z. B. 04" },
+  { key: "yy", label: "Geburtsjahr", length: 4, mode: "digit", hint: "z. B. 1985" },
+  { key: "p2", label: "PLZ", length: 1, mode: "any", hint: "letztes Zeichen" },
+];
+
+const sanitizeSegment = (raw: string, mode: Segment["mode"]) => {
+  const upper = raw.toUpperCase();
+  if (mode === "alpha") return upper.replace(/[^A-ZÄÖÜß]/g, "");
+  if (mode === "digit") return upper.replace(/[^0-9]/g, "");
+  return upper.replace(/\s+/g, "");
+};
+
+const SegmentedCodeInput = ({
+  onSubmit,
+  error,
+}: {
+  onSubmit: (value: string) => void;
+  error: string | null;
+}) => {
+  const [values, setValues] = useState<string[]>(() => SEGMENTS.map(() => ""));
+  const refs = useRef<Array<HTMLInputElement | null>>([]);
+
+  const focusIndex = (i: number) => {
+    const el = refs.current[i];
+    if (el) {
+      el.focus();
+      el.select();
+    }
+  };
+
+  const handleChange = (i: number, raw: string) => {
+    const seg = SEGMENTS[i];
+    const cleaned = sanitizeSegment(raw, seg.mode).slice(0, seg.length);
+    const next = [...values];
+    next[i] = cleaned;
+    setValues(next);
+    if (cleaned.length === seg.length && i < SEGMENTS.length - 1) {
+      focusIndex(i + 1);
+    }
+  };
+
+  const handleKeyDown = (i: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Backspace" && !values[i] && i > 0) {
+      e.preventDefault();
+      focusIndex(i - 1);
+    } else if (e.key === "ArrowLeft" && i > 0) {
+      e.preventDefault();
+      focusIndex(i - 1);
+    } else if (e.key === "ArrowRight" && i < SEGMENTS.length - 1) {
+      e.preventDefault();
+      focusIndex(i + 1);
+    }
+  };
+
+  const handlePaste = (i: number, e: React.ClipboardEvent<HTMLInputElement>) => {
+    const pasted = e.clipboardData.getData("text");
+    if (!pasted) return;
+    e.preventDefault();
+    let buf = pasted.toUpperCase().replace(/\s+/g, "");
+    const next = [...values];
+    let idx = i;
+    while (idx < SEGMENTS.length && buf.length > 0) {
+      const seg = SEGMENTS[idx];
+      const take = sanitizeSegment(buf, seg.mode).slice(0, seg.length);
+      next[idx] = take;
+      buf = buf.slice(take.length || 1);
+      idx++;
+    }
+    setValues(next);
+    focusIndex(Math.min(idx, SEGMENTS.length - 1));
+  };
+
+  const allFilled = values.every((v, i) => v.length === SEGMENTS[i].length);
+
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        onSubmit(values.join(""));
+      }}
+      className="space-y-3"
+    >
+      <div className="flex flex-wrap items-end justify-center gap-2">
+        {SEGMENTS.map((seg, i) => (
+          <div key={i} className="flex flex-col items-center gap-1">
+            <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+              {seg.label}
+            </span>
+            <input
+              ref={(el) => (refs.current[i] = el)}
+              value={values[i]}
+              onChange={(e) => handleChange(i, e.target.value)}
+              onKeyDown={(e) => handleKeyDown(i, e)}
+              onPaste={(e) => handlePaste(i, e)}
+              onFocus={(e) => e.currentTarget.select()}
+              autoFocus={i === 0}
+              inputMode={seg.mode === "digit" ? "numeric" : "text"}
+              maxLength={seg.length}
+              aria-label={seg.label}
+              className={cn(
+                "h-12 rounded-md border bg-background text-center font-mono font-bold text-lg uppercase",
+                "focus:outline-none focus:ring-2 focus:ring-primary/60 focus:border-primary",
+                error ? "border-destructive/60" : "border-border",
+              )}
+              style={{ width: `${seg.length * 1.6 + 1}rem` }}
+            />
+            <span className="text-[9px] text-muted-foreground">{seg.hint}</span>
+          </div>
+        ))}
+      </div>
+
+      {error && <p className="text-xs text-destructive text-center">{error}</p>}
+
+      <Button
+        type="submit"
+        disabled={!allFilled}
+        className="w-full bg-gradient-brand hover:opacity-90"
+      >
+        Vorgang öffnen
+      </Button>
+    </form>
+  );
+};
+
 export default CustomerTracking;
