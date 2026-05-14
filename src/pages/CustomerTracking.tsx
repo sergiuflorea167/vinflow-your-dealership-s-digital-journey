@@ -6,9 +6,11 @@ import {
 import { useProcessStore } from "@/store/processStore";
 import { PROCESS_STEPS, formatCurrency, formatDate, stepIndex } from "@/data/process";
 import { findProcessIdForToken, loadCustomerTrackingSnapshot, type CustomerTrackingSnapshot } from "@/lib/customerLink";
+import { buildCustomerAccessCode, matchesCustomerAccessCode, normalizeAccessCode } from "@/lib/customerCode";
 import { downloadBelegPdf } from "@/lib/pdf";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import logo from "@/assets/logo.png";
 
 const CustomerTracking = () => {
