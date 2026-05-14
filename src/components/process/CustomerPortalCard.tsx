@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Copy, Check, ExternalLink, Mail, Link2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { buildCustomerTrackingUrl } from "@/lib/customerLink";
+import { buildCustomerTrackingUrl, saveCustomerTrackingSnapshot } from "@/lib/customerLink";
+import type { Customer, Offer, Process, Vehicle } from "@/data/process";
 import { toast } from "sonner";
 
 interface Props {
@@ -12,20 +13,47 @@ interface Props {
   customerEmail: string;
   vehicleLabel: string;
   companyName: string;
+  process: Process;
+  vehicle: Vehicle;
+  customer: Customer;
+  offer?: Offer | null;
 }
 
-export const CustomerPortalCard = ({ processId, customerName, customerEmail, vehicleLabel, companyName }: Props) => {
+export const CustomerPortalCard = ({ processId, customerName, customerEmail, vehicleLabel, companyName, process, vehicle, customer, offer }: Props) => {
   const url = buildCustomerTrackingUrl(processId);
   const [copied, setCopied] = useState(false);
+  const lastSavedRef = useRef("");
+
+  const ensureSnapshot = useCallback(async () => {
+    const signature = JSON.stringify({ process, vehicle, customer, offer, companyName });
+    if (lastSavedRef.current === signature) return;
+    await saveCustomerTrackingSnapshot({ process, vehicle, customer, offer: offer ?? null, companyName });
+    lastSavedRef.current = signature;
+  }, [process, vehicle, customer, offer, companyName]);
+
+  useEffect(() => {
+    ensureSnapshot().catch(() => undefined);
+  }, [ensureSnapshot]);
 
   const handleCopy = async () => {
     try {
+      await ensureSnapshot();
       await navigator.clipboard.writeText(url);
       setCopied(true);
       toast.success("Link kopiert");
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      toast.error("Konnte Link nicht kopieren");
+      toast.error("Konnte Link nicht synchronisieren oder kopieren");
+    }
+  };
+
+  const handlePreview = async (event: React.MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault();
+    try {
+      await ensureSnapshot();
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch {
+      toast.error("Konnte Kundenlink nicht synchronisieren");
     }
   };
 
@@ -34,6 +62,16 @@ export const CustomerPortalCard = ({ processId, customerName, customerEmail, veh
     `Hallo ${customerName},\n\nüber den folgenden persönlichen Link können Sie jederzeit den Status Ihres Auftrags verfolgen und alle Belege einsehen:\n\n${url}\n\nViele Grüße\n${companyName}`
   );
   const mailto = `mailto:${customerEmail}?subject=${subject}&body=${body}`;
+
+  const handleEmail = async (event: React.MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault();
+    try {
+      await ensureSnapshot();
+      window.location.href = mailto;
+    } catch {
+      toast.error("Konnte Kundenlink nicht synchronisieren");
+    }
+  };
 
   return (
     <Card className="p-6 bg-gradient-to-br from-primary/10 via-card to-card border-primary/20 shadow-card">
@@ -58,10 +96,10 @@ export const CustomerPortalCard = ({ processId, customerName, customerEmail, veh
 
       <div className="flex flex-wrap gap-2">
         <Button asChild size="sm" className="gap-2 bg-gradient-brand hover:opacity-90 flex-1 min-w-[140px]">
-          <a href={mailto}><Mail className="size-3.5" /> Per E-Mail senden</a>
+          <a href={mailto} onClick={handleEmail}><Mail className="size-3.5" /> Per E-Mail senden</a>
         </Button>
         <Button asChild size="sm" variant="outline" className="gap-2">
-          <a href={url} target="_blank" rel="noreferrer"><ExternalLink className="size-3.5" /> Vorschau</a>
+          <a href={url} target="_blank" rel="noreferrer" onClick={handlePreview}><ExternalLink className="size-3.5" /> Vorschau</a>
         </Button>
       </div>
     </Card>
