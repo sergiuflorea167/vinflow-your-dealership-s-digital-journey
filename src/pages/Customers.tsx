@@ -241,11 +241,15 @@ const Customers = () => {
 
 const CustomerDetailDialog = ({ customerId, onClose }: { customerId: string | null; onClose: () => void }) => {
   const customer = useProcessStore((s) => (customerId ? s.customers.find((c) => c.id === customerId) : undefined));
-  const offers = useProcessStore((s) => s.offers.filter((o) => o.customerId === customerId));
-  const processes = useProcessStore((s) => s.processes.filter((p) => p.customerId === customerId));
+  const allOffers = useProcessStore((s) => s.offers);
+  const allProcesses = useProcessStore((s) => s.processes);
+  const allActivities = useProcessStore((s) => s.activities);
   const getVehicle = useProcessStore((s) => s.getVehicle);
-  const activities = useProcessStore((s) =>
-    s.activities.filter((a) => a.customerId === customerId).slice(0, 8)
+  const offers = useMemo(() => allOffers.filter((o) => o.customerId === customerId), [allOffers, customerId]);
+  const processes = useMemo(() => allProcesses.filter((p) => p.customerId === customerId), [allProcesses, customerId]);
+  const activities = useMemo(
+    () => allActivities.filter((a) => a.customerId === customerId).slice(0, 8),
+    [allActivities, customerId],
   );
 
   const open = !!customer;
