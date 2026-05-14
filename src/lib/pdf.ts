@@ -231,6 +231,25 @@ const drawTextBlock = (doc: jsPDF, text: string, y: number, options?: { fontSize
   return y + lines.length * (options?.fontSize ?? 9) * 0.4;
 };
 
+const drawDeliveryCallout = (doc: jsPDF, deliveryDate: string | undefined, y: number) => {
+  const w = PAGE.w - 2 * PAGE.margin;
+  const h = 16;
+  setColor(doc, BRAND.primary, "fill");
+  doc.roundedRect(PAGE.margin, y, 3, h, 1, 1, "F");
+  setColor(doc, [243, 244, 252], "fill");
+  doc.roundedRect(PAGE.margin + 3, y, w - 3, h, 1.5, 1.5, "F");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8);
+  setColor(doc, BRAND.primary);
+  doc.text("LIEFERTERMIN", PAGE.margin + 8, y + 6);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(13);
+  setColor(doc, BRAND.ink);
+  doc.text(deliveryDate ? formatDate(deliveryDate) : "nach Vereinbarung", PAGE.margin + 8, y + 13);
+  return y + h + 4;
+};
+
+
 const drawTodos = (doc: jsPDF, todos: { title: string }[], y: number, title: string) => {
   if (!todos.length) return y;
   drawSectionTitle(doc, title, y);
@@ -301,12 +320,15 @@ export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, c
     }
     case "down_payment": {
       const dp = process.fields.downPayment;
+      const ocDp = process.fields.orderConfirmation;
       drawSectionTitle(doc, `Anzahlungsrechnung ${dp?.invoiceNumber ?? ""}`.trim(), cursor); cursor += 8;
       const down = dp?.amount ?? Math.round(finalPrice * 0.15);
       cursor = drawTextBlock(doc,
         `Hiermit stellen wir Ihnen die vereinbarte Anzahlung für das oben genannte Fahrzeug in Rechnung. Bitte überweisen Sie den Betrag bis zum vereinbarten Termin auf das angegebene Konto.`,
         cursor, { muted: true });
       cursor += 6;
+      cursor = drawDeliveryCallout(doc, ocDp?.deliveryDate, cursor);
+      cursor += 2;
       cursor = drawTable(doc, [{ description: "Anzahlung Fahrzeugkauf", qty: "1", unitPrice: down, total: down }], cursor, "ZU ZAHLENDER BETRAG");
       cursor += 6;
       drawSectionTitle(doc, "Zahlungsdaten", cursor); cursor += 6;
@@ -321,14 +343,16 @@ export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, c
         `Wir bestätigen Ihnen hiermit den verbindlichen Kaufauftrag für das oben aufgeführte Fahrzeug zu folgenden Konditionen:`,
         cursor, { muted: true });
       cursor += 6;
+      const oc = process.fields.orderConfirmation;
+      cursor = drawDeliveryCallout(doc, oc?.deliveryDate, cursor);
+      cursor += 2;
       cursor = drawTable(doc, [
         { description: `${vehicle.make} ${vehicle.model}`, qty: "1", unitPrice: finalPrice, total: finalPrice },
       ], cursor, "KAUFPREIS");
       cursor += 6;
       drawSectionTitle(doc, "Eckdaten", cursor); cursor += 6;
-      const oc = process.fields.orderConfirmation;
       cursor = drawTextBlock(doc,
-        `Auftragsdatum: ${oc?.orderDate ? formatDate(oc.orderDate) : "—"}\nLiefertermin: ${oc?.deliveryDate ? formatDate(oc.deliveryDate) : "nach Vereinbarung"}\nZahlungsbedingungen: ${oc?.paymentTerms ?? "Restzahlung bei Übergabe"}\nBereits geleistete Anzahlung: ${formatCurrency(process.fields.downPayment?.amount ?? 0)}`,
+        `Auftragsdatum: ${oc?.orderDate ? formatDate(oc.orderDate) : "—"}\nZahlungsbedingungen: ${oc?.paymentTerms ?? "Restzahlung bei Übergabe"}\nBereits geleistete Anzahlung: ${formatCurrency(process.fields.downPayment?.amount ?? 0)}`,
         cursor);
       if (process.customerTodosOC.length) {
         cursor += 6;
@@ -374,8 +398,11 @@ export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, c
     case "invoicing": {
       drawSectionTitle(doc, "Rechnung", cursor); cursor += 8;
       const inv = process.fields.invoicing;
+      const ocInv = process.fields.orderConfirmation;
       const down = process.fields.downPayment?.amount ?? 0;
       const remaining = finalPrice - down;
+      cursor = drawDeliveryCallout(doc, ocInv?.deliveryDate, cursor);
+      cursor += 2;
       cursor = drawTable(doc, [
         { description: `${vehicle.make} ${vehicle.model} (${vehicle.year})`, qty: "1", unitPrice: finalPrice, total: finalPrice },
         ...(down > 0 ? [{ description: "abzgl. geleistete Anzahlung", qty: "1", unitPrice: -down, total: -down }] : []),
