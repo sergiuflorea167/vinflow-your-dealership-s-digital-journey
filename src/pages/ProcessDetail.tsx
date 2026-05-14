@@ -62,11 +62,14 @@ const ProcessDetail = () => {
     if (selectedKey === "invoicing" && !process.fields.invoicing?.invoiceNumber) {
       updateFields(process.id, { invoicing: { ...process.fields.invoicing, invoiceNumber: nextInvoiceNumber(allProcesses) } });
     }
+    if (selectedKey === "down_payment" && !process.fields.downPayment?.invoiceNumber) {
+      updateFields(process.id, { downPayment: { ...process.fields.downPayment, invoiceNumber: nextDownPaymentInvoiceNumber(allProcesses) } });
+    }
     if (selectedKey === "purchase_contract" && !process.fields.purchaseContract?.contractNumber) {
       updateFields(process.id, { purchaseContract: { ...process.fields.purchaseContract, contractNumber: nextContractNumber(allProcesses) } });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedKey, process?.id, process?.fields.invoicing?.invoiceNumber, process?.fields.purchaseContract?.contractNumber]);
+  }, [selectedKey, process?.id, process?.fields.invoicing?.invoiceNumber, process?.fields.downPayment?.invoiceNumber, process?.fields.purchaseContract?.contractNumber]);
 
   const checklistDone = process?.outboundChecklist.filter((c) => c.done).length ?? 0;
   const checklistTotal = process?.outboundChecklist.length ?? 0;
