@@ -63,6 +63,16 @@ export const CustomerPortalCard = ({ processId, customerName, customerEmail, veh
   );
   const mailto = `mailto:${customerEmail}?subject=${subject}&body=${body}`;
 
+  const handleEmail = async (event: React.MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault();
+    try {
+      await ensureSnapshot();
+      window.location.href = mailto;
+    } catch {
+      toast.error("Konnte Kundenlink nicht synchronisieren");
+    }
+  };
+
   return (
     <Card className="p-6 bg-gradient-to-br from-primary/10 via-card to-card border-primary/20 shadow-card">
       <div className="flex items-start gap-3 mb-4">
@@ -86,7 +96,7 @@ export const CustomerPortalCard = ({ processId, customerName, customerEmail, veh
 
       <div className="flex flex-wrap gap-2">
         <Button asChild size="sm" className="gap-2 bg-gradient-brand hover:opacity-90 flex-1 min-w-[140px]">
-          <a href={mailto}><Mail className="size-3.5" /> Per E-Mail senden</a>
+          <a href={mailto} onClick={handleEmail}><Mail className="size-3.5" /> Per E-Mail senden</a>
         </Button>
         <Button asChild size="sm" variant="outline" className="gap-2">
           <a href={url} target="_blank" rel="noreferrer" onClick={handlePreview}><ExternalLink className="size-3.5" /> Vorschau</a>
