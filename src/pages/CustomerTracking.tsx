@@ -472,7 +472,6 @@ const SegmentedCodeInput = ({
                 onKeyDown={(e) => handleKeyDown(i, e)}
                 onPaste={(e) => handlePaste(i, e)}
                 onFocus={(e) => e.currentTarget.select()}
-                autoFocus={i === 0}
                 inputMode={seg.mode === "digit" ? "numeric" : "text"}
                 maxLength={seg.length}
                 aria-label={seg.label}
