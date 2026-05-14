@@ -209,26 +209,25 @@ Deno.serve(async (req) => {
       });
     }
 
-    const [nhtsa, ai] = await Promise.all([
-      decodeViaNHTSA(v),
-      enrichViaAI(v, null), // AI bekommt parallel VIN, finale Merge-Logik unten
-    ]);
+    const base = await decodeViaFreeVinDecoder(v);
+    const ai = await enrichViaAI(v, base);
 
-    // Merge: NHTSA gewinnt bei Stammdaten (verifiziert), AI füllt nur Lücken.
+    // Merge: freevindecoder.eu ist immer die feste Quelle; KI füllt nur Lücken
+    // und darf das Modell präzisieren, wenn die Quelle nur Marke/Baujahr liefert.
     const merged: Decoded = {
-      make: nhtsa?.make ?? ai?.make ?? undefined,
-      model: nhtsa?.model ?? ai?.model ?? undefined,
-      year: nhtsa?.year ?? ai?.year ?? undefined,
-      type: nhtsa?.type ?? ai?.type ?? undefined,
-      fuel: nhtsa?.fuel ?? ai?.fuel ?? undefined,
-      transmission: nhtsa?.transmission ?? ai?.transmission ?? undefined,
-      power_hp: nhtsa?.power_hp ?? ai?.power_hp ?? undefined,
-      displacement_l: nhtsa?.displacement_l ?? ai?.displacement_l ?? undefined,
+      make: base?.make ?? ai?.make ?? undefined,
+      model: ai?.model ?? base?.model ?? undefined,
+      year: base?.year ?? ai?.year ?? undefined,
+      type: base?.type ?? ai?.type ?? undefined,
+      fuel: base?.fuel ?? ai?.fuel ?? undefined,
+      transmission: base?.transmission ?? ai?.transmission ?? undefined,
+      power_hp: base?.power_hp ?? ai?.power_hp ?? undefined,
+      displacement_l: base?.displacement_l ?? ai?.displacement_l ?? undefined,
       hsn: ai?.hsn ?? undefined,
       tsn: ai?.tsn ?? undefined,
       features: Array.isArray(ai?.features) ? ai!.features : [],
-      confidence: nhtsa ? Math.max(0.85, ai?.confidence ?? 0.5) : ai?.confidence ?? 0.4,
-      source: nhtsa ? (ai ? "nhtsa+ai" : "nhtsa") : ai ? "ai" : "none",
+      confidence: base ? Math.min(0.95, Math.max(0.78, ai?.confidence ?? 0.78)) : ai?.confidence ?? 0.4,
+      source: base ? (ai ? "freevindecoder+ai" : "freevindecoder") : ai ? "ai" : "none",
     };
 
     if (!merged.make) {
