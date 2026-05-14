@@ -124,7 +124,7 @@ const ProcessDetail = () => {
   };
 
   const handleDownload = (key: ProcessStepKey) => {
-    downloadBelegPdf({ process, vehicle, customer, offer, stepKey: key, companyName });
+    downloadBelegPdf({ process, vehicle, customer, offer, stepKey: key, companyName, pdfTheme });
     toast.success("PDF heruntergeladen.");
   };
 
