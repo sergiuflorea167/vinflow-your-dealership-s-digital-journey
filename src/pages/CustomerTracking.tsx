@@ -57,6 +57,19 @@ const CustomerTracking = () => {
     role: storeSettings.role,
   };
 
+  // Sicherheits-Code Gate (Hooks müssen immer aufgerufen werden)
+  const expectedCode = customer ? buildCustomerAccessCode(customer) : "";
+  const storageKey = `vinflow-track-auth:${token ?? ""}`;
+  const [codeInput, setCodeInput] = useState("");
+  const [codeError, setCodeError] = useState<string | null>(null);
+  const [unlocked, setUnlocked] = useState(false);
+  useEffect(() => {
+    if (!customer) return;
+    try {
+      if (sessionStorage.getItem(storageKey) === expectedCode) setUnlocked(true);
+    } catch { /* noop */ }
+  }, [customer, expectedCode, storageKey]);
+
   if (loadingRemote && (!localProcess || !localVehicle || !localCustomer)) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/10 grid place-items-center p-6">
