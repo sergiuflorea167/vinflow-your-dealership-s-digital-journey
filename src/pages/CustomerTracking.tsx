@@ -146,7 +146,7 @@ const CustomerTracking = () => {
     new Date(new Date(process.createdAt).getTime() + 14 * 86400000).toISOString().slice(0, 10);
 
   const handleDownload = (key: typeof PROCESS_STEPS[number]["key"]) => {
-    downloadBelegPdf({ process, vehicle, customer, offer: offer ?? undefined, stepKey: key, companyName });
+    downloadBelegPdf({ process, vehicle, customer, offer: offer ?? undefined, stepKey: key, companyName, pdfTheme });
   };
 
   return (
