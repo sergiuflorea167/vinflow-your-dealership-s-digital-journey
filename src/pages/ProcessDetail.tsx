@@ -18,7 +18,7 @@ import {
 import { useProcessStore } from "@/store/processStore";
 import {
   PROCESS_STEPS, ProcessStepKey, ProcessFields, formatCurrency, formatDate, stepIndex,
-  nextInvoiceNumber, nextContractNumber,
+  nextInvoiceNumber, nextContractNumber, nextDownPaymentInvoiceNumber,
 } from "@/data/process";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
