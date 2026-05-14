@@ -300,8 +300,9 @@ export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, c
       break;
     }
     case "down_payment": {
-      drawSectionTitle(doc, "Anzahlungsrechnung", cursor); cursor += 8;
-      const down = process.fields.downPayment?.amount ?? Math.round(finalPrice * 0.15);
+      const dp = process.fields.downPayment;
+      drawSectionTitle(doc, `Anzahlungsrechnung ${dp?.invoiceNumber ?? ""}`.trim(), cursor); cursor += 8;
+      const down = dp?.amount ?? Math.round(finalPrice * 0.15);
       cursor = drawTextBlock(doc,
         `Hiermit stellen wir Ihnen die vereinbarte Anzahlung für das oben genannte Fahrzeug in Rechnung. Bitte überweisen Sie den Betrag bis zum vereinbarten Termin auf das angegebene Konto.`,
         cursor, { muted: true });
@@ -310,7 +311,7 @@ export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, c
       cursor += 6;
       drawSectionTitle(doc, "Zahlungsdaten", cursor); cursor += 6;
       cursor = drawTextBlock(doc,
-        `Empfänger: ${companyName}\nIBAN: DE89 3704 0044 0532 0130 00\nBIC: COBADEFFXXX\nVerwendungszweck: ${process.id}\nFällig: ${process.fields.downPayment?.dueDate ? formatDate(process.fields.downPayment.dueDate) : "sofort"}`,
+        `Empfänger: ${companyName}\nIBAN: DE89 3704 0044 0532 0130 00\nBIC: COBADEFFXXX\nVerwendungszweck: ${dp?.invoiceNumber ?? process.id}\nRechnungsdatum: ${dp?.invoiceDate ? formatDate(dp.invoiceDate) : "—"}\nFällig: ${dp?.dueDate ? formatDate(dp.dueDate) : "sofort"}${dp?.received ? `\nZahlung eingegangen am: ${dp.receivedDate ? formatDate(dp.receivedDate) : "—"}` : ""}`,
         cursor);
       break;
     }
