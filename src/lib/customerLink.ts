@@ -1,5 +1,17 @@
+import { supabase } from "@/integrations/supabase/client";
+import type { Customer, Offer, Process, Vehicle } from "@/data/process";
+
 // Erzeugt einen Token, der die Process-ID enthält, damit der Kunde den Link
-// auch auf einem anderen Gerät / Browser öffnen kann (Demo: kein Server-Lookup nötig).
+// auch auf einem anderen Gerät / Browser öffnen kann.
+
+export interface CustomerTrackingSnapshot {
+  process: Process;
+  vehicle: Vehicle;
+  customer: Customer;
+  offer?: Offer | null;
+  companyName: string;
+  savedAt: string;
+}
 
 const SALT = "vinflow-customer-portal-2026";
 
@@ -34,6 +46,27 @@ export const tokenForProcess = (processId: string): string => {
 export const buildCustomerTrackingUrl = (processId: string): string => {
   const token = tokenForProcess(processId);
   return `${window.location.origin}/track/${token}`;
+};
+
+export const saveCustomerTrackingSnapshot = async (snapshot: Omit<CustomerTrackingSnapshot, "savedAt">) => {
+  const token = tokenForProcess(snapshot.process.id);
+  const { error } = await supabase.functions.invoke("customer-tracking", {
+    body: {
+      action: "save",
+      token,
+      processId: snapshot.process.id,
+      snapshot: { ...snapshot, savedAt: new Date().toISOString() },
+    },
+  });
+  if (error) throw error;
+};
+
+export const loadCustomerTrackingSnapshot = async (token: string): Promise<CustomerTrackingSnapshot | null> => {
+  const { data, error } = await supabase.functions.invoke("customer-tracking", {
+    body: { action: "load", token },
+  });
+  if (error) throw error;
+  return (data?.snapshot ?? null) as CustomerTrackingSnapshot | null;
 };
 
 // Versucht zuerst, den Token zu dekodieren (geräteübergreifend).
