@@ -113,7 +113,6 @@ const CustomerTracking = () => {
           <SegmentedCodeInput
             onSubmit={(value) => {
               if (matchesCustomerAccessCode(value, customer)) {
-                try { sessionStorage.setItem(storageKey, expectedCode); } catch { /* noop */ }
                 setCodeError(null);
                 setUnlocked(true);
               } else {
