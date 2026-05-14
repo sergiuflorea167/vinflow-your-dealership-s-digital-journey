@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useParams, Link, Navigate } from "react-router-dom";
 import { ArrowLeft, FileText, Lock, CheckCircle2, ArrowRight, Download, Archive, AlertCircle, SkipForward, RotateCcw } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
@@ -18,6 +18,7 @@ import {
 import { useProcessStore } from "@/store/processStore";
 import {
   PROCESS_STEPS, ProcessStepKey, ProcessFields, formatCurrency, formatDate, stepIndex,
+  nextInvoiceNumber, nextContractNumber,
 } from "@/data/process";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -49,6 +50,23 @@ const ProcessDetail = () => {
   const [selected, setSelected] = useState<ProcessStepKey | undefined>(process?.currentStep);
 
   const selectedKey = selected ?? process?.currentStep ?? "offer";
+
+  // Auto-Vergabe von Beleg-Nummern (Rechnung & Kaufvertrag)
+  const allProcesses = useProcessStore((s) => s.processes);
+  useEffect(() => {
+    if (!process) return;
+    const isCurrent = process.currentStep === selectedKey;
+    const record = process.steps[selectedKey];
+    const editable = isCurrent && record?.status !== "completed" && record?.status !== "skipped" && !record?.bookedAt;
+    if (!editable) return;
+    if (selectedKey === "invoicing" && !process.fields.invoicing?.invoiceNumber) {
+      updateFields(process.id, { invoicing: { ...process.fields.invoicing, invoiceNumber: nextInvoiceNumber(allProcesses) } });
+    }
+    if (selectedKey === "purchase_contract" && !process.fields.purchaseContract?.contractNumber) {
+      updateFields(process.id, { purchaseContract: { ...process.fields.purchaseContract, contractNumber: nextContractNumber(allProcesses) } });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedKey, process?.id, process?.fields.invoicing?.invoiceNumber, process?.fields.purchaseContract?.contractNumber]);
 
   const checklistDone = process?.outboundChecklist.filter((c) => c.done).length ?? 0;
   const checklistTotal = process?.outboundChecklist.length ?? 0;
@@ -390,7 +408,7 @@ const StepFields = ({ stepKey, fields, onChange, disabled }: { stepKey: ProcessS
   if (stepKey === "invoicing") {
     return (
       <FieldGrid title="Rechnungsdaten">
-        <TextField label="Rechnungs-Nr. *" value={fields.invoicing?.invoiceNumber} onChange={(v) => onChange({ invoicing: { ...fields.invoicing, invoiceNumber: v } })} disabled={disabled} placeholder="z. B. RE-2025-0001" />
+        <TextField label="Rechnungs-Nr. (automatisch)" value={fields.invoicing?.invoiceNumber} onChange={() => {}} disabled placeholder="wird automatisch vergeben" />
         <DateField label="Rechnungsdatum *" value={fields.invoicing?.invoiceDate} onChange={(v) => onChange({ invoicing: { ...fields.invoicing, invoiceDate: v } })} disabled={disabled} />
         <DateField label="Fällig am *" value={fields.invoicing?.dueDate} onChange={(v) => onChange({ invoicing: { ...fields.invoicing, dueDate: v } })} disabled={disabled} />
       </FieldGrid>
@@ -399,7 +417,7 @@ const StepFields = ({ stepKey, fields, onChange, disabled }: { stepKey: ProcessS
   if (stepKey === "purchase_contract") {
     return (
       <FieldGrid title="Kaufvertrag">
-        <TextField label="Vertrags-Nr. *" value={fields.purchaseContract?.contractNumber} onChange={(v) => onChange({ purchaseContract: { ...fields.purchaseContract, contractNumber: v } })} disabled={disabled} placeholder="z. B. KV-2025-0001" />
+        <TextField label="Vertrags-Nr. (automatisch)" value={fields.purchaseContract?.contractNumber} onChange={() => {}} disabled placeholder="wird automatisch vergeben" />
         <DateField label="Vertragsdatum *" value={fields.purchaseContract?.contractDate} onChange={(v) => onChange({ purchaseContract: { ...fields.purchaseContract, contractDate: v } })} disabled={disabled} />
         <NumberField label="Gewährleistung (Monate) *" value={fields.purchaseContract?.warrantyMonths ?? 12} onChange={(v) => onChange({ purchaseContract: { ...fields.purchaseContract, warrantyMonths: v } })} disabled={disabled} />
         <TextField label="Vertragsort *" value={fields.purchaseContract?.place} onChange={(v) => onChange({ purchaseContract: { ...fields.purchaseContract, place: v } })} disabled={disabled} placeholder="z. B. München" />
