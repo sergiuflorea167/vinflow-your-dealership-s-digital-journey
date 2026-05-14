@@ -141,8 +141,23 @@ export const VehicleIntakeDialog = ({ open, onOpenChange, locations, preset, tit
           <FormField label="Marke *"><Input value={make} onChange={(e) => setMake(e.target.value)} placeholder="z. B. BMW" /></FormField>
           <FormField label="Modell *"><Input value={model} onChange={(e) => setModel(e.target.value)} placeholder="z. B. X3 xDrive30d" /></FormField>
           <FormField label="Baujahr *"><Input type="number" value={year} onChange={(e) => setYear(Number(e.target.value))} /></FormField>
-          <FormField label="VIN (17-stellig) *">
-            <Input value={vin} onChange={(e) => setVin(e.target.value.toUpperCase())} placeholder="WBA8E9G50GNT12345" maxLength={17} className="font-mono" />
+          <FormField label="VIN (17-stellig) *" full>
+            <div className="flex gap-2">
+              <Input value={vin} onChange={(e) => setVin(e.target.value.toUpperCase())} placeholder="WBA8E9G50GNT12345" maxLength={17} className="font-mono flex-1" />
+              <Button
+                type="button"
+                variant="outline"
+                onClick={scanVin}
+                disabled={scanning || vin.trim().length < 11}
+                className="shrink-0 gap-2 border-primary/40 hover:border-primary hover:bg-primary/10"
+              >
+                {scanning ? <Loader2 className="size-4 animate-spin" /> : <ScanLine className="size-4" />}
+                {scanning ? "Scanne…" : "VIN scannen"}
+              </Button>
+            </div>
+            <p className="text-[10px] text-muted-foreground mt-1 flex items-center gap-1">
+              <Sparkles className="size-3" /> Füllt Marke, Modell, Baujahr, Motor & Ausstattung automatisch.
+            </p>
           </FormField>
           <FormField label="Farbe *"><Input value={color} onChange={(e) => setColor(e.target.value)} placeholder="z. B. Mineralweiß" /></FormField>
           <FormField label="Kilometer *"><Input type="number" value={mileage || ""} onChange={(e) => setMileage(Number(e.target.value))} /></FormField>
