@@ -453,16 +453,16 @@ const SegmentedCodeInput = ({
         e.preventDefault();
         onSubmit(values.join(""));
       }}
-      className="space-y-3"
+      className="space-y-5"
     >
       <div className="flex w-full items-stretch justify-between gap-0 flex-nowrap">
         {SEGMENTS.map((seg, i) => (
           <React.Fragment key={i}>
             <div
-              className="flex flex-col items-center gap-3 min-w-0 px-3 sm:px-5"
+              className="flex flex-col items-center gap-4 min-w-0 px-4 sm:px-6"
               style={{ flex: `${seg.length} ${seg.length} 0` }}
             >
-              <span className="h-9 flex items-end text-center text-[10px] uppercase tracking-wider text-muted-foreground font-semibold leading-tight">
+              <span className="h-10 flex items-end text-center text-[11px] uppercase tracking-wider text-muted-foreground font-semibold leading-tight">
                 {seg.label}
               </span>
               <input
@@ -476,12 +476,12 @@ const SegmentedCodeInput = ({
                 maxLength={seg.length}
                 aria-label={seg.label}
                 className={cn(
-                  "h-11 w-full rounded-md border bg-background text-center font-mono font-bold text-base uppercase px-1",
+                  "h-14 w-full rounded-md border bg-background text-center font-mono font-bold text-lg uppercase px-1",
                   "focus:outline-none focus:ring-2 focus:ring-primary/60 focus:border-primary",
                   error ? "border-destructive/60" : "border-border",
                 )}
               />
-              <span className="h-10 text-center text-[10px] text-muted-foreground leading-tight">{seg.hint}</span>
+              <span className="h-10 text-center text-[11px] text-muted-foreground leading-tight">{seg.hint}</span>
             </div>
             {i < SEGMENTS.length - 1 && (
               <div className="w-px self-stretch bg-border/60" aria-hidden="true" />
