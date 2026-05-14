@@ -119,6 +119,9 @@ export const VehicleIntakeDialog = ({ open, onOpenChange, locations, preset, tit
     setListPrice(preset?.targetPrice ? Math.round(preset.targetPrice * 1.2) : 0);
     setLocation(locations[0] ?? "Hof A · Platz 01");
     setFeatures([]);
+    setHsn("");
+    setTsn("");
+    setDisplacement("");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
