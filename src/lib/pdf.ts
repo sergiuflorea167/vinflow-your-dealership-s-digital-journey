@@ -320,12 +320,15 @@ export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, c
     }
     case "down_payment": {
       const dp = process.fields.downPayment;
+      const ocDp = process.fields.orderConfirmation;
       drawSectionTitle(doc, `Anzahlungsrechnung ${dp?.invoiceNumber ?? ""}`.trim(), cursor); cursor += 8;
       const down = dp?.amount ?? Math.round(finalPrice * 0.15);
       cursor = drawTextBlock(doc,
         `Hiermit stellen wir Ihnen die vereinbarte Anzahlung für das oben genannte Fahrzeug in Rechnung. Bitte überweisen Sie den Betrag bis zum vereinbarten Termin auf das angegebene Konto.`,
         cursor, { muted: true });
       cursor += 6;
+      cursor = drawDeliveryCallout(doc, ocDp?.deliveryDate, cursor);
+      cursor += 2;
       cursor = drawTable(doc, [{ description: "Anzahlung Fahrzeugkauf", qty: "1", unitPrice: down, total: down }], cursor, "ZU ZAHLENDER BETRAG");
       cursor += 6;
       drawSectionTitle(doc, "Zahlungsdaten", cursor); cursor += 6;
