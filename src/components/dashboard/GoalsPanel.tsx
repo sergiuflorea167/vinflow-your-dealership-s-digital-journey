@@ -228,8 +228,9 @@ export const GoalsPanel = () => {
     () =>
       goals.map((g) => {
         const value = computeGoalProgress(g, { processes, vehicles });
-        const pct = g.target > 0 ? Math.min(100, (value / g.target) * 100) : 0;
-        return { goal: g, value, pct };
+        const rawPct = g.target > 0 ? (value / g.target) * 100 : 0;
+        const pct = Math.min(100, rawPct);
+        return { goal: g, value, pct, rawPct };
       }),
     [goals, processes, vehicles]
   );
