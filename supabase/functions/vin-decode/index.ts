@@ -87,16 +87,21 @@ Deno.serve(async (req) => {
       });
     }
 
-    const url = `https://api.carsxe.com/specs?key=${encodeURIComponent(apiKey)}&vin=${encodeURIComponent(v)}`;
-    const res = await fetch(url, { headers: { "Accept": "application/json" } });
-    if (!res.ok) {
-      const txt = await res.text();
-      return new Response(JSON.stringify({ error: `CarsXE HTTP ${res.status}`, details: txt.slice(0, 500) }), {
-        status: 502,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    const base = `https://api.carsxe.com/specs?key=${encodeURIComponent(apiKey)}&vin=${encodeURIComponent(v)}`;
+    let res = await fetch(base, { headers: { "Accept": "application/json" } });
+    let json: any = await res.json().catch(() => ({}));
+    // Bei "No data found" automatisch mit deepdata=1 erneut versuchen.
+    if ((!res.ok || json?.success === false) &&
+        (res.status === 404 || /deep/i.test(String(json?.message ?? "")))) {
+      res = await fetch(`${base}&deepdata=1`, { headers: { "Accept": "application/json" } });
+      json = await res.json().catch(() => ({}));
     }
-    const json = await res.json();
+    if (!res.ok && json?.success !== true) {
+      return new Response(JSON.stringify({
+        error: `CarsXE HTTP ${res.status}`,
+        details: json?.message ?? null,
+      }), { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
     if (!json?.success || !json?.attributes) {
       return new Response(JSON.stringify({
         error: "VIN konnte über CarsXE nicht dekodiert werden",
