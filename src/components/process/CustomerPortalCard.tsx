@@ -47,6 +47,16 @@ export const CustomerPortalCard = ({ processId, customerName, customerEmail, veh
     }
   };
 
+  const handlePreview = async (event: React.MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault();
+    try {
+      await ensureSnapshot();
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch {
+      toast.error("Konnte Kundenlink nicht synchronisieren");
+    }
+  };
+
   const subject = encodeURIComponent(`Ihre Unterlagen & Status zu ${vehicleLabel}`);
   const body = encodeURIComponent(
     `Hallo ${customerName},\n\nüber den folgenden persönlichen Link können Sie jederzeit den Status Ihres Auftrags verfolgen und alle Belege einsehen:\n\n${url}\n\nViele Grüße\n${companyName}`
@@ -79,7 +89,7 @@ export const CustomerPortalCard = ({ processId, customerName, customerEmail, veh
           <a href={mailto}><Mail className="size-3.5" /> Per E-Mail senden</a>
         </Button>
         <Button asChild size="sm" variant="outline" className="gap-2">
-          <a href={url} target="_blank" rel="noreferrer"><ExternalLink className="size-3.5" /> Vorschau</a>
+          <a href={url} target="_blank" rel="noreferrer" onClick={handlePreview}><ExternalLink className="size-3.5" /> Vorschau</a>
         </Button>
       </div>
     </Card>
