@@ -450,23 +450,40 @@ export const GoalsPanel = () => {
               </div>
             ) : (
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {enriched.map(({ goal, value, pct }) => {
-                  const reached = pct >= 100;
+                {enriched.map(({ goal, value, pct, rawPct }) => {
+                  const reached = rawPct >= 100;
+                  const crushed = rawPct >= 110;
                   return (
                     <div
                       key={goal.id}
                       className={cn(
-                        "group relative rounded-2xl border bg-background/60 backdrop-blur-sm p-5 transition-smooth",
-                        reached ? "border-primary/50 shadow-glow" : "border-border hover:border-primary/40"
+                        "group relative rounded-2xl border bg-background/60 backdrop-blur-sm p-5 transition-smooth overflow-hidden",
+                        crushed
+                          ? "border-transparent shadow-[0_0_40px_-10px_hsl(160_90%_55%/0.6)] ring-1 ring-emerald-400/40"
+                          : reached
+                          ? "border-primary/50 shadow-glow"
+                          : "border-border hover:border-primary/40"
                       )}
                     >
+                      {crushed && (
+                        <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-emerald-400/15 via-cyan-400/10 to-fuchsia-500/15" />
+                      )}
+                      <div className="relative">
                       <div className="flex items-start justify-between gap-3 mb-3">
                         <div className="min-w-0">
                           <div className="flex items-center gap-2 mb-1">
-                            <Badge variant="outline" className="border-primary/30 text-primary-glow text-[10px]">
+                            <Badge variant="outline" className={cn(
+                              "text-[10px]",
+                              crushed ? "border-emerald-400/50 text-emerald-300" : "border-primary/30 text-primary-glow"
+                            )}>
                               {t(PERIOD_KEY[goal.period])}
                             </Badge>
                             <span className="text-[10px] uppercase tracking-wider text-muted-foreground">{t(METRIC_KEY[goal.metric])}</span>
+                            {crushed && (
+                              <Badge className="text-[10px] border-0 bg-gradient-to-r from-emerald-400 via-cyan-400 to-fuchsia-500 text-background font-bold">
+                                <Trophy className="size-3 mr-1" /> übertroffen
+                              </Badge>
+                            )}
                           </div>
                           <p className="text-sm font-semibold truncate">{goal.label}</p>
                         </div>
@@ -484,15 +501,30 @@ export const GoalsPanel = () => {
                         <span className="text-xs text-muted-foreground">{t("goals.of")} {formatValue(goal.metric, goal.target)}</span>
                       </div>
 
-                      <Progress value={pct} className={cn("h-2.5", reached && "[&>div]:bg-primary-glow")} />
+                      <Progress
+                        value={pct}
+                        className={cn(
+                          "h-2.5",
+                          crushed && "[&>div]:bg-gradient-to-r [&>div]:from-emerald-400 [&>div]:via-cyan-400 [&>div]:to-fuchsia-500",
+                          reached && !crushed && "[&>div]:bg-primary-glow"
+                        )}
+                      />
 
                       <div className="flex items-center justify-between mt-3">
                         <span className="text-[11px] text-muted-foreground">
                           {formatDate(goal.startDate)} – {formatDate(goal.endDate)}
                         </span>
-                        <span className={cn("text-sm font-display font-bold", reached ? "text-primary-glow" : "text-foreground")}>
-                          {Math.round(pct)}%
+                        <span className={cn(
+                          "text-sm font-display font-bold tabular-nums",
+                          crushed
+                            ? "bg-gradient-to-r from-emerald-300 via-cyan-300 to-fuchsia-400 bg-clip-text text-transparent"
+                            : reached
+                            ? "text-primary-glow"
+                            : "text-foreground"
+                        )}>
+                          {Math.round(rawPct)}%
                         </span>
+                      </div>
                       </div>
                     </div>
                   );
