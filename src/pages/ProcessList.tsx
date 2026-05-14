@@ -48,6 +48,7 @@ const ProcessList = () => {
   const updateOfferStatus = useProcessStore((s) => s.updateOfferStatus);
   const acceptOffer = useProcessStore((s) => s.acceptOffer);
   const companyName = useProcessStore((s) => s.settings.companyName);
+  const pdfTheme = useProcessStore((s) => s.settings.pdfTheme);
 
   // ---- Tabs ----
   const [tab, setTab] = useState<"list" | "archived" | "offers" | "documents">("list");
