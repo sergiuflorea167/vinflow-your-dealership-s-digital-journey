@@ -109,7 +109,7 @@ export const CustomerPortalCard = ({ processId, customerName, customerEmail, veh
           <a href={mailto} onClick={handleEmail}><Mail className="size-3.5" /> Per E-Mail senden</a>
         </Button>
         <Button asChild size="sm" variant="outline" className="gap-2">
-          <a href={url} target="_blank" rel="noreferrer" onClick={handlePreview}><ExternalLink className="size-3.5" /> Vorschau</a>
+          <a href={staffUrl} target="_blank" rel="noreferrer" onClick={handlePreview}><ExternalLink className="size-3.5" /> Tracking öffnen</a>
         </Button>
       </div>
     </Card>
