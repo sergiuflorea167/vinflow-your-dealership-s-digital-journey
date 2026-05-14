@@ -100,14 +100,6 @@ const CustomerTracking = () => {
     );
   }
 
-  const expectedCode = buildCustomerAccessCode(customer);
-  const storageKey = `vinflow-track-auth:${token}`;
-  const [codeInput, setCodeInput] = useState("");
-  const [codeError, setCodeError] = useState<string | null>(null);
-  const [unlocked, setUnlocked] = useState<boolean>(() => {
-    try { return sessionStorage.getItem(storageKey) === expectedCode; } catch { return false; }
-  });
-
   if (!unlocked) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/10 grid place-items-center p-6">
