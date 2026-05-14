@@ -58,6 +58,40 @@ export const VehicleIntakeDialog = ({ open, onOpenChange, locations, preset, tit
   const [purchasePrice, setPurchasePrice] = useState(preset?.targetPrice ?? 0);
   const [listPrice, setListPrice] = useState(preset?.targetPrice ? Math.round(preset.targetPrice * 1.2) : 0);
   const [location, setLocation] = useState(locations[0] ?? "Hof A · Platz 01");
+  const [features, setFeatures] = useState<string[]>([]);
+  const [scanning, setScanning] = useState(false);
+
+  const scanVin = async () => {
+    const v = vin.trim().toUpperCase();
+    if (v.length < 11) {
+      toast.error("Bitte zuerst eine gültige VIN eingeben (mind. 11 Zeichen).");
+      return;
+    }
+    setScanning(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("vin-decode", { body: { vin: v } });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      const d = data as any;
+      if (d.make) setMake(d.make);
+      if (d.model) setModel(d.model);
+      if (d.year) setYear(Number(d.year));
+      if (d.type) setType(d.type);
+      if (d.fuel) setFuel(d.fuel);
+      if (d.transmission) setTransmission(d.transmission);
+      if (d.power_hp) setHp(Number(d.power_hp));
+      if (d.color && !color) setColor(d.color);
+      if (Array.isArray(d.features)) setFeatures(d.features);
+      const conf = typeof d.confidence === "number" ? Math.round(d.confidence * 100) : null;
+      toast.success(
+        `VIN gescannt – Felder ausgefüllt${conf !== null ? ` · ${conf}% Sicherheit` : ""}. Bitte prüfen.`,
+      );
+    } catch (e: any) {
+      toast.error("VIN-Scan fehlgeschlagen: " + (e?.message ?? "unbekannt"));
+    } finally {
+      setScanning(false);
+    }
+  };
 
   // Reset fields whenever the dialog is (re-)opened, so presets apply correctly.
   useEffect(() => {
