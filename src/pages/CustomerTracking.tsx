@@ -95,18 +95,18 @@ const CustomerTracking = () => {
   if (!unlocked) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/10 grid place-items-center p-6">
-        <div className="w-full max-w-md rounded-2xl bg-card border border-border shadow-card p-6 sm:p-8 space-y-5">
-          <div className="flex items-center gap-3">
-            <div className="size-11 rounded-xl bg-primary/15 grid place-items-center text-primary-glow">
-              <Lock className="size-5" />
+        <div className="w-full max-w-2xl rounded-2xl bg-card border border-border shadow-card p-8 sm:p-12 space-y-8">
+          <div className="flex items-center gap-4">
+            <div className="size-12 rounded-xl bg-primary/15 grid place-items-center text-primary-glow">
+              <Lock className="size-6" />
             </div>
             <div>
-              <h1 className="font-display text-xl font-bold">Sicherheits-Code</h1>
-              <p className="text-xs text-muted-foreground">Bitte geben Sie Ihren persönlichen Zugangscode ein.</p>
+              <h1 className="font-display text-2xl font-bold">Sicherheits-Code</h1>
+              <p className="text-sm text-muted-foreground mt-1">Bitte geben Sie Ihren persönlichen Zugangscode ein.</p>
             </div>
           </div>
 
-          <p className="text-xs text-muted-foreground">
+          <p className="text-sm text-muted-foreground">
             Geben Sie Ihren persönlichen Code Zelle für Zelle ein – jede Zelle ist beschriftet.
           </p>
 
@@ -122,7 +122,7 @@ const CustomerTracking = () => {
             error={codeError}
           />
 
-          <p className="text-[11px] text-muted-foreground text-center">
+          <p className="text-xs text-muted-foreground text-center">
             Aus Sicherheitsgründen geschützt. Bei Problemen wenden Sie sich bitte an Ihren Händler.
           </p>
         </div>
