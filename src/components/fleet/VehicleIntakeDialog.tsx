@@ -59,6 +59,9 @@ export const VehicleIntakeDialog = ({ open, onOpenChange, locations, preset, tit
   const [listPrice, setListPrice] = useState(preset?.targetPrice ? Math.round(preset.targetPrice * 1.2) : 0);
   const [location, setLocation] = useState(locations[0] ?? "Hof A · Platz 01");
   const [features, setFeatures] = useState<string[]>([]);
+  const [hsn, setHsn] = useState("");
+  const [tsn, setTsn] = useState("");
+  const [displacement, setDisplacement] = useState<number | "">("");
   const [scanning, setScanning] = useState(false);
 
   const scanVin = async () => {
@@ -81,10 +84,14 @@ export const VehicleIntakeDialog = ({ open, onOpenChange, locations, preset, tit
       if (d.transmission) setTransmission(d.transmission);
       if (d.power_hp) setHp(Number(d.power_hp));
       if (d.color && !color) setColor(d.color);
+      if (d.hsn) setHsn(String(d.hsn));
+      if (d.tsn) setTsn(String(d.tsn));
+      if (d.displacement_l) setDisplacement(Number(d.displacement_l));
       if (Array.isArray(d.features)) setFeatures(d.features);
       const conf = typeof d.confidence === "number" ? Math.round(d.confidence * 100) : null;
+      const src = d.source === "nhtsa+ai" ? "NHTSA + KI" : d.source === "nhtsa" ? "NHTSA" : "KI-Schätzung";
       toast.success(
-        `VIN gescannt – Felder ausgefüllt${conf !== null ? ` · ${conf}% Sicherheit` : ""}. Bitte prüfen.`,
+        `VIN gescannt via ${src}${conf !== null ? ` · ${conf}% Sicherheit` : ""}. Bitte prüfen.`,
       );
     } catch (e: any) {
       toast.error("VIN-Scan fehlgeschlagen: " + (e?.message ?? "unbekannt"));
@@ -112,6 +119,9 @@ export const VehicleIntakeDialog = ({ open, onOpenChange, locations, preset, tit
     setListPrice(preset?.targetPrice ? Math.round(preset.targetPrice * 1.2) : 0);
     setLocation(locations[0] ?? "Hof A · Platz 01");
     setFeatures([]);
+    setHsn("");
+    setTsn("");
+    setDisplacement("");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
@@ -178,8 +188,11 @@ export const VehicleIntakeDialog = ({ open, onOpenChange, locations, preset, tit
             </select>
           </FormField>
           <FormField label="Leistung (PS)"><Input type="number" value={hp || ""} onChange={(e) => setHp(Number(e.target.value))} /></FormField>
+          <FormField label="Hubraum (L)"><Input type="number" step="0.1" value={displacement} onChange={(e) => setDisplacement(e.target.value === "" ? "" : Number(e.target.value))} placeholder="z. B. 2.0" /></FormField>
           <FormField label="Erstzulassung"><Input type="date" value={firstReg} onChange={(e) => setFirstReg(e.target.value)} /></FormField>
           <FormField label="HU/TÜV gültig bis"><Input type="date" value={hu} onChange={(e) => setHu(e.target.value)} /></FormField>
+          <FormField label="HSN (KBA)"><Input value={hsn} onChange={(e) => setHsn(e.target.value)} placeholder="z. B. 0588" maxLength={4} className="font-mono" /></FormField>
+          <FormField label="TSN (KBA)"><Input value={tsn} onChange={(e) => setTsn(e.target.value.toUpperCase())} placeholder="z. B. AYU" maxLength={3} className="font-mono" /></FormField>
           <FormField label="Einkaufspreis brutto (EUR)"><Input type="number" value={purchasePrice || ""} onChange={(e) => setPurchasePrice(Number(e.target.value))} /></FormField>
           <FormField label="Listenpreis brutto (EUR)"><Input type="number" value={listPrice || ""} onChange={(e) => setListPrice(Number(e.target.value))} /></FormField>
           {features.length > 0 && (
