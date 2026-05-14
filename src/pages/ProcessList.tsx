@@ -680,7 +680,7 @@ const ProcessList = () => {
                               title="PDF herunterladen"
                               onClick={(e) => {
                                 e.preventDefault();
-                                downloadOfferPdf({ offer: o, vehicle: vehicle!, customer: customer!, companyName });
+                                downloadOfferPdf({ offer: o, vehicle: vehicle!, customer: customer!, companyName, pdfTheme });
                               }}
                             >
                               <Download className="size-3.5" />
