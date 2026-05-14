@@ -15,6 +15,8 @@ import logo from "@/assets/logo.png";
 
 const CustomerTracking = () => {
   const { token } = useParams<{ token: string }>();
+  const [searchParams] = useSearchParams();
+  const staffPreview = searchParams.get("staff") === "1";
   const [remoteSnapshot, setRemoteSnapshot] = useState<CustomerTrackingSnapshot | null>(null);
   const [loadingRemote, setLoadingRemote] = useState(true);
   const processes = useProcessStore((s) => s.processes);
