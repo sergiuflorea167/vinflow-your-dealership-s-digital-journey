@@ -105,13 +105,14 @@ export const UserMenu = () => {
       </DropdownMenu>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
+        <DialogContent className="max-w-lg max-h-[85vh] flex flex-col p-0 gap-0">
+          <DialogHeader className="px-6 pt-6 pb-4 border-b border-border">
             <DialogTitle>{t("profile.title")}</DialogTitle>
             <DialogDescription>
               {t("profile.desc")}
             </DialogDescription>
           </DialogHeader>
+          <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
 
           <div className="flex items-center gap-4 py-2">
             <button
