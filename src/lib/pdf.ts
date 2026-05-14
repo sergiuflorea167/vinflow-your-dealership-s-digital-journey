@@ -398,8 +398,11 @@ export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, c
     case "invoicing": {
       drawSectionTitle(doc, "Rechnung", cursor); cursor += 8;
       const inv = process.fields.invoicing;
+      const ocInv = process.fields.orderConfirmation;
       const down = process.fields.downPayment?.amount ?? 0;
       const remaining = finalPrice - down;
+      cursor = drawDeliveryCallout(doc, ocInv?.deliveryDate, cursor);
+      cursor += 2;
       cursor = drawTable(doc, [
         { description: `${vehicle.make} ${vehicle.model} (${vehicle.year})`, qty: "1", unitPrice: finalPrice, total: finalPrice },
         ...(down > 0 ? [{ description: "abzgl. geleistete Anzahlung", qty: "1", unitPrice: -down, total: -down }] : []),
