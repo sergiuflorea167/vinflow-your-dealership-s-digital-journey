@@ -196,6 +196,7 @@ export const UserMenu = () => {
               </div>
             </div>
           </div>
+          </div>
 
           <DialogFooter className="px-6 py-4 border-t border-border">
             <Button variant="ghost" onClick={() => setOpen(false)}>{t("profile.cancel")}</Button>
