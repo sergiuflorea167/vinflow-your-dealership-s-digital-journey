@@ -417,7 +417,7 @@ const StepFields = ({ stepKey, fields, onChange, disabled }: { stepKey: ProcessS
   if (stepKey === "purchase_contract") {
     return (
       <FieldGrid title="Kaufvertrag">
-        <TextField label="Vertrags-Nr. *" value={fields.purchaseContract?.contractNumber} onChange={(v) => onChange({ purchaseContract: { ...fields.purchaseContract, contractNumber: v } })} disabled={disabled} placeholder="z. B. KV-2025-0001" />
+        <TextField label="Vertrags-Nr. (automatisch)" value={fields.purchaseContract?.contractNumber} onChange={() => {}} disabled placeholder="wird automatisch vergeben" />
         <DateField label="Vertragsdatum *" value={fields.purchaseContract?.contractDate} onChange={(v) => onChange({ purchaseContract: { ...fields.purchaseContract, contractDate: v } })} disabled={disabled} />
         <NumberField label="Gewährleistung (Monate) *" value={fields.purchaseContract?.warrantyMonths ?? 12} onChange={(v) => onChange({ purchaseContract: { ...fields.purchaseContract, warrantyMonths: v } })} disabled={disabled} />
         <TextField label="Vertragsort *" value={fields.purchaseContract?.place} onChange={(v) => onChange({ purchaseContract: { ...fields.purchaseContract, place: v } })} disabled={disabled} placeholder="z. B. München" />
