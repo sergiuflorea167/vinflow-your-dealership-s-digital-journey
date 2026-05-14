@@ -188,8 +188,11 @@ export const VehicleIntakeDialog = ({ open, onOpenChange, locations, preset, tit
             </select>
           </FormField>
           <FormField label="Leistung (PS)"><Input type="number" value={hp || ""} onChange={(e) => setHp(Number(e.target.value))} /></FormField>
+          <FormField label="Hubraum (L)"><Input type="number" step="0.1" value={displacement} onChange={(e) => setDisplacement(e.target.value === "" ? "" : Number(e.target.value))} placeholder="z. B. 2.0" /></FormField>
           <FormField label="Erstzulassung"><Input type="date" value={firstReg} onChange={(e) => setFirstReg(e.target.value)} /></FormField>
           <FormField label="HU/TÜV gültig bis"><Input type="date" value={hu} onChange={(e) => setHu(e.target.value)} /></FormField>
+          <FormField label="HSN (KBA)"><Input value={hsn} onChange={(e) => setHsn(e.target.value)} placeholder="z. B. 0588" maxLength={4} className="font-mono" /></FormField>
+          <FormField label="TSN (KBA)"><Input value={tsn} onChange={(e) => setTsn(e.target.value.toUpperCase())} placeholder="z. B. AYU" maxLength={3} className="font-mono" /></FormField>
           <FormField label="Einkaufspreis brutto (EUR)"><Input type="number" value={purchasePrice || ""} onChange={(e) => setPurchasePrice(Number(e.target.value))} /></FormField>
           <FormField label="Listenpreis brutto (EUR)"><Input type="number" value={listPrice || ""} onChange={(e) => setListPrice(Number(e.target.value))} /></FormField>
           {features.length > 0 && (
