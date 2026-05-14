@@ -408,7 +408,7 @@ const StepFields = ({ stepKey, fields, onChange, disabled }: { stepKey: ProcessS
   if (stepKey === "invoicing") {
     return (
       <FieldGrid title="Rechnungsdaten">
-        <TextField label="Rechnungs-Nr. *" value={fields.invoicing?.invoiceNumber} onChange={(v) => onChange({ invoicing: { ...fields.invoicing, invoiceNumber: v } })} disabled={disabled} placeholder="z. B. RE-2025-0001" />
+        <TextField label="Rechnungs-Nr. (automatisch)" value={fields.invoicing?.invoiceNumber} onChange={() => {}} disabled placeholder="wird automatisch vergeben" />
         <DateField label="Rechnungsdatum *" value={fields.invoicing?.invoiceDate} onChange={(v) => onChange({ invoicing: { ...fields.invoicing, invoiceDate: v } })} disabled={disabled} />
         <DateField label="Fällig am *" value={fields.invoicing?.dueDate} onChange={(v) => onChange({ invoicing: { ...fields.invoicing, dueDate: v } })} disabled={disabled} />
       </FieldGrid>
