@@ -1,10 +1,7 @@
 // VIN-Decoder
-// Strategie:
-// 1) NHTSA vPIC (kostenlos, ohne Key) liefert verifizierte Stammdaten
-//    (Marke, Modell, Baujahr, Karosserie, Motor, PS, Kraftstoff, Getriebe).
-//    Funktioniert sehr gut für europäische VAG-/BMW-/MB-VINs.
-// 2) Lovable AI veredelt die Antwort (Modell-Variante, Ausstattungs-Stichworte,
-//    Plausi-Check). Stammdaten von NHTSA überschreiben AI immer, wenn vorhanden.
+// Quelle: freevindecoder.eu. Diese Quelle ist für europäische VINs verlässlicher
+// als der US-fokussierte NHTSA/vPIC-Datensatz und wird daher immer als Basis
+// verwendet. KI ergänzt nur Felder, die freevindecoder.eu nicht ausgibt.
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -69,6 +66,34 @@ const TRANS_MAP: Record<string, string> = {
   cvt: "CVT",
   "continuously variable transmission (cvt)": "CVT",
 };
+
+const SOURCE_URL = "https://www.freevindecoder.eu";
+
+const htmlDecode = (value: string) =>
+  value
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&#039;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/\s+/g, " ")
+    .trim();
+
+function stripTags(value: string) {
+  return htmlDecode(value.replace(/<[^>]*>/g, " "));
+}
+
+function extractRows(html: string): Record<string, string> {
+  const rows: Record<string, string> = {};
+  const rowRegex = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
+  let rowMatch: RegExpExecArray | null;
+  while ((rowMatch = rowRegex.exec(html))) {
+    const cells = [...rowMatch[1].matchAll(/<t[hd][^>]*>([\s\S]*?)<\/t[hd]>/gi)].map((m) => stripTags(m[1]));
+    if (cells.length >= 2 && cells[0] && cells[1]) rows[cells[0].toLowerCase()] = cells[1];
+  }
+  return rows;
+}
 
 function mapValue(map: Record<string, string>, raw?: string): string | undefined {
   if (!raw) return undefined;
