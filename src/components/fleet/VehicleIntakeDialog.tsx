@@ -59,6 +59,9 @@ export const VehicleIntakeDialog = ({ open, onOpenChange, locations, preset, tit
   const [listPrice, setListPrice] = useState(preset?.targetPrice ? Math.round(preset.targetPrice * 1.2) : 0);
   const [location, setLocation] = useState(locations[0] ?? "Hof A · Platz 01");
   const [features, setFeatures] = useState<string[]>([]);
+  const [hsn, setHsn] = useState("");
+  const [tsn, setTsn] = useState("");
+  const [displacement, setDisplacement] = useState<number | "">("");
   const [scanning, setScanning] = useState(false);
 
   const scanVin = async () => {
