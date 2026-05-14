@@ -127,13 +127,14 @@ function titleCaseMake(make: string): string {
 }
 
 async function decodeViaFreeVinDecoder(vin: string): Promise<Decoded | null> {
-  const res = await fetch(`${SOURCE_URL}/${vin}`, {
+  const res = await fetch(`${SOURCE_URL}/en/${vin}`, {
     headers: {
       "User-Agent":
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 VINflow/1.0",
       "Accept": "text/html,application/xhtml+xml",
-      "Accept-Language": "de,en;q=0.8",
+      "Accept-Language": "en-US,en;q=0.9",
     },
+    redirect: "follow",
   });
   if (!res.ok) return null;
   const html = await res.text();
