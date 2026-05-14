@@ -525,6 +525,30 @@ export const formatDateTime = (iso: string) =>
 
 export const stepIndex = (key: ProcessStepKey) => PROCESS_STEPS.findIndex((s) => s.key === key);
 
+// ---------- Auto-Nummern für Belege ----------
+
+const nextSeqForPrefix = (processes: Process[], prefix: string, getter: (p: Process) => string | undefined): string => {
+  const year = new Date().getFullYear();
+  const re = new RegExp(`^${prefix}-${year}-(\\d{4})$`);
+  let max = 0;
+  for (const p of processes) {
+    const v = getter(p);
+    if (!v) continue;
+    const m = v.match(re);
+    if (m) {
+      const n = parseInt(m[1], 10);
+      if (n > max) max = n;
+    }
+  }
+  return `${prefix}-${year}-${String(max + 1).padStart(4, "0")}`;
+};
+
+export const nextInvoiceNumber = (processes: Process[]) =>
+  nextSeqForPrefix(processes, "RE", (p) => p.fields.invoicing?.invoiceNumber);
+
+export const nextContractNumber = (processes: Process[]) =>
+  nextSeqForPrefix(processes, "KV", (p) => p.fields.purchaseContract?.contractNumber);
+
 export const grossFromNet = (net: number, vat: number) => net * (1 + vat / 100);
 export const netFromGross = (gross: number, vat: number) => gross / (1 + vat / 100);
 
