@@ -80,13 +80,38 @@ function mapValue(map: Record<string, string>, raw?: string): string | undefined
   return undefined;
 }
 
+// VIN-Modelljahr aus Position 10 + Disambiguierung über Position 7.
+// Pos 7 ist eine Ziffer für Modelljahre 2010–2039, ein Buchstabe für 1980–2009.
+function guessModelYearFromVin(vin: string): number | undefined {
+  if (vin.length < 10) return undefined;
+  const code = vin[9].toUpperCase();
+  // 30-Jahres-Zyklus: jedes Zeichen steht für zwei mögliche Jahre.
+  const TABLE_OLD: Record<string, number> = {
+    A:1980,B:1981,C:1982,D:1983,E:1984,F:1985,G:1986,H:1987,J:1988,K:1989,
+    L:1990,M:1991,N:1992,P:1993,R:1994,S:1995,T:1996,V:1997,W:1998,X:1999,
+    Y:2000,"1":2001,"2":2002,"3":2003,"4":2004,"5":2005,"6":2006,"7":2007,"8":2008,"9":2009,
+  };
+  const oldYear = TABLE_OLD[code];
+  if (!oldYear) return undefined;
+  const newYear = oldYear + 30;
+  const pos7 = vin[6];
+  const isDigitPos7 = /[0-9]/.test(pos7);
+  // Ziffer auf Pos. 7 → modernes Schema (2010+); Buchstabe → altes Schema.
+  return isDigitPos7 ? newYear : oldYear;
+}
+
+async function fetchNHTSA(vin: string, modelYear?: number) {
+  const qs = modelYear ? `?format=json&modelyear=${modelYear}` : `?format=json`;
+  const res = await fetch(`https://vpic.nhtsa.dot.gov/api/vehicles/decodevin/${vin}${qs}`);
+  if (!res.ok) return null;
+  return res.json();
+}
+
 async function decodeViaNHTSA(vin: string): Promise<Decoded | null> {
   try {
-    const res = await fetch(
-      `https://vpic.nhtsa.dot.gov/api/vehicles/decodevin/${vin}?format=json`,
-    );
-    if (!res.ok) return null;
-    const json = await res.json();
+    const guessedYear = guessModelYearFromVin(vin);
+    const json = await fetchNHTSA(vin, guessedYear);
+    if (!json) return null;
     const rows: Array<{ Variable: string; Value: string | null }> = json?.Results ?? [];
     const get = (name: string) =>
       rows.find((r) => r.Variable === name)?.Value?.trim() || undefined;
