@@ -368,7 +368,7 @@ const CustomerDetailDialog = ({ customerId, onClose }: { customerId: string | nu
         {activities.length > 0 && (
           <section className="mt-4">
             <h3 className="font-display font-semibold text-sm mb-2">Letzte Aktivitäten</h3>
-            <ActivityLog activities={activities} />
+            <ActivityLog items={activities} />
           </section>
         )}
       </DialogContent>
