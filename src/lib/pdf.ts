@@ -337,21 +337,37 @@ export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, c
     }
     case "outbound_check": {
       drawSectionTitle(doc, "Ausgangsprotokoll", cursor); cursor += 8;
+      const checklist = process.outboundChecklist;
+      const doneCount = checklist.filter((i) => i.done).length;
+      const allDone = doneCount === checklist.length && checklist.length > 0;
       cursor = drawTextBlock(doc,
-        `Vor Übergabe des Fahrzeugs wurde folgende Ausgangskontrolle vollständig durchgeführt und dokumentiert:`,
+        allDone
+          ? `Vor Übergabe des Fahrzeugs wurde folgende Ausgangskontrolle vollständig durchgeführt und dokumentiert:`
+          : `Stand der Ausgangskontrolle (${doneCount} von ${checklist.length} Punkten erledigt):`,
         cursor, { muted: true });
       cursor += 4;
-      process.outboundChecklist.forEach((item) => {
-        setColor(doc, BRAND.success, "fill");
-        doc.circle(PAGE.margin + 2, cursor + 2, 1.5, "F");
+      checklist.forEach((item) => {
+        if (item.done) {
+          setColor(doc, BRAND.success, "fill");
+          doc.circle(PAGE.margin + 2, cursor + 2, 1.5, "F");
+        } else {
+          setColor(doc, BRAND.muted, "draw");
+          doc.setLineWidth(0.4);
+          doc.circle(PAGE.margin + 2, cursor + 2, 1.5, "S");
+        }
         doc.setFont("helvetica", "normal");
         doc.setFontSize(9);
         setColor(doc, BRAND.ink);
         doc.text(item.label, PAGE.margin + 7, cursor + 3);
+        doc.setFont("helvetica", "bold");
+        setColor(doc, item.done ? BRAND.success : BRAND.muted);
+        doc.text(item.done ? "erledigt" : "offen", PAGE.w - PAGE.margin, cursor + 3, { align: "right" });
         cursor += 6;
       });
       cursor += 4;
-      cursor = drawTextBlock(doc, `Das Fahrzeug ist übergabebereit.`, cursor, { muted: true });
+      cursor = drawTextBlock(doc,
+        allDone ? `Das Fahrzeug ist übergabebereit.` : `Hinweis: Es sind noch ${checklist.length - doneCount} Punkte offen. Das Fahrzeug ist noch nicht vollständig übergabebereit.`,
+        cursor, { muted: true });
       break;
     }
     case "invoicing": {
