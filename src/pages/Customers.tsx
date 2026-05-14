@@ -33,6 +33,7 @@ const Customers = () => {
   );
 
   const [query, setQuery] = useState("");
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [searchField, setSearchField] = useState<"all" | "name" | "email" | "city">("all");
   const [filter, setFilter] = useState<CustomerFilter>("all");
   const [sortKey, setSortKey] = useState<CustomerSortKey>("name");
