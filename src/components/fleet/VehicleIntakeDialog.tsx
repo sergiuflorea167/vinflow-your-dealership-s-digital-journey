@@ -84,10 +84,14 @@ export const VehicleIntakeDialog = ({ open, onOpenChange, locations, preset, tit
       if (d.transmission) setTransmission(d.transmission);
       if (d.power_hp) setHp(Number(d.power_hp));
       if (d.color && !color) setColor(d.color);
+      if (d.hsn) setHsn(String(d.hsn));
+      if (d.tsn) setTsn(String(d.tsn));
+      if (d.displacement_l) setDisplacement(Number(d.displacement_l));
       if (Array.isArray(d.features)) setFeatures(d.features);
       const conf = typeof d.confidence === "number" ? Math.round(d.confidence * 100) : null;
+      const src = d.source === "nhtsa+ai" ? "NHTSA + KI" : d.source === "nhtsa" ? "NHTSA" : "KI-Schätzung";
       toast.success(
-        `VIN gescannt – Felder ausgefüllt${conf !== null ? ` · ${conf}% Sicherheit` : ""}. Bitte prüfen.`,
+        `VIN gescannt via ${src}${conf !== null ? ` · ${conf}% Sicherheit` : ""}. Bitte prüfen.`,
       );
     } catch (e: any) {
       toast.error("VIN-Scan fehlgeschlagen: " + (e?.message ?? "unbekannt"));
