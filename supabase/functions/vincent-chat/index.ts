@@ -62,28 +62,62 @@ Deno.serve(async (req) => {
         "\n```",
     };
 
-    const upstream = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        stream: true,
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT(lang) },
-          contextMessage,
-          ...messages,
-        ],
-      }),
+    const payload = JSON.stringify({
+      model: "google/gemini-3-flash-preview",
+      stream: true,
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT(lang) },
+        contextMessage,
+        ...messages,
+      ],
     });
 
-    if (!upstream.ok || !upstream.body) {
-      const text = await upstream.text();
+    // Retry bei transienten 5xx-Fehlern (z. B. Cloudflare 502 Bad Gateway)
+    let upstream: Response | null = null;
+    let lastErrText = "";
+    let lastStatus = 0;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        upstream = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: payload,
+        });
+      } catch (err) {
+        lastErrText = String((err as Error).message ?? err);
+        upstream = null;
+      }
+      if (upstream && upstream.ok && upstream.body) break;
+      if (upstream) {
+        lastStatus = upstream.status;
+        // Bei 4xx (außer 408/429) nicht erneut versuchen
+        if (upstream.status < 500 && upstream.status !== 408 && upstream.status !== 429) {
+          lastErrText = await upstream.text();
+          break;
+        }
+        try { lastErrText = await upstream.text(); } catch { /* ignore */ }
+      }
+      if (attempt < 2) {
+        await new Promise((r) => setTimeout(r, 600 * (attempt + 1)));
+      }
+    }
+
+    if (!upstream || !upstream.ok || !upstream.body) {
+      const status = lastStatus || 502;
+      const friendly =
+        status === 429
+          ? "Vincent ist gerade überlastet (Rate Limit). Bitte einen Moment warten und erneut fragen."
+          : status === 402
+          ? "Das KI-Guthaben für Vincent ist aufgebraucht. Bitte im Workspace Credits aufladen."
+          : status >= 500
+          ? "Der KI-Dienst ist gerade kurzzeitig nicht erreichbar. Bitte in ein paar Sekunden erneut versuchen."
+          : `KI-Gateway-Fehler ${status}.`;
       return new Response(
-        JSON.stringify({ error: `AI gateway error ${upstream.status}: ${text}` }),
-        { status: upstream.status, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        JSON.stringify({ error: friendly, detail: lastErrText.slice(0, 500) }),
+        { status, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
