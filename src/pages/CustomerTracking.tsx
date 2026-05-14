@@ -455,7 +455,7 @@ const SegmentedCodeInput = ({
       }}
       className="space-y-3"
     >
-      <div className="flex w-full items-start justify-center gap-3 sm:gap-4 flex-nowrap">
+      <div className="flex w-full items-start justify-between gap-6 sm:gap-8 flex-nowrap">
         {SEGMENTS.map((seg, i) => (
           <div
             key={i}
