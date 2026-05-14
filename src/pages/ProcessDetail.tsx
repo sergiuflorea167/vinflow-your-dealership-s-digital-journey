@@ -454,7 +454,8 @@ const validateStep = (key: ProcessStepKey, f: ProcessFields, chkDone: number, ch
   if (key === "offer") return { ok: true };
   if (key === "down_payment") {
     const d = f.downPayment;
-    if (!d?.amount || !d.dueDate || !d.method) return { ok: false, message: "Anzahlungsbetrag, Fälligkeit und Zahlungsart erforderlich." };
+    if (!d?.invoiceNumber || !d.invoiceDate || !d.amount || !d.dueDate || !d.method) return { ok: false, message: "Rechnungsdatum, Anzahlungsbetrag, Fälligkeit und Zahlungsart erforderlich." };
+    if (!d.received) return { ok: false, message: "Anzahlungsrechnung muss als bezahlt markiert sein, bevor du weitergehst." };
     return { ok: true };
   }
   if (key === "order_confirmation") {
@@ -469,6 +470,7 @@ const validateStep = (key: ProcessStepKey, f: ProcessFields, chkDone: number, ch
   if (key === "invoicing") {
     const i = f.invoicing;
     if (!i?.invoiceNumber || !i.invoiceDate || !i.dueDate) return { ok: false, message: "Rechnungs-Nr., Datum & Fälligkeit erforderlich." };
+    if (!i.paid) return { ok: false, message: "Rechnung muss als bezahlt markiert sein, bevor du weitergehst." };
     return { ok: true };
   }
   if (key === "purchase_contract") {
