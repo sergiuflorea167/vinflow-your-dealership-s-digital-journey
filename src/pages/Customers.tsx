@@ -230,6 +230,11 @@ const Customers = () => {
           </DataTableShell>
         )}
       </div>
+
+      <CustomerDetailDialog
+        customerId={selectedId}
+        onClose={() => setSelectedId(null)}
+      />
     </AppShell>
   );
 };
