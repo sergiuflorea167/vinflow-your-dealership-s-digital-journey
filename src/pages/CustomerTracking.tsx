@@ -19,6 +19,7 @@ const CustomerTracking = () => {
   const [loadingRemote, setLoadingRemote] = useState(true);
   const processes = useProcessStore((s) => s.processes);
   const storeCompanyName = useProcessStore((s) => s.settings.companyName);
+  const pdfTheme = useProcessStore((s) => s.settings.pdfTheme);
 
   useEffect(() => {
     let active = true;
