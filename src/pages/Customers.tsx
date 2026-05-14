@@ -6,12 +6,17 @@ import { Badge } from "@/components/ui/badge";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription,
+} from "@/components/ui/dialog";
 import { useProcessStore } from "@/store/processStore";
 import { ActivityLog } from "@/components/process/ActivityLog";
 import { DataTableShell } from "@/components/shared/DataTableShell";
-import { User, Plus } from "lucide-react";
-import { formatCurrency } from "@/data/process";
+import { User, Plus, Mail, Phone, MapPin, Calendar as CalendarIcon, FileText, Briefcase, KeyRound } from "lucide-react";
+import { formatCurrency, formatDate, type Customer } from "@/data/process";
+import { getCustomerBirthDate, buildCustomerAccessCode } from "@/lib/customerCode";
 import { useTopbarSearch } from "@/context/TopbarSearchContext";
+import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 
 type CustomerSortKey = "name" | "city" | "offers" | "processes" | "value";
