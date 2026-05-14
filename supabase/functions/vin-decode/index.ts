@@ -147,10 +147,11 @@ async function enrichViaAI(vin: string, base: Decoded | null): Promise<Decoded |
   if (!KEY) return null;
 
   const sys = `Du bist VIN- und Fahrzeug-Experte für den deutschen Markt.
-Aufgabe: Aus VIN + bereits verifizierten Stammdaten ergänzt du fehlende Felder
-(Modellvariante, typische Ausstattung, deutsche HSN/TSN sofern aus Modelljahr/
-Motorisierung eindeutig ableitbar). Erfinde NICHTS – im Zweifel weglassen oder
-"confidence" niedriger setzen. Antworte ausschließlich als gültiges JSON:
+Aufgabe: Aus VIN + Daten von freevindecoder.eu ergänzt du fehlende Felder
+für deutsche Händler. Wenn freevindecoder.eu nur Marke/Baujahr liefert, darfst
+du anhand der VIN-Struktur und bekannter EU-Modellcodes plausibel ergänzen.
+Bei deutschen KBA-Daten HSN/TSN nur ausgeben, wenn diese für Modelljahr/Motor
+wirklich eindeutig sind. Antworte ausschließlich als gültiges JSON:
 
 {
   "make": string|null,
@@ -168,7 +169,7 @@ Motorisierung eindeutig ableitbar). Erfinde NICHTS – im Zweifel weglassen oder
 }`;
 
   const userPrompt = `VIN: ${vin}
-Verifizierte Stammdaten (NHTSA): ${JSON.stringify(base ?? {})}
+Quelle freevindecoder.eu: ${JSON.stringify(base ?? {})}
 Bitte ergänzen.`;
 
   try {
