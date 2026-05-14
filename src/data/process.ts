@@ -550,6 +550,9 @@ const nextSeqForPrefix = (processes: Process[], prefix: string, getter: (p: Proc
 export const nextInvoiceNumber = (processes: Process[]) =>
   nextSeqForPrefix(processes, "RE", (p) => p.fields.invoicing?.invoiceNumber);
 
+export const nextDownPaymentInvoiceNumber = (processes: Process[]) =>
+  nextSeqForPrefix(processes, "AR", (p) => p.fields.downPayment?.invoiceNumber);
+
 export const nextContractNumber = (processes: Process[]) =>
   nextSeqForPrefix(processes, "KV", (p) => p.fields.purchaseContract?.contractNumber);
 
