@@ -455,10 +455,10 @@ const SegmentedCodeInput = ({
       }}
       className="space-y-3"
     >
-      <div className="flex items-end justify-center gap-1.5 flex-nowrap">
+      <div className="grid w-full grid-cols-[minmax(2.5rem,0.8fr)_minmax(2.5rem,0.8fr)_minmax(2.5rem,0.8fr)_minmax(4.25rem,1.25fr)_minmax(6rem,1.8fr)_minmax(4rem,1.1fr)] items-start gap-2">
         {SEGMENTS.map((seg, i) => (
-          <div key={i} className="flex flex-col items-center gap-1">
-            <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
+          <div key={i} className="grid grid-rows-[1.75rem_2.75rem_1.25rem] min-w-0 items-start gap-1">
+            <span className="flex h-7 items-end justify-center text-center text-[10px] uppercase tracking-wider text-muted-foreground font-semibold leading-tight">
               {seg.label}
             </span>
             <input
@@ -473,13 +473,12 @@ const SegmentedCodeInput = ({
               maxLength={seg.length}
               aria-label={seg.label}
               className={cn(
-                "h-11 rounded-md border bg-background text-center font-mono font-bold text-base uppercase px-1",
+                "h-11 w-full rounded-md border bg-background text-center font-mono font-bold text-base uppercase px-1",
                 "focus:outline-none focus:ring-2 focus:ring-primary/60 focus:border-primary",
                 error ? "border-destructive/60" : "border-border",
               )}
-              style={{ width: `${seg.length * 1.15 + 0.7}rem` }}
             />
-            <span className="text-[9px] text-muted-foreground">{seg.hint}</span>
+            <span className="text-center text-[9px] text-muted-foreground leading-tight">{seg.hint}</span>
           </div>
         ))}
       </div>
