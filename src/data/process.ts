@@ -511,6 +511,7 @@ export interface Settings {
   phone?: string;
   role?: string;
   avatarUrl?: string;
+  pdfTheme?: string;
 }
 
 // ---------- Helpers ----------
