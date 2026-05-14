@@ -67,6 +67,15 @@ const TRANS_MAP: Record<string, string> = {
   "continuously variable transmission (cvt)": "CVT",
 };
 
+function mapTransmission(raw?: string): string | undefined {
+  if (!raw) return undefined;
+  const k = raw.toLowerCase().trim();
+  const hasAutomatic = /\b(automatic|auto|at)\b/.test(k);
+  const hasManual = /\b(manual|mt)\b/.test(k);
+  if (hasAutomatic && hasManual) return undefined;
+  return mapValue(TRANS_MAP, raw);
+}
+
 const SOURCE_URL = "https://www.freevindecoder.eu";
 
 const htmlDecode = (value: string) =>
@@ -118,11 +127,11 @@ async function decodeViaFreeVinDecoder(vin: string): Promise<Decoded | null> {
     if (!make) return null;
     const model = rows["model"] || rows["model name"] || rows["vehicle"];
     const yearStr = rows["model year"] || rows["year"];
-    const body = rows["body"] || rows["body class"] || rows["vehicle type"];
+    const body = rows["body"] || rows["body class"] || rows["body style"] || rows["body type"] || rows["vehicle type"];
     const fuel = mapValue(FUEL_MAP, rows["fuel"] || rows["fuel type"]);
-    const trans = mapValue(TRANS_MAP, rows["transmission"] || rows["gearbox"]);
-    const hpRaw = rows["power"] || rows["engine power"] || rows["horsepower"];
-    const displRaw = rows["displacement"] || rows["engine displacement"];
+    const trans = mapTransmission(rows["transmission"] || rows["automatic gearbox"] || rows["manual gearbox"] || rows["gearbox"]);
+    const hpRaw = rows["power"] || rows["engine power"] || rows["engine horsepower"] || rows["horsepower"];
+    const displRaw = rows["displacement nominal"] || rows["engine type"] || rows["displacement"] || rows["engine displacement"] || rows["displacement si"];
     const hpMatch = hpRaw?.match(/\d+(?:[.,]\d+)?/);
     const displMatch = displRaw?.match(/\d+(?:[.,]\d+)?/);
 
