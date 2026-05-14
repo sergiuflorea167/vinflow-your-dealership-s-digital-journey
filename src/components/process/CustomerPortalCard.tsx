@@ -22,6 +22,7 @@ interface Props {
 
 export const CustomerPortalCard = ({ processId, customerName, customerEmail, vehicleLabel, companyName, process, vehicle, customer, offer }: Props) => {
   const url = buildCustomerTrackingUrl(processId);
+  const staffUrl = `${url}?staff=1`;
   const [copied, setCopied] = useState(false);
   const lastSavedRef = useRef("");
   const settings = useProcessStore((s) => s.settings);
