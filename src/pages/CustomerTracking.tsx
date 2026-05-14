@@ -47,6 +47,13 @@ const CustomerTracking = () => {
   const customer = remoteSnapshot?.customer ?? localCustomer;
   const offer = remoteSnapshot?.offer ?? localOffer;
   const companyName = remoteSnapshot?.companyName ?? storeCompanyName;
+  const storeSettings = useProcessStore((s) => s.settings);
+  const contact = remoteSnapshot?.contact ?? {
+    name: storeSettings.userName || "Ihr Ansprechpartner",
+    email: storeSettings.email || "",
+    phone: storeSettings.phone || "",
+    role: storeSettings.role,
+  };
 
   if (loadingRemote && (!localProcess || !localVehicle || !localCustomer)) {
     return (
@@ -275,15 +282,19 @@ const CustomerTracking = () => {
         <section className="rounded-2xl bg-gradient-to-br from-primary/10 via-card to-card border border-primary/20 shadow-card p-6 sm:p-8">
           <h2 className="font-display text-xl font-bold">Fragen zu Ihrem Vorgang?</h2>
           <p className="text-sm text-muted-foreground mt-1 mb-5">
-            Ihr persönlicher Ansprechpartner bei {companyName} hilft Ihnen jederzeit gerne weiter.
+            {contact.name} {contact.role ? `(${contact.role}) ` : ""}von {companyName} betreut Ihren Vorgang persönlich und hilft Ihnen jederzeit gerne weiter.
           </p>
           <div className="flex flex-wrap gap-3">
-            <Button asChild variant="outline" className="gap-2">
-              <a href={`mailto:${customer.email}`}><Mail className="size-4" /> {customer.email}</a>
-            </Button>
-            <Button asChild className="gap-2 bg-gradient-brand hover:opacity-90">
-              <a href={`tel:${customer.phone}`}><Phone className="size-4" /> {customer.phone}</a>
-            </Button>
+            {contact.email && (
+              <Button asChild variant="outline" className="gap-2">
+                <a href={`mailto:${contact.email}`}><Mail className="size-4" /> {contact.email}</a>
+              </Button>
+            )}
+            {contact.phone && (
+              <Button asChild className="gap-2 bg-gradient-brand hover:opacity-90">
+                <a href={`tel:${contact.phone}`}><Phone className="size-4" /> {contact.phone}</a>
+              </Button>
+            )}
           </div>
         </section>
 

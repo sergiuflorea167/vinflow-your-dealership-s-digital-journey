@@ -3,8 +3,9 @@ import { Copy, Check, ExternalLink, Mail, Link2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { buildCustomerTrackingUrl, saveCustomerTrackingSnapshot } from "@/lib/customerLink";
+import { buildCustomerTrackingUrl, saveCustomerTrackingSnapshot, type ContactPerson } from "@/lib/customerLink";
 import type { Customer, Offer, Process, Vehicle } from "@/data/process";
+import { useProcessStore } from "@/store/processStore";
 import { toast } from "sonner";
 
 interface Props {
@@ -23,13 +24,21 @@ export const CustomerPortalCard = ({ processId, customerName, customerEmail, veh
   const url = buildCustomerTrackingUrl(processId);
   const [copied, setCopied] = useState(false);
   const lastSavedRef = useRef("");
+  const settings = useProcessStore((s) => s.settings);
+
+  const contact: ContactPerson = {
+    name: settings.userName || [settings.firstName, settings.lastName].filter(Boolean).join(" ") || "Ihr Ansprechpartner",
+    email: settings.email || "",
+    phone: settings.phone || "",
+    role: settings.role,
+  };
 
   const ensureSnapshot = useCallback(async () => {
-    const signature = JSON.stringify({ process, vehicle, customer, offer, companyName });
+    const signature = JSON.stringify({ process, vehicle, customer, offer, companyName, contact });
     if (lastSavedRef.current === signature) return;
-    await saveCustomerTrackingSnapshot({ process, vehicle, customer, offer: offer ?? null, companyName });
+    await saveCustomerTrackingSnapshot({ process, vehicle, customer, offer: offer ?? null, companyName, contact });
     lastSavedRef.current = signature;
-  }, [process, vehicle, customer, offer, companyName]);
+  }, [process, vehicle, customer, offer, companyName, contact]);
 
   useEffect(() => {
     ensureSnapshot().catch(() => undefined);

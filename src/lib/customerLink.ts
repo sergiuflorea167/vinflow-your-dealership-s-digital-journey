@@ -4,12 +4,20 @@ import type { Customer, Offer, Process, Vehicle } from "@/data/process";
 // Erzeugt einen Token, der die Process-ID enthält, damit der Kunde den Link
 // auch auf einem anderen Gerät / Browser öffnen kann.
 
+export interface ContactPerson {
+  name: string;
+  email: string;
+  phone: string;
+  role?: string;
+}
+
 export interface CustomerTrackingSnapshot {
   process: Process;
   vehicle: Vehicle;
   customer: Customer;
   offer?: Offer | null;
   companyName: string;
+  contact?: ContactPerson | null;
   savedAt: string;
 }
 
