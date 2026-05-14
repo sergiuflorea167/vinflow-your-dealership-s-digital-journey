@@ -1,7 +1,6 @@
 // VIN-Decoder
-// Quelle: freevindecoder.eu. Diese Quelle ist für europäische VINs verlässlicher
-// als der US-fokussierte NHTSA/vPIC-Datensatz und wird daher immer als Basis
-// verwendet. KI ergänzt nur Felder, die freevindecoder.eu nicht ausgibt.
+// Einzige Quelle: freevindecoder.eu. Es wird KEINE KI-Anreicherung mehr
+// verwendet, damit die Ergebnisse deterministisch und nachvollziehbar sind.
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -18,21 +17,26 @@ type Decoded = {
   transmission?: string;
   power_hp?: number;
   displacement_l?: number;
-  color?: string;
-  features?: string[];
-  hsn?: string;
-  tsn?: string;
-  confidence?: number;
+  trim?: string;
+  manufacturer?: string;
+  country?: string;
+  doors?: string;
+  seats?: string;
   source?: string;
+  source_url?: string;
+  raw?: Record<string, string>;
 };
 
 const TYPE_MAP: Record<string, string> = {
   sedan: "limousine",
   saloon: "limousine",
+  limousine: "limousine",
   wagon: "kombi",
   "station wagon": "kombi",
   estate: "kombi",
+  kombi: "kombi",
   hatchback: "kleinwagen",
+  "compact car": "kleinwagen",
   suv: "suv",
   "sport utility": "suv",
   "crossover utility": "suv",
@@ -56,25 +60,6 @@ const FUEL_MAP: Record<string, string> = {
   cng: "Gas",
   lpg: "Gas",
 };
-const TRANS_MAP: Record<string, string> = {
-  automatic: "Automatik",
-  "automated manual transmission (amt)": "Automatik",
-  "dual-clutch transmission (dct)": "DKG",
-  dsg: "DKG",
-  manual: "Schaltgetriebe",
-  "manual/standard": "Schaltgetriebe",
-  cvt: "CVT",
-  "continuously variable transmission (cvt)": "CVT",
-};
-
-function mapTransmission(raw?: string): string | undefined {
-  if (!raw) return undefined;
-  const k = raw.toLowerCase().trim();
-  const hasAutomatic = /\b(automatic|auto|at)\b/.test(k);
-  const hasManual = /\b(manual|mt)\b/.test(k);
-  if (hasAutomatic && hasManual) return undefined;
-  return mapValue(TRANS_MAP, raw);
-}
 
 const SOURCE_URL = "https://www.freevindecoder.eu";
 
@@ -98,8 +83,14 @@ function extractRows(html: string): Record<string, string> {
   const rowRegex = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
   let rowMatch: RegExpExecArray | null;
   while ((rowMatch = rowRegex.exec(html))) {
-    const cells = [...rowMatch[1].matchAll(/<t[hd][^>]*>([\s\S]*?)<\/t[hd]>/gi)].map((m) => stripTags(m[1]));
-    if (cells.length >= 2 && cells[0] && cells[1]) rows[cells[0].toLowerCase()] = cells[1];
+    const cells = [...rowMatch[1].matchAll(/<t[hd][^>]*>([\s\S]*?)<\/t[hd]>/gi)]
+      .map((m) => stripTags(m[1]))
+      .filter((c) => c.length > 0);
+    if (cells.length >= 2) {
+      const key = cells[0].toLowerCase();
+      // erste Zelle ist Label, zweite Zelle ist Wert
+      if (!(key in rows)) rows[key] = cells[1];
+    }
   }
   return rows;
 }
@@ -114,110 +105,109 @@ function mapValue(map: Record<string, string>, raw?: string): string | undefined
   return undefined;
 }
 
+function mapTransmission(raw?: string): string | undefined {
+  if (!raw) return undefined;
+  const k = raw.toLowerCase().trim();
+  // freevindecoder gibt manchmal "Automatic or Manual" / "AT" / "MT" zurück.
+  // Wenn beide möglich sind => unbekannt.
+  const hasAuto = /\b(automatic|automatik|\bat\b|dsg|dkg|cvt)\b/.test(k);
+  const hasManual = /\b(manual|schalt|\bmt\b)\b/.test(k);
+  if (hasAuto && hasManual) return undefined;
+  if (k.includes("dsg") || k.includes("dkg") || k.includes("dual")) return "DKG";
+  if (k.includes("cvt")) return "CVT";
+  if (hasAuto) return "Automatik";
+  if (hasManual) return "Schaltgetriebe";
+  return undefined;
+}
+
+function titleCaseMake(make: string): string {
+  // "BMW" bleibt "BMW", "VOLKSWAGEN" -> "Volkswagen"
+  if (make.length <= 3) return make.toUpperCase();
+  return make.charAt(0).toUpperCase() + make.slice(1).toLowerCase();
+}
+
 async function decodeViaFreeVinDecoder(vin: string): Promise<Decoded | null> {
-  try {
-    const res = await fetch(`${SOURCE_URL}/${vin}`, {
-      headers: { "User-Agent": "Mozilla/5.0 VINflow/1.0" },
-    });
-    if (!res.ok) return null;
-    const html = await res.text();
-    const rows = extractRows(html);
+  const res = await fetch(`${SOURCE_URL}/${vin}`, {
+    headers: {
+      "User-Agent":
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 VINflow/1.0",
+      "Accept": "text/html,application/xhtml+xml",
+      "Accept-Language": "de,en;q=0.8",
+    },
+  });
+  if (!res.ok) return null;
+  const html = await res.text();
+  const rows = extractRows(html);
 
-    const make = rows["make"];
-    if (!make) return null;
-    const model = rows["model"] || rows["model name"] || rows["vehicle"];
-    const yearStr = rows["model year"] || rows["year"];
-    const body = rows["body"] || rows["body class"] || rows["body style"] || rows["body type"] || rows["vehicle type"];
-    const fuel = mapValue(FUEL_MAP, rows["fuel"] || rows["fuel type"]);
-    const trans = mapTransmission(rows["transmission"] || rows["automatic gearbox"] || rows["manual gearbox"] || rows["gearbox"]);
-    const hpRaw = rows["power"] || rows["engine power"] || rows["engine horsepower"] || rows["horsepower"];
-    const displRaw = rows["displacement nominal"] || rows["engine type"] || rows["displacement"] || rows["engine displacement"] || rows["displacement si"];
-    const hpMatch = hpRaw?.match(/\d+(?:[.,]\d+)?/);
-    const displMatch = displRaw?.match(/\d+(?:[.,]\d+)?/);
+  const make = rows["make"];
+  if (!make) return null;
 
-    return {
-      make: make.charAt(0) + make.slice(1).toLowerCase(),
-      model: model,
-      year: yearStr ? Number(yearStr) : undefined,
-      type: mapValue(TYPE_MAP, body),
-      fuel,
-      transmission: trans,
-      power_hp: hpMatch ? Math.round(Number(hpMatch[0].replace(",", "."))) : undefined,
-      displacement_l: displMatch ? Number(displMatch[0].replace(",", ".")) : undefined,
-      source: "freevindecoder",
-    };
-  } catch (_e) {
-    return null;
+  const model = rows["model"] || rows["model name"];
+  const yearStr = rows["model year"] || rows["year"];
+  const body =
+    rows["body type"] ||
+    rows["body style"] ||
+    rows["body class"] ||
+    rows["vehicle class"];
+
+  // Transmission: bevorzugt "Transmission"-Zeile, sonst kombiniert aus
+  // Manual gearbox / Automatic gearbox.
+  let transRaw = rows["transmission"];
+  if (!transRaw) {
+    const mt = rows["manual gearbox"];
+    const at = rows["automatic gearbox"];
+    if (mt && at) transRaw = "manual or automatic";
+    else if (at) transRaw = "automatic";
+    else if (mt) transRaw = "manual";
   }
-}
 
-async function enrichViaAI(vin: string, base: Decoded | null): Promise<Decoded | null> {
-  const KEY = Deno.env.get("LOVABLE_API_KEY");
-  if (!KEY) return null;
+  const fuel = mapValue(FUEL_MAP, rows["fuel type"] || rows["fuel"]);
+  const trans = mapTransmission(transRaw);
 
-  const sys = `Du bist VIN- und Fahrzeug-Experte für den deutschen Markt.
-WICHTIG: freevindecoder.eu ist die Wahrheit. Du darfst Marke, Modell, Baujahr,
-Karosserie, Motor, Kraftstoff, Leistung und Hubraum NICHT ändern, wenn sie in
-der Quelle vorhanden sind. Ergänze nur fehlende Felder wie Ausstattung, HSN/TSN
-oder ein eindeutig fehlendes Getriebe. Bei Unsicherheit null/[] ausgeben.
-Antworte ausschließlich als gültiges JSON mit rohen Zahlen ohne Tausenderpunkte:
+  const hpRaw =
+    rows["engine horsepower"] ||
+    rows["horsepower"] ||
+    rows["power"] ||
+    rows["engine power"];
+  const kwRaw = rows["engine kilowatts"] || rows["engine kw"];
+  const displRaw =
+    rows["displacement nominal"] ||
+    rows["displacement"] ||
+    rows["engine displacement"];
+  const displSi = rows["displacement si"]; // in ccm
 
-{
-  "make": string|null,
-  "model": string|null,            // bevorzuge spezifische Variante (z.B. "A6 Avant 2.0 TDI")
-  "year": number|null,
-  "type": "limousine"|"kombi"|"suv"|"coupe"|"cabrio"|"van"|"transporter"|"pickup"|"kleinwagen"|null,
-  "fuel": "Benzin"|"Diesel"|"Hybrid"|"Elektro"|"Plug-in-Hybrid"|"Gas"|null,
-  "transmission": "Schaltgetriebe"|"Automatik"|"DKG"|"CVT"|null,
-  "power_hp": number|null,
-  "displacement_l": number|null,
-  "hsn": string|null,             // 4-stellig, deutsche KBA-Herstellernummer
-  "tsn": string|null,             // 3-stellig, deutsche KBA-Typnummer
-  "features": string[],            // 5–12 typische Ausstattungs-Stichworte für genau dieses Modell/Jahr/Motor
-  "confidence": number             // 0..1
-}`;
+  const hpMatch = hpRaw?.match(/\d+(?:[.,]\d+)?/);
+  const kwMatch = kwRaw?.match(/\d+(?:[.,]\d+)?/);
+  let power_hp: number | undefined;
+  if (hpMatch) power_hp = Math.round(Number(hpMatch[0].replace(",", ".")));
+  else if (kwMatch) power_hp = Math.round(Number(kwMatch[0].replace(",", ".")) * 1.35962);
 
-  const userPrompt = `VIN: ${vin}
-Quelle freevindecoder.eu: ${JSON.stringify(base ?? {})}
-Bitte ergänzen.`;
-
-  try {
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        response_format: { type: "json_object" },
-        messages: [
-          { role: "system", content: sys },
-          { role: "user", content: userPrompt },
-        ],
-      }),
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    const content = data?.choices?.[0]?.message?.content ?? "{}";
-    return JSON.parse(content) as Decoded;
-  } catch (_e) {
-    return null;
+  let displacement_l: number | undefined;
+  const displMatch = displRaw?.match(/\d+(?:[.,]\d+)?/);
+  if (displMatch) displacement_l = Number(displMatch[0].replace(",", "."));
+  else if (displSi) {
+    const m = displSi.match(/\d+/);
+    if (m) displacement_l = Math.round(Number(m[0]) / 100) / 10;
   }
-}
 
-function cleanAi(ai: Decoded | null, base: Decoded | null): Decoded | null {
-  if (!ai) return null;
-  const out: Decoded = { ...ai };
-  if (base?.make) out.make = undefined;
-  if (base?.model) out.model = undefined;
-  if (base?.year) out.year = undefined;
-  if (base?.type) out.type = undefined;
-  if (base?.fuel) out.fuel = undefined;
-  if (base?.transmission) out.transmission = undefined;
-  if (base?.power_hp) out.power_hp = undefined;
-  if (base?.displacement_l) out.displacement_l = undefined;
-  return out;
+  return {
+    make: titleCaseMake(make),
+    model: model || undefined,
+    year: yearStr && /^\d{4}$/.test(yearStr) ? Number(yearStr) : undefined,
+    type: mapValue(TYPE_MAP, body),
+    fuel,
+    transmission: trans,
+    power_hp,
+    displacement_l,
+    trim: rows["trim level"] || rows["trim"] || undefined,
+    manufacturer: rows["manufacturer"] || undefined,
+    country: rows["country"] || undefined,
+    doors: rows["number of doors"] || undefined,
+    seats: rows["number of seats"] || undefined,
+    source: "freevindecoder.eu",
+    source_url: `${SOURCE_URL}/${vin}`,
+    raw: rows,
+  };
 }
 
 Deno.serve(async (req) => {
@@ -232,36 +222,29 @@ Deno.serve(async (req) => {
       });
     }
 
-    const base = await decodeViaFreeVinDecoder(v);
-    const ai = cleanAi(await enrichViaAI(v, base), base);
+    const decoded = await decodeViaFreeVinDecoder(v);
 
-    // Merge: freevindecoder.eu ist immer die feste Quelle; KI füllt nur Lücken.
-    const merged: Decoded = {
-      make: base?.make ?? ai?.make ?? undefined,
-      model: base?.model ?? ai?.model ?? undefined,
-      year: base?.year ?? ai?.year ?? undefined,
-      type: base?.type ?? ai?.type ?? undefined,
-      fuel: base?.fuel ?? ai?.fuel ?? undefined,
-      transmission: base?.transmission ?? ai?.transmission ?? undefined,
-      power_hp: base?.power_hp ?? ai?.power_hp ?? undefined,
-      displacement_l: base?.displacement_l ?? ai?.displacement_l ?? undefined,
-      hsn: ai?.hsn ?? undefined,
-      tsn: ai?.tsn ?? undefined,
-      features: Array.isArray(ai?.features) ? ai!.features : [],
-      confidence: base ? Math.min(0.95, Math.max(0.78, ai?.confidence ?? 0.78)) : ai?.confidence ?? 0.4,
-      source: base ? (ai ? "freevindecoder+ai" : "freevindecoder") : ai ? "ai" : "none",
-    };
-
-    if (!merged.make) {
+    if (!decoded || !decoded.make) {
       return new Response(
-        JSON.stringify({ error: "VIN konnte nicht dekodiert werden" }),
+        JSON.stringify({
+          error: "VIN konnte über freevindecoder.eu nicht dekodiert werden",
+          source_url: `${SOURCE_URL}/${v}`,
+        }),
         { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
-    return new Response(JSON.stringify(merged), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({
+        ...decoded,
+        // Felder, die wir nicht mehr aus KI ergänzen — bleiben leer für manuelle Eingabe.
+        hsn: undefined,
+        tsn: undefined,
+        features: [],
+        confidence: 1,
+      }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
   } catch (e) {
     return new Response(
       JSON.stringify({ error: String((e as Error).message ?? e) }),
