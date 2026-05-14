@@ -364,6 +364,8 @@ export interface PurchasePlan {
 export interface ProcessFields {
   finalPrice?: number;
   downPayment?: {
+    invoiceNumber?: string;
+    invoiceDate?: string;
     amount?: number;
     dueDate?: string;
     method?: "Überweisung" | "Bar" | "EC";
@@ -379,6 +381,8 @@ export interface ProcessFields {
     invoiceNumber?: string;
     invoiceDate?: string;
     dueDate?: string;
+    paid?: boolean;
+    paidDate?: string;
   };
   purchaseContract?: {
     contractNumber?: string;
