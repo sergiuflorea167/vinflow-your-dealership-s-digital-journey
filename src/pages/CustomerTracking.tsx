@@ -464,7 +464,7 @@ const SegmentedCodeInput = ({
       }}
       className="space-y-3"
     >
-      <div className="flex flex-wrap items-end justify-center gap-2">
+      <div className="flex items-end justify-center gap-1.5 flex-nowrap">
         {SEGMENTS.map((seg, i) => (
           <div key={i} className="flex flex-col items-center gap-1">
             <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">
