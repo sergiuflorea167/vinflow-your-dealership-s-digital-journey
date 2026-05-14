@@ -67,6 +67,15 @@ const TRANS_MAP: Record<string, string> = {
   "continuously variable transmission (cvt)": "CVT",
 };
 
+function mapTransmission(raw?: string): string | undefined {
+  if (!raw) return undefined;
+  const k = raw.toLowerCase().trim();
+  const hasAutomatic = /\b(automatic|auto|at)\b/.test(k);
+  const hasManual = /\b(manual|mt)\b/.test(k);
+  if (hasAutomatic && hasManual) return undefined;
+  return mapValue(TRANS_MAP, raw);
+}
+
 const SOURCE_URL = "https://www.freevindecoder.eu";
 
 const htmlDecode = (value: string) =>
@@ -118,11 +127,11 @@ async function decodeViaFreeVinDecoder(vin: string): Promise<Decoded | null> {
     if (!make) return null;
     const model = rows["model"] || rows["model name"] || rows["vehicle"];
     const yearStr = rows["model year"] || rows["year"];
-    const body = rows["body"] || rows["body class"] || rows["vehicle type"];
+    const body = rows["body"] || rows["body class"] || rows["body style"] || rows["body type"] || rows["vehicle type"];
     const fuel = mapValue(FUEL_MAP, rows["fuel"] || rows["fuel type"]);
-    const trans = mapValue(TRANS_MAP, rows["transmission"] || rows["gearbox"]);
-    const hpRaw = rows["power"] || rows["engine power"] || rows["horsepower"];
-    const displRaw = rows["displacement"] || rows["engine displacement"];
+    const trans = mapTransmission(rows["transmission"] || rows["automatic gearbox"] || rows["manual gearbox"] || rows["gearbox"]);
+    const hpRaw = rows["power"] || rows["engine power"] || rows["engine horsepower"] || rows["horsepower"];
+    const displRaw = rows["displacement nominal"] || rows["engine type"] || rows["displacement"] || rows["engine displacement"] || rows["displacement si"];
     const hpMatch = hpRaw?.match(/\d+(?:[.,]\d+)?/);
     const displMatch = displRaw?.match(/\d+(?:[.,]\d+)?/);
 
@@ -147,11 +156,11 @@ async function enrichViaAI(vin: string, base: Decoded | null): Promise<Decoded |
   if (!KEY) return null;
 
   const sys = `Du bist VIN- und Fahrzeug-Experte für den deutschen Markt.
-Aufgabe: Aus VIN + Daten von freevindecoder.eu ergänzt du fehlende Felder
-für deutsche Händler. Wenn freevindecoder.eu nur Marke/Baujahr liefert, darfst
-du anhand der VIN-Struktur und bekannter EU-Modellcodes plausibel ergänzen.
-Bei deutschen KBA-Daten HSN/TSN nur ausgeben, wenn diese für Modelljahr/Motor
-wirklich eindeutig sind. Antworte ausschließlich als gültiges JSON:
+WICHTIG: freevindecoder.eu ist die Wahrheit. Du darfst Marke, Modell, Baujahr,
+Karosserie, Motor, Kraftstoff, Leistung und Hubraum NICHT ändern, wenn sie in
+der Quelle vorhanden sind. Ergänze nur fehlende Felder wie Ausstattung, HSN/TSN
+oder ein eindeutig fehlendes Getriebe. Bei Unsicherheit null/[] ausgeben.
+Antworte ausschließlich als gültiges JSON mit rohen Zahlen ohne Tausenderpunkte:
 
 {
   "make": string|null,
@@ -197,6 +206,20 @@ Bitte ergänzen.`;
   }
 }
 
+function cleanAi(ai: Decoded | null, base: Decoded | null): Decoded | null {
+  if (!ai) return null;
+  const out: Decoded = { ...ai };
+  if (base?.make) out.make = undefined;
+  if (base?.model) out.model = undefined;
+  if (base?.year) out.year = undefined;
+  if (base?.type) out.type = undefined;
+  if (base?.fuel) out.fuel = undefined;
+  if (base?.transmission) out.transmission = undefined;
+  if (base?.power_hp) out.power_hp = undefined;
+  if (base?.displacement_l) out.displacement_l = undefined;
+  return out;
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
@@ -210,13 +233,12 @@ Deno.serve(async (req) => {
     }
 
     const base = await decodeViaFreeVinDecoder(v);
-    const ai = await enrichViaAI(v, base);
+    const ai = cleanAi(await enrichViaAI(v, base), base);
 
-    // Merge: freevindecoder.eu ist immer die feste Quelle; KI füllt nur Lücken
-    // und darf das Modell präzisieren, wenn die Quelle nur Marke/Baujahr liefert.
+    // Merge: freevindecoder.eu ist immer die feste Quelle; KI füllt nur Lücken.
     const merged: Decoded = {
       make: base?.make ?? ai?.make ?? undefined,
-      model: ai?.model ?? base?.model ?? undefined,
+      model: base?.model ?? ai?.model ?? undefined,
       year: base?.year ?? ai?.year ?? undefined,
       type: base?.type ?? ai?.type ?? undefined,
       fuel: base?.fuel ?? ai?.fuel ?? undefined,
