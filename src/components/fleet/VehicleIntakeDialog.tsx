@@ -182,6 +182,20 @@ export const VehicleIntakeDialog = ({ open, onOpenChange, locations, preset, tit
               {locations.map((l) => <option key={l} value={l}>{l}</option>)}
             </select>
           </FormField>
+          {features.length > 0 && (
+            <FormField label="Erkannte Ausstattung & Merkmale" full>
+              <div className="flex flex-wrap gap-1.5 rounded-md border border-primary/30 bg-primary/5 p-2.5">
+                {features.map((f, i) => (
+                  <span
+                    key={i}
+                    className="inline-flex items-center gap-1 rounded-full bg-background/60 border border-border px-2 py-0.5 text-[11px]"
+                  >
+                    <Sparkles className="size-2.5 text-primary" /> {f}
+                  </span>
+                ))}
+              </div>
+            </FormField>
+          )}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Abbrechen</Button>
