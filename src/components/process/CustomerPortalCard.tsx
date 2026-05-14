@@ -22,7 +22,6 @@ interface Props {
 
 export const CustomerPortalCard = ({ processId, customerName, customerEmail, vehicleLabel, companyName, process, vehicle, customer, offer }: Props) => {
   const url = buildCustomerTrackingUrl(processId);
-  const staffUrl = `${url}?staff=1`;
   const [copied, setCopied] = useState(false);
   const lastSavedRef = useRef("");
   const settings = useProcessStore((s) => s.settings);
@@ -61,7 +60,7 @@ export const CustomerPortalCard = ({ processId, customerName, customerEmail, veh
     event.preventDefault();
     try {
       await ensureSnapshot();
-      window.open(staffUrl, "_blank", "noopener,noreferrer");
+      window.open(url, "_blank", "noopener,noreferrer");
     } catch {
       toast.error("Konnte Kundenlink nicht synchronisieren");
     }
@@ -109,7 +108,7 @@ export const CustomerPortalCard = ({ processId, customerName, customerEmail, veh
           <a href={mailto} onClick={handleEmail}><Mail className="size-3.5" /> Per E-Mail senden</a>
         </Button>
         <Button asChild size="sm" variant="outline" className="gap-2">
-          <a href={staffUrl} target="_blank" rel="noreferrer" onClick={handlePreview}><ExternalLink className="size-3.5" /> Tracking öffnen</a>
+          <a href={url} target="_blank" rel="noreferrer" onClick={handlePreview}><ExternalLink className="size-3.5" /> Vorschau</a>
         </Button>
       </div>
     </Card>
