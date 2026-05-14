@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Copy, Check, ExternalLink, Mail, Link2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { buildCustomerTrackingUrl } from "@/lib/customerLink";
+import { buildCustomerTrackingUrl, saveCustomerTrackingSnapshot } from "@/lib/customerLink";
+import type { Customer, Offer, Process, Vehicle } from "@/data/process";
 import { toast } from "sonner";
 
 interface Props {
@@ -12,20 +13,37 @@ interface Props {
   customerEmail: string;
   vehicleLabel: string;
   companyName: string;
+  process: Process;
+  vehicle: Vehicle;
+  customer: Customer;
+  offer?: Offer | null;
 }
 
-export const CustomerPortalCard = ({ processId, customerName, customerEmail, vehicleLabel, companyName }: Props) => {
+export const CustomerPortalCard = ({ processId, customerName, customerEmail, vehicleLabel, companyName, process, vehicle, customer, offer }: Props) => {
   const url = buildCustomerTrackingUrl(processId);
   const [copied, setCopied] = useState(false);
+  const lastSavedRef = useRef("");
+
+  const ensureSnapshot = useCallback(async () => {
+    const signature = JSON.stringify({ process, vehicle, customer, offer, companyName });
+    if (lastSavedRef.current === signature) return;
+    await saveCustomerTrackingSnapshot({ process, vehicle, customer, offer: offer ?? null, companyName });
+    lastSavedRef.current = signature;
+  }, [process, vehicle, customer, offer, companyName]);
+
+  useEffect(() => {
+    ensureSnapshot().catch(() => undefined);
+  }, [ensureSnapshot]);
 
   const handleCopy = async () => {
     try {
+      await ensureSnapshot();
       await navigator.clipboard.writeText(url);
       setCopied(true);
       toast.success("Link kopiert");
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      toast.error("Konnte Link nicht kopieren");
+      toast.error("Konnte Link nicht synchronisieren oder kopieren");
     }
   };
 
