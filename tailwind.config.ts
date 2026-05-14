@@ -105,6 +105,14 @@ export default {
           "0%, 100%": { boxShadow: "0 0 20px hsl(var(--primary) / 0.4)" },
           "50%": { boxShadow: "0 0 40px hsl(var(--primary) / 0.7)" },
         },
+        "gradient-shift": {
+          "0%, 100%": { backgroundPosition: "0% 50%" },
+          "50%": { backgroundPosition: "100% 50%" },
+        },
+        "trophy-bounce": {
+          "0%, 100%": { transform: "translateY(0) rotate(-6deg)" },
+          "50%": { transform: "translateY(-3px) rotate(6deg)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -112,6 +120,8 @@ export default {
         "fade-in": "fade-in 0.4s ease-out",
         "slide-in-right": "slide-in-right 0.3s ease-out",
         "pulse-glow": "pulse-glow 2s ease-in-out infinite",
+        "gradient-shift": "gradient-shift 4s ease-in-out infinite",
+        "trophy-bounce": "trophy-bounce 1.6s ease-in-out infinite",
       },
     },
   },
