@@ -323,7 +323,7 @@ const ProcessList = () => {
     const v = getVehicle(proc.vehicleId);
     const c = getCustomer(proc.customerId);
     if (!v || !c) return;
-    downloadBelegPdf({ process: proc, vehicle: v, customer: c, stepKey });
+    downloadBelegPdf({ process: proc, vehicle: v, customer: c, stepKey, companyName, pdfTheme });
   };
 
   return (
