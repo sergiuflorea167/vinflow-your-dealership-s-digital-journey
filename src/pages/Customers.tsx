@@ -182,7 +182,11 @@ const Customers = () => {
               </thead>
               <tbody>
                 {filtered.map(({ customer, offerCount, processCount, value }) => (
-                  <tr key={customer.id} className="hover:bg-surface-elevated/40 transition-smooth">
+                  <tr
+                    key={customer.id}
+                    onClick={() => setSelectedId(customer.id)}
+                    className="hover:bg-surface-elevated/40 transition-smooth cursor-pointer"
+                  >
                     <td>
                       <div className="flex items-center gap-2">
                         <div className="size-7 rounded-md bg-gradient-brand grid place-items-center text-primary-foreground font-display font-bold text-[10px] shrink-0">
