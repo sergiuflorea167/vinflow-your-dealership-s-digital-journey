@@ -6,9 +6,11 @@ import {
 import { useProcessStore } from "@/store/processStore";
 import { PROCESS_STEPS, formatCurrency, formatDate, stepIndex } from "@/data/process";
 import { findProcessIdForToken, loadCustomerTrackingSnapshot, type CustomerTrackingSnapshot } from "@/lib/customerLink";
+import { buildCustomerAccessCode, matchesCustomerAccessCode, normalizeAccessCode } from "@/lib/customerCode";
 import { downloadBelegPdf } from "@/lib/pdf";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import logo from "@/assets/logo.png";
 
 const CustomerTracking = () => {
@@ -55,6 +57,19 @@ const CustomerTracking = () => {
     role: storeSettings.role,
   };
 
+  // Sicherheits-Code Gate (Hooks müssen immer aufgerufen werden)
+  const expectedCode = customer ? buildCustomerAccessCode(customer) : "";
+  const storageKey = `vinflow-track-auth:${token ?? ""}`;
+  const [codeInput, setCodeInput] = useState("");
+  const [codeError, setCodeError] = useState<string | null>(null);
+  const [unlocked, setUnlocked] = useState(false);
+  useEffect(() => {
+    if (!customer) return;
+    try {
+      if (sessionStorage.getItem(storageKey) === expectedCode) setUnlocked(true);
+    } catch { /* noop */ }
+  }, [customer, expectedCode, storageKey]);
+
   if (loadingRemote && (!localProcess || !localVehicle || !localCustomer)) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/10 grid place-items-center p-6">
@@ -79,6 +94,68 @@ const CustomerTracking = () => {
           <h1 className="font-display text-2xl font-bold">Link nicht gültig</h1>
           <p className="text-sm text-muted-foreground">
             Dieser Vorgangs-Link existiert nicht oder ist abgelaufen. Bitte wenden Sie sich an Ihren Händler.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!unlocked) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/10 grid place-items-center p-6">
+        <div className="w-full max-w-md rounded-2xl bg-card border border-border shadow-card p-6 sm:p-8 space-y-5">
+          <div className="flex items-center gap-3">
+            <div className="size-11 rounded-xl bg-primary/15 grid place-items-center text-primary-glow">
+              <Lock className="size-5" />
+            </div>
+            <div>
+              <h1 className="font-display text-xl font-bold">Sicherheits-Code</h1>
+              <p className="text-xs text-muted-foreground">Bitte geben Sie Ihren persönlichen Zugangscode ein.</p>
+            </div>
+          </div>
+
+          <div className="rounded-xl bg-muted/30 border border-border p-4 text-xs text-muted-foreground space-y-2">
+            <p className="font-semibold text-foreground">So setzt sich Ihr Code zusammen:</p>
+            <ol className="list-decimal pl-5 space-y-1">
+              <li>Erster Buchstabe Ihres Vornamens</li>
+              <li>Erster Buchstabe Ihres Nachnamens</li>
+              <li>Erste Ziffer Ihrer Postleitzahl</li>
+              <li>Ihr Geburtsmonat (zweistellig, z.&nbsp;B. <span className="font-mono">04</span>)</li>
+              <li>Ihr Geburtsjahr (vierstellig, z.&nbsp;B. <span className="font-mono">1985</span>)</li>
+              <li>Letztes Zeichen Ihrer Postleitzahl</li>
+            </ol>
+            <p>Beispiel: <span className="font-mono">MM8041985 0</span> → <span className="font-mono">MM80419850</span></p>
+          </div>
+
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (matchesCustomerAccessCode(codeInput, customer)) {
+                try { sessionStorage.setItem(storageKey, expectedCode); } catch { /* noop */ }
+                setCodeError(null);
+                setUnlocked(true);
+              } else {
+                setCodeError("Code ist nicht korrekt. Bitte prüfen Sie Ihre Angaben.");
+              }
+            }}
+            className="space-y-3"
+          >
+            <Input
+              autoFocus
+              value={codeInput}
+              onChange={(e) => setCodeInput(normalizeAccessCode(e.target.value))}
+              placeholder="z. B. MM80419850"
+              className="font-mono tracking-widest text-center text-lg"
+              maxLength={20}
+            />
+            {codeError && <p className="text-xs text-destructive">{codeError}</p>}
+            <Button type="submit" className="w-full bg-gradient-brand hover:opacity-90">
+              Vorgang öffnen
+            </Button>
+          </form>
+
+          <p className="text-[11px] text-muted-foreground text-center">
+            Aus Sicherheitsgründen geschützt. Bei Problemen wenden Sie sich bitte an Ihren Händler.
           </p>
         </div>
       </div>

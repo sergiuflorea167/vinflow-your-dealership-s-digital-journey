@@ -280,6 +280,7 @@ export interface Customer {
   street?: string;
   zip?: string;
   city: string;
+  birthDate?: string; // YYYY-MM-DD
 }
 
 // ---------- Angebot ----------
