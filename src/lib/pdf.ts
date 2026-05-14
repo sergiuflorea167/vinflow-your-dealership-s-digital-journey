@@ -341,9 +341,11 @@ export interface GeneratePdfArgs {
   offer?: Offer;
   stepKey: ProcessStepKey;
   companyName?: string;
+  pdfTheme?: PdfThemeKey;
 }
 
-export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, companyName = "VINflow Autohaus GmbH" }: GeneratePdfArgs): jsPDF => {
+export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, companyName = "VINflow Autohaus GmbH", pdfTheme }: GeneratePdfArgs): jsPDF => {
+  applyPdfTheme(pdfTheme);
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const step = PROCESS_STEPS.find((s) => s.key === stepKey)!;
   const docNumber = `${process.id} · ${step.shortLabel.toUpperCase()}`;
