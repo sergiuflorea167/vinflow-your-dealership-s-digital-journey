@@ -457,21 +457,30 @@ export const GoalsPanel = () => {
                     <div
                       key={goal.id}
                       className={cn(
-                        "group relative rounded-2xl border bg-background/60 backdrop-blur-sm p-5 transition-smooth overflow-hidden",
+                        "group relative rounded-2xl p-[1.5px] transition-smooth",
                         crushed
-                          ? "border-transparent shadow-[0_0_40px_-10px_hsl(160_90%_55%/0.6)] ring-1 ring-emerald-400/40"
+                          ? "bg-[linear-gradient(120deg,#34d399,#22d3ee,#a855f7,#f472b6,#34d399)] bg-[length:300%_300%] animate-gradient-shift shadow-[0_0_60px_-10px_hsl(160_90%_55%/0.7)]"
                           : reached
-                          ? "border-primary/50 shadow-glow"
-                          : "border-border hover:border-primary/40"
+                          ? "bg-gradient-to-br from-primary/60 to-primary-glow/60 shadow-glow animate-pulse-glow"
+                          : "bg-border hover:bg-primary/40"
+                      )}
+                    >
+                    <div
+                      className={cn(
+                        "relative rounded-[14px] bg-background/85 backdrop-blur-sm p-5 overflow-hidden",
                       )}
                     >
                       {crushed && (
-                        <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-emerald-400/15 via-cyan-400/10 to-fuchsia-500/15" />
+                        <>
+                          <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-emerald-400/15 via-cyan-400/10 to-fuchsia-500/15" />
+                          <div className="pointer-events-none absolute -top-10 -right-10 size-32 rounded-full bg-emerald-400/30 blur-3xl" />
+                          <div className="pointer-events-none absolute -bottom-10 -left-10 size-32 rounded-full bg-fuchsia-500/30 blur-3xl" />
+                        </>
                       )}
                       <div className="relative">
                       <div className="flex items-start justify-between gap-3 mb-3">
                         <div className="min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
                             <Badge variant="outline" className={cn(
                               "text-[10px]",
                               crushed ? "border-emerald-400/50 text-emerald-300" : "border-primary/30 text-primary-glow"
@@ -480,8 +489,13 @@ export const GoalsPanel = () => {
                             </Badge>
                             <span className="text-[10px] uppercase tracking-wider text-muted-foreground">{t(METRIC_KEY[goal.metric])}</span>
                             {crushed && (
-                              <Badge className="text-[10px] border-0 bg-gradient-to-r from-emerald-400 via-cyan-400 to-fuchsia-500 text-background font-bold">
-                                <Trophy className="size-3 mr-1" /> übertroffen
+                              <Badge className="text-[10px] border-0 bg-[linear-gradient(120deg,#34d399,#22d3ee,#a855f7,#f472b6)] bg-[length:200%_200%] animate-gradient-shift text-background font-bold uppercase tracking-wider shadow-[0_0_15px_hsl(160_80%_50%/0.6)]">
+                                <Trophy className="size-3 mr-1 animate-trophy-bounce" /> übertroffen
+                              </Badge>
+                            )}
+                            {reached && !crushed && (
+                              <Badge className="text-[10px] border-0 bg-primary-glow text-background font-bold uppercase tracking-wider">
+                                <Trophy className="size-3 mr-1" /> erreicht
                               </Badge>
                             )}
                           </div>
@@ -496,16 +510,25 @@ export const GoalsPanel = () => {
                         </button>
                       </div>
 
-                      <div className="flex items-end justify-between mb-3">
+                      <div className="flex items-end justify-between mb-3 gap-3">
                         <span className="text-3xl font-display font-bold tracking-tight">{formatValue(goal.metric, value)}</span>
-                        <span className="text-xs text-muted-foreground">{t("goals.of")} {formatValue(goal.metric, goal.target)}</span>
+                        <span className={cn(
+                          "font-display font-black tabular-nums leading-none",
+                          crushed
+                            ? "text-4xl bg-[linear-gradient(120deg,#6ee7b7,#67e8f9,#d8b4fe,#f9a8d4)] bg-[length:200%_200%] animate-gradient-shift bg-clip-text text-transparent drop-shadow-[0_0_12px_hsl(160_90%_60%/0.5)]"
+                            : reached
+                            ? "text-3xl text-primary-glow drop-shadow-[0_0_8px_hsl(var(--primary)/0.6)]"
+                            : "text-2xl text-foreground"
+                        )}>
+                          {Math.round(rawPct)}%
+                        </span>
                       </div>
 
                       <Progress
                         value={pct}
                         className={cn(
                           "h-2.5",
-                          crushed && "[&>div]:bg-gradient-to-r [&>div]:from-emerald-400 [&>div]:via-cyan-400 [&>div]:to-fuchsia-500",
+                          crushed && "[&>div]:bg-[linear-gradient(120deg,#34d399,#22d3ee,#a855f7,#f472b6)] [&>div]:bg-[length:200%_200%] [&>div]:animate-gradient-shift",
                           reached && !crushed && "[&>div]:bg-primary-glow"
                         )}
                       />
@@ -514,18 +537,12 @@ export const GoalsPanel = () => {
                         <span className="text-[11px] text-muted-foreground">
                           {formatDate(goal.startDate)} – {formatDate(goal.endDate)}
                         </span>
-                        <span className={cn(
-                          "text-sm font-display font-bold tabular-nums",
-                          crushed
-                            ? "bg-gradient-to-r from-emerald-300 via-cyan-300 to-fuchsia-400 bg-clip-text text-transparent"
-                            : reached
-                            ? "text-primary-glow"
-                            : "text-foreground"
-                        )}>
-                          {Math.round(rawPct)}%
+                        <span className="text-[11px] text-muted-foreground">
+                          {t("goals.of")} {formatValue(goal.metric, goal.target)}
                         </span>
                       </div>
                       </div>
+                    </div>
                     </div>
                   );
                 })}
