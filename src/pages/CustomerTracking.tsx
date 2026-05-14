@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import {
   CheckCircle2, Clock, Download, FileText, Lock, MapPin, Package, Phone, Mail, Car, Calendar as CalendarIcon, ShieldCheck,
@@ -455,35 +455,39 @@ const SegmentedCodeInput = ({
       }}
       className="space-y-3"
     >
-      <div className="flex w-full items-start justify-between gap-6 sm:gap-8 flex-nowrap">
+      <div className="flex w-full items-stretch justify-between gap-0 flex-nowrap">
         {SEGMENTS.map((seg, i) => (
-          <div
-            key={i}
-            className="flex flex-col items-center gap-1 min-w-0"
-            style={{ flex: `${seg.length} ${seg.length} 0` }}
-          >
-            <span className="h-7 flex items-end text-center text-[10px] uppercase tracking-wider text-muted-foreground font-semibold leading-tight">
-              {seg.label}
-            </span>
-            <input
-              ref={(el) => (refs.current[i] = el)}
-              value={values[i]}
-              onChange={(e) => handleChange(i, e.target.value)}
-              onKeyDown={(e) => handleKeyDown(i, e)}
-              onPaste={(e) => handlePaste(i, e)}
-              onFocus={(e) => e.currentTarget.select()}
-              autoFocus={i === 0}
-              inputMode={seg.mode === "digit" ? "numeric" : "text"}
-              maxLength={seg.length}
-              aria-label={seg.label}
-              className={cn(
-                "h-11 w-full rounded-md border bg-background text-center font-mono font-bold text-base uppercase px-1",
-                "focus:outline-none focus:ring-2 focus:ring-primary/60 focus:border-primary",
-                error ? "border-destructive/60" : "border-border",
-              )}
-            />
-            <span className="h-8 text-center text-[9px] text-muted-foreground leading-tight">{seg.hint}</span>
-          </div>
+          <React.Fragment key={i}>
+            <div
+              className="flex flex-col items-center gap-3 min-w-0 px-3 sm:px-5"
+              style={{ flex: `${seg.length} ${seg.length} 0` }}
+            >
+              <span className="h-9 flex items-end text-center text-[10px] uppercase tracking-wider text-muted-foreground font-semibold leading-tight">
+                {seg.label}
+              </span>
+              <input
+                ref={(el) => (refs.current[i] = el)}
+                value={values[i]}
+                onChange={(e) => handleChange(i, e.target.value)}
+                onKeyDown={(e) => handleKeyDown(i, e)}
+                onPaste={(e) => handlePaste(i, e)}
+                onFocus={(e) => e.currentTarget.select()}
+                autoFocus={i === 0}
+                inputMode={seg.mode === "digit" ? "numeric" : "text"}
+                maxLength={seg.length}
+                aria-label={seg.label}
+                className={cn(
+                  "h-11 w-full rounded-md border bg-background text-center font-mono font-bold text-base uppercase px-1",
+                  "focus:outline-none focus:ring-2 focus:ring-primary/60 focus:border-primary",
+                  error ? "border-destructive/60" : "border-border",
+                )}
+              />
+              <span className="h-10 text-center text-[10px] text-muted-foreground leading-tight">{seg.hint}</span>
+            </div>
+            {i < SEGMENTS.length - 1 && (
+              <div className="w-px self-stretch bg-border/60" aria-hidden="true" />
+            )}
+          </React.Fragment>
         ))}
       </div>
 
