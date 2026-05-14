@@ -455,7 +455,7 @@ const SegmentedCodeInput = ({
       }}
       className="space-y-3"
     >
-      <div className="grid w-full grid-cols-[minmax(2.5rem,0.8fr)_minmax(2.5rem,0.8fr)_minmax(2.5rem,0.8fr)_minmax(4.25rem,1.25fr)_minmax(6rem,1.8fr)_minmax(4rem,1.1fr)] items-start gap-2">
+      <div className="grid w-full grid-cols-[minmax(2.5rem,0.8fr)_minmax(2.5rem,0.8fr)_minmax(2.5rem,0.8fr)_minmax(4.25rem,1.25fr)_minmax(6rem,1.8fr)_minmax(4rem,1.1fr)] items-start gap-4 sm:gap-5">
         {SEGMENTS.map((seg, i) => (
           <div key={i} className="grid grid-rows-[1.75rem_2.75rem_1.25rem] min-w-0 items-start gap-1">
             <span className="flex h-7 items-end justify-center text-center text-[10px] uppercase tracking-wider text-muted-foreground font-semibold leading-tight">
