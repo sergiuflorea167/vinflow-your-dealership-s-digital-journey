@@ -545,9 +545,11 @@ export interface GenerateOfferPdfArgs {
   vehicle: Vehicle;
   customer: Customer;
   companyName?: string;
+  pdfTheme?: PdfThemeKey;
 }
 
-export const generateOfferPdf = ({ offer, vehicle, customer, companyName = "VINflow Autohaus GmbH" }: GenerateOfferPdfArgs): jsPDF => {
+export const generateOfferPdf = ({ offer, vehicle, customer, companyName = "VINflow Autohaus GmbH", pdfTheme }: GenerateOfferPdfArgs): jsPDF => {
+  applyPdfTheme(pdfTheme);
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const docNumber = `${offer.id} · ANGEBOT`;
   drawHeader(doc, "Angebot", `Angebots-Nr. ${offer.id}`, docNumber, companyName);
