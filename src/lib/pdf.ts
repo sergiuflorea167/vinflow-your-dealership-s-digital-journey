@@ -231,6 +231,25 @@ const drawTextBlock = (doc: jsPDF, text: string, y: number, options?: { fontSize
   return y + lines.length * (options?.fontSize ?? 9) * 0.4;
 };
 
+const drawDeliveryCallout = (doc: jsPDF, deliveryDate: string | undefined, y: number) => {
+  const w = PAGE.w - 2 * PAGE.margin;
+  const h = 16;
+  setColor(doc, BRAND.primary, "fill");
+  doc.roundedRect(PAGE.margin, y, 3, h, 1, 1, "F");
+  setColor(doc, [243, 244, 252], "fill");
+  doc.roundedRect(PAGE.margin + 3, y, w - 3, h, 1.5, 1.5, "F");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(8);
+  setColor(doc, BRAND.primary);
+  doc.text("LIEFERTERMIN", PAGE.margin + 8, y + 6);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(13);
+  setColor(doc, BRAND.ink);
+  doc.text(deliveryDate ? formatDate(deliveryDate) : "nach Vereinbarung", PAGE.margin + 8, y + 13);
+  return y + h + 4;
+};
+
+
 const drawTodos = (doc: jsPDF, todos: { title: string }[], y: number, title: string) => {
   if (!todos.length) return y;
   drawSectionTitle(doc, title, y);
