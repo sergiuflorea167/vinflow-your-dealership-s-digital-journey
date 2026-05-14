@@ -89,7 +89,7 @@ export const VehicleIntakeDialog = ({ open, onOpenChange, locations, preset, tit
       if (d.displacement_l) setDisplacement(Number(d.displacement_l));
       if (Array.isArray(d.features)) setFeatures(d.features);
       const conf = typeof d.confidence === "number" ? Math.round(d.confidence * 100) : null;
-      const src = d.source === "freevindecoder+ai" ? "FreeVINDecoder + KI" : d.source === "freevindecoder" ? "FreeVINDecoder" : "KI-Schätzung";
+      const src = "freevindecoder.eu";
       toast.success(
         `VIN gescannt via ${src}${conf !== null ? ` · ${conf}% Sicherheit` : ""}. Bitte prüfen.`,
       );
