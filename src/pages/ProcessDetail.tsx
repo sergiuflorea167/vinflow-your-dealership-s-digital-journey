@@ -51,6 +51,23 @@ const ProcessDetail = () => {
 
   const selectedKey = selected ?? process?.currentStep ?? "offer";
 
+  // Auto-Vergabe von Beleg-Nummern (Rechnung & Kaufvertrag)
+  const allProcesses = useProcessStore((s) => s.processes);
+  useEffect(() => {
+    if (!process) return;
+    const isCurrent = process.currentStep === selectedKey;
+    const record = process.steps[selectedKey];
+    const editable = isCurrent && record?.status !== "completed" && record?.status !== "skipped" && !record?.bookedAt;
+    if (!editable) return;
+    if (selectedKey === "invoicing" && !process.fields.invoicing?.invoiceNumber) {
+      updateFields(process.id, { invoicing: { ...process.fields.invoicing, invoiceNumber: nextInvoiceNumber(allProcesses) } });
+    }
+    if (selectedKey === "purchase_contract" && !process.fields.purchaseContract?.contractNumber) {
+      updateFields(process.id, { purchaseContract: { ...process.fields.purchaseContract, contractNumber: nextContractNumber(allProcesses) } });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedKey, process?.id, process?.fields.invoicing?.invoiceNumber, process?.fields.purchaseContract?.contractNumber]);
+
   const checklistDone = process?.outboundChecklist.filter((c) => c.done).length ?? 0;
   const checklistTotal = process?.outboundChecklist.length ?? 0;
 
