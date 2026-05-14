@@ -34,6 +34,7 @@ const ProcessDetail = () => {
   const allActivities = useProcessStore((s) => s.activities);
   const activities = useMemo(() => allActivities.filter((a) => a.processId === process?.id), [allActivities, process?.id]);
   const companyName = useProcessStore((s) => s.settings.companyName);
+  const pdfTheme = useProcessStore((s) => s.settings.pdfTheme);
 
   const completeStep = useProcessStore((s) => s.completeStep);
   const skipStep = useProcessStore((s) => s.skipStep);
@@ -123,7 +124,7 @@ const ProcessDetail = () => {
   };
 
   const handleDownload = (key: ProcessStepKey) => {
-    downloadBelegPdf({ process, vehicle, customer, offer, stepKey: key, companyName });
+    downloadBelegPdf({ process, vehicle, customer, offer, stepKey: key, companyName, pdfTheme });
     toast.success("PDF heruntergeladen.");
   };
 

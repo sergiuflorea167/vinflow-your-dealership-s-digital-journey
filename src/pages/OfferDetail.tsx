@@ -36,6 +36,7 @@ const OfferDetail = () => {
     offer ? s.processes.find((p) => p.acceptedOfferId === offer.id) : undefined
   );
   const companyName = useProcessStore((s) => s.settings.companyName);
+  const pdfTheme = useProcessStore((s) => s.settings.pdfTheme);
 
   const updateOffer = useProcessStore((s) => s.updateOffer);
   const updateOfferStatus = useProcessStore((s) => s.updateOfferStatus);
@@ -100,7 +101,7 @@ const OfferDetail = () => {
     // sicherstellen, dass die letzten Eingaben drin sind
     if (isDirty) persist();
     const fresh = useProcessStore.getState().offers.find((o) => o.id === offer.id) ?? offer;
-    downloadOfferPdf({ offer: fresh, vehicle, customer, companyName });
+    downloadOfferPdf({ offer: fresh, vehicle, customer, companyName, pdfTheme });
     toast.success("Angebots-PDF heruntergeladen.");
   };
 

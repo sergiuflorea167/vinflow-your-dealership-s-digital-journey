@@ -11,7 +11,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { User, Settings as SettingsIcon, LogOut, Camera, Mail, Phone, Briefcase } from "lucide-react";
+import { User, Settings as SettingsIcon, LogOut, Camera, Mail, Phone, Briefcase, Palette, Check } from "lucide-react";
+import { PDF_THEMES } from "@/lib/pdf";
+import { cn } from "@/lib/utils";
 import { Link } from "react-router-dom";
 import { toast } from "sonner";
 import { useT } from "@/lib/i18n";
@@ -156,6 +158,41 @@ export const UserMenu = () => {
             <div className="col-span-2">
               <Label className="text-xs">{t("profile.company")}</Label>
               <Input value={draft.companyName} onChange={(e) => setDraft({ ...draft, companyName: e.target.value })} />
+            </div>
+
+            <div className="col-span-2 pt-2">
+              <Label className="text-xs flex items-center gap-1.5 mb-2">
+                <Palette className="size-3" /> Beleg-Farbschema (PDF)
+              </Label>
+              <p className="text-[11px] text-muted-foreground mb-3">
+                Wähle ein Farbschema, das zu deinem Unternehmen passt. Es wird auf alle Kunden-PDFs angewendet.
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                {PDF_THEMES.map((th) => {
+                  const active = (draft.pdfTheme ?? "indigo") === th.key;
+                  const rgb = (c: [number, number, number]) => `rgb(${c[0]},${c[1]},${c[2]})`;
+                  return (
+                    <button
+                      key={th.key}
+                      type="button"
+                      onClick={() => setDraft({ ...draft, pdfTheme: th.key })}
+                      className={cn(
+                        "relative text-left rounded-lg border p-3 transition-smooth hover:border-primary/60",
+                        active ? "border-primary ring-2 ring-primary/30 bg-primary/5" : "border-border bg-card"
+                      )}
+                    >
+                      <div className="flex items-center gap-1.5 mb-2">
+                        <span className="size-4 rounded-full border border-border" style={{ background: rgb(th.primaryDark) }} />
+                        <span className="size-4 rounded-full border border-border" style={{ background: rgb(th.primary) }} />
+                        <span className="size-4 rounded-full border border-border" style={{ background: rgb(th.light) }} />
+                        {active && <Check className="size-3.5 ml-auto text-primary" />}
+                      </div>
+                      <p className="text-xs font-semibold leading-tight">{th.label}</p>
+                      <p className="text-[10px] text-muted-foreground leading-snug mt-0.5">{th.description}</p>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
 

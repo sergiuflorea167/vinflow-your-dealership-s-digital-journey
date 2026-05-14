@@ -511,6 +511,7 @@ export interface Settings {
   phone?: string;
   role?: string;
   avatarUrl?: string;
+  pdfTheme?: string;
 }
 
 // ---------- Helpers ----------
@@ -1499,6 +1500,7 @@ export const DEFAULT_SETTINGS: Settings = {
   role: "Geschäftsführer",
   avatarUrl: "",
   companyName: "VINflow Autohaus GmbH",
+  pdfTheme: "indigo",
   locations: [
     "Hof A · Platz 01", "Hof A · Platz 02", "Hof A · Platz 03", "Hof A · Platz 04", "Hof A · Platz 05",
     "Hof A · Platz 06", "Hof A · Platz 07", "Hof A · Platz 08", "Hof A · Platz 09", "Hof A · Platz 10",
