@@ -115,17 +115,12 @@ export const VehicleIntakeDialog = ({ open, onOpenChange, locations, preset, tit
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
+  // Nur das Nötigste ist Pflicht – Rest kann später ergänzt werden.
   const valid =
     make.trim().length > 0 &&
     model.trim().length > 0 &&
-    year > 1950 &&
     vin.length >= 11 &&
-    color.trim().length > 0 &&
-    mileage >= 0 &&
-    firstReg &&
-    purchasePrice > 0 &&
-    listPrice > 0 &&
-    location;
+    !!location;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -134,14 +129,6 @@ export const VehicleIntakeDialog = ({ open, onOpenChange, locations, preset, tit
           <DialogTitle>{title ?? "Fahrzeug in den Bestand aufnehmen"}</DialogTitle>
         </DialogHeader>
         <div className="grid grid-cols-2 gap-3 py-2 max-h-[65vh] overflow-y-auto pr-1">
-          <FormField label="Fahrzeugtyp *" full>
-            <select value={type} onChange={(e) => setType(e.target.value as VehicleType)} className="w-full h-10 rounded-md border border-input bg-background/40 px-3 text-sm">
-              {Object.entries(VEHICLE_TYPE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-            </select>
-          </FormField>
-          <FormField label="Marke *"><Input value={make} onChange={(e) => setMake(e.target.value)} placeholder="z. B. BMW" /></FormField>
-          <FormField label="Modell *"><Input value={model} onChange={(e) => setModel(e.target.value)} placeholder="z. B. X3 xDrive30d" /></FormField>
-          <FormField label="Baujahr *"><Input type="number" value={year} onChange={(e) => setYear(Number(e.target.value))} /></FormField>
           <FormField label="VIN (17-stellig) *" full>
             <div className="flex gap-2">
               <Input value={vin} onChange={(e) => setVin(e.target.value.toUpperCase())} placeholder="WBA8E9G50GNT12345" maxLength={17} className="font-mono flex-1" />
@@ -160,28 +147,41 @@ export const VehicleIntakeDialog = ({ open, onOpenChange, locations, preset, tit
               <Sparkles className="size-3" /> Füllt Marke, Modell, Baujahr, Motor & Ausstattung automatisch.
             </p>
           </FormField>
-          <FormField label="Farbe *"><Input value={color} onChange={(e) => setColor(e.target.value)} placeholder="z. B. Mineralweiß" /></FormField>
-          <FormField label="Kilometer *"><Input type="number" value={mileage || ""} onChange={(e) => setMileage(Number(e.target.value))} /></FormField>
-          <FormField label="Kraftstoff *">
-            <select value={fuel} onChange={(e) => setFuel(e.target.value as FuelType)} className="w-full h-10 rounded-md border border-input bg-background/40 px-3 text-sm">
-              {(["Benzin","Diesel","Hybrid","Elektro","Plug-in-Hybrid","Gas"] as FuelType[]).map((f) => <option key={f} value={f}>{f}</option>)}
-            </select>
-          </FormField>
-          <FormField label="Getriebe *">
-            <select value={transmission} onChange={(e) => setTransmission(e.target.value as Transmission)} className="w-full h-10 rounded-md border border-input bg-background/40 px-3 text-sm">
-              {(["Schaltgetriebe","Automatik","DKG","CVT"] as Transmission[]).map((f) => <option key={f} value={f}>{f}</option>)}
-            </select>
-          </FormField>
-          <FormField label="Leistung (PS) *"><Input type="number" value={hp || ""} onChange={(e) => setHp(Number(e.target.value))} /></FormField>
-          <FormField label="Erstzulassung *"><Input type="date" value={firstReg} onChange={(e) => setFirstReg(e.target.value)} /></FormField>
-          <FormField label="HU/TÜV gültig bis"><Input type="date" value={hu} onChange={(e) => setHu(e.target.value)} /></FormField>
-          <FormField label="Einkaufspreis brutto (EUR) *"><Input type="number" value={purchasePrice || ""} onChange={(e) => setPurchasePrice(Number(e.target.value))} /></FormField>
-          <FormField label="Listenpreis brutto (EUR) *"><Input type="number" value={listPrice || ""} onChange={(e) => setListPrice(Number(e.target.value))} /></FormField>
+          <FormField label="Marke *"><Input value={make} onChange={(e) => setMake(e.target.value)} placeholder="z. B. BMW" /></FormField>
+          <FormField label="Modell *"><Input value={model} onChange={(e) => setModel(e.target.value)} placeholder="z. B. X3 xDrive30d" /></FormField>
           <FormField label="Stellplatz *" full>
             <select value={location} onChange={(e) => setLocation(e.target.value)} className="w-full h-10 rounded-md border border-input bg-background/40 px-3 text-sm">
               {locations.map((l) => <option key={l} value={l}>{l}</option>)}
             </select>
           </FormField>
+
+          <div className="col-span-2 mt-2 mb-1 text-[11px] uppercase tracking-widest text-muted-foreground font-semibold">
+            Optional · kann später ergänzt werden
+          </div>
+
+          <FormField label="Fahrzeugtyp" full>
+            <select value={type} onChange={(e) => setType(e.target.value as VehicleType)} className="w-full h-10 rounded-md border border-input bg-background/40 px-3 text-sm">
+              {Object.entries(VEHICLE_TYPE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+            </select>
+          </FormField>
+          <FormField label="Baujahr"><Input type="number" value={year || ""} onChange={(e) => setYear(Number(e.target.value))} /></FormField>
+          <FormField label="Farbe"><Input value={color} onChange={(e) => setColor(e.target.value)} placeholder="z. B. Mineralweiß" /></FormField>
+          <FormField label="Kilometer"><Input type="number" value={mileage || ""} onChange={(e) => setMileage(Number(e.target.value))} /></FormField>
+          <FormField label="Kraftstoff">
+            <select value={fuel} onChange={(e) => setFuel(e.target.value as FuelType)} className="w-full h-10 rounded-md border border-input bg-background/40 px-3 text-sm">
+              {(["Benzin","Diesel","Hybrid","Elektro","Plug-in-Hybrid","Gas"] as FuelType[]).map((f) => <option key={f} value={f}>{f}</option>)}
+            </select>
+          </FormField>
+          <FormField label="Getriebe">
+            <select value={transmission} onChange={(e) => setTransmission(e.target.value as Transmission)} className="w-full h-10 rounded-md border border-input bg-background/40 px-3 text-sm">
+              {(["Schaltgetriebe","Automatik","DKG","CVT"] as Transmission[]).map((f) => <option key={f} value={f}>{f}</option>)}
+            </select>
+          </FormField>
+          <FormField label="Leistung (PS)"><Input type="number" value={hp || ""} onChange={(e) => setHp(Number(e.target.value))} /></FormField>
+          <FormField label="Erstzulassung"><Input type="date" value={firstReg} onChange={(e) => setFirstReg(e.target.value)} /></FormField>
+          <FormField label="HU/TÜV gültig bis"><Input type="date" value={hu} onChange={(e) => setHu(e.target.value)} /></FormField>
+          <FormField label="Einkaufspreis brutto (EUR)"><Input type="number" value={purchasePrice || ""} onChange={(e) => setPurchasePrice(Number(e.target.value))} /></FormField>
+          <FormField label="Listenpreis brutto (EUR)"><Input type="number" value={listPrice || ""} onChange={(e) => setListPrice(Number(e.target.value))} /></FormField>
           {features.length > 0 && (
             <FormField label="Erkannte Ausstattung & Merkmale" full>
               <div className="flex flex-wrap gap-1.5 rounded-md border border-primary/30 bg-primary/5 p-2.5">
