@@ -239,4 +239,158 @@ const Customers = () => {
   );
 };
 
+const CustomerDetailDialog = ({ customerId, onClose }: { customerId: string | null; onClose: () => void }) => {
+  const customer = useProcessStore((s) => (customerId ? s.customers.find((c) => c.id === customerId) : undefined));
+  const offers = useProcessStore((s) => s.offers.filter((o) => o.customerId === customerId));
+  const processes = useProcessStore((s) => s.processes.filter((p) => p.customerId === customerId));
+  const getVehicle = useProcessStore((s) => s.getVehicle);
+  const activities = useProcessStore((s) =>
+    s.activities.filter((a) => a.customerId === customerId).slice(0, 8)
+  );
+
+  const open = !!customer;
+  if (!customer) {
+    return (
+      <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+        <DialogContent />
+      </Dialog>
+    );
+  }
+
+  const totalValue = processes.reduce((s, p) => s + (p.fields.finalPrice ?? 0), 0);
+  const accessCode = buildCustomerAccessCode(customer);
+  const birthDate = getCustomerBirthDate(customer);
+  const isAutoBirthDate = !customer.birthDate;
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-3xl max-h-[88vh] overflow-y-auto">
+        <DialogHeader>
+          <div className="flex items-start gap-3">
+            <div className="size-12 rounded-xl bg-gradient-brand grid place-items-center text-primary-foreground font-display font-bold">
+              {customer.name.split(" ").map((n) => n[0]).slice(0, 2).join("")}
+            </div>
+            <div className="flex-1 min-w-0">
+              <DialogTitle className="font-display text-xl">{customer.name}</DialogTitle>
+              <DialogDescription className="font-mono text-xs">{customer.id}</DialogDescription>
+            </div>
+          </div>
+        </DialogHeader>
+
+        <div className="grid sm:grid-cols-2 gap-3 mt-2">
+          <DetailRow icon={<Mail className="size-4" />} label="E-Mail" value={customer.email} />
+          <DetailRow icon={<Phone className="size-4" />} label="Telefon" value={customer.phone} />
+          <DetailRow
+            icon={<MapPin className="size-4" />}
+            label="Adresse"
+            value={[customer.street, [customer.zip, customer.city].filter(Boolean).join(" ")].filter(Boolean).join(", ") || "–"}
+          />
+          <DetailRow
+            icon={<CalendarIcon className="size-4" />}
+            label={isAutoBirthDate ? "Geburtsdatum (auto)" : "Geburtsdatum"}
+            value={formatDate(birthDate)}
+          />
+        </div>
+
+        <Card className="p-4 mt-2 bg-primary/5 border-primary/20">
+          <div className="flex items-center gap-2 text-xs uppercase tracking-widest text-primary-glow font-semibold mb-1">
+            <KeyRound className="size-3.5" /> Portal-Zugangscode
+          </div>
+          <p className="font-mono text-lg font-bold tracking-widest">{accessCode}</p>
+          <p className="text-[11px] text-muted-foreground mt-1">
+            Wird vom Kunden zur Freischaltung des Tracking-Links benötigt.
+          </p>
+        </Card>
+
+        <div className="grid sm:grid-cols-3 gap-3 mt-2">
+          <StatBox label="Angebote" value={offers.length} />
+          <StatBox label="Vorgänge" value={processes.length} />
+          <StatBox label="Auftragswert" value={totalValue > 0 ? formatCurrency(totalValue) : "–"} />
+        </div>
+
+        {processes.length > 0 && (
+          <section className="mt-4">
+            <h3 className="font-display font-semibold text-sm mb-2 flex items-center gap-2">
+              <Briefcase className="size-4 text-primary-glow" /> Vorgänge
+            </h3>
+            <div className="space-y-2">
+              {processes.map((p) => {
+                const v = getVehicle(p.vehicleId);
+                return (
+                  <Link
+                    key={p.id}
+                    to={`/vorgaenge/${p.id}`}
+                    onClick={onClose}
+                    className="flex items-center justify-between gap-3 p-3 rounded-lg bg-card border border-border hover:border-primary/40 transition-smooth"
+                  >
+                    <div className="min-w-0">
+                      <p className="font-mono text-xs">{p.id}</p>
+                      <p className="text-sm font-medium truncate">
+                        {v ? `${v.make} ${v.model}` : "—"}
+                      </p>
+                    </div>
+                    <div className="text-right text-xs text-muted-foreground">
+                      <p className="text-foreground font-semibold">{formatCurrency(p.fields.finalPrice ?? 0)}</p>
+                      <p>{formatDate(p.createdAt)}</p>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+        {offers.length > 0 && (
+          <section className="mt-4">
+            <h3 className="font-display font-semibold text-sm mb-2 flex items-center gap-2">
+              <FileText className="size-4 text-primary-glow" /> Angebote
+            </h3>
+            <div className="space-y-2">
+              {offers.map((o) => {
+                const v = getVehicle(o.vehicleId);
+                return (
+                  <div key={o.id} className="flex items-center justify-between gap-3 p-3 rounded-lg bg-card border border-border">
+                    <div className="min-w-0">
+                      <p className="font-mono text-xs">{o.id}</p>
+                      <p className="text-sm font-medium truncate">{v ? `${v.make} ${v.model}` : "—"}</p>
+                    </div>
+                    <div className="text-right text-xs">
+                      <p className="text-foreground font-semibold">{formatCurrency(o.price)}</p>
+                      <Badge variant="outline" className="mt-1 text-[10px]">{o.status}</Badge>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+        {activities.length > 0 && (
+          <section className="mt-4">
+            <h3 className="font-display font-semibold text-sm mb-2">Letzte Aktivitäten</h3>
+            <ActivityLog activities={activities} />
+          </section>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+};
+
+const DetailRow = ({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) => (
+  <div className="flex items-start gap-2 p-3 rounded-lg bg-card border border-border">
+    <div className="text-primary-glow mt-0.5">{icon}</div>
+    <div className="min-w-0">
+      <p className="text-[10px] uppercase tracking-widest text-muted-foreground">{label}</p>
+      <p className="text-sm text-foreground break-words">{value}</p>
+    </div>
+  </div>
+);
+
+const StatBox = ({ label, value }: { label: string; value: string | number }) => (
+  <div className="rounded-lg bg-card border border-border p-3 text-center">
+    <p className="text-[10px] uppercase tracking-widest text-muted-foreground">{label}</p>
+    <p className="font-display font-bold text-lg text-foreground mt-1">{value}</p>
+  </div>
+);
+
 export default Customers;
