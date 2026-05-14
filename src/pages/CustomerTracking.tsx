@@ -455,10 +455,14 @@ const SegmentedCodeInput = ({
       }}
       className="space-y-3"
     >
-      <div className="grid w-full grid-cols-[minmax(2.5rem,0.8fr)_minmax(2.5rem,0.8fr)_minmax(2.5rem,0.8fr)_minmax(4.25rem,1.25fr)_minmax(6rem,1.8fr)_minmax(4rem,1.1fr)] items-start gap-4 sm:gap-5">
+      <div className="flex w-full items-start justify-center gap-3 sm:gap-4 flex-nowrap">
         {SEGMENTS.map((seg, i) => (
-          <div key={i} className="grid grid-rows-[1.75rem_2.75rem_1.25rem] min-w-0 items-start gap-1">
-            <span className="flex h-7 items-end justify-center text-center text-[10px] uppercase tracking-wider text-muted-foreground font-semibold leading-tight">
+          <div
+            key={i}
+            className="flex flex-col items-center gap-1 min-w-0"
+            style={{ flex: `${seg.length} ${seg.length} 0` }}
+          >
+            <span className="h-7 flex items-end text-center text-[10px] uppercase tracking-wider text-muted-foreground font-semibold leading-tight">
               {seg.label}
             </span>
             <input
@@ -478,7 +482,7 @@ const SegmentedCodeInput = ({
                 error ? "border-destructive/60" : "border-border",
               )}
             />
-            <span className="text-center text-[9px] text-muted-foreground leading-tight">{seg.hint}</span>
+            <span className="h-8 text-center text-[9px] text-muted-foreground leading-tight">{seg.hint}</span>
           </div>
         ))}
       </div>
