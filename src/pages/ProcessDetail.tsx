@@ -306,6 +306,10 @@ const ProcessDetail = () => {
               customerEmail={customer.email}
               vehicleLabel={`${vehicle.make} ${vehicle.model}`}
               companyName={companyName}
+              process={process}
+              vehicle={vehicle}
+              customer={customer}
+              offer={offer}
             />
 
             <Card className="p-6 bg-card border-border shadow-card">
