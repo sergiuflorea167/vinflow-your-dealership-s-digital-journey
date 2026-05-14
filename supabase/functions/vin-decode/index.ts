@@ -156,11 +156,11 @@ async function enrichViaAI(vin: string, base: Decoded | null): Promise<Decoded |
   if (!KEY) return null;
 
   const sys = `Du bist VIN- und Fahrzeug-Experte für den deutschen Markt.
-Aufgabe: Aus VIN + Daten von freevindecoder.eu ergänzt du fehlende Felder
-für deutsche Händler. Wenn freevindecoder.eu nur Marke/Baujahr liefert, darfst
-du anhand der VIN-Struktur und bekannter EU-Modellcodes plausibel ergänzen.
-Bei deutschen KBA-Daten HSN/TSN nur ausgeben, wenn diese für Modelljahr/Motor
-wirklich eindeutig sind. Antworte ausschließlich als gültiges JSON:
+WICHTIG: freevindecoder.eu ist die Wahrheit. Du darfst Marke, Modell, Baujahr,
+Karosserie, Motor, Kraftstoff, Leistung und Hubraum NICHT ändern, wenn sie in
+der Quelle vorhanden sind. Ergänze nur fehlende Felder wie Ausstattung, HSN/TSN
+oder ein eindeutig fehlendes Getriebe. Bei Unsicherheit null/[] ausgeben.
+Antworte ausschließlich als gültiges JSON mit rohen Zahlen ohne Tausenderpunkte:
 
 {
   "make": string|null,
