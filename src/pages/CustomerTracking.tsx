@@ -95,18 +95,18 @@ const CustomerTracking = () => {
   if (!unlocked) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/10 grid place-items-center p-6">
-        <div className="w-full max-w-md rounded-2xl bg-card border border-border shadow-card p-6 sm:p-8 space-y-5">
-          <div className="flex items-center gap-3">
-            <div className="size-11 rounded-xl bg-primary/15 grid place-items-center text-primary-glow">
-              <Lock className="size-5" />
+        <div className="w-full max-w-2xl rounded-2xl bg-card border border-border shadow-card p-8 sm:p-12 space-y-8">
+          <div className="flex items-center gap-4">
+            <div className="size-12 rounded-xl bg-primary/15 grid place-items-center text-primary-glow">
+              <Lock className="size-6" />
             </div>
             <div>
-              <h1 className="font-display text-xl font-bold">Sicherheits-Code</h1>
-              <p className="text-xs text-muted-foreground">Bitte geben Sie Ihren persönlichen Zugangscode ein.</p>
+              <h1 className="font-display text-2xl font-bold">Sicherheits-Code</h1>
+              <p className="text-sm text-muted-foreground mt-1">Bitte geben Sie Ihren persönlichen Zugangscode ein.</p>
             </div>
           </div>
 
-          <p className="text-xs text-muted-foreground">
+          <p className="text-sm text-muted-foreground">
             Geben Sie Ihren persönlichen Code Zelle für Zelle ein – jede Zelle ist beschriftet.
           </p>
 
@@ -122,7 +122,7 @@ const CustomerTracking = () => {
             error={codeError}
           />
 
-          <p className="text-[11px] text-muted-foreground text-center">
+          <p className="text-xs text-muted-foreground text-center">
             Aus Sicherheitsgründen geschützt. Bei Problemen wenden Sie sich bitte an Ihren Händler.
           </p>
         </div>
@@ -453,16 +453,16 @@ const SegmentedCodeInput = ({
         e.preventDefault();
         onSubmit(values.join(""));
       }}
-      className="space-y-3"
+      className="space-y-5"
     >
       <div className="flex w-full items-stretch justify-between gap-0 flex-nowrap">
         {SEGMENTS.map((seg, i) => (
           <React.Fragment key={i}>
             <div
-              className="flex flex-col items-center gap-3 min-w-0 px-3 sm:px-5"
+              className="flex flex-col items-center gap-4 min-w-0 px-4 sm:px-6"
               style={{ flex: `${seg.length} ${seg.length} 0` }}
             >
-              <span className="h-9 flex items-end text-center text-[10px] uppercase tracking-wider text-muted-foreground font-semibold leading-tight">
+              <span className="h-10 flex items-end text-center text-[11px] uppercase tracking-wider text-muted-foreground font-semibold leading-tight">
                 {seg.label}
               </span>
               <input
@@ -476,12 +476,12 @@ const SegmentedCodeInput = ({
                 maxLength={seg.length}
                 aria-label={seg.label}
                 className={cn(
-                  "h-11 w-full rounded-md border bg-background text-center font-mono font-bold text-base uppercase px-1",
+                  "h-14 w-full rounded-md border bg-background text-center font-mono font-bold text-lg uppercase px-1",
                   "focus:outline-none focus:ring-2 focus:ring-primary/60 focus:border-primary",
                   error ? "border-destructive/60" : "border-border",
                 )}
               />
-              <span className="h-10 text-center text-[10px] text-muted-foreground leading-tight">{seg.hint}</span>
+              <span className="h-10 text-center text-[11px] text-muted-foreground leading-tight">{seg.hint}</span>
             </div>
             {i < SEGMENTS.length - 1 && (
               <div className="w-px self-stretch bg-border/60" aria-hidden="true" />
