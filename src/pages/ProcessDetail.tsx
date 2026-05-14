@@ -18,7 +18,7 @@ import {
 import { useProcessStore } from "@/store/processStore";
 import {
   PROCESS_STEPS, ProcessStepKey, ProcessFields, formatCurrency, formatDate, stepIndex,
-  nextInvoiceNumber, nextContractNumber,
+  nextInvoiceNumber, nextContractNumber, nextDownPaymentInvoiceNumber,
 } from "@/data/process";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -62,11 +62,14 @@ const ProcessDetail = () => {
     if (selectedKey === "invoicing" && !process.fields.invoicing?.invoiceNumber) {
       updateFields(process.id, { invoicing: { ...process.fields.invoicing, invoiceNumber: nextInvoiceNumber(allProcesses) } });
     }
+    if (selectedKey === "down_payment" && !process.fields.downPayment?.invoiceNumber) {
+      updateFields(process.id, { downPayment: { ...process.fields.downPayment, invoiceNumber: nextDownPaymentInvoiceNumber(allProcesses) } });
+    }
     if (selectedKey === "purchase_contract" && !process.fields.purchaseContract?.contractNumber) {
       updateFields(process.id, { purchaseContract: { ...process.fields.purchaseContract, contractNumber: nextContractNumber(allProcesses) } });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedKey, process?.id, process?.fields.invoicing?.invoiceNumber, process?.fields.purchaseContract?.contractNumber]);
+  }, [selectedKey, process?.id, process?.fields.invoicing?.invoiceNumber, process?.fields.downPayment?.invoiceNumber, process?.fields.purchaseContract?.contractNumber]);
 
   const checklistDone = process?.outboundChecklist.filter((c) => c.done).length ?? 0;
   const checklistTotal = process?.outboundChecklist.length ?? 0;
@@ -388,11 +391,16 @@ const StepFields = ({ stepKey, fields, onChange, disabled }: { stepKey: ProcessS
   if (stepKey === "offer") return null;
   if (stepKey === "down_payment") {
     return (
-      <FieldGrid title="Anzahlung">
+      <FieldGrid title="Anzahlungsrechnung">
+        <TextField label="Anzahlungs-Rechn.-Nr. (automatisch)" value={fields.downPayment?.invoiceNumber} onChange={() => {}} disabled placeholder="wird automatisch vergeben" />
+        <DateField label="Rechnungsdatum *" value={fields.downPayment?.invoiceDate} onChange={(v) => onChange({ downPayment: { ...fields.downPayment, invoiceDate: v } })} disabled={disabled} />
         <NumberField label="Anzahlungsbetrag (EUR) *" value={fields.downPayment?.amount} onChange={(v) => onChange({ downPayment: { ...fields.downPayment, amount: v } })} disabled={disabled} />
-        <DateField label="Fälligkeit *" value={fields.downPayment?.dueDate} onChange={(v) => onChange({ downPayment: { ...fields.downPayment, dueDate: v } })} disabled={disabled} />
+        <DateField label="Fällig am *" value={fields.downPayment?.dueDate} onChange={(v) => onChange({ downPayment: { ...fields.downPayment, dueDate: v } })} disabled={disabled} />
         <SelectField label="Zahlungsart *" value={fields.downPayment?.method ?? ""} options={["Überweisung", "Bar", "EC"]} onChange={(v) => onChange({ downPayment: { ...fields.downPayment, method: v as any } })} disabled={disabled} />
-        <CheckboxField label="Zahlung eingegangen" checked={!!fields.downPayment?.received} onChange={(v) => onChange({ downPayment: { ...fields.downPayment, received: v, receivedDate: v ? new Date().toISOString().slice(0, 10) : undefined } })} disabled={disabled} />
+        <CheckboxField label="Zahlung eingegangen *" checked={!!fields.downPayment?.received} onChange={(v) => onChange({ downPayment: { ...fields.downPayment, received: v, receivedDate: v ? new Date().toISOString().slice(0, 10) : undefined } })} disabled={disabled} />
+        {fields.downPayment?.received && (
+          <DateField label="Zahlungseingang am" value={fields.downPayment?.receivedDate} onChange={(v) => onChange({ downPayment: { ...fields.downPayment, receivedDate: v } })} disabled={disabled} />
+        )}
       </FieldGrid>
     );
   }
@@ -411,6 +419,10 @@ const StepFields = ({ stepKey, fields, onChange, disabled }: { stepKey: ProcessS
         <TextField label="Rechnungs-Nr. (automatisch)" value={fields.invoicing?.invoiceNumber} onChange={() => {}} disabled placeholder="wird automatisch vergeben" />
         <DateField label="Rechnungsdatum *" value={fields.invoicing?.invoiceDate} onChange={(v) => onChange({ invoicing: { ...fields.invoicing, invoiceDate: v } })} disabled={disabled} />
         <DateField label="Fällig am *" value={fields.invoicing?.dueDate} onChange={(v) => onChange({ invoicing: { ...fields.invoicing, dueDate: v } })} disabled={disabled} />
+        <CheckboxField label="Zahlung eingegangen *" checked={!!fields.invoicing?.paid} onChange={(v) => onChange({ invoicing: { ...fields.invoicing, paid: v, paidDate: v ? new Date().toISOString().slice(0, 10) : undefined } })} disabled={disabled} />
+        {fields.invoicing?.paid && (
+          <DateField label="Zahlungseingang am" value={fields.invoicing?.paidDate} onChange={(v) => onChange({ invoicing: { ...fields.invoicing, paidDate: v } })} disabled={disabled} />
+        )}
       </FieldGrid>
     );
   }
@@ -442,7 +454,8 @@ const validateStep = (key: ProcessStepKey, f: ProcessFields, chkDone: number, ch
   if (key === "offer") return { ok: true };
   if (key === "down_payment") {
     const d = f.downPayment;
-    if (!d?.amount || !d.dueDate || !d.method) return { ok: false, message: "Anzahlungsbetrag, Fälligkeit und Zahlungsart erforderlich." };
+    if (!d?.invoiceNumber || !d.invoiceDate || !d.amount || !d.dueDate || !d.method) return { ok: false, message: "Rechnungsdatum, Anzahlungsbetrag, Fälligkeit und Zahlungsart erforderlich." };
+    if (!d.received) return { ok: false, message: "Anzahlungsrechnung muss als bezahlt markiert sein, bevor du weitergehst." };
     return { ok: true };
   }
   if (key === "order_confirmation") {
@@ -457,6 +470,7 @@ const validateStep = (key: ProcessStepKey, f: ProcessFields, chkDone: number, ch
   if (key === "invoicing") {
     const i = f.invoicing;
     if (!i?.invoiceNumber || !i.invoiceDate || !i.dueDate) return { ok: false, message: "Rechnungs-Nr., Datum & Fälligkeit erforderlich." };
+    if (!i.paid) return { ok: false, message: "Rechnung muss als bezahlt markiert sein, bevor du weitergehst." };
     return { ok: true };
   }
   if (key === "purchase_contract") {

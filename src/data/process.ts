@@ -364,6 +364,8 @@ export interface PurchasePlan {
 export interface ProcessFields {
   finalPrice?: number;
   downPayment?: {
+    invoiceNumber?: string;
+    invoiceDate?: string;
     amount?: number;
     dueDate?: string;
     method?: "Überweisung" | "Bar" | "EC";
@@ -379,6 +381,8 @@ export interface ProcessFields {
     invoiceNumber?: string;
     invoiceDate?: string;
     dueDate?: string;
+    paid?: boolean;
+    paidDate?: string;
   };
   purchaseContract?: {
     contractNumber?: string;
@@ -545,6 +549,9 @@ const nextSeqForPrefix = (processes: Process[], prefix: string, getter: (p: Proc
 
 export const nextInvoiceNumber = (processes: Process[]) =>
   nextSeqForPrefix(processes, "RE", (p) => p.fields.invoicing?.invoiceNumber);
+
+export const nextDownPaymentInvoiceNumber = (processes: Process[]) =>
+  nextSeqForPrefix(processes, "AR", (p) => p.fields.downPayment?.invoiceNumber);
 
 export const nextContractNumber = (processes: Process[]) =>
   nextSeqForPrefix(processes, "KV", (p) => p.fields.purchaseContract?.contractNumber);
