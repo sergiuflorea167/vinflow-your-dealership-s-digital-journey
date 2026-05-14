@@ -36,6 +36,7 @@ const OfferDetail = () => {
     offer ? s.processes.find((p) => p.acceptedOfferId === offer.id) : undefined
   );
   const companyName = useProcessStore((s) => s.settings.companyName);
+  const pdfTheme = useProcessStore((s) => s.settings.pdfTheme);
 
   const updateOffer = useProcessStore((s) => s.updateOffer);
   const updateOfferStatus = useProcessStore((s) => s.updateOfferStatus);
