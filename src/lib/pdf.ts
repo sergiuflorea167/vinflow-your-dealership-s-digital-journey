@@ -13,14 +13,79 @@ import {
 // VINflow PDF generator – premium layout with brand identity.
 // Midnight Indigo on white, Helvetica (jsPDF default), strict grid.
 
-const BRAND = {
-  primary: [79, 70, 229] as [number, number, number],
-  primaryDark: [30, 30, 90] as [number, number, number],
-  ink: [10, 10, 26] as [number, number, number],
-  muted: [120, 124, 145] as [number, number, number],
-  light: [240, 241, 248] as [number, number, number],
-  border: [220, 222, 235] as [number, number, number],
-  success: [38, 168, 110] as [number, number, number],
+type RGB = [number, number, number];
+
+export interface PdfTheme {
+  key: string;
+  label: string;
+  description: string;
+  primary: RGB;
+  primaryDark: RGB;
+  ink: RGB;
+  muted: RGB;
+  light: RGB;
+  border: RGB;
+  success: RGB;
+}
+
+export const PDF_THEMES: PdfTheme[] = [
+  {
+    key: "indigo",
+    label: "Midnight Indigo",
+    description: "Modern & technisch – passt zu Tech, Premium-Marken, jüngeren Händlern.",
+    primary: [79, 70, 229], primaryDark: [30, 30, 90], ink: [10, 10, 26],
+    muted: [120, 124, 145], light: [240, 241, 248], border: [220, 222, 235],
+    success: [38, 168, 110],
+  },
+  {
+    key: "graphite",
+    label: "Graphit & Stahl",
+    description: "Klassisch-seriös – passt zu Mehrmarkenhändlern und Werkstätten.",
+    primary: [55, 65, 81], primaryDark: [17, 24, 39], ink: [17, 17, 17],
+    muted: [115, 120, 130], light: [241, 243, 246], border: [220, 224, 230],
+    success: [38, 168, 110],
+  },
+  {
+    key: "navy_gold",
+    label: "Navy & Gold",
+    description: "Hochwertig & exklusiv – passt zu Luxus-, Oldtimer- oder Premium-Häusern.",
+    primary: [201, 168, 76], primaryDark: [15, 27, 61], ink: [12, 18, 36],
+    muted: [120, 124, 145], light: [248, 244, 232], border: [225, 218, 195],
+    success: [38, 168, 110],
+  },
+  {
+    key: "racing_red",
+    label: "Racing Red",
+    description: "Sportlich & dynamisch – passt zu Performance- und Sportwagen-Händlern.",
+    primary: [203, 35, 47], primaryDark: [40, 12, 16], ink: [20, 20, 22],
+    muted: [120, 120, 125], light: [250, 235, 236], border: [230, 215, 215],
+    success: [38, 168, 110],
+  },
+  {
+    key: "forest",
+    label: "Forest & Sage",
+    description: "Wertig & nachhaltig – passt zu E-Mobilität, Familienbetrieben.",
+    primary: [45, 106, 79], primaryDark: [20, 50, 36], ink: [16, 24, 20],
+    muted: [120, 130, 122], light: [235, 244, 238], border: [215, 228, 220],
+    success: [38, 168, 110],
+  },
+  {
+    key: "porcelain",
+    label: "Porzellan",
+    description: "Minimalistisch & ruhig – passt überall, neutral & zeitlos.",
+    primary: [60, 60, 70], primaryDark: [20, 20, 26], ink: [10, 10, 14],
+    muted: [130, 130, 138], light: [245, 245, 248], border: [225, 225, 230],
+    success: [38, 168, 110],
+  },
+];
+
+export type PdfThemeKey = string;
+
+let BRAND: Omit<PdfTheme, "key" | "label" | "description"> = PDF_THEMES[0];
+
+const applyPdfTheme = (key?: PdfThemeKey) => {
+  const t = PDF_THEMES.find((th) => th.key === key) ?? PDF_THEMES[0];
+  BRAND = t;
 };
 
 const PAGE = { w: 210, h: 297, margin: 18 };
