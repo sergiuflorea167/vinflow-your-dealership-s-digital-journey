@@ -482,11 +482,11 @@ const SegmentedCodeInput = ({
               maxLength={seg.length}
               aria-label={seg.label}
               className={cn(
-                "h-12 rounded-md border bg-background text-center font-mono font-bold text-lg uppercase",
+                "h-11 rounded-md border bg-background text-center font-mono font-bold text-base uppercase px-1",
                 "focus:outline-none focus:ring-2 focus:ring-primary/60 focus:border-primary",
                 error ? "border-destructive/60" : "border-border",
               )}
-              style={{ width: `${seg.length * 1.6 + 1}rem` }}
+              style={{ width: `${seg.length * 1.15 + 0.7}rem` }}
             />
             <span className="text-[9px] text-muted-foreground">{seg.hint}</span>
           </div>
