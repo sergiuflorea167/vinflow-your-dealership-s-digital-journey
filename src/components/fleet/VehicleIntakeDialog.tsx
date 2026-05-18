@@ -25,6 +25,8 @@ export interface VehicleIntakePayload {
   hu?: string;
   listPrice: number;
   purchasePrice: number;
+  /** true = Regelbesteuerung (19% MwSt.), false = Differenzbesteuerung (§ 25a UStG). */
+  vatReportable: boolean;
   arrivedAt: string;
   location: Vehicle["location"];
 }
