@@ -418,6 +418,15 @@ const Fleet = () => {
           setIntakeOpen(false);
         }}
       />
+
+      <FleetImportDialog
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        defaultLocation={locations[0] ?? "Hof A · Platz 01"}
+        onImport={(rows) => {
+          rows.forEach((data) => addVehicle({ ...data, status: "in_stock" }));
+        }}
+      />
     </AppShell>
   );
 };
