@@ -344,6 +344,25 @@ export interface GeneratePdfArgs {
   pdfTheme?: PdfThemeKey;
 }
 
+/**
+ * Liefert die korrekte umsatzsteuerliche Klausel für den Beleg.
+ * Differenzbesteuerung (§ 25a UStG) ist Standard für Gebrauchtfahrzeuge;
+ * Regelbesteuerung greift nur bei Neuwagen/Tageszulassungen oder wenn
+ * `vehicle.vatReportable === true` explizit gesetzt ist.
+ */
+export const isMarginTaxed = (vehicle: Vehicle): boolean => {
+  if (vehicle.vatReportable === true) return false;
+  if (vehicle.vatReportable === false) return true;
+  // Default je nach Zustand:
+  if (vehicle.condition === "Neu" || vehicle.condition === "Tageszulassung") return false;
+  return true;
+};
+
+export const taxationLine = (vehicle: Vehicle): string =>
+  isMarginTaxed(vehicle)
+    ? "Differenzbesteuert gemäß § 25a UStG · Umsatzsteuer wird nicht gesondert ausgewiesen."
+    : "Preis inkl. 19% MwSt.";
+
 export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, companyName = "VINflow Autohaus GmbH", pdfTheme }: GeneratePdfArgs): jsPDF => {
   applyPdfTheme(pdfTheme);
   const doc = new jsPDF({ unit: "mm", format: "a4" });
@@ -377,7 +396,7 @@ export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, c
       cursor += 6;
       drawSectionTitle(doc, "Konditionen", cursor); cursor += 6;
       cursor = drawTextBlock(doc,
-        `Gültigkeit: bis ${offer ? formatDate(offer.validUntil) : "—"}\nLieferung: nach Vereinbarung\nGewährleistung: 12 Monate gemäß BGB\nPreis inkl. 19% MwSt.`,
+        `Gültigkeit: bis ${offer ? formatDate(offer.validUntil) : "—"}\nLieferung: nach Vereinbarung\nGewährleistung: 12 Monate gemäß BGB\n${taxationLine(vehicle)}`,
         cursor);
       if (offer?.customerTodos.length) {
         cursor += 6;
@@ -400,7 +419,7 @@ export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, c
       cursor += 6;
       drawSectionTitle(doc, "Zahlungsdaten", cursor); cursor += 6;
       cursor = drawTextBlock(doc,
-        `Empfänger: ${companyName}\nIBAN: DE89 3704 0044 0532 0130 00\nBIC: COBADEFFXXX\nVerwendungszweck: ${dp?.invoiceNumber ?? process.id}\nRechnungsdatum: ${dp?.invoiceDate ? formatDate(dp.invoiceDate) : "—"}\nFällig: ${dp?.dueDate ? formatDate(dp.dueDate) : "sofort"}${dp?.received ? `\nZahlung eingegangen am: ${dp.receivedDate ? formatDate(dp.receivedDate) : "—"}` : ""}`,
+        `Empfänger: ${companyName}\nIBAN: DE89 3704 0044 0532 0130 00\nBIC: COBADEFFXXX\nVerwendungszweck: ${dp?.invoiceNumber ?? process.id}\nRechnungsdatum: ${dp?.invoiceDate ? formatDate(dp.invoiceDate) : "—"}\nFällig: ${dp?.dueDate ? formatDate(dp.dueDate) : "sofort"}${dp?.received ? `\nZahlung eingegangen am: ${dp.receivedDate ? formatDate(dp.receivedDate) : "—"}` : ""}\n${taxationLine(vehicle)}`,
         cursor);
       break;
     }
@@ -419,7 +438,7 @@ export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, c
       cursor += 6;
       drawSectionTitle(doc, "Eckdaten", cursor); cursor += 6;
       cursor = drawTextBlock(doc,
-        `Auftragsdatum: ${oc?.orderDate ? formatDate(oc.orderDate) : "—"}\nZahlungsbedingungen: ${oc?.paymentTerms ?? "Restzahlung bei Übergabe"}\nBereits geleistete Anzahlung: ${formatCurrency(process.fields.downPayment?.amount ?? 0)}`,
+        `Auftragsdatum: ${oc?.orderDate ? formatDate(oc.orderDate) : "—"}\nZahlungsbedingungen: ${oc?.paymentTerms ?? "Restzahlung bei Übergabe"}\nBereits geleistete Anzahlung: ${formatCurrency(process.fields.downPayment?.amount ?? 0)}\n${taxationLine(vehicle)}`,
         cursor);
       if (process.customerTodosOC.length) {
         cursor += 6;
@@ -477,7 +496,7 @@ export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, c
       cursor += 6;
       drawSectionTitle(doc, "Zahlungsdaten", cursor); cursor += 6;
       cursor = drawTextBlock(doc,
-        `Rechnungs-Nr.: ${inv?.invoiceNumber ?? "—"}\nRechnungsdatum: ${inv?.invoiceDate ? formatDate(inv.invoiceDate) : formatDate(new Date().toISOString())}\nFällig: ${inv?.dueDate ? formatDate(inv.dueDate) : "sofort"}\nIBAN: DE89 3704 0044 0532 0130 00 · Verwendungszweck: ${process.id}\nDer Restbetrag von ${formatCurrency(remaining)} ist bei Fahrzeugübergabe fällig.`,
+        `Rechnungs-Nr.: ${inv?.invoiceNumber ?? "—"}\nRechnungsdatum: ${inv?.invoiceDate ? formatDate(inv.invoiceDate) : formatDate(new Date().toISOString())}\nFällig: ${inv?.dueDate ? formatDate(inv.dueDate) : "sofort"}\nIBAN: DE89 3704 0044 0532 0130 00 · Verwendungszweck: ${process.id}\nDer Restbetrag von ${formatCurrency(remaining)} ist bei Fahrzeugübergabe fällig.\n${taxationLine(vehicle)}`,
         cursor);
       break;
     }
@@ -494,7 +513,7 @@ export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, c
       cursor += 6;
       drawSectionTitle(doc, "Vertragsdaten", cursor); cursor += 6;
       cursor = drawTextBlock(doc,
-        `Vertrags-Nr.: ${kv?.contractNumber ?? "—"}\nVertragsdatum: ${kv?.contractDate ? formatDate(kv.contractDate) : "—"}\nVertragsort: ${kv?.place ?? "—"}\nGewährleistung: ${kv?.warrantyMonths ?? 12} Monate gemäß BGB\nPreis inkl. 19% MwSt.\n\nDer Käufer erkennt mit seiner Unterschrift den Erhalt des Fahrzeuges samt Schlüsseln, Fahrzeugschein und Fahrzeugbrief sowie alle vereinbarten Leistungen an.`,
+        `Vertrags-Nr.: ${kv?.contractNumber ?? "—"}\nVertragsdatum: ${kv?.contractDate ? formatDate(kv.contractDate) : "—"}\nVertragsort: ${kv?.place ?? "—"}\nGewährleistung: ${kv?.warrantyMonths ?? 12} Monate gemäß BGB\n${taxationLine(vehicle)}\n\nDer Käufer erkennt mit seiner Unterschrift den Erhalt des Fahrzeuges samt Schlüsseln, Fahrzeugschein und Fahrzeugbrief sowie alle vereinbarten Leistungen an.`,
         cursor);
       cursor += 14;
       const colW = (PAGE.w - 2 * PAGE.margin - 10) / 2;
@@ -580,7 +599,7 @@ export const generateOfferPdf = ({ offer, vehicle, customer, companyName = "VINf
 
   drawSectionTitle(doc, "Konditionen", cursor); cursor += 6;
   cursor = drawTextBlock(doc,
-    `Gültigkeit: bis ${formatDate(offer.validUntil)}\nLieferung: nach Vereinbarung\nGewährleistung: 12 Monate gemäß BGB\nPreis inkl. 19% MwSt.`,
+    `Gültigkeit: bis ${formatDate(offer.validUntil)}\nLieferung: nach Vereinbarung\nGewährleistung: 12 Monate gemäß BGB\n${taxationLine(vehicle)}`,
     cursor);
 
   if (offer.customerTodos.length) {
