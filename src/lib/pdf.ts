@@ -723,13 +723,14 @@ const buildKaufvertrag = (
   cursor = drawSectionTitle(doc, "§ 2  Kaufpreis und Zahlung", cursor);
   cursor = drawTable(doc, [
     { description: `${vehicle.make} ${vehicle.model} (${vehicle.year})`, qty: "1", unitPrice: finalPrice, total: finalPrice },
-    ...(down > 0 ? [{ description: "abzgl. geleistete Anzahlung", qty: "1", unitPrice: -down, total: -down }] : []),
-  ], cursor, "Restbetrag");
+    ...(down > 0 ? [{ description: "geleistete Anzahlung", qty: "1", unitPrice: -down, total: -down }] : []),
+    ...(remaining > 0 ? [{ description: "geleistete Restzahlung", qty: "1", unitPrice: -remaining, total: -remaining }] : []),
+  ], cursor, "Offener Betrag");
   cursor = drawTextBlock(doc,
+    `Der vereinbarte Kaufpreis in Höhe von ${formatCurrency(finalPrice)} wurde vom Käufer vor Vertragsabschluss vollständig an den Verkäufer entrichtet ` +
+    `(Anzahlung: ${formatCurrency(down)}, Restzahlung: ${formatCurrency(remaining)}). ` +
+    `Der Verkäufer bestätigt hiermit den vollständigen Erhalt des Kaufpreises. Eine weitere Zahlungsverpflichtung des Käufers besteht nicht. ` +
     `Zahlungsweise: ${process.fields.downPayment?.method ?? "Überweisung"}. ` +
-    `Der Kaufpreis ist spätestens bei Übergabe des Fahrzeugs vollständig zu entrichten. ` +
-    `Bei Überweisung gilt der Eingang auf dem Konto des Verkäufers als Zahlung. ` +
-    `Bankverbindung: ${BANK.bank}, IBAN ${BANK.iban}, BIC ${BANK.bic}. ` +
     `${taxationLine(vehicle)}`,
     cursor, { fontSize: 9 });
   cursor += 4;
