@@ -17,8 +17,13 @@ import {
   VehicleType,
   vehicleTotalCostsGross,
 } from "@/data/process";
-import { Car, Megaphone, Plus } from "lucide-react";
+import { Car, Megaphone, Plus, Download, Upload, FileSpreadsheet, FileText } from "lucide-react";
 import { toast } from "sonner";
+import {
+  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuLabel,
+} from "@/components/ui/dropdown-menu";
+import { exportVehicles, downloadTemplate } from "@/lib/fleetIO";
+import { FleetImportDialog } from "@/components/fleet/FleetImportDialog";
 import { VehicleIntakeDialog } from "@/components/fleet/VehicleIntakeDialog";
 import { cn } from "@/lib/utils";
 import { useTopbarSearch } from "@/context/TopbarSearchContext";
