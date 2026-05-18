@@ -199,6 +199,16 @@ export const VehicleIntakeDialog = ({ open, onOpenChange, locations, preset, tit
           <FormField label="TSN (KBA)"><Input value={tsn} onChange={(e) => setTsn(e.target.value.toUpperCase())} placeholder="z. B. AYU" maxLength={3} className="font-mono" /></FormField>
           <FormField label="Einkaufspreis brutto (EUR)"><Input type="number" value={purchasePrice || ""} onChange={(e) => setPurchasePrice(Number(e.target.value))} /></FormField>
           <FormField label="Listenpreis brutto (EUR)"><Input type="number" value={listPrice || ""} onChange={(e) => setListPrice(Number(e.target.value))} /></FormField>
+          <FormField label="Besteuerung" full>
+            <select
+              value={vatReportable ? "regular" : "margin"}
+              onChange={(e) => setVatReportable(e.target.value === "regular")}
+              className="w-full h-10 rounded-md border border-input bg-background/40 px-3 text-sm"
+            >
+              <option value="margin">Differenzbesteuerung (§ 25a UStG) — Gebrauchtfahrzeug</option>
+              <option value="regular">Regelbesteuerung (19% MwSt. ausweisbar)</option>
+            </select>
+          </FormField>
           {features.length > 0 && (
             <FormField label="Erkannte Ausstattung & Merkmale" full>
               <div className="flex flex-wrap gap-1.5 rounded-md border border-primary/30 bg-primary/5 p-2.5">
