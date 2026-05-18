@@ -748,7 +748,7 @@ const buildKaufvertrag = (
   cursor = drawTextBlock(doc,
     `Die Übergabe des Fahrzeugs erfolgt am ${process.fields.orderConfirmation?.deliveryDate ? formatDate(process.fields.orderConfirmation.deliveryDate) : "vereinbarten Termin"} ` +
     `am Sitz des Verkäufers, sofern nicht abweichend vereinbart. Mit der Übergabe gehen Besitz, Nutzen, Lasten und die Gefahr des zufälligen Untergangs auf den Käufer über. ` +
-    `Der Verkäufer behält sich das Eigentum am Fahrzeug bis zur vollständigen Bezahlung des Kaufpreises vor (verlängerter Eigentumsvorbehalt).`,
+    `Da der Kaufpreis bereits vollständig entrichtet wurde, geht das Eigentum am Fahrzeug mit der Übergabe unmittelbar auf den Käufer über.`,
     cursor, { fontSize: 9 });
   cursor += 4;
 
