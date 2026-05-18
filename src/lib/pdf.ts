@@ -429,7 +429,7 @@ export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, c
       cursor += 6;
       drawSectionTitle(doc, "Eckdaten", cursor); cursor += 6;
       cursor = drawTextBlock(doc,
-        `Auftragsdatum: ${oc?.orderDate ? formatDate(oc.orderDate) : "—"}\nZahlungsbedingungen: ${oc?.paymentTerms ?? "Restzahlung bei Übergabe"}\nBereits geleistete Anzahlung: ${formatCurrency(process.fields.downPayment?.amount ?? 0)}`,
+        `Auftragsdatum: ${oc?.orderDate ? formatDate(oc.orderDate) : "—"}\nZahlungsbedingungen: ${oc?.paymentTerms ?? "Restzahlung bei Übergabe"}\nBereits geleistete Anzahlung: ${formatCurrency(process.fields.downPayment?.amount ?? 0)}\n${taxationLine(vehicle)}`,
         cursor);
       if (process.customerTodosOC.length) {
         cursor += 6;
