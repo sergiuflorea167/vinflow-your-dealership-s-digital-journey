@@ -179,7 +179,7 @@ const Fleet = () => {
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button size="sm" variant="outline" className="gap-2">
-                  <Download className="size-4" /> Export
+                  <Upload className="size-4" /> Export
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-56">
@@ -205,7 +205,7 @@ const Fleet = () => {
               </DropdownMenuContent>
             </DropdownMenu>
             <Button size="sm" variant="outline" className="gap-2" onClick={() => setImportOpen(true)}>
-              <Upload className="size-4" /> Import
+              <Download className="size-4" /> Import
             </Button>
             <Button
               size="sm"
