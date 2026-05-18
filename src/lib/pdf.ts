@@ -410,7 +410,7 @@ export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, c
       cursor += 6;
       drawSectionTitle(doc, "Zahlungsdaten", cursor); cursor += 6;
       cursor = drawTextBlock(doc,
-        `Empfänger: ${companyName}\nIBAN: DE89 3704 0044 0532 0130 00\nBIC: COBADEFFXXX\nVerwendungszweck: ${dp?.invoiceNumber ?? process.id}\nRechnungsdatum: ${dp?.invoiceDate ? formatDate(dp.invoiceDate) : "—"}\nFällig: ${dp?.dueDate ? formatDate(dp.dueDate) : "sofort"}${dp?.received ? `\nZahlung eingegangen am: ${dp.receivedDate ? formatDate(dp.receivedDate) : "—"}` : ""}`,
+        `Empfänger: ${companyName}\nIBAN: DE89 3704 0044 0532 0130 00\nBIC: COBADEFFXXX\nVerwendungszweck: ${dp?.invoiceNumber ?? process.id}\nRechnungsdatum: ${dp?.invoiceDate ? formatDate(dp.invoiceDate) : "—"}\nFällig: ${dp?.dueDate ? formatDate(dp.dueDate) : "sofort"}${dp?.received ? `\nZahlung eingegangen am: ${dp.receivedDate ? formatDate(dp.receivedDate) : "—"}` : ""}\n${taxationLine(vehicle)}`,
         cursor);
       break;
     }
