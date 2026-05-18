@@ -504,7 +504,7 @@ export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, c
       cursor += 6;
       drawSectionTitle(doc, "Vertragsdaten", cursor); cursor += 6;
       cursor = drawTextBlock(doc,
-        `Vertrags-Nr.: ${kv?.contractNumber ?? "—"}\nVertragsdatum: ${kv?.contractDate ? formatDate(kv.contractDate) : "—"}\nVertragsort: ${kv?.place ?? "—"}\nGewährleistung: ${kv?.warrantyMonths ?? 12} Monate gemäß BGB\nPreis inkl. 19% MwSt.\n\nDer Käufer erkennt mit seiner Unterschrift den Erhalt des Fahrzeuges samt Schlüsseln, Fahrzeugschein und Fahrzeugbrief sowie alle vereinbarten Leistungen an.`,
+        `Vertrags-Nr.: ${kv?.contractNumber ?? "—"}\nVertragsdatum: ${kv?.contractDate ? formatDate(kv.contractDate) : "—"}\nVertragsort: ${kv?.place ?? "—"}\nGewährleistung: ${kv?.warrantyMonths ?? 12} Monate gemäß BGB\n${taxationLine(vehicle)}\n\nDer Käufer erkennt mit seiner Unterschrift den Erhalt des Fahrzeuges samt Schlüsseln, Fahrzeugschein und Fahrzeugbrief sowie alle vereinbarten Leistungen an.`,
         cursor);
       cursor += 14;
       const colW = (PAGE.w - 2 * PAGE.margin - 10) / 2;
