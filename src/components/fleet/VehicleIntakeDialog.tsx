@@ -235,7 +235,7 @@ export const VehicleIntakeDialog = ({ open, onOpenChange, locations, preset, tit
               power_hp: hp, power_kw: Math.round(hp * 0.7355),
               firstRegistration: firstReg,
               hu: hu || undefined,
-              listPrice, purchasePrice,
+              listPrice, purchasePrice, vatReportable,
               arrivedAt: new Date().toISOString(),
               location: { name: location, kind: "lot", since: new Date().toISOString() },
             })}>
