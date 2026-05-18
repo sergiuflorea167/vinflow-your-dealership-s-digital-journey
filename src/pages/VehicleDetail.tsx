@@ -757,7 +757,9 @@ const RegistrationEditor = ({ vehicle, onSave, onCancel }: { vehicle: Vehicle; o
 const PriceEditor = ({ vehicle, onSave, onCancel }: { vehicle: Vehicle; onSave: (p: Partial<Vehicle>) => void; onCancel: () => void }) => {
   const [listPrice, setListPrice] = useState(vehicle.listPrice);
   const [purchasePrice, setPurchasePrice] = useState(vehicle.purchasePrice);
-  const [vatReportable, setVatReportable] = useState<boolean | undefined>(vehicle.vatReportable);
+  // Default: Gebrauchtfahrzeuge → Differenzbesteuerung (§ 25a UStG)
+  const defaultMargin = vehicle.condition !== "Neu" && vehicle.condition !== "Tageszulassung";
+  const [vatReportable, setVatReportable] = useState<boolean>(vehicle.vatReportable ?? !defaultMargin);
   const [notes, setNotes] = useState(vehicle.notes ?? "");
 
   return (
