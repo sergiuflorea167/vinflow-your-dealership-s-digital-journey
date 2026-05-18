@@ -65,6 +65,7 @@ const Fleet = () => {
   const [listedFilter, setListedFilter] = useState<ListedFilter>("all");
   const [sort, setSort] = useState<SortState<FleetSortKey>>({ key: "stockDays", dir: "asc" });
   const [intakeOpen, setIntakeOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
 
   const topbarSearch = useMemo(() => ({
     placeholder: "Bestand durchsuchen…",
