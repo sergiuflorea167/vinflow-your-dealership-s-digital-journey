@@ -344,6 +344,16 @@ export interface GeneratePdfArgs {
   pdfTheme?: PdfThemeKey;
 }
 
+/**
+ * Liefert die korrekte umsatzsteuerliche Klausel für den Beleg.
+ * Differenzbesteuerung (§ 25a UStG) gilt für Gebrauchtfahrzeuge,
+ * wenn `vehicle.vatReportable === false`.
+ */
+export const taxationLine = (vehicle: Vehicle): string =>
+  vehicle.vatReportable === false
+    ? "Differenzbesteuert gemäß § 25a UStG · Umsatzsteuer wird nicht gesondert ausgewiesen."
+    : "Preis inkl. 19% MwSt.";
+
 export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, companyName = "VINflow Autohaus GmbH", pdfTheme }: GeneratePdfArgs): jsPDF => {
   applyPdfTheme(pdfTheme);
   const doc = new jsPDF({ unit: "mm", format: "a4" });
