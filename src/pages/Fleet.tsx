@@ -175,13 +175,46 @@ const Fleet = () => {
             <h1 className="font-display text-2xl font-bold tracking-tight">Bestand</h1>
             <p className="text-xs text-muted-foreground">Fahrzeugbestand · VIN-basiert</p>
           </div>
-          <Button
-            size="sm"
-            className="bg-gradient-brand hover:opacity-90 shadow-elegant gap-2"
-            onClick={() => setIntakeOpen(true)}
-          >
-            <Plus className="size-4" /> Fahrzeug aufnehmen
-          </Button>
+          <div className="flex items-center gap-2">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" variant="outline" className="gap-2">
+                  <Download className="size-4" /> Export
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel className="text-xs">Aktuelle Auswahl ({filtered.length})</DropdownMenuLabel>
+                <DropdownMenuItem onClick={() => { exportVehicles(filtered.map((d) => d.vehicle), "xlsx"); toast.success("Excel-Export erstellt."); }}>
+                  <FileSpreadsheet className="size-4 mr-2" /> Als Excel (.xlsx)
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => { exportVehicles(filtered.map((d) => d.vehicle), "csv"); toast.success("CSV-Export erstellt."); }}>
+                  <FileText className="size-4 mr-2" /> Als CSV (.csv)
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel className="text-xs">Gesamter Bestand ({vehicles.length})</DropdownMenuLabel>
+                <DropdownMenuItem onClick={() => { exportVehicles(vehicles, "xlsx"); toast.success("Excel-Export erstellt."); }}>
+                  <FileSpreadsheet className="size-4 mr-2" /> Als Excel (.xlsx)
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => { exportVehicles(vehicles, "csv"); toast.success("CSV-Export erstellt."); }}>
+                  <FileText className="size-4 mr-2" /> Als CSV (.csv)
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => downloadTemplate("xlsx")}>
+                  <Download className="size-4 mr-2" /> Vorlage (Excel)
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+            <Button size="sm" variant="outline" className="gap-2" onClick={() => setImportOpen(true)}>
+              <Upload className="size-4" /> Import
+            </Button>
+            <Button
+              size="sm"
+              className="bg-gradient-brand hover:opacity-90 shadow-elegant gap-2"
+              onClick={() => setIntakeOpen(true)}
+            >
+              <Plus className="size-4" /> Fahrzeug aufnehmen
+            </Button>
+          </div>
         </div>
 
         {/* KPI-Strip kompakt */}
