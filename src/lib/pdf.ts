@@ -346,11 +346,20 @@ export interface GeneratePdfArgs {
 
 /**
  * Liefert die korrekte umsatzsteuerliche Klausel für den Beleg.
- * Differenzbesteuerung (§ 25a UStG) gilt für Gebrauchtfahrzeuge,
- * wenn `vehicle.vatReportable === false`.
+ * Differenzbesteuerung (§ 25a UStG) ist Standard für Gebrauchtfahrzeuge;
+ * Regelbesteuerung greift nur bei Neuwagen/Tageszulassungen oder wenn
+ * `vehicle.vatReportable === true` explizit gesetzt ist.
  */
+export const isMarginTaxed = (vehicle: Vehicle): boolean => {
+  if (vehicle.vatReportable === true) return false;
+  if (vehicle.vatReportable === false) return true;
+  // Default je nach Zustand:
+  if (vehicle.condition === "Neu" || vehicle.condition === "Tageszulassung") return false;
+  return true;
+};
+
 export const taxationLine = (vehicle: Vehicle): string =>
-  vehicle.vatReportable === false
+  isMarginTaxed(vehicle)
     ? "Differenzbesteuert gemäß § 25a UStG · Umsatzsteuer wird nicht gesondert ausgewiesen."
     : "Preis inkl. 19% MwSt.";
 
