@@ -723,13 +723,14 @@ const buildKaufvertrag = (
   cursor = drawSectionTitle(doc, "§ 2  Kaufpreis und Zahlung", cursor);
   cursor = drawTable(doc, [
     { description: `${vehicle.make} ${vehicle.model} (${vehicle.year})`, qty: "1", unitPrice: finalPrice, total: finalPrice },
-    ...(down > 0 ? [{ description: "abzgl. geleistete Anzahlung", qty: "1", unitPrice: -down, total: -down }] : []),
-  ], cursor, "Restbetrag");
+    ...(down > 0 ? [{ description: "geleistete Anzahlung", qty: "1", unitPrice: -down, total: -down }] : []),
+    ...(remaining > 0 ? [{ description: "geleistete Restzahlung", qty: "1", unitPrice: -remaining, total: -remaining }] : []),
+  ], cursor, "Offener Betrag");
   cursor = drawTextBlock(doc,
+    `Der vereinbarte Kaufpreis in Höhe von ${formatCurrency(finalPrice)} wurde vom Käufer vor Vertragsabschluss vollständig an den Verkäufer entrichtet ` +
+    `(Anzahlung: ${formatCurrency(down)}, Restzahlung: ${formatCurrency(remaining)}). ` +
+    `Der Verkäufer bestätigt hiermit den vollständigen Erhalt des Kaufpreises. Eine weitere Zahlungsverpflichtung des Käufers besteht nicht. ` +
     `Zahlungsweise: ${process.fields.downPayment?.method ?? "Überweisung"}. ` +
-    `Der Kaufpreis ist spätestens bei Übergabe des Fahrzeugs vollständig zu entrichten. ` +
-    `Bei Überweisung gilt der Eingang auf dem Konto des Verkäufers als Zahlung. ` +
-    `Bankverbindung: ${BANK.bank}, IBAN ${BANK.iban}, BIC ${BANK.bic}. ` +
     `${taxationLine(vehicle)}`,
     cursor, { fontSize: 9 });
   cursor += 4;
@@ -747,7 +748,7 @@ const buildKaufvertrag = (
   cursor = drawTextBlock(doc,
     `Die Übergabe des Fahrzeugs erfolgt am ${process.fields.orderConfirmation?.deliveryDate ? formatDate(process.fields.orderConfirmation.deliveryDate) : "vereinbarten Termin"} ` +
     `am Sitz des Verkäufers, sofern nicht abweichend vereinbart. Mit der Übergabe gehen Besitz, Nutzen, Lasten und die Gefahr des zufälligen Untergangs auf den Käufer über. ` +
-    `Der Verkäufer behält sich das Eigentum am Fahrzeug bis zur vollständigen Bezahlung des Kaufpreises vor (verlängerter Eigentumsvorbehalt).`,
+    `Da der Kaufpreis bereits vollständig entrichtet wurde, geht das Eigentum am Fahrzeug mit der Übergabe unmittelbar auf den Käufer über.`,
     cursor, { fontSize: 9 });
   cursor += 4;
 
