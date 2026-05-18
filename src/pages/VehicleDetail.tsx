@@ -764,8 +764,12 @@ const PriceEditor = ({ vehicle, onSave, onCancel }: { vehicle: Vehicle; onSave: 
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       <Field label="Listenpreis brutto (EUR)"><Input type="number" value={listPrice || ""} onChange={(e) => setListPrice(Number(e.target.value))} /></Field>
       <Field label="Einkaufspreis brutto (EUR)"><Input type="number" value={purchasePrice || ""} onChange={(e) => setPurchasePrice(Number(e.target.value))} /></Field>
-      <Field label="MwSt. ausweisbar">
-        <Selectbox value={vatReportable === undefined ? undefined : vatReportable ? "Ja" : "Nein"} onChange={(v) => setVatReportable(v === "Ja")} options={["Ja", "Nein"] as const} />
+      <Field label="Besteuerung">
+        <Selectbox
+          value={vatReportable === false ? "Differenzbesteuerung (§ 25a UStG)" : "Regelbesteuerung (19% MwSt.)"}
+          onChange={(v) => setVatReportable(v === "Regelbesteuerung (19% MwSt.)")}
+          options={["Differenzbesteuerung (§ 25a UStG)", "Regelbesteuerung (19% MwSt.)"] as const}
+        />
       </Field>
       <Field label="Notizen" full>
         <textarea
