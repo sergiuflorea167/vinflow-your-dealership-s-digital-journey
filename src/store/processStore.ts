@@ -75,11 +75,14 @@ interface State {
   // Customer-To-Dos auf AB
   addProcessCustomerTodo: (processId: string, title: string) => void;
   removeProcessCustomerTodo: (processId: string, todoId: string) => void;
+  toggleProcessCustomerTodo: (processId: string, todoId: string) => void;
+  setProcessCustomerTodoDueDate: (processId: string, todoId: string, dueDate?: string) => void;
 
   // Outbound checklist
   toggleOutboundChecklistItem: (processId: string, itemId: string) => void;
   addOutboundChecklistItem: (processId: string, label: string) => void;
   removeOutboundChecklistItem: (processId: string, itemId: string) => void;
+  setOutboundChecklistItemDueDate: (processId: string, itemId: string, dueDate?: string) => void;
 
   // ------- Vehicle -------
   addVehicle: (v: Omit<Vehicle, "id" | "status" | "locationHistory" | "costs"> & { status?: Vehicle["status"]; locationHistory?: VehicleLocation[]; costs?: CostEntry[] }) => Vehicle;
