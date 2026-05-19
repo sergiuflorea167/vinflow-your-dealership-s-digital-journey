@@ -306,6 +306,7 @@ const Fleet = () => {
           <DataTableShell
             footer={<>¹ Wunschmarge = Listenpreis − (Einkauf + Kosten brutto). Echte Marge erst nach Verkauf. · {filtered.length} Fahrzeuge</>}
           >
+            <div data-tour="fleet-table">
             <table>
               <thead>
                 <tr>
