@@ -12,8 +12,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { User, Settings as SettingsIcon, LogOut, Camera, Mail, Phone, Briefcase, Palette, Check, Building2, KeyRound, Copy, Sparkles } from "lucide-react";
+import { User, Settings as SettingsIcon, LogOut, Camera, Mail, Phone, Briefcase, Palette, Check, Building2, KeyRound, Copy, Sparkles, GraduationCap } from "lucide-react";
 import { useTutorialStore } from "@/store/tutorialStore";
+import { useWorkshopStore } from "@/store/workshopStore";
 import { PDF_THEMES } from "@/lib/pdf";
 import { cn } from "@/lib/utils";
 import { Link, useNavigate } from "react-router-dom";
@@ -133,6 +134,9 @@ export const UserMenu = () => {
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => useTutorialStore.getState().reset()}>
             <Sparkles className="size-4 mr-2" /> Einführungs-Tour starten
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => { navigate("/"); setTimeout(() => useWorkshopStore.getState().start(), 50); }}>
+            <GraduationCap className="size-4 mr-2" /> Dashboard-Workshop starten
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem

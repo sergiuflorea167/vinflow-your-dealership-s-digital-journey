@@ -11,9 +11,10 @@ import { DashboardHero } from "@/components/dashboard/DashboardHero";
 import { PinnedKpiGrid } from "@/components/dashboard/PinnedKpiGrid";
 import { useProcessStore } from "@/store/processStore";
 import { PROCESS_STEPS, TodoPriority, CALENDAR_EVENT_TYPE_LABELS, CalendarEventType } from "@/data/process";
-import { ArrowUpRight, Settings2, CalendarCheck2, Car, CalendarDays, Clock, MapPin } from "lucide-react";
+import { ArrowUpRight, Settings2, CalendarCheck2, Car, CalendarDays, Clock, MapPin, GraduationCap } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useT } from "@/lib/i18n";
+import { useWorkshopStore } from "@/store/workshopStore";
 
 const EVENT_DOT: Record<CalendarEventType, string> = {
   appointment: "bg-primary",
@@ -72,20 +73,38 @@ const Dashboard = () => {
   );
   const vehicleMap = useMemo(() => Object.fromEntries(vehicles.map((v) => [v.id, v])), [vehicles]);
 
+  const startWorkshop = useWorkshopStore((s) => s.start);
+
   return (
     <AppShell>
       <div className="space-y-8 animate-fade-in">
-        <DashboardHero
-          activeCount={activeProcesses.length}
-          todoCount={todayTodos.length}
-          eventCount={todayEvents.length}
-        />
+        <div className="flex justify-end">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={startWorkshop}
+            className="border-primary/40 text-primary hover:bg-primary/10 hover:text-primary"
+          >
+            <GraduationCap className="size-4 mr-1.5" />
+            Dashboard-Workshop starten
+          </Button>
+        </div>
+
+        <div data-tour="dash-hero">
+          <DashboardHero
+            activeCount={activeProcesses.length}
+            todoCount={todayTodos.length}
+            eventCount={todayEvents.length}
+          />
+        </div>
 
         {/* Morgen-Motivation */}
-        <GoalsPanel />
+        <div data-tour="dash-goals">
+          <GoalsPanel />
+        </div>
 
         {/* Heutige Termine */}
-        <Card className="p-6 bg-card border-border shadow-card">
+        <Card data-tour="dash-events" className="p-6 bg-card border-border shadow-card">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <div className="size-9 rounded-lg bg-primary/15 text-primary-glow flex items-center justify-center">
@@ -149,7 +168,7 @@ const Dashboard = () => {
         </Card>
 
         {/* Heute fällige To-Dos */}
-        <Card className="p-6 bg-card border-border shadow-card">
+        <Card data-tour="dash-todos" className="p-6 bg-card border-border shadow-card">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <div className="size-9 rounded-lg bg-warning/15 text-warning flex items-center justify-center">
@@ -224,7 +243,7 @@ const Dashboard = () => {
         </Card>
 
         {/* Frei konfigurierbare KPIs */}
-        <div>
+        <div data-tour="dash-kpis">
           <div className="flex items-center justify-between mb-5">
             <div>
               <h2 className="text-xl font-display font-semibold">{t("dash.yourKpis")}</h2>
@@ -241,7 +260,7 @@ const Dashboard = () => {
           <PinnedKpiGrid />
         </div>
 
-        <Card className="p-6 bg-card border-border shadow-card">
+        <Card data-tour="dash-pipeline" className="p-6 bg-card border-border shadow-card">
           <div className="flex items-center justify-between mb-6">
             <div>
               <h2 className="text-xl font-display font-semibold">{t("dash.pipeline")}</h2>
@@ -265,7 +284,7 @@ const Dashboard = () => {
           </div>
         </Card>
 
-        <div>
+        <div data-tour="dash-active">
           <div className="flex items-center justify-between mb-5">
             <div>
               <h2 className="text-xl font-display font-semibold">{t("dash.activeProcesses")}</h2>
