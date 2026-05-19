@@ -104,7 +104,7 @@ const Dashboard = () => {
         </div>
 
         {/* Heutige Termine */}
-        <Card className="p-6 bg-card border-border shadow-card">
+        <Card data-tour="dash-events" className="p-6 bg-card border-border shadow-card">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <div className="size-9 rounded-lg bg-primary/15 text-primary-glow flex items-center justify-center">
@@ -168,7 +168,7 @@ const Dashboard = () => {
         </Card>
 
         {/* Heute fällige To-Dos */}
-        <Card className="p-6 bg-card border-border shadow-card">
+        <Card data-tour="dash-todos" className="p-6 bg-card border-border shadow-card">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
               <div className="size-9 rounded-lg bg-warning/15 text-warning flex items-center justify-center">
