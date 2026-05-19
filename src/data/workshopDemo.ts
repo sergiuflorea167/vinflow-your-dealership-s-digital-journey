@@ -140,3 +140,16 @@ export const DEMO_PROCESS_CARDS: DemoCardData[] = [
     customer: { id: "demo-cus-3", name: "Jens Hartmann" },
   },
 ];
+
+// ---------- Fleet-Workshop Demo ----------
+import { MOCK_VEHICLES, MOCK_OFFERS, MOCK_PROCESSES } from "./process";
+
+// Wir nutzen einen Slice der bestehenden Mock-Daten, damit das Erlebnis im Workshop realistisch ist.
+export const FLEET_DEMO_VEHICLES = MOCK_VEHICLES.slice(0, 8).map((v, i) => ({
+  ...v,
+  // Sorgen für Mix an Inseratsstatus
+  listed: i % 2 === 0 ? { active: true, listedAt: v.arrivedAt, portals: ["mobile.de"] } : undefined,
+}));
+const FLEET_DEMO_VIDS = new Set(FLEET_DEMO_VEHICLES.map((v) => v.id));
+export const FLEET_DEMO_OFFERS = MOCK_OFFERS.filter((o) => FLEET_DEMO_VIDS.has(o.vehicleId));
+export const FLEET_DEMO_PROCESSES = MOCK_PROCESSES.filter((p) => FLEET_DEMO_VIDS.has(p.vehicleId));
