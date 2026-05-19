@@ -178,18 +178,6 @@ const Fleet = () => {
 
   return (
     <AppShell>
-      {/* Mini-Tab Workshop am rechten Rand */}
-      <button
-        type="button"
-        onClick={startWorkshop}
-        aria-label="Bestand-Workshop starten"
-        className="group fixed right-0 top-1/2 -translate-y-1/2 z-40 flex items-center gap-2 py-2.5 pl-2.5 pr-2 rounded-l-lg bg-card/90 backdrop-blur border border-r-0 border-primary/30 text-primary shadow-lg hover:bg-primary hover:text-primary-foreground transition-all duration-300 max-w-[40px] hover:max-w-[260px] overflow-hidden"
-      >
-        <GraduationCap className="size-4 shrink-0" />
-        <span className="text-xs font-medium whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200 pr-1">
-          Bestand-Workshop starten
-        </span>
-      </button>
 
       <div className="space-y-3 animate-fade-in">
         {/* Header — kompakt */}
