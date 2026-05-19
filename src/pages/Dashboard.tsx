@@ -15,6 +15,10 @@ import { ArrowUpRight, Settings2, CalendarCheck2, Car, CalendarDays, Clock, MapP
 import { cn } from "@/lib/utils";
 import { useT } from "@/lib/i18n";
 import { useWorkshopStore } from "@/store/workshopStore";
+import {
+  DEMO_TODOS, DEMO_EVENTS, DEMO_VEHICLE_MAP, DEMO_PIPELINE, DEMO_ACTIVE_COUNT, DEMO_PROCESS_CARDS,
+} from "@/data/workshopDemo";
+import { DemoProcessCard } from "@/components/process/DemoProcessCard";
 
 const EVENT_DOT: Record<CalendarEventType, string> = {
   appointment: "bg-primary",
@@ -35,43 +39,52 @@ const PRIORITY_DOT: Record<TodoPriority, string> = {
 const Dashboard = () => {
   const navigate = useNavigate();
   const t = useT();
-  const processes = useProcessStore((s) => s.processes);
-  const todos = useProcessStore((s) => s.todos);
-  const vehicles = useProcessStore((s) => s.vehicles);
-  const calendarEvents = useProcessStore((s) => s.calendarEvents);
+  const realProcesses = useProcessStore((s) => s.processes);
+  const realTodos = useProcessStore((s) => s.todos);
+  const realVehicles = useProcessStore((s) => s.vehicles);
+  const realEvents = useProcessStore((s) => s.calendarEvents);
   const toggleTodo = useProcessStore((s) => s.toggleTodo);
+  const workshopActive = useWorkshopStore((s) => s.active);
 
-  const byStep = useMemo(
-    () =>
-      PROCESS_STEPS.map((step) => ({
-        step,
-        count: processes.filter((p) => p.currentStep === step.key && p.steps[step.key].status !== "completed").length,
-      })),
-    [processes],
-  );
+  // Im Workshop: ausschließlich Demo-Daten. Sonst: echte Daten aus dem Store.
+  const todayISO = new Date().toISOString().slice(0, 10);
+
+  const byStep = useMemo(() => {
+    if (workshopActive) {
+      return PROCESS_STEPS.map((step) => ({ step, count: DEMO_PIPELINE[step.key] ?? 0 }));
+    }
+    return PROCESS_STEPS.map((step) => ({
+      step,
+      count: realProcesses.filter((p) => p.currentStep === step.key && p.steps[step.key].status !== "completed").length,
+    }));
+  }, [realProcesses, workshopActive]);
 
   const LAST_STEP_KEY = PROCESS_STEPS[PROCESS_STEPS.length - 1].key;
-  const activeProcesses = useMemo(
-    () => processes.filter((p) => p.steps?.[LAST_STEP_KEY]?.status !== "completed"),
-    [processes, LAST_STEP_KEY],
+  const realActive = useMemo(
+    () => realProcesses.filter((p) => p.steps?.[LAST_STEP_KEY]?.status !== "completed"),
+    [realProcesses, LAST_STEP_KEY],
   );
+  const activeCount = workshopActive ? DEMO_ACTIVE_COUNT : realActive.length;
 
-  const todayISO = new Date().toISOString().slice(0, 10);
-  const todayTodos = useMemo(
-    () =>
-      todos
-        .filter((t) => !t.done && t.dueDate === todayISO)
-        .sort((a, b) => {
-          const w = { high: 0, medium: 1, low: 2 } as const;
-          return w[a.priority] - w[b.priority];
-        }),
-    [todos, todayISO],
-  );
-  const todayEvents = useMemo(
-    () => calendarEvents.filter((e) => e.date === todayISO).sort((a, b) => a.startTime.localeCompare(b.startTime)),
-    [calendarEvents, todayISO],
-  );
-  const vehicleMap = useMemo(() => Object.fromEntries(vehicles.map((v) => [v.id, v])), [vehicles]);
+  const todayTodos = useMemo(() => {
+    const src = workshopActive ? DEMO_TODOS : realTodos;
+    return src
+      .filter((t) => !t.done && t.dueDate === todayISO)
+      .sort((a, b) => {
+        const w = { high: 0, medium: 1, low: 2 } as const;
+        return w[a.priority] - w[b.priority];
+      });
+  }, [realTodos, todayISO, workshopActive]);
+
+  const todayEvents = useMemo(() => {
+    const src = workshopActive ? DEMO_EVENTS : realEvents;
+    return src.filter((e) => e.date === todayISO).sort((a, b) => a.startTime.localeCompare(b.startTime));
+  }, [realEvents, todayISO, workshopActive]);
+
+  const vehicleMap = useMemo(() => {
+    if (workshopActive) return DEMO_VEHICLE_MAP as any;
+    return Object.fromEntries(realVehicles.map((v) => [v.id, v]));
+  }, [realVehicles, workshopActive]);
 
   const startWorkshop = useWorkshopStore((s) => s.start);
 
@@ -92,11 +105,12 @@ const Dashboard = () => {
 
         <div data-tour="dash-hero">
           <DashboardHero
-            activeCount={activeProcesses.length}
+            activeCount={activeCount}
             todoCount={todayTodos.length}
             eventCount={todayEvents.length}
           />
         </div>
+
 
         {/* Morgen-Motivation */}
         <div data-tour="dash-goals">
