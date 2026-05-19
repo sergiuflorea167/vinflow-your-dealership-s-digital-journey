@@ -45,8 +45,11 @@ const ProcessDetail = () => {
   const toggleChk = useProcessStore((s) => s.toggleOutboundChecklistItem);
   const addChk = useProcessStore((s) => s.addOutboundChecklistItem);
   const removeChk = useProcessStore((s) => s.removeOutboundChecklistItem);
+  const setChkDue = useProcessStore((s) => s.setOutboundChecklistItemDueDate);
   const addCT = useProcessStore((s) => s.addProcessCustomerTodo);
   const removeCT = useProcessStore((s) => s.removeProcessCustomerTodo);
+  const toggleCT = useProcessStore((s) => s.toggleProcessCustomerTodo);
+  const setCTDue = useProcessStore((s) => s.setProcessCustomerTodoDueDate);
 
   const [selected, setSelected] = useState<ProcessStepKey | undefined>(process?.currentStep);
 
@@ -193,10 +196,13 @@ const ProcessDetail = () => {
               <div className="mt-6">
                 <TodoList
                   title="Kunden-To-Dos auf AB"
-                  description="Diese Punkte werden auf der Auftragsbestätigung gedruckt – sichtbar für den Kunden."
+                  description='Diese Punkte werden auf der Auftragsbestätigung gedruckt – sichtbar für den Kunden. Fälligkeit hilft dir beim Tracking unter „To-Dos".'
                   items={process.customerTodosOC}
                   onAdd={(t) => addCT(process.id, t)}
                   onRemove={(id) => removeCT(process.id, id)}
+                  onToggle={(id) => toggleCT(process.id, id)}
+                  onChangeDueDate={(id, d) => setCTDue(process.id, id, d)}
+                  showCheckbox
                   placeholder="z. B. AHK montieren, Standheizung nachrüsten…"
                   disabled={!isCurrent || isBooked}
                 />
@@ -208,11 +214,12 @@ const ProcessDetail = () => {
               <div className="mt-6">
                 <TodoList
                   title="Übergabe-Checkliste (intern)"
-                  description={`${checklistDone} / ${checklistTotal} erledigt – alle müssen vor dem Abschluss abgehakt sein.`}
+                  description={`${checklistDone} / ${checklistTotal} erledigt – alle müssen vor dem Abschluss abgehakt sein. Erscheint auch unter „To-Dos" mit Tag „Ausgangskontrolle".`}
                   items={process.outboundChecklist}
                   onAdd={(t) => addChk(process.id, t)}
                   onRemove={(id) => removeChk(process.id, id)}
                   onToggle={(id) => toggleChk(process.id, id)}
+                  onChangeDueDate={(id, d) => setChkDue(process.id, id, d)}
                   showCheckbox
                   disabled={!isCurrent || isBooked}
                 />

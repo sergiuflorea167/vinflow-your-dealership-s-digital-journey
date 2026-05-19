@@ -409,10 +409,10 @@ export interface Process {
   currentStep: ProcessStepKey;
   steps: Record<ProcessStepKey, StepRecord>;
   fields: ProcessFields;
-  // Customer-To-Dos pro Schritt (Angebot/AB)
-  customerTodosOC: { id: string; title: string }[];
-  // Interne Ausgangskontroll-Checkliste
-  outboundChecklist: { id: string; label: string; done: boolean }[];
+  // Customer-To-Dos pro Schritt (Angebot/AB) – mit optionalem Fälligkeitsdatum + Erledigt-Status
+  customerTodosOC: { id: string; title: string; dueDate?: string; done?: boolean }[];
+  // Interne Ausgangskontroll-Checkliste – mit optionalem Fälligkeitsdatum
+  outboundChecklist: { id: string; label: string; done: boolean; dueDate?: string }[];
 }
 
 // ---------- Activity-Log ----------
@@ -587,14 +587,10 @@ export const buildEmptySteps = (current: ProcessStepKey): Record<ProcessStepKey,
 };
 
 export const DEFAULT_OUTBOUND_CHECKLIST = (): { id: string; label: string; done: boolean }[] => [
-  { id: "c1", label: "Fahrzeug gewaschen & innen gereinigt", done: false },
-  { id: "c2", label: "Reifendruck & Profil geprüft", done: false },
-  { id: "c3", label: "Ölstand & Flüssigkeiten kontrolliert", done: false },
-  { id: "c4", label: "Schlüssel (Haupt & Ersatz) bereit", done: false },
-  { id: "c5", label: "Servicebuch & Bordmappe vollständig", done: false },
-  { id: "c6", label: "Kennzeichen montiert", done: false },
-  { id: "c7", label: "Tankfüllung gemäß Vereinbarung", done: false },
-  { id: "c8", label: "Fahrzeugübergabe-Termin bestätigt", done: false },
+  { id: "c1", label: "Fahrzeug aufbereitet & gereinigt", done: false },
+  { id: "c2", label: "Schlüssel (Haupt & Ersatz) bereit", done: false },
+  { id: "c3", label: "Dokumente vollständig (Brief, Schein, Servicebuch)", done: false },
+  { id: "c4", label: "Übergabe-Termin bestätigt", done: false },
 ];
 
 // ---------- Mock seed ----------

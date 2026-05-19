@@ -75,11 +75,14 @@ interface State {
   // Customer-To-Dos auf AB
   addProcessCustomerTodo: (processId: string, title: string) => void;
   removeProcessCustomerTodo: (processId: string, todoId: string) => void;
+  toggleProcessCustomerTodo: (processId: string, todoId: string) => void;
+  setProcessCustomerTodoDueDate: (processId: string, todoId: string, dueDate?: string) => void;
 
   // Outbound checklist
   toggleOutboundChecklistItem: (processId: string, itemId: string) => void;
   addOutboundChecklistItem: (processId: string, label: string) => void;
   removeOutboundChecklistItem: (processId: string, itemId: string) => void;
+  setOutboundChecklistItemDueDate: (processId: string, itemId: string, dueDate?: string) => void;
 
   // ------- Vehicle -------
   addVehicle: (v: Omit<Vehicle, "id" | "status" | "locationHistory" | "costs"> & { status?: Vehicle["status"]; locationHistory?: VehicleLocation[]; costs?: CostEntry[] }) => Vehicle;
@@ -150,6 +153,23 @@ const nextNumericId = (prefix: string, list: { id: string }[]) => {
 };
 
 const randomId = (prefix: string) => `${prefix}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+
+/**
+ * Mirrored-Todo IDs sind virtuelle IDs für To-Dos, die aus Vorgängen abgeleitet sind.
+ * Format: mir|<kind>|<processId>|<itemId>
+ * kind: "ct" = customerTodosOC (AB-To-Do), "oc" = outboundChecklist (Ausgangskontrolle)
+ */
+export const mirroredTodoId = (kind: "ct" | "oc", processId: string, itemId: string) =>
+  `mir|${kind}|${processId}|${itemId}`;
+
+const parseMirroredId = (id: string): { kind: "ct" | "oc"; processId: string; itemId: string } | null => {
+  if (!id.startsWith("mir|")) return null;
+  const parts = id.split("|");
+  if (parts.length !== 4) return null;
+  const kind = parts[1] as "ct" | "oc";
+  if (kind !== "ct" && kind !== "oc") return null;
+  return { kind, processId: parts[2], itemId: parts[3] };
+};
 
 export const useProcessStore = create<State>()(
   persist(
@@ -406,6 +426,45 @@ export const useProcessStore = create<State>()(
           set((state) => ({
             processes: state.processes.map((p) =>
               p.id !== processId ? p : { ...p, outboundChecklist: p.outboundChecklist.filter((c) => c.id !== itemId) }
+            ),
+          })),
+
+        toggleProcessCustomerTodo: (processId, todoId) =>
+          set((state) => ({
+            processes: state.processes.map((p) =>
+              p.id !== processId ? p : {
+                ...p,
+                customerTodosOC: p.customerTodosOC.map((t) =>
+                  t.id === todoId ? { ...t, done: !t.done } : t
+                ),
+                updatedAt: new Date().toISOString(),
+              }
+            ),
+          })),
+
+        setProcessCustomerTodoDueDate: (processId, todoId, dueDate) =>
+          set((state) => ({
+            processes: state.processes.map((p) =>
+              p.id !== processId ? p : {
+                ...p,
+                customerTodosOC: p.customerTodosOC.map((t) =>
+                  t.id === todoId ? { ...t, dueDate } : t
+                ),
+                updatedAt: new Date().toISOString(),
+              }
+            ),
+          })),
+
+        setOutboundChecklistItemDueDate: (processId, itemId, dueDate) =>
+          set((state) => ({
+            processes: state.processes.map((p) =>
+              p.id !== processId ? p : {
+                ...p,
+                outboundChecklist: p.outboundChecklist.map((c) =>
+                  c.id === itemId ? { ...c, dueDate } : c
+                ),
+                updatedAt: new Date().toISOString(),
+              }
             ),
           })),
 
@@ -863,7 +922,15 @@ export const useProcessStore = create<State>()(
           return todo;
         },
 
-        toggleTodo: (id) =>
+        toggleTodo: (id) => {
+          // Mirrored process todos: id like mir-ct-<processId>-<itemId> or mir-oc-<processId>-<itemId>
+          const mir = parseMirroredId(id);
+          if (mir) {
+            if (mir.kind === "ct") get().toggleProcessCustomerTodo(mir.processId, mir.itemId);
+            else get().toggleOutboundChecklistItem(mir.processId, mir.itemId);
+            return;
+          }
+          return (
           set((state) => {
             const todo = state.todos.find((t) => t.id === id);
             const willBeDone = todo ? !todo.done : false;
@@ -927,9 +994,23 @@ export const useProcessStore = create<State>()(
               vehicles: updatedVehicles,
               activities,
             };
-          }),
+          }));
+        },
 
-        updateTodo: (id, patch) =>
+        updateTodo: (id, patch) => {
+          const mir = parseMirroredId(id);
+          if (mir) {
+            if (patch.dueDate !== undefined) {
+              if (mir.kind === "ct") get().setProcessCustomerTodoDueDate(mir.processId, mir.itemId, patch.dueDate || undefined);
+              else get().setOutboundChecklistItemDueDate(mir.processId, mir.itemId, patch.dueDate || undefined);
+            }
+            if (patch.done !== undefined) {
+              if (mir.kind === "ct") get().toggleProcessCustomerTodo(mir.processId, mir.itemId);
+              else get().toggleOutboundChecklistItem(mir.processId, mir.itemId);
+            }
+            return;
+          }
+          return (
           set((state) => {
             const prev = state.todos.find((t) => t.id === id);
             if (!prev) return state;
@@ -991,9 +1072,17 @@ export const useProcessStore = create<State>()(
               todos: state.todos.map((t) => (t.id === id ? { ...next, calendarEventId } : t)),
               calendarEvents,
             };
-          }),
+          }));
+        },
 
-        removeTodo: (id) =>
+        removeTodo: (id) => {
+          const mir = parseMirroredId(id);
+          if (mir) {
+            if (mir.kind === "ct") get().removeProcessCustomerTodo(mir.processId, mir.itemId);
+            else get().removeOutboundChecklistItem(mir.processId, mir.itemId);
+            return;
+          }
+          return (
           set((state) => {
             const todo = state.todos.find((t) => t.id === id);
             return {
@@ -1006,7 +1095,8 @@ export const useProcessStore = create<State>()(
                 ? logActivity(state, "todo_deleted", `To-Do gelöscht: ${todo.title}`, { vehicleId: todo.vehicleId, processId: todo.processId })
                 : state.activities,
             };
-          }),
+          }));
+        },
 
         // ------- Calendar -------
         addCalendarEvent: (e) => {

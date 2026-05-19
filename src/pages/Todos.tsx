@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { useProcessStore } from "@/store/processStore";
+import { useProcessStore, mirroredTodoId } from "@/store/processStore";
 import {
   Todo, TodoPriority, TodoScope, formatDate,
 } from "@/data/process";
@@ -68,13 +68,51 @@ const toISO = (d: Date) => {
 
 const Todos = () => {
   const navigate = useNavigate();
-  const todos = useProcessStore((s) => s.todos);
+  const rawTodos = useProcessStore((s) => s.todos);
   const vehicles = useProcessStore((s) => s.vehicles);
   const processes = useProcessStore((s) => s.processes);
   const addTodo = useProcessStore((s) => s.addTodo);
   const toggleTodo = useProcessStore((s) => s.toggleTodo);
   const removeTodo = useProcessStore((s) => s.removeTodo);
   const updateTodo = useProcessStore((s) => s.updateTodo);
+
+  // Merge: globale To-Dos + abgeleitete To-Dos aus Vorgängen (AB-Kunden-To-Dos & Ausgangskontrolle)
+  const todos = useMemo<Todo[]>(() => {
+    const mirrored: Todo[] = [];
+    processes.forEach((p) => {
+      p.customerTodosOC.forEach((it) => {
+        mirrored.push({
+          id: mirroredTodoId("ct", p.id, it.id),
+          title: it.title,
+          priority: "medium",
+          scope: "order_confirmation",
+          done: !!it.done,
+          dueDate: it.dueDate,
+          processId: p.id,
+          vehicleId: p.vehicleId,
+          tags: ["Vorgang", p.id, "AB"],
+          createdAt: p.createdAt,
+          createdBy: "Vorgang",
+        });
+      });
+      p.outboundChecklist.forEach((it) => {
+        mirrored.push({
+          id: mirroredTodoId("oc", p.id, it.id),
+          title: it.label,
+          priority: "medium",
+          scope: "outbound_check",
+          done: it.done,
+          dueDate: it.dueDate,
+          processId: p.id,
+          vehicleId: p.vehicleId,
+          tags: ["Vorgang", p.id, "Ausgangskontrolle"],
+          createdAt: p.createdAt,
+          createdBy: "Vorgang",
+        });
+      });
+    });
+    return [...rawTodos, ...mirrored];
+  }, [rawTodos, processes]);
 
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("open");
   const [scopeFilter, setScopeFilter] = useState<"all" | TodoScope>("all");
