@@ -156,22 +156,19 @@ const randomId = (prefix: string) => `${prefix}-${Math.random().toString(36).sli
 
 /**
  * Mirrored-Todo IDs sind virtuelle IDs für To-Dos, die aus Vorgängen abgeleitet sind.
- * Format: mir-<kind>-<processId>-<itemId>
+ * Format: mir|<kind>|<processId>|<itemId>
  * kind: "ct" = customerTodosOC (AB-To-Do), "oc" = outboundChecklist (Ausgangskontrolle)
  */
 export const mirroredTodoId = (kind: "ct" | "oc", processId: string, itemId: string) =>
-  `mir-${kind}-${processId}-${itemId}`;
+  `mir|${kind}|${processId}|${itemId}`;
 
 const parseMirroredId = (id: string): { kind: "ct" | "oc"; processId: string; itemId: string } | null => {
-  if (!id.startsWith("mir-")) return null;
-  const rest = id.slice(4);
-  const kind = rest.slice(0, 2) as "ct" | "oc";
+  if (!id.startsWith("mir|")) return null;
+  const parts = id.split("|");
+  if (parts.length !== 4) return null;
+  const kind = parts[1] as "ct" | "oc";
   if (kind !== "ct" && kind !== "oc") return null;
-  const tail = rest.slice(3); // skip "ct-" or "oc-"
-  // processId enthält Bindestriche (z. B. VF-2026-0001), itemId enthält keine Bindestriche
-  const lastDash = tail.lastIndexOf("-");
-  if (lastDash < 0) return null;
-  return { kind, processId: tail.slice(0, lastDash), itemId: tail.slice(lastDash + 1) };
+  return { kind, processId: parts[2], itemId: parts[3] };
 };
 
 export const useProcessStore = create<State>()(
