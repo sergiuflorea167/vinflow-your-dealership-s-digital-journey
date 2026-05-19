@@ -196,7 +196,7 @@ const ProcessDetail = () => {
               <div className="mt-6">
                 <TodoList
                   title="Kunden-To-Dos auf AB"
-                  description="Diese Punkte werden auf der Auftragsbestätigung gedruckt – sichtbar für den Kunden. Fälligkeit hilft dir beim Tracking unter „To-Dos"."
+                  description='Diese Punkte werden auf der Auftragsbestätigung gedruckt – sichtbar für den Kunden. Fälligkeit hilft dir beim Tracking unter „To-Dos".'
                   items={process.customerTodosOC}
                   onAdd={(t) => addCT(process.id, t)}
                   onRemove={(id) => removeCT(process.id, id)}
