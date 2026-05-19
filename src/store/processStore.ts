@@ -1078,7 +1078,8 @@ export const useProcessStore = create<State>()(
                 ? logActivity(state, "todo_deleted", `To-Do gelöscht: ${todo.title}`, { vehicleId: todo.vehicleId, processId: todo.processId })
                 : state.activities,
             };
-          }),
+          }));
+        },
 
         // ------- Calendar -------
         addCalendarEvent: (e) => {
