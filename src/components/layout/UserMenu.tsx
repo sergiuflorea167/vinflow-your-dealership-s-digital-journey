@@ -254,6 +254,9 @@ export const UserMenu = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <WorkshopPickerDialog open={workshopPickerOpen} onOpenChange={setWorkshopPickerOpen} />
     </>
   );
 };
+
