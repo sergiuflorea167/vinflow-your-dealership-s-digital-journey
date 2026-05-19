@@ -137,9 +137,10 @@ export const UserMenu = () => {
           <DropdownMenuItem onClick={() => useTutorialStore.getState().reset()}>
             <Sparkles className="size-4 mr-2" /> Einführungs-Tour starten
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => { navigate("/"); setTimeout(() => useWorkshopStore.getState().start(), 50); }}>
-            <GraduationCap className="size-4 mr-2" /> Dashboard-Workshop starten
+          <DropdownMenuItem onClick={() => setWorkshopPickerOpen(true)}>
+            <GraduationCap className="size-4 mr-2" /> Workshop starten
           </DropdownMenuItem>
+
           <DropdownMenuSeparator />
           <DropdownMenuItem
             onClick={async () => {
