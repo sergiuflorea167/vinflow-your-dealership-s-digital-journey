@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
 import { useProcessStore } from "@/store/processStore";
+import { useAuth } from "@/context/AuthContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
@@ -11,16 +12,19 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { User, Settings as SettingsIcon, LogOut, Camera, Mail, Phone, Briefcase, Palette, Check } from "lucide-react";
+import { User, Settings as SettingsIcon, LogOut, Camera, Mail, Phone, Briefcase, Palette, Check, Building2, KeyRound, Copy } from "lucide-react";
 import { PDF_THEMES } from "@/lib/pdf";
 import { cn } from "@/lib/utils";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useT } from "@/lib/i18n";
 
 export const UserMenu = () => {
   const settings = useProcessStore((s) => s.settings);
   const updateSettings = useProcessStore((s) => s.updateSettings);
+  const { profile, organization, roles, signOut } = useAuth();
+  const navigate = useNavigate();
+  const isGF = roles.includes("geschaeftsfuehrer");
   const t = useT();
 
   const [open, setOpen] = useState(false);
@@ -72,7 +76,7 @@ export const UserMenu = () => {
             )}
           </button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-64">
+        <DropdownMenuContent align="end" className="w-72">
           <DropdownMenuLabel>
             <div className="flex items-center gap-3 py-1">
               <Avatar className="size-10">
@@ -82,11 +86,42 @@ export const UserMenu = () => {
                 </AvatarFallback>
               </Avatar>
               <div className="min-w-0">
-                <p className="text-sm font-semibold truncate">{settings.userName}</p>
-                <p className="text-xs text-muted-foreground truncate">{settings.role || settings.email}</p>
+                <p className="text-sm font-semibold truncate">
+                  {profile ? `${profile.first_name ?? ""} ${profile.last_name ?? ""}`.trim() || settings.userName : settings.userName}
+                </p>
+                <p className="text-xs text-muted-foreground truncate">{profile?.position || profile?.email || settings.email}</p>
               </div>
             </div>
           </DropdownMenuLabel>
+          {organization && (
+            <>
+              <DropdownMenuSeparator />
+              <div className="px-2 py-2 space-y-1.5">
+                <div className="flex items-center gap-2 text-xs">
+                  <Building2 className="size-3.5 text-primary" />
+                  <span className="font-semibold truncate">{organization.name}</span>
+                  <span className="ml-auto text-[10px] uppercase tracking-wider text-muted-foreground">
+                    {isGF ? "Geschäftsführer" : "Mitarbeiter"}
+                  </span>
+                </div>
+                {isGF && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      navigator.clipboard.writeText(organization.invite_code);
+                      toast.success("Einladungs-Code kopiert");
+                    }}
+                    className="w-full flex items-center gap-2 text-[11px] px-2 py-1.5 rounded-md bg-secondary/60 hover:bg-secondary transition-smooth"
+                  >
+                    <KeyRound className="size-3" />
+                    <span className="font-mono tracking-wider">{organization.invite_code}</span>
+                    <Copy className="size-3 ml-auto text-muted-foreground" />
+                  </button>
+                )}
+              </div>
+            </>
+          )}
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={openDialog}>
             <User className="size-4 mr-2" /> {t("menu.editProfile")}
@@ -96,10 +131,13 @@ export const UserMenu = () => {
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem
-            onClick={() => toast.info(t("menu.logout.demo"))}
-            className="text-muted-foreground"
+            onClick={async () => {
+              await signOut();
+              toast.success("Abgemeldet");
+              navigate("/auth", { replace: true });
+            }}
           >
-            <LogOut className="size-4 mr-2" /> {t("menu.logout")}
+            <LogOut className="size-4 mr-2" /> Abmelden
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
