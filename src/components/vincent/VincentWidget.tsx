@@ -150,7 +150,7 @@ export const VincentWidget = () => {
           onClick={() => setOpen(true)}
           data-tour="vincent"
           aria-label={lang === "en" ? "Ask Vincent" : "Vincent fragen"}
-          className="fixed bottom-6 right-6 z-40 group flex items-center h-12 rounded-full bg-gradient-to-br from-primary to-primary-glow text-primary-foreground shadow-glow hover:shadow-elegant transition-all duration-300 overflow-hidden w-12 hover:w-[180px] pl-3 pr-3 hover:pr-5"
+          className="fixed bottom-6 right-6 z-40 group flex items-center justify-center h-12 rounded-full bg-gradient-to-br from-primary to-primary-glow text-primary-foreground shadow-glow hover:shadow-elegant transition-all duration-300 overflow-hidden w-12 hover:w-[180px] hover:justify-start hover:pl-3 hover:pr-5"
         >
           <Sparkles className="size-5 shrink-0" />
           <span className="ml-2 font-display font-semibold tracking-tight whitespace-nowrap opacity-0 max-w-0 group-hover:opacity-100 group-hover:max-w-[160px] transition-all duration-300">
