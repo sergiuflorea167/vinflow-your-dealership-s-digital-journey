@@ -61,7 +61,7 @@ const Fleet = () => {
   const setVehicleListed = useProcessStore((s) => s.setVehicleListed);
 
   const workshopActive = useFleetWorkshopStore((s) => s.active);
-  const startWorkshop = useFleetWorkshopStore((s) => s.start);
+  
 
   // Im Workshop: ausschließlich Demo-Daten
   const vehicles = workshopActive ? FLEET_DEMO_VEHICLES : realVehicles;
