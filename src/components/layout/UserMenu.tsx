@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
 import { useProcessStore } from "@/store/processStore";
+import { useAuth } from "@/context/AuthContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
@@ -11,16 +12,19 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { User, Settings as SettingsIcon, LogOut, Camera, Mail, Phone, Briefcase, Palette, Check } from "lucide-react";
+import { User, Settings as SettingsIcon, LogOut, Camera, Mail, Phone, Briefcase, Palette, Check, Building2, KeyRound, Copy } from "lucide-react";
 import { PDF_THEMES } from "@/lib/pdf";
 import { cn } from "@/lib/utils";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useT } from "@/lib/i18n";
 
 export const UserMenu = () => {
   const settings = useProcessStore((s) => s.settings);
   const updateSettings = useProcessStore((s) => s.updateSettings);
+  const { profile, organization, roles, signOut } = useAuth();
+  const navigate = useNavigate();
+  const isGF = roles.includes("geschaeftsfuehrer");
   const t = useT();
 
   const [open, setOpen] = useState(false);
