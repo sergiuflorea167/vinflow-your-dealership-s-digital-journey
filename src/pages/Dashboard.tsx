@@ -243,7 +243,7 @@ const Dashboard = () => {
         </Card>
 
         {/* Frei konfigurierbare KPIs */}
-        <div>
+        <div data-tour="dash-kpis">
           <div className="flex items-center justify-between mb-5">
             <div>
               <h2 className="text-xl font-display font-semibold">{t("dash.yourKpis")}</h2>
@@ -260,7 +260,7 @@ const Dashboard = () => {
           <PinnedKpiGrid />
         </div>
 
-        <Card className="p-6 bg-card border-border shadow-card">
+        <Card data-tour="dash-pipeline" className="p-6 bg-card border-border shadow-card">
           <div className="flex items-center justify-between mb-6">
             <div>
               <h2 className="text-xl font-display font-semibold">{t("dash.pipeline")}</h2>
@@ -284,7 +284,7 @@ const Dashboard = () => {
           </div>
         </Card>
 
-        <div>
+        <div data-tour="dash-active">
           <div className="flex items-center justify-between mb-5">
             <div>
               <h2 className="text-xl font-display font-semibold">{t("dash.activeProcesses")}</h2>
