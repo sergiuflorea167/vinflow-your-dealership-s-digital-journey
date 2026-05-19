@@ -66,6 +66,7 @@ export const UserMenu = () => {
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button
+            data-tour="user-menu"
             className="ml-2 size-9 rounded-full overflow-hidden border border-border bg-secondary grid place-items-center text-sm font-semibold text-secondary-foreground hover:ring-2 hover:ring-primary/40 transition-smooth"
             aria-label="Profilmenü öffnen"
           >
