@@ -309,15 +309,26 @@ const Dashboard = () => {
             </Button>
           </div>
           <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">
-            {activeProcesses.slice(0, 6).map((p) => (
-              <ProcessCard key={p.id} process={p} />
-            ))}
-            {activeProcesses.length === 0 && (
+            {workshopActive
+              ? DEMO_PROCESS_CARDS.map((d) => (
+                  <DemoProcessCard
+                    key={d.process.id}
+                    id={d.process.id}
+                    currentStep={d.process.currentStep}
+                    vehicleLabel={`${d.vehicle.make} ${d.vehicle.model}`}
+                    vin={d.vehicle.vin}
+                    customerName={d.customer.name}
+                    price={d.process.fields.finalPrice ?? d.vehicle.listPrice}
+                  />
+                ))
+              : realActive.slice(0, 6).map((p) => <ProcessCard key={p.id} process={p} />)}
+            {!workshopActive && realActive.length === 0 && (
               <p className="text-sm text-muted-foreground col-span-full">
                 {t("dash.activeProcesses.empty")}
               </p>
             )}
           </div>
+
         </div>
       </div>
     </AppShell>
