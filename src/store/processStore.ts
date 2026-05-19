@@ -977,7 +977,8 @@ export const useProcessStore = create<State>()(
               vehicles: updatedVehicles,
               activities,
             };
-          }),
+          }));
+        },
 
         updateTodo: (id, patch) =>
           set((state) => {
