@@ -905,7 +905,15 @@ export const useProcessStore = create<State>()(
           return todo;
         },
 
-        toggleTodo: (id) =>
+        toggleTodo: (id) => {
+          // Mirrored process todos: id like mir-ct-<processId>-<itemId> or mir-oc-<processId>-<itemId>
+          const mir = parseMirroredId(id);
+          if (mir) {
+            if (mir.kind === "ct") get().toggleProcessCustomerTodo(mir.processId, mir.itemId);
+            else get().toggleOutboundChecklistItem(mir.processId, mir.itemId);
+            return;
+          }
+          return (
           set((state) => {
             const todo = state.todos.find((t) => t.id === id);
             const willBeDone = todo ? !todo.done : false;
