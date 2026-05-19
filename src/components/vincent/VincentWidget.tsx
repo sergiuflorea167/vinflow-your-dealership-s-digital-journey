@@ -149,13 +149,11 @@ export const VincentWidget = () => {
           type="button"
           onClick={() => setOpen(true)}
           data-tour="vincent"
-          className="fixed bottom-6 right-6 z-40 group flex items-center gap-2 pl-4 pr-5 h-14 rounded-full bg-gradient-to-br from-primary to-primary-glow text-primary-foreground shadow-glow hover:shadow-elegant transition-all hover:scale-[1.02]"
-          aria-label="Vincent öffnen"
+          aria-label={lang === "en" ? "Ask Vincent" : "Vincent fragen"}
+          className="fixed bottom-6 right-6 z-40 group flex items-center h-12 rounded-full bg-gradient-to-br from-primary to-primary-glow text-primary-foreground shadow-glow hover:shadow-elegant transition-all duration-300 overflow-hidden w-12 hover:w-[180px] pl-3 pr-3 hover:pr-5"
         >
-          <span className="size-8 rounded-full bg-background/20 flex items-center justify-center">
-            <Sparkles className="size-4" />
-          </span>
-          <span className="font-display font-semibold tracking-tight">
+          <Sparkles className="size-5 shrink-0" />
+          <span className="ml-2 font-display font-semibold tracking-tight whitespace-nowrap opacity-0 max-w-0 group-hover:opacity-100 group-hover:max-w-[160px] transition-all duration-300">
             {lang === "en" ? "Ask Vincent" : "Vincent fragen"}
           </span>
         </button>
