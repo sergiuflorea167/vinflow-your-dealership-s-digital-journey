@@ -11,7 +11,7 @@ import { DashboardHero } from "@/components/dashboard/DashboardHero";
 import { PinnedKpiGrid } from "@/components/dashboard/PinnedKpiGrid";
 import { useProcessStore } from "@/store/processStore";
 import { PROCESS_STEPS, TodoPriority, CALENDAR_EVENT_TYPE_LABELS, CalendarEventType } from "@/data/process";
-import { ArrowUpRight, Settings2, CalendarCheck2, Car, CalendarDays, Clock, MapPin, GraduationCap } from "lucide-react";
+import { ArrowUpRight, Settings2, CalendarCheck2, Car, CalendarDays, Clock, MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useT } from "@/lib/i18n";
 import { useWorkshopStore } from "@/store/workshopStore";
