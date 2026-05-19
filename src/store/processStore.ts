@@ -412,6 +412,45 @@ export const useProcessStore = create<State>()(
             ),
           })),
 
+        toggleProcessCustomerTodo: (processId, todoId) =>
+          set((state) => ({
+            processes: state.processes.map((p) =>
+              p.id !== processId ? p : {
+                ...p,
+                customerTodosOC: p.customerTodosOC.map((t) =>
+                  t.id === todoId ? { ...t, done: !t.done } : t
+                ),
+                updatedAt: new Date().toISOString(),
+              }
+            ),
+          })),
+
+        setProcessCustomerTodoDueDate: (processId, todoId, dueDate) =>
+          set((state) => ({
+            processes: state.processes.map((p) =>
+              p.id !== processId ? p : {
+                ...p,
+                customerTodosOC: p.customerTodosOC.map((t) =>
+                  t.id === todoId ? { ...t, dueDate } : t
+                ),
+                updatedAt: new Date().toISOString(),
+              }
+            ),
+          })),
+
+        setOutboundChecklistItemDueDate: (processId, itemId, dueDate) =>
+          set((state) => ({
+            processes: state.processes.map((p) =>
+              p.id !== processId ? p : {
+                ...p,
+                outboundChecklist: p.outboundChecklist.map((c) =>
+                  c.id === itemId ? { ...c, dueDate } : c
+                ),
+                updatedAt: new Date().toISOString(),
+              }
+            ),
+          })),
+
         // ------- Vehicle -------
         addVehicle: (v) => {
           const id = nextNumericId("V", get().vehicles);
