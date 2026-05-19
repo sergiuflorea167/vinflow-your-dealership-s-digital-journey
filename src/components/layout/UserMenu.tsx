@@ -33,6 +33,8 @@ export const UserMenu = () => {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [draft, setDraft] = useState(settings);
+  const [workshopPickerOpen, setWorkshopPickerOpen] = useState(false);
+
 
   const openDialog = () => {
     setDraft(settings);
