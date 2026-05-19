@@ -209,6 +209,7 @@ const Fleet = () => {
             </Button>
             <Button
               size="sm"
+              data-tour="fleet-intake"
               className="bg-gradient-brand hover:opacity-90 shadow-elegant gap-2"
               onClick={() => setIntakeOpen(true)}
             >

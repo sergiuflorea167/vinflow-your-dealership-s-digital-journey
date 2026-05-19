@@ -62,10 +62,19 @@ export const Sidebar = () => {
 
   const renderItem = ({ to, labelKey, icon: Icon }: NavItem) => {
     const label = t(labelKey);
-    const tourId =
-      to === "/bestand" ? "nav-fleet" :
-      to === "/vorgaenge" ? "nav-processes" :
-      undefined;
+    const tourMap: Record<string, string> = {
+      "/": "nav-dashboard",
+      "/bestand": "nav-fleet",
+      "/vorgaenge": "nav-processes",
+      "/einkaufsplanung": "nav-purchasing",
+      "/todos": "nav-todos",
+      "/kalender": "nav-calendar",
+      "/kpis": "nav-kpis",
+      "/insights": "nav-insights",
+      "/stammdaten": "nav-master",
+      "/einstellungen": "nav-settings",
+    };
+    const tourId = tourMap[to];
     const link = (
       <NavLink
         key={to}

@@ -219,7 +219,7 @@ const PartnersPanel = () => {
             </Select>
             <span className="text-xs text-muted-foreground">{filtered.length} Partner</span>
           </div>
-          <Button onClick={openCreate} className="bg-gradient-brand gap-2">
+          <Button onClick={openCreate} data-tour="master-create" className="bg-gradient-brand gap-2">
             <Plus className="size-4" /> Neuer Partner
           </Button>
         </div>

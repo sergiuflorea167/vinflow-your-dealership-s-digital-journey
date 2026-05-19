@@ -3,7 +3,10 @@ import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { useTutorialStore } from "@/store/tutorialStore";
 import { Button } from "@/components/ui/button";
-import { Sparkles, ArrowLeft, ArrowRight, X, Check, Car, Workflow, Search, Bot, User } from "lucide-react";
+import {
+  Sparkles, ArrowLeft, ArrowRight, X, Check, Car, Workflow, Search, Bot, User,
+  LayoutDashboard, Database, ListChecks, ShoppingCart, BarChart3, FileSignature, Plus,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Placement = "top" | "bottom" | "left" | "right" | "center";
@@ -20,44 +23,104 @@ interface Step {
 const STEPS: Step[] = [
   {
     title: "Willkommen bei VINflow",
-    body: "In 60 Sekunden zeige ich dir das Wichtigste. Du kannst die Tour jederzeit überspringen.",
+    body: "In 2 Minuten zeige ich dir, wie ein kompletter Vorgang läuft – vom Fahrzeug bis zur Übergabe. Du kannst die Tour jederzeit überspringen oder später erneut starten.",
     icon: Sparkles,
     placement: "center",
   },
   {
+    selector: '[data-tour="nav-dashboard"]',
+    route: "/",
+    title: "Dein Dashboard",
+    body: "Startseite mit Live-Übersicht: offene Vorgänge, fällige To-Dos, KPIs und aktuelle Aktivitäten. Hier siehst du auf einen Blick, wo du heute anpacken musst.",
+    icon: LayoutDashboard,
+    placement: "right",
+  },
+  {
+    title: "So läuft ein Vorgang ab",
+    body: "Jeder Verkauf durchläuft 8 Schritte: 1) Einkaufsplanung → 2) Bestand → 3) Angebot → 4) Anzahlung → 5) Auftragsbestätigung → 6) Ausgangskontrolle → 7) Rechnung → 8) Übergabe. Schritte schalten sich nacheinander frei.",
+    icon: Workflow,
+    placement: "center",
+  },
+  {
+    selector: '[data-tour="nav-master"]',
+    route: "/stammdaten",
+    title: "1. Stammdaten anlegen",
+    body: "Starte hier: Kunden, Lieferanten und Partner pflegst du einmal zentral. Diese Daten greifen alle Vorgänge automatisch ab – keine Doppeleingaben mehr.",
+    icon: Database,
+    placement: "right",
+  },
+  {
+    selector: '[data-tour="master-create"]',
+    title: "Neuen Kunden / Partner anlegen",
+    body: "Klick auf „Neuer Partner“, wähle den Typ (Kunde, Lieferant, …) und trag Stammdaten ein. Speichern – fertig. Steht sofort in allen Vorgängen zur Verfügung.",
+    icon: Plus,
+    placement: "left",
+  },
+  {
     selector: '[data-tour="nav-fleet"]',
     route: "/bestand",
-    title: "Dein Bestand",
-    body: "Alle Fahrzeuge an einem Ort – per VIN, mit Fotos, Kosten und Status. Import/Export via CSV oder Excel.",
+    title: "2. Fahrzeuge im Bestand",
+    body: "Alle Fahrzeuge mit VIN, Fotos, Kosten und Status. Per CSV/Excel-Import bringst du bestehende Bestände in Sekunden rein.",
     icon: Car,
     placement: "right",
   },
   {
+    selector: '[data-tour="fleet-intake"]',
+    title: "Fahrzeug aufnehmen",
+    body: "VIN eingeben – Marke, Modell und Daten werden automatisch erkannt. Fotos hochladen, Einkaufspreis & Kosten ergänzen. Damit ist das Fahrzeug verkaufsbereit.",
+    icon: Plus,
+    placement: "bottom",
+  },
+  {
     selector: '[data-tour="nav-processes"]',
     route: "/vorgaenge",
-    title: "Vorgänge laufen Schritt für Schritt",
-    body: "Vom Angebot bis zur Übergabe – 8 Schritte, jeder Schritt erzeugt automatisch einen PDF-Beleg für den Kunden.",
-    icon: Workflow,
+    title: "3. Vorgänge führen",
+    body: "Hier startest du einen Verkaufsvorgang: Fahrzeug + Kunde verknüpfen, Angebot erstellen. Jeder abgeschlossene Schritt erzeugt automatisch einen PDF-Beleg für den Kunden.",
+    icon: FileSignature,
+    placement: "right",
+  },
+  {
+    selector: '[data-tour="nav-purchasing"]',
+    route: "/einkaufsplanung",
+    title: "Einkaufsplanung",
+    body: "Plane künftige Ankäufe: Wunschfahrzeuge, Budget, Quelle. Wird ein Fahrzeug gekauft, wandert es per Klick in den Bestand.",
+    icon: ShoppingCart,
+    placement: "right",
+  },
+  {
+    selector: '[data-tour="nav-todos"]',
+    route: "/todos",
+    title: "To-Dos & Ausgangskontrolle",
+    body: "Alle Aufgaben aus laufenden Vorgängen (Reinigung, TÜV, Aufbereitung, Zulassung …) gebündelt – nichts fällt mehr durchs Raster.",
+    icon: ListChecks,
+    placement: "right",
+  },
+  {
+    selector: '[data-tour="nav-kpis"]',
+    route: "/kpis",
+    title: "KPIs & Insights",
+    body: "Marge, Durchlaufzeiten, Conversion. Echte Zahlen statt Bauchgefühl – aus deinen eigenen Vorgängen berechnet.",
+    icon: BarChart3,
     placement: "right",
   },
   {
     selector: '[data-tour="topbar-search"]',
     title: "Finde alles sofort",
-    body: "Suche oben funktioniert auf jeder Seite – nach VIN, Kennzeichen, Kunde oder Vorgangsnummer.",
+    body: "Die Suche oben funktioniert auf jeder Seite – nach VIN, Kennzeichen, Kunde oder Vorgangsnummer.",
     icon: Search,
     placement: "bottom",
   },
   {
     selector: '[data-tour="vincent"]',
     title: "Vincent – dein KI-Assistent",
-    body: "Frag Vincent nach Auswertungen, dem nächsten Schritt oder lass dir Vorgänge erklären.",
+    body: "Frag Vincent nach Auswertungen, dem nächsten Schritt in einem Vorgang oder lass dir komplexe Vorgänge in einem Satz zusammenfassen.",
     icon: Bot,
     placement: "left",
   },
   {
     selector: '[data-tour="user-menu"]',
-    title: "Dein Profil & Team",
-    body: "Hier findest du deinen Einladungs-Code, um Mitarbeiter einzuladen, und kannst dein PDF-Branding anpassen.",
+    title: "Profil, Team & Wiederholung",
+    body: "Hier findest du deinen Einladungs-Code für Mitarbeiter, das PDF-Branding – und kannst diese Tour jederzeit über „Einführungs-Tour starten“ erneut abspielen.",
     icon: User,
     placement: "bottom",
   },
