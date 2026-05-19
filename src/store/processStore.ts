@@ -154,6 +154,26 @@ const nextNumericId = (prefix: string, list: { id: string }[]) => {
 
 const randomId = (prefix: string) => `${prefix}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
 
+/**
+ * Mirrored-Todo IDs sind virtuelle IDs für To-Dos, die aus Vorgängen abgeleitet sind.
+ * Format: mir-<kind>-<processId>-<itemId>
+ * kind: "ct" = customerTodosOC (AB-To-Do), "oc" = outboundChecklist (Ausgangskontrolle)
+ */
+export const mirroredTodoId = (kind: "ct" | "oc", processId: string, itemId: string) =>
+  `mir-${kind}-${processId}-${itemId}`;
+
+const parseMirroredId = (id: string): { kind: "ct" | "oc"; processId: string; itemId: string } | null => {
+  if (!id.startsWith("mir-")) return null;
+  const rest = id.slice(4);
+  const kind = rest.slice(0, 2) as "ct" | "oc";
+  if (kind !== "ct" && kind !== "oc") return null;
+  const tail = rest.slice(3); // skip "ct-" or "oc-"
+  // processId enthält Bindestriche (z. B. VF-2026-0001), itemId enthält keine Bindestriche
+  const lastDash = tail.lastIndexOf("-");
+  if (lastDash < 0) return null;
+  return { kind, processId: tail.slice(0, lastDash), itemId: tail.slice(lastDash + 1) };
+};
+
 export const useProcessStore = create<State>()(
   persist(
     (set, get) => {
