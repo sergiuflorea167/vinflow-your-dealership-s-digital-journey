@@ -17,8 +17,10 @@ import {
   VehicleType,
   vehicleTotalCostsGross,
 } from "@/data/process";
-import { Car, Megaphone, Plus, Download, Upload, FileSpreadsheet, FileText } from "lucide-react";
+import { Car, Megaphone, Plus, Download, Upload, FileSpreadsheet, FileText, GraduationCap } from "lucide-react";
 import { toast } from "sonner";
+import { useFleetWorkshopStore } from "@/store/fleetWorkshopStore";
+import { FLEET_DEMO_VEHICLES, FLEET_DEMO_OFFERS, FLEET_DEMO_PROCESSES } from "@/data/workshopDemo";
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
@@ -51,12 +53,20 @@ type ListedFilter = "all" | "listed" | "not_listed";
 
 const Fleet = () => {
   const navigate = useNavigate();
-  const vehicles = useProcessStore((s) => s.vehicles);
-  const offers = useProcessStore((s) => s.offers);
-  const processes = useProcessStore((s) => s.processes);
+  const realVehicles = useProcessStore((s) => s.vehicles);
+  const realOffers = useProcessStore((s) => s.offers);
+  const realProcesses = useProcessStore((s) => s.processes);
   const locations = useProcessStore((s) => s.settings.locations);
   const addVehicle = useProcessStore((s) => s.addVehicle);
   const setVehicleListed = useProcessStore((s) => s.setVehicleListed);
+
+  const workshopActive = useFleetWorkshopStore((s) => s.active);
+  const startWorkshop = useFleetWorkshopStore((s) => s.start);
+
+  // Im Workshop: ausschließlich Demo-Daten
+  const vehicles = workshopActive ? FLEET_DEMO_VEHICLES : realVehicles;
+  const offers = workshopActive ? FLEET_DEMO_OFFERS : realOffers;
+  const processes = workshopActive ? FLEET_DEMO_PROCESSES : realProcesses;
 
   const [query, setQuery] = useState("");
   const [searchField, setSearchField] = useState<"all" | "vin" | "make" | "model" | "color" | "location">("all");
