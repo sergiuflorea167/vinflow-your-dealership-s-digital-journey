@@ -130,6 +130,9 @@ export const UserMenu = () => {
           <DropdownMenuItem asChild>
             <Link to="/stammdaten"><SettingsIcon className="size-4 mr-2" /> {t("menu.settings")}</Link>
           </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => useTutorialStore.getState().reset()}>
+            <Sparkles className="size-4 mr-2" /> Einführungs-Tour starten
+          </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem
             onClick={async () => {
