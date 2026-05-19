@@ -3,6 +3,7 @@ import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
 import { VincentWidget } from "@/components/vincent/VincentWidget";
 import { TutorialPilot } from "@/components/tutorial/TutorialPilot";
+import { DashboardWorkshop } from "@/components/tutorial/DashboardWorkshop";
 import { useTutorialStore } from "@/store/tutorialStore";
 import { useAuth } from "@/context/AuthContext";
 
@@ -28,6 +29,7 @@ export const AppShell = ({ children }: { children: ReactNode }) => {
       </div>
       <VincentWidget />
       <TutorialPilot />
+      <DashboardWorkshop />
     </div>
   );
 };
