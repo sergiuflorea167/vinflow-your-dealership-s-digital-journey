@@ -16,7 +16,7 @@ export const Topbar = () => {
 
   return (
     <header className="h-16 shrink-0 border-b border-border bg-card/40 backdrop-blur-md flex items-center gap-3 px-6">
-      <div className="flex flex-1 max-w-2xl items-center gap-2">
+      <div className="flex flex-1 max-w-2xl items-center gap-2" data-tour="topbar-search">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
           <Input

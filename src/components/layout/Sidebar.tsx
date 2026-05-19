@@ -62,11 +62,16 @@ export const Sidebar = () => {
 
   const renderItem = ({ to, labelKey, icon: Icon }: NavItem) => {
     const label = t(labelKey);
+    const tourId =
+      to === "/bestand" ? "nav-fleet" :
+      to === "/vorgaenge" ? "nav-processes" :
+      undefined;
     const link = (
       <NavLink
         key={to}
         to={to}
         end={to === "/"}
+        data-tour={tourId}
         className={({ isActive }) =>
           cn(
             "flex items-center rounded-lg text-sm font-medium transition-smooth",
