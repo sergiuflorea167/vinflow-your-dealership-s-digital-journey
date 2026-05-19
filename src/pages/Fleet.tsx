@@ -17,8 +17,10 @@ import {
   VehicleType,
   vehicleTotalCostsGross,
 } from "@/data/process";
-import { Car, Megaphone, Plus, Download, Upload, FileSpreadsheet, FileText } from "lucide-react";
+import { Car, Megaphone, Plus, Download, Upload, FileSpreadsheet, FileText, GraduationCap } from "lucide-react";
 import { toast } from "sonner";
+import { useFleetWorkshopStore } from "@/store/fleetWorkshopStore";
+import { FLEET_DEMO_VEHICLES, FLEET_DEMO_OFFERS, FLEET_DEMO_PROCESSES } from "@/data/workshopDemo";
 import {
   DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
@@ -51,12 +53,20 @@ type ListedFilter = "all" | "listed" | "not_listed";
 
 const Fleet = () => {
   const navigate = useNavigate();
-  const vehicles = useProcessStore((s) => s.vehicles);
-  const offers = useProcessStore((s) => s.offers);
-  const processes = useProcessStore((s) => s.processes);
+  const realVehicles = useProcessStore((s) => s.vehicles);
+  const realOffers = useProcessStore((s) => s.offers);
+  const realProcesses = useProcessStore((s) => s.processes);
   const locations = useProcessStore((s) => s.settings.locations);
   const addVehicle = useProcessStore((s) => s.addVehicle);
   const setVehicleListed = useProcessStore((s) => s.setVehicleListed);
+
+  const workshopActive = useFleetWorkshopStore((s) => s.active);
+  const startWorkshop = useFleetWorkshopStore((s) => s.start);
+
+  // Im Workshop: ausschließlich Demo-Daten
+  const vehicles = workshopActive ? FLEET_DEMO_VEHICLES : realVehicles;
+  const offers = workshopActive ? FLEET_DEMO_OFFERS : realOffers;
+  const processes = workshopActive ? FLEET_DEMO_PROCESSES : realProcesses;
 
   const [query, setQuery] = useState("");
   const [searchField, setSearchField] = useState<"all" | "vin" | "make" | "model" | "color" | "location">("all");
@@ -168,6 +178,19 @@ const Fleet = () => {
 
   return (
     <AppShell>
+      {/* Mini-Tab Workshop am rechten Rand */}
+      <button
+        type="button"
+        onClick={startWorkshop}
+        aria-label="Bestand-Workshop starten"
+        className="group fixed right-0 top-1/2 -translate-y-1/2 z-40 flex items-center gap-2 py-2.5 pl-2.5 pr-2 rounded-l-lg bg-card/90 backdrop-blur border border-r-0 border-primary/30 text-primary shadow-lg hover:bg-primary hover:text-primary-foreground transition-all duration-300 max-w-[40px] hover:max-w-[260px] overflow-hidden"
+      >
+        <GraduationCap className="size-4 shrink-0" />
+        <span className="text-xs font-medium whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200 pr-1">
+          Bestand-Workshop starten
+        </span>
+      </button>
+
       <div className="space-y-3 animate-fade-in">
         {/* Header — kompakt */}
         <div className="flex items-center justify-between gap-4 shrink-0">
@@ -175,7 +198,7 @@ const Fleet = () => {
             <h1 className="font-display text-2xl font-bold tracking-tight">Bestand</h1>
             <p className="text-xs text-muted-foreground">Fahrzeugbestand · VIN-basiert</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div data-tour="fleet-io" className="flex items-center gap-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button size="sm" variant="outline" className="gap-2">
@@ -219,7 +242,7 @@ const Fleet = () => {
         </div>
 
         {/* KPI-Strip kompakt */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 shrink-0">
+        <div data-tour="fleet-kpis" className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 shrink-0">
           {[
             { label: "Gesamt", value: stats.total, icon: Car, accent: "text-primary" },
             { label: "Im Bestand", value: stats.in_stock, icon: Car, accent: "text-success" },
@@ -239,7 +262,7 @@ const Fleet = () => {
         </div>
 
         {/* Filter-Leiste kompakt */}
-        <Card className="px-3 py-2 flex items-center gap-2 flex-wrap shrink-0">
+        <Card data-tour="fleet-filters" className="px-3 py-2 flex items-center gap-2 flex-wrap shrink-0">
           <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as "all" | VehicleType)}>
             <SelectTrigger className="w-[160px] h-8 text-xs"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -283,6 +306,7 @@ const Fleet = () => {
           <DataTableShell
             footer={<>¹ Wunschmarge = Listenpreis − (Einkauf + Kosten brutto). Echte Marge erst nach Verkauf. · {filtered.length} Fahrzeuge</>}
           >
+            <div data-tour="fleet-table">
             <table>
               <thead>
                 <tr>
@@ -405,6 +429,7 @@ const Fleet = () => {
                 })}
               </tbody>
             </table>
+            </div>
           </DataTableShell>
         )}
       </div>
