@@ -148,6 +148,7 @@ export const VincentWidget = () => {
         <button
           type="button"
           onClick={() => setOpen(true)}
+          data-tour="vincent"
           className="fixed bottom-6 right-6 z-40 group flex items-center gap-2 pl-4 pr-5 h-14 rounded-full bg-gradient-to-br from-primary to-primary-glow text-primary-foreground shadow-glow hover:shadow-elegant transition-all hover:scale-[1.02]"
           aria-label="Vincent öffnen"
         >
