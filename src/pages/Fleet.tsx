@@ -262,7 +262,7 @@ const Fleet = () => {
         </div>
 
         {/* Filter-Leiste kompakt */}
-        <Card className="px-3 py-2 flex items-center gap-2 flex-wrap shrink-0">
+        <Card data-tour="fleet-filters" className="px-3 py-2 flex items-center gap-2 flex-wrap shrink-0">
           <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as "all" | VehicleType)}>
             <SelectTrigger className="w-[160px] h-8 text-xs"><SelectValue /></SelectTrigger>
             <SelectContent>
