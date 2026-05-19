@@ -980,7 +980,20 @@ export const useProcessStore = create<State>()(
           }));
         },
 
-        updateTodo: (id, patch) =>
+        updateTodo: (id, patch) => {
+          const mir = parseMirroredId(id);
+          if (mir) {
+            if (patch.dueDate !== undefined) {
+              if (mir.kind === "ct") get().setProcessCustomerTodoDueDate(mir.processId, mir.itemId, patch.dueDate || undefined);
+              else get().setOutboundChecklistItemDueDate(mir.processId, mir.itemId, patch.dueDate || undefined);
+            }
+            if (patch.done !== undefined) {
+              if (mir.kind === "ct") get().toggleProcessCustomerTodo(mir.processId, mir.itemId);
+              else get().toggleOutboundChecklistItem(mir.processId, mir.itemId);
+            }
+            return;
+          }
+          return (
           set((state) => {
             const prev = state.todos.find((t) => t.id === id);
             if (!prev) return state;
@@ -1042,9 +1055,17 @@ export const useProcessStore = create<State>()(
               todos: state.todos.map((t) => (t.id === id ? { ...next, calendarEventId } : t)),
               calendarEvents,
             };
-          }),
+          }));
+        },
 
-        removeTodo: (id) =>
+        removeTodo: (id) => {
+          const mir = parseMirroredId(id);
+          if (mir) {
+            if (mir.kind === "ct") get().removeProcessCustomerTodo(mir.processId, mir.itemId);
+            else get().removeOutboundChecklistItem(mir.processId, mir.itemId);
+            return;
+          }
+          return (
           set((state) => {
             const todo = state.todos.find((t) => t.id === id);
             return {
