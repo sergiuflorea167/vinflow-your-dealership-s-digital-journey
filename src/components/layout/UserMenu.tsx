@@ -12,7 +12,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { User, Settings as SettingsIcon, LogOut, Camera, Mail, Phone, Briefcase, Palette, Check, Building2, KeyRound, Copy } from "lucide-react";
+import { User, Settings as SettingsIcon, LogOut, Camera, Mail, Phone, Briefcase, Palette, Check, Building2, KeyRound, Copy, Sparkles } from "lucide-react";
+import { useTutorialStore } from "@/store/tutorialStore";
 import { PDF_THEMES } from "@/lib/pdf";
 import { cn } from "@/lib/utils";
 import { Link, useNavigate } from "react-router-dom";
