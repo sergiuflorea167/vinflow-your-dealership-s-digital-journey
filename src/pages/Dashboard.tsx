@@ -90,18 +90,21 @@ const Dashboard = () => {
 
   return (
     <AppShell>
+      {/* Mini-Tab am rechten Rand – erweitert sich beim Hovern */}
+      <button
+        type="button"
+        onClick={startWorkshop}
+        aria-label="Dashboard-Workshop starten"
+        className="group fixed right-0 top-1/2 -translate-y-1/2 z-40 flex items-center gap-2 py-2.5 pl-2.5 pr-2 rounded-l-lg bg-card/90 backdrop-blur border border-r-0 border-primary/30 text-primary shadow-lg hover:bg-primary hover:text-primary-foreground transition-all duration-300 max-w-[40px] hover:max-w-[260px] overflow-hidden"
+      >
+        <GraduationCap className="size-4 shrink-0" />
+        <span className="text-xs font-medium whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200 pr-1">
+          Dashboard-Workshop starten
+        </span>
+      </button>
+
       <div className="space-y-8 animate-fade-in">
-        <div className="flex justify-end">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={startWorkshop}
-            className="border-primary/40 text-primary hover:bg-primary/10 hover:text-primary"
-          >
-            <GraduationCap className="size-4 mr-1.5" />
-            Dashboard-Workshop starten
-          </Button>
-        </div>
+
 
         <div data-tour="dash-hero">
           <DashboardHero
