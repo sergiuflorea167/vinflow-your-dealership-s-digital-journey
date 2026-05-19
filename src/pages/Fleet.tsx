@@ -429,6 +429,7 @@ const Fleet = () => {
                 })}
               </tbody>
             </table>
+            </div>
           </DataTableShell>
         )}
       </div>
