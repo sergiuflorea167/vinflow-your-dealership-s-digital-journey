@@ -178,6 +178,19 @@ const Fleet = () => {
 
   return (
     <AppShell>
+      {/* Mini-Tab Workshop am rechten Rand */}
+      <button
+        type="button"
+        onClick={startWorkshop}
+        aria-label="Bestand-Workshop starten"
+        className="group fixed right-0 top-1/2 -translate-y-1/2 z-40 flex items-center gap-2 py-2.5 pl-2.5 pr-2 rounded-l-lg bg-card/90 backdrop-blur border border-r-0 border-primary/30 text-primary shadow-lg hover:bg-primary hover:text-primary-foreground transition-all duration-300 max-w-[40px] hover:max-w-[260px] overflow-hidden"
+      >
+        <GraduationCap className="size-4 shrink-0" />
+        <span className="text-xs font-medium whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200 pr-1">
+          Bestand-Workshop starten
+        </span>
+      </button>
+
       <div className="space-y-3 animate-fade-in">
         {/* Header — kompakt */}
         <div className="flex items-center justify-between gap-4 shrink-0">
@@ -185,7 +198,7 @@ const Fleet = () => {
             <h1 className="font-display text-2xl font-bold tracking-tight">Bestand</h1>
             <p className="text-xs text-muted-foreground">Fahrzeugbestand · VIN-basiert</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div data-tour="fleet-io" className="flex items-center gap-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button size="sm" variant="outline" className="gap-2">
@@ -229,7 +242,7 @@ const Fleet = () => {
         </div>
 
         {/* KPI-Strip kompakt */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 shrink-0">
+        <div data-tour="fleet-kpis" className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 shrink-0">
           {[
             { label: "Gesamt", value: stats.total, icon: Car, accent: "text-primary" },
             { label: "Im Bestand", value: stats.in_stock, icon: Car, accent: "text-success" },
