@@ -1,22 +1,22 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { useWorkshopStore } from "@/store/workshopStore";
 import { Button } from "@/components/ui/button";
 import {
-  GraduationCap, ArrowLeft, ArrowRight, X, Check, MousePointerClick,
-  LayoutDashboard, Target, CalendarDays, CalendarCheck2, BarChart3, Workflow, FolderKanban, Sparkles,
+  GraduationCap, ArrowLeft, ArrowRight, X, Check, MousePointerClick, Target,
+  LayoutDashboard, CalendarDays, CalendarCheck2, BarChart3, Workflow, FolderKanban, Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Placement = "top" | "bottom" | "left" | "right" | "center";
 
 interface Step {
-  selector?: string;
+  selector?: string;          // Bereich, der hervorgehoben wird (Spotlight)
+  awaitSelector?: string;     // Element, dessen Klick automatisch weiterführt (echte Aufgabe)
   title: string;
   body: string;
-  task?: string;            // konkrete Aufgabe für den Nutzer
-  interactive?: boolean;    // wenn true: Klick auf Spotlight = weiter
+  task?: string;              // Aufgabentext für den Nutzer
   icon: React.ComponentType<{ className?: string }>;
   placement?: Placement;
 }
@@ -24,101 +24,105 @@ interface Step {
 const STEPS: Step[] = [
   {
     title: "Dashboard-Workshop",
-    body: "Wir gehen jetzt gemeinsam dein Dashboard durch – Abschnitt für Abschnitt. Bei jedem Schritt darfst du selbst klicken. Keine Sorge, nichts wird gespeichert oder geändert.",
+    body: "Wir gehen dein Dashboard jetzt aktiv durch. Bei jedem Schritt darfst du selbst etwas anklicken oder ausprobieren – wie im Live-Betrieb. Mit „Weiter“ überspringst du jede Aufgabe.",
     icon: GraduationCap,
     placement: "center",
   },
   {
     selector: '[data-tour="dash-hero"]',
     title: "Dein Tages-Überblick",
-    body: "Oben siehst du drei Zahlen: aktive Vorgänge, heute fällige To-Dos und heutige Termine. Das ist dein Puls für den Tag.",
-    task: "Klick auf den hervorgehobenen Bereich, um weiterzugehen.",
-    interactive: true,
+    body: "Oben siehst du drei Zahlen: aktive Vorgänge, heute fällige To-Dos und heutige Termine. Das ist dein Puls für den Tag – sieh ihn dir kurz an.",
     icon: LayoutDashboard,
     placement: "bottom",
   },
   {
     selector: '[data-tour="dash-goals"]',
-    title: "Tagesziele",
-    body: "Hier setzt du dir kleine Tagesziele. Bewährt: 1–3 konkrete Punkte. Sobald du sie abhakst, bekommst du sofort Feedback.",
-    task: "Klick auf den Bereich der Tagesziele.",
-    interactive: true,
+    title: "Tagesziele setzen",
+    body: "Hier setzt du dir 1–3 konkrete Tagesziele. Bewährt: klein, machbar, abhakbar.",
+    task: "Lege ein neues Tagesziel an oder hake ein bestehendes ab.",
     icon: Target,
     placement: "bottom",
   },
   {
     selector: '[data-tour="dash-events"]',
     title: "Heutige Termine",
-    body: "Alle Termine von heute – Probefahrten, Übergaben, Anrufe. Farbpunkte zeigen den Termintyp. Über „Kalender öffnen“ kommst du in die Wochen-/Monatsansicht.",
-    task: "Klick die Termin-Karte an.",
-    interactive: true,
+    body: "Probefahrten, Übergaben, Anrufe – farbig nach Typ. Über „Kalender öffnen“ kommst du zur Wochenansicht (öffnet eine neue Seite, der Workshop pausiert).",
     icon: CalendarDays,
     placement: "top",
   },
   {
     selector: '[data-tour="dash-todos"]',
-    title: "Heute fällige To-Dos",
-    body: "Aufgaben, die heute dran sind – sortiert nach Priorität (rot/gelb/blau). Die Checkbox links hakt sofort ab.",
-    task: "Klick auf die To-Do-Karte.",
-    interactive: true,
+    awaitSelector: '[data-tour="dash-todos"] button[role="checkbox"]',
+    title: "To-Do abhaken",
+    body: "Aufgaben sortiert nach Priorität (rot/gelb/blau). Die Checkbox links hakt sofort ab.",
+    task: "Hake ein heute fälliges To-Do per Checkbox ab.",
     icon: CalendarCheck2,
     placement: "top",
   },
   {
     selector: '[data-tour="dash-kpis"]',
     title: "Deine KPIs",
-    body: "Die Kennzahlen, die DU sehen willst. Über „KPIs verwalten“ kannst du jederzeit neue anpinnen oder entfernen.",
-    task: "Klick in den KPI-Bereich.",
-    interactive: true,
+    body: "Genau die Kennzahlen, die DU sehen willst. Über „KPIs verwalten“ pinnst du jederzeit neue an oder entfernst welche.",
+    task: "Wirf einen Blick auf deine angepinnten KPIs.",
     icon: BarChart3,
     placement: "top",
   },
   {
     selector: '[data-tour="dash-pipeline"]',
     title: "Pipeline-Übersicht",
-    body: "Hier siehst du, in welchem der 8 Vorgangsschritte gerade wie viele Vorgänge stecken. Engpässe erkennst du sofort.",
-    task: "Klick auf die Pipeline.",
-    interactive: true,
+    body: "Hier siehst du, in welchem der 8 Vorgangsschritte gerade wie viele Vorgänge stecken. Engpässe erkennst du sofort an hohen Zahlen in einer Spalte.",
+    task: "Geh die 8 Schritte durch und finde den Schritt mit den meisten offenen Vorgängen.",
     icon: Workflow,
     placement: "top",
   },
   {
     selector: '[data-tour="dash-active"]',
     title: "Aktive Vorgänge",
-    body: "Die letzten 6 laufenden Vorgänge mit Live-Status. Klick auf eine Karte – dort steuerst du den kompletten Verkaufsprozess.",
-    task: "Klick auf den Vorgangs-Bereich.",
-    interactive: true,
+    body: "Deine letzten 6 laufenden Vorgänge mit Live-Status. Ein Klick auf eine Karte führt direkt in den Vorgang – dort steuerst du den ganzen Verkaufsprozess.",
+    task: "Schau dir die Karten an und merk dir, was du als Nächstes anklicken willst.",
     icon: FolderKanban,
     placement: "top",
   },
   {
     title: "Geschafft!",
-    body: "Du kennst jetzt alle Bereiche deines Dashboards. Den Workshop kannst du oben rechts jederzeit erneut starten. Viel Erfolg!",
+    body: "Du kennst jetzt alle Bereiche deines Dashboards. Der Workshop ist oben rechts oder im Profilmenü jederzeit erneut startbar. Viel Erfolg!",
     icon: Sparkles,
     placement: "center",
   },
 ];
 
-const PAD = 10;
+const PAD = 8;
 const TIP_W = 360;
 const TIP_GAP = 14;
+
+function rectsEqual(a: DOMRect | null, b: DOMRect | null) {
+  if (!a || !b) return a === b;
+  return a.top === b.top && a.left === b.left && a.width === b.width && a.height === b.height;
+}
 
 export const DashboardWorkshop = () => {
   const { active, step, next, prev, stop } = useWorkshopStore();
   const navigate = useNavigate();
-  const [rect, setRect] = useState<DOMRect | null>(null);
+  const [rect, setRectState] = useState<DOMRect | null>(null);
   const [ready, setReady] = useState(false);
-  const findTimer = useRef<number | null>(null);
+  const rectRef = useRef<DOMRect | null>(null);
+  const rafRef = useRef<number | null>(null);
 
   const current = STEPS[step];
   const isLast = step === STEPS.length - 1;
 
-  // Auf Dashboard navigieren beim Start
+  const setRect = useCallback((r: DOMRect | null) => {
+    if (rectsEqual(rectRef.current, r)) return;
+    rectRef.current = r;
+    setRectState(r);
+  }, []);
+
+  // Auto-navigieren beim Start
   useEffect(() => {
     if (active && window.location.pathname !== "/") navigate("/");
   }, [active, navigate]);
 
-  // Ziel finden
+  // Ziel finden (einmal pro Step)
   useLayoutEffect(() => {
     if (!active) return;
     setReady(false);
@@ -127,18 +131,20 @@ export const DashboardWorkshop = () => {
       setReady(true);
       return;
     }
-    const tryFind = (attempts = 0) => {
+    let cancelled = false;
+    let attempts = 0;
+    const tryFind = () => {
+      if (cancelled) return;
       const el = document.querySelector(current.selector!) as HTMLElement | null;
       if (el) {
         el.scrollIntoView({ behavior: "smooth", block: "center" });
-        // kurz warten bis Scroll fertig
         window.setTimeout(() => {
-          const r = el.getBoundingClientRect();
-          setRect(r);
+          if (cancelled) return;
+          setRect(el.getBoundingClientRect());
           setReady(true);
-        }, 280);
-      } else if (attempts < 20) {
-        findTimer.current = window.setTimeout(() => tryFind(attempts + 1), 100);
+        }, 350);
+      } else if (attempts++ < 20) {
+        window.setTimeout(tryFind, 100);
       } else {
         setRect(null);
         setReady(true);
@@ -146,24 +152,40 @@ export const DashboardWorkshop = () => {
     };
     tryFind();
     return () => {
-      if (findTimer.current) window.clearTimeout(findTimer.current);
+      cancelled = true;
     };
-  }, [active, step, current]);
+  }, [active, step, current, setRect]);
 
-  // Reposition
+  // rAF-Loop: rect sanft aktualisieren (kein Flackern)
   useEffect(() => {
-    if (!active || !current?.selector) return;
-    const update = () => {
+    if (!active || !current?.selector || !ready) return;
+    const loop = () => {
       const el = document.querySelector(current.selector!) as HTMLElement | null;
       if (el) setRect(el.getBoundingClientRect());
+      rafRef.current = window.requestAnimationFrame(loop);
     };
-    window.addEventListener("resize", update);
-    window.addEventListener("scroll", update, true);
+    rafRef.current = window.requestAnimationFrame(loop);
     return () => {
-      window.removeEventListener("resize", update);
-      window.removeEventListener("scroll", update, true);
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
     };
-  }, [active, current]);
+  }, [active, current, ready, setRect]);
+
+  // Auto-Advance: erkenne Klick auf das echte Element
+  useEffect(() => {
+    if (!active || !current?.awaitSelector) return;
+    const onClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+      if (target.closest(current.awaitSelector!)) {
+        // kurz verzögert, damit der echte Klick zuerst durchgeht
+        window.setTimeout(() => {
+          if (!isLast) next();
+        }, 150);
+      }
+    };
+    document.addEventListener("click", onClick, true);
+    return () => document.removeEventListener("click", onClick, true);
+  }, [active, current, next, isLast]);
 
   // Keyboard
   useEffect(() => {
@@ -193,49 +215,53 @@ export const DashboardWorkshop = () => {
       top = rect.bottom + TIP_GAP;
       left = rect.left + rect.width / 2 - TIP_W / 2;
     } else if (placement === "top") {
-      top = rect.top - TIP_GAP - 230;
+      top = rect.top - TIP_GAP - 240;
       left = rect.left + rect.width / 2 - TIP_W / 2;
     } else if (placement === "right") {
-      top = rect.top + rect.height / 2 - 110;
+      top = rect.top + rect.height / 2 - 120;
       left = rect.right + TIP_GAP;
     } else if (placement === "left") {
-      top = rect.top + rect.height / 2 - 110;
+      top = rect.top + rect.height / 2 - 120;
       left = rect.left - TIP_GAP - TIP_W;
     }
     left = Math.max(12, Math.min(left, vw - TIP_W - 12));
-    top = Math.max(12, Math.min(top, vh - 240));
+    top = Math.max(12, Math.min(top, vh - 260));
     tipStyle = { top, left, width: TIP_W };
   }
 
   const Icon = current.icon;
-  const handleSpotlight = () => {
-    if (current.interactive && !isLast) next();
-  };
+
+  // Backdrop als 4 transparente Divs um das Spotlight herum (echtes Loch)
+  // pointer-events:none → User klickt echte UI an
+  const overlayBg = "hsl(var(--background) / 0.55)";
+  const cutout = rect && current.placement !== "center";
+  const t = cutout ? Math.max(0, rect.top - PAD) : 0;
+  const l = cutout ? Math.max(0, rect.left - PAD) : 0;
+  const w = cutout ? rect.width + PAD * 2 : 0;
+  const h = cutout ? rect.height + PAD * 2 : 0;
 
   return createPortal(
     <div className="fixed inset-0 z-[120] pointer-events-none">
-      {/* Backdrop schließt nicht versehentlich */}
-      <div className="absolute inset-0 bg-background/75 backdrop-blur-[2px] pointer-events-auto animate-in fade-in duration-200" />
-
-      {/* Spotlight */}
-      {rect && current.placement !== "center" && (
-        <button
-          type="button"
-          onClick={handleSpotlight}
-          className={cn(
-            "absolute rounded-xl ring-2 ring-primary shadow-[0_0_0_9999px_hsl(var(--background)/0.65)] transition-all duration-300",
-            current.interactive
-              ? "cursor-pointer ring-primary animate-pulse pointer-events-auto hover:ring-primary-glow"
-              : "pointer-events-none",
-          )}
-          style={{
-            top: rect.top - PAD,
-            left: rect.left - PAD,
-            width: rect.width + PAD * 2,
-            height: rect.height + PAD * 2,
-          }}
-          aria-label={current.interactive ? "Weiter" : undefined}
-        />
+      {cutout ? (
+        <>
+          <div className="absolute left-0 right-0 top-0" style={{ height: t, background: overlayBg }} />
+          <div className="absolute left-0 bottom-0 right-0" style={{ top: t + h, background: overlayBg }} />
+          <div className="absolute" style={{ top: t, left: 0, width: l, height: h, background: overlayBg }} />
+          <div className="absolute" style={{ top: t, left: l + w, right: 0, height: h, background: overlayBg }} />
+          {/* Spotlight-Ring – kein pointer-events */}
+          <div
+            className="absolute rounded-xl ring-2 ring-primary pointer-events-none transition-[top,left,width,height] duration-200 ease-out"
+            style={{
+              top: t,
+              left: l,
+              width: w,
+              height: h,
+              boxShadow: "0 0 0 2px hsl(var(--primary) / 0.35), 0 0 40px 4px hsl(var(--primary) / 0.4)",
+            }}
+          />
+        </>
+      ) : (
+        <div className="absolute inset-0" style={{ background: overlayBg }} />
       )}
 
       {/* Tooltip */}
@@ -255,10 +281,12 @@ export const DashboardWorkshop = () => {
             </div>
             <h3 className="text-base font-semibold leading-tight font-heading">{current.title}</h3>
             <p className="text-xs text-muted-foreground leading-relaxed mt-1.5">{current.body}</p>
-            {current.task && current.interactive && (
-              <div className="mt-3 flex items-center gap-2 px-2.5 py-2 rounded-md bg-primary/10 border border-primary/20">
-                <MousePointerClick className="size-3.5 text-primary shrink-0 animate-pulse" />
-                <span className="text-[11px] font-medium text-primary">{current.task}</span>
+            {current.task && (
+              <div className="mt-3 flex items-start gap-2 px-2.5 py-2 rounded-md bg-primary/10 border border-primary/20">
+                <MousePointerClick className="size-3.5 text-primary shrink-0 mt-0.5 animate-pulse" />
+                <span className="text-[11px] font-medium text-primary leading-snug">
+                  <span className="font-semibold">Aufgabe:</span> {current.task}
+                </span>
               </div>
             )}
           </div>
@@ -289,13 +317,8 @@ export const DashboardWorkshop = () => {
               </Button>
             )}
             {!isLast ? (
-              <Button
-                size="sm"
-                className="h-7 px-3 text-xs bg-gradient-brand"
-                onClick={next}
-                variant={current.interactive ? "ghost" : "default"}
-              >
-                {current.interactive ? "Überspringen" : "Weiter"} <ArrowRight className="size-3 ml-1" />
+              <Button size="sm" className="h-7 px-3 text-xs bg-gradient-brand" onClick={next}>
+                Weiter <ArrowRight className="size-3 ml-1" />
               </Button>
             ) : (
               <Button size="sm" className="h-7 px-3 text-xs bg-gradient-brand" onClick={stop}>
