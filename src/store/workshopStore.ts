@@ -1,11 +1,13 @@
 import { create } from "zustand";
 
+export type WorkshopChain = "fleet" | "purchase" | null;
+
 interface WorkshopState {
   active: boolean;
   step: number;
   /** If set, after this workshop ends, automatically start the next one. */
-  chainNext: "fleet" | null;
-  start: (opts?: { chainNext?: "fleet" | null }) => void;
+  chainNext: WorkshopChain;
+  start: (opts?: { chainNext?: WorkshopChain }) => void;
   next: () => void;
   prev: () => void;
   stop: () => void;
