@@ -368,6 +368,7 @@ export interface ProcessFields {
     invoiceDate?: string;
     amount?: number;
     dueDate?: string;
+    paymentTerms?: string;
     method?: "Überweisung" | "Bar" | "EC";
     received?: boolean;
     receivedDate?: string;
@@ -381,6 +382,7 @@ export interface ProcessFields {
     invoiceNumber?: string;
     invoiceDate?: string;
     dueDate?: string;
+    paymentTerms?: string;
     paid?: boolean;
     paidDate?: string;
   };
