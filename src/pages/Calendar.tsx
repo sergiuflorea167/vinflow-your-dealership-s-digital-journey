@@ -332,7 +332,7 @@ const DraggableEvent = ({
       {/* resize handle (bottom edge) */}
       <div
         {...resizeHandlers}
-        className="absolute left-0 right-0 bottom-0 h-1.5 cursor-ns-resize hover:bg-primary/30"
+        className="absolute left-0 right-0 -bottom-0.5 h-2.5 cursor-ns-resize hover:bg-primary/30 rounded-b-md touch-none"
         aria-label="Größe ändern"
       />
     </div>
