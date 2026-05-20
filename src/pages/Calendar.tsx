@@ -197,11 +197,12 @@ const useEventDrag = ({
       endTime === cfg.event.endTime &&
       p.date === cfg.event.date
     ) return;
-    cfg.onCommit({
-      date: p.date !== cfg.event.date ? p.date : undefined,
+    const patch: { date?: string; startTime: string; endTime: string } = {
       startTime,
       endTime,
-    });
+    };
+    if (p.date !== cfg.event.date) patch.date = p.date;
+    cfg.onCommit(patch);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [detach, setPreviewBoth]);
 
