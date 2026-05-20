@@ -466,7 +466,7 @@ const CalendarPage = () => {
             </Card>
 
             {/* Wochenansicht */}
-            <Card className="overflow-hidden">
+            <Card data-tour="cal-week" className="overflow-hidden">
               <div className="grid grid-cols-[60px_repeat(7,minmax(0,1fr))] border-b border-border bg-background/60">
                 <div />
                 {weekDays.map((d) => {
