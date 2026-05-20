@@ -511,6 +511,7 @@ const Todos = () => {
               </tbody>
             </table>
           </DataTableShell>
+          </div>
         )}
       </div>
 
