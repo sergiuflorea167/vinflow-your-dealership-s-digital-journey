@@ -435,7 +435,7 @@ const CalendarPage = () => {
 
           {/* ===================================================== Termine */}
           <TabsContent value="agenda" className="space-y-3 mt-0">
-            <Card className="px-3 py-2 flex items-center justify-between gap-2 flex-wrap">
+            <Card data-tour="cal-nav" className="px-3 py-2 flex items-center justify-between gap-2 flex-wrap">
               <div className="flex items-center gap-1.5">
                 <Button variant="outline" size="sm" className="h-8 w-8 p-0"
                   onClick={() => { const d = new Date(anchorDate); d.setDate(d.getDate() - 7); setAnchorDate(d); }}>
