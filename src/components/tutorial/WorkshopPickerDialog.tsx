@@ -75,6 +75,13 @@ export const WorkshopPickerDialog = ({ open, onOpenChange }: Props) => {
       onClick: startTodos,
     },
     {
+      key: "calendar",
+      icon: CalendarDays,
+      title: "Kalender-Workshop",
+      desc: "Wochenansicht, Tagesstruktur und wiederverwendbare Vorlagen kennenlernen.",
+      onClick: startCalendar,
+    },
+    {
       key: "full",
       icon: Sparkles,
       title: "Kompletter Workshop",
