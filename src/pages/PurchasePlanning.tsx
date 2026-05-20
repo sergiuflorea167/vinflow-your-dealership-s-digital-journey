@@ -286,7 +286,9 @@ const PurchasePlanning = () => {
             </tbody>
           </table>
         </DataTableShell>
+        </div>
       </div>
+
 
       <PlanDetailSheet
         plan={detailPlan}
