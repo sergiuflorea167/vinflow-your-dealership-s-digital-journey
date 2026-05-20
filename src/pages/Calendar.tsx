@@ -421,7 +421,7 @@ const CalendarPage = () => {
         </div>
 
         <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)} className="space-y-3">
-          <TabsList>
+          <TabsList data-tour="cal-tabs">
             <TabsTrigger value="agenda" className="gap-1.5">
               <CalendarDays className="size-3.5" /> Termine
             </TabsTrigger>
