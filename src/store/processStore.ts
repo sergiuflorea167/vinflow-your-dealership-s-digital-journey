@@ -1110,23 +1110,27 @@ export const useProcessStore = create<State>()(
           return event;
         },
 
-        updateCalendarEvent: (id, patch) =>
+        updateCalendarEvent: (id, patch) => {
+          const safePatch = Object.fromEntries(
+            Object.entries(patch).filter(([, value]) => value !== undefined),
+          ) as typeof patch;
           set((state) => ({
-            calendarEvents: state.calendarEvents.map((e) => (e.id === id ? { ...e, ...patch } : e)),
+            calendarEvents: state.calendarEvents.map((e) => (e.id === id ? { ...e, ...safePatch } : e)),
             // Wenn Event mit To-Do verlinkt: Titel/Beschreibung/Slot zurück synchronisieren
             todos: state.todos.map((t) => {
               const ev = state.calendarEvents.find((e) => e.id === id);
               if (!ev || ev.todoId !== t.id) return t;
               return {
                 ...t,
-                title: patch.title ?? t.title,
-                description: patch.description ?? t.description,
-                dueDate: patch.date ?? t.dueDate,
-                startTime: patch.startTime ?? t.startTime,
-                endTime: patch.endTime ?? t.endTime,
+                title: safePatch.title ?? t.title,
+                description: safePatch.description ?? t.description,
+                dueDate: safePatch.date ?? t.dueDate,
+                startTime: safePatch.startTime ?? t.startTime,
+                endTime: safePatch.endTime ?? t.endTime,
               };
             }),
-          })),
+          }));
+        },
 
         removeCalendarEvent: (id) =>
           set((state) => {
