@@ -110,14 +110,24 @@ interface UseEventDragOptions {
 }
 
 const useEventDrag = ({
-  event, pxPerMin, containerRef, dayColumnWidth, weekStartISO, dayCount = 1, onCommit,
+  event, pxPerMin, dayColumnWidth, weekStartISO, dayCount = 1, onCommit,
 }: UseEventDragOptions) => {
   const [preview, setPreview] = useState<{ startMin: number; endMin: number; date: string } | null>(null);
   const previewRef = useRef<{ startMin: number; endMin: number; date: string } | null>(null);
-  const setPreviewBoth = (p: { startMin: number; endMin: number; date: string } | null) => {
-    previewRef.current = p;
-    setPreview(p);
-  };
+  const setPreviewBoth = useCallback(
+    (p: { startMin: number; endMin: number; date: string } | null) => {
+      previewRef.current = p;
+      setPreview(p);
+    },
+    [],
+  );
+
+  // Latest values kept in refs so the window listeners are stable.
+  const cfgRef = useRef({ event, pxPerMin, dayColumnWidth, weekStartISO, dayCount, onCommit });
+  useEffect(() => {
+    cfgRef.current = { event, pxPerMin, dayColumnWidth, weekStartISO, dayCount, onCommit };
+  }, [event, pxPerMin, dayColumnWidth, weekStartISO, dayCount, onCommit]);
+
   const stateRef = useRef<{
     mode: DragMode;
     startY: number;
@@ -126,38 +136,27 @@ const useEventDrag = ({
     origEnd: number;
     origDate: string;
     moved: boolean;
+    pointerId: number;
   } | null>(null);
 
-  const onPointerDown = (mode: DragMode) => (e: React.PointerEvent) => {
-    if (e.button !== 0) return;
-    e.stopPropagation();
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    stateRef.current = {
-      mode,
-      startY: e.clientY,
-      startX: e.clientX,
-      origStart: minutesFromMidnight(event.startTime),
-      origEnd: minutesFromMidnight(event.endTime),
-      origDate: event.date,
-      moved: false,
-    };
-  };
+  const justDraggedRef = useRef(false);
 
-  const onPointerMove = (e: React.PointerEvent) => {
+  const handleMove = useCallback((e: PointerEvent) => {
     const s = stateRef.current;
-    if (!s) return;
-    const dyMin = (e.clientY - s.startY) / pxPerMin;
+    if (!s || e.pointerId !== s.pointerId) return;
+    const cfg = cfgRef.current;
+    const dyMin = (e.clientY - s.startY) / cfg.pxPerMin;
     const dx = e.clientX - s.startX;
     if (Math.abs(e.clientY - s.startY) > 3 || Math.abs(dx) > 3) s.moved = true;
 
     let newDate = s.origDate;
-    if (dayColumnWidth && weekStartISO && dayCount > 1 && s.mode === "move") {
-      const dayDelta = Math.round(dx / dayColumnWidth);
+    if (cfg.dayColumnWidth && cfg.weekStartISO && cfg.dayCount > 1 && s.mode === "move") {
+      const dayDelta = Math.round(dx / cfg.dayColumnWidth);
       const baseIdx = Math.round(
-        (fromISO(s.origDate).getTime() - fromISO(weekStartISO).getTime()) / 86400000,
+        (fromISO(s.origDate).getTime() - fromISO(cfg.weekStartISO).getTime()) / 86400000,
       );
-      const targetIdx = Math.max(0, Math.min(dayCount - 1, baseIdx + dayDelta));
-      newDate = addDaysISO(weekStartISO, targetIdx);
+      const targetIdx = Math.max(0, Math.min(cfg.dayCount - 1, baseIdx + dayDelta));
+      newDate = addDaysISO(cfg.weekStartISO, targetIdx);
     }
 
     if (s.mode === "move") {
@@ -170,57 +169,76 @@ const useEventDrag = ({
       newEnd = Math.max(s.origStart + SNAP_MIN, Math.min(DAY_END_MIN, newEnd));
       setPreviewBoth({ startMin: s.origStart, endMin: newEnd, date: s.origDate });
     }
-  };
+  }, [setPreviewBoth]);
 
-  const finish = (e: React.PointerEvent) => {
+  const detach = useCallback(() => {
+    window.removeEventListener("pointermove", handleMove);
+    window.removeEventListener("pointerup", handleEnd);
+    window.removeEventListener("pointercancel", handleEnd);
+  }, [handleMove]);
+
+  // handleEnd defined as ref-callback because detach references it.
+  const handleEnd = useCallback((e: PointerEvent) => {
     const s = stateRef.current;
-    if (!s) return;
-    try { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId); } catch { /* noop */ }
+    if (!s || e.pointerId !== s.pointerId) return;
+    detach();
     const p = previewRef.current;
+    const wasMoved = s.moved;
+    const cfg = cfgRef.current;
     stateRef.current = null;
     setPreviewBoth(null);
-    if (!p || !s.moved) return;
+    if (!p || !wasMoved) return;
+    justDraggedRef.current = true;
+    window.setTimeout(() => { justDraggedRef.current = false; }, 80);
     const startTime = minutesToHHMM(p.startMin);
     const endTime = minutesToHHMM(p.endMin);
     if (
-      startTime === event.startTime &&
-      endTime === event.endTime &&
-      p.date === event.date
+      startTime === cfg.event.startTime &&
+      endTime === cfg.event.endTime &&
+      p.date === cfg.event.date
     ) return;
-    onCommit({
-      date: p.date !== event.date ? p.date : undefined,
+    cfg.onCommit({
+      date: p.date !== cfg.event.date ? p.date : undefined,
       startTime,
       endTime,
     });
-  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [detach, setPreviewBoth]);
 
-  // Suppress click immediately after a drag.
-  const justDraggedRef = useRef(false);
-  useEffect(() => {
-    if (preview) justDraggedRef.current = true;
-    else if (justDraggedRef.current) {
-      const t = setTimeout(() => { justDraggedRef.current = false; }, 50);
-      return () => clearTimeout(t);
-    }
-  }, [preview]);
+  useEffect(() => () => detach(), [detach]);
+
+  const startDrag = useCallback((mode: DragMode, e: React.PointerEvent) => {
+    if (e.button !== 0) return;
+    e.stopPropagation();
+    e.preventDefault();
+    const cfg = cfgRef.current;
+    stateRef.current = {
+      mode,
+      startY: e.clientY,
+      startX: e.clientX,
+      origStart: minutesFromMidnight(cfg.event.startTime),
+      origEnd: minutesFromMidnight(cfg.event.endTime),
+      origDate: cfg.event.date,
+      moved: false,
+      pointerId: e.pointerId,
+    };
+    window.addEventListener("pointermove", handleMove);
+    window.addEventListener("pointerup", handleEnd);
+    window.addEventListener("pointercancel", handleEnd);
+  }, [handleMove, handleEnd]);
 
   return {
     preview,
     moveHandlers: {
-      onPointerDown: onPointerDown("move"),
-      onPointerMove,
-      onPointerUp: finish,
-      onPointerCancel: finish,
+      onPointerDown: (e: React.PointerEvent) => startDrag("move", e),
     },
     resizeHandlers: {
-      onPointerDown: onPointerDown("resize"),
-      onPointerMove,
-      onPointerUp: finish,
-      onPointerCancel: finish,
+      onPointerDown: (e: React.PointerEvent) => startDrag("resize", e),
     },
     suppressClick: () => justDraggedRef.current,
   };
 };
+
 
 // ---------------------------------------------------------------------------
 // Draggable Event Block
