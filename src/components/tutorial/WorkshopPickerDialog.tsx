@@ -1,10 +1,11 @@
 import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { LayoutDashboard, Warehouse, ShoppingCart, ListTodo, Sparkles } from "lucide-react";
+import { LayoutDashboard, Warehouse, ShoppingCart, ListTodo, CalendarDays, Sparkles } from "lucide-react";
 import { useWorkshopStore } from "@/store/workshopStore";
 import { useFleetWorkshopStore } from "@/store/fleetWorkshopStore";
 import { usePurchaseWorkshopStore } from "@/store/purchaseWorkshopStore";
 import { useTodosWorkshopStore } from "@/store/todosWorkshopStore";
+import { useCalendarWorkshopStore } from "@/store/calendarWorkshopStore";
 
 interface Props {
   open: boolean;
@@ -38,6 +39,12 @@ export const WorkshopPickerDialog = ({ open, onOpenChange }: Props) => {
     setTimeout(() => useTodosWorkshopStore.getState().start(), 80);
   };
 
+  const startCalendar = () => {
+    onOpenChange(false);
+    navigate("/kalender");
+    setTimeout(() => useCalendarWorkshopStore.getState().start(), 80);
+  };
+
   const items = [
     {
       key: "dashboard",
@@ -66,6 +73,13 @@ export const WorkshopPickerDialog = ({ open, onOpenChange }: Props) => {
       title: "To-Dos-Workshop",
       desc: "Aufgaben filtern, anlegen und Vorgangs-To-Dos automatisch verwalten.",
       onClick: startTodos,
+    },
+    {
+      key: "calendar",
+      icon: CalendarDays,
+      title: "Kalender-Workshop",
+      desc: "Wochenansicht, Tagesstruktur und wiederverwendbare Vorlagen kennenlernen.",
+      onClick: startCalendar,
     },
     {
       key: "full",

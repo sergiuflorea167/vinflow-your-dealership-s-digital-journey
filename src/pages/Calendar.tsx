@@ -397,7 +397,7 @@ const CalendarPage = () => {
     <AppShell>
       <div className="space-y-4 animate-fade-in">
         {/* Header */}
-        <div className="flex items-center justify-between gap-4 shrink-0 flex-wrap">
+        <div data-tour="cal-header" className="flex items-center justify-between gap-4 shrink-0 flex-wrap">
           <div className="flex items-center gap-3">
             <div className="size-10 rounded-xl bg-gradient-brand grid place-items-center shadow-glow">
               <CalendarDays className="size-5 text-primary-foreground" />
@@ -409,17 +409,19 @@ const CalendarPage = () => {
               </p>
             </div>
           </div>
-          <Button
-            size="sm"
-            className="bg-gradient-brand hover:opacity-90 shadow-elegant gap-2"
-            onClick={() => openCreate({ date: toISO(anchorDate) })}
-          >
-            <Plus className="size-4" /> Neuer Termin
-          </Button>
+          <div data-tour="cal-new">
+            <Button
+              size="sm"
+              className="bg-gradient-brand hover:opacity-90 shadow-elegant gap-2"
+              onClick={() => openCreate({ date: toISO(anchorDate) })}
+            >
+              <Plus className="size-4" /> Neuer Termin
+            </Button>
+          </div>
         </div>
 
         <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)} className="space-y-3">
-          <TabsList>
+          <TabsList data-tour="cal-tabs">
             <TabsTrigger value="agenda" className="gap-1.5">
               <CalendarDays className="size-3.5" /> Termine
             </TabsTrigger>
@@ -433,7 +435,7 @@ const CalendarPage = () => {
 
           {/* ===================================================== Termine */}
           <TabsContent value="agenda" className="space-y-3 mt-0">
-            <Card className="px-3 py-2 flex items-center justify-between gap-2 flex-wrap">
+            <Card data-tour="cal-nav" className="px-3 py-2 flex items-center justify-between gap-2 flex-wrap">
               <div className="flex items-center gap-1.5">
                 <Button variant="outline" size="sm" className="h-8 w-8 p-0"
                   onClick={() => { const d = new Date(anchorDate); d.setDate(d.getDate() - 7); setAnchorDate(d); }}>
@@ -464,7 +466,7 @@ const CalendarPage = () => {
             </Card>
 
             {/* Wochenansicht */}
-            <Card className="overflow-hidden">
+            <Card data-tour="cal-week" className="overflow-hidden">
               <div className="grid grid-cols-[60px_repeat(7,minmax(0,1fr))] border-b border-border bg-background/60">
                 <div />
                 {weekDays.map((d) => {
