@@ -63,11 +63,20 @@ const ProcessDetail = () => {
     const record = process.steps[selectedKey];
     const editable = isCurrent && record?.status !== "completed" && record?.status !== "skipped" && !record?.bookedAt;
     if (!editable) return;
-    if (selectedKey === "invoicing" && !process.fields.invoicing?.invoiceNumber) {
-      updateFields(process.id, { invoicing: { ...process.fields.invoicing, invoiceNumber: nextInvoiceNumber(allProcesses) } });
+    const today = new Date().toISOString().slice(0, 10);
+    if (selectedKey === "invoicing") {
+      const patch: any = { ...process.fields.invoicing };
+      let changed = false;
+      if (!patch.invoiceNumber) { patch.invoiceNumber = nextInvoiceNumber(allProcesses); changed = true; }
+      if (!patch.invoiceDate) { patch.invoiceDate = today; changed = true; }
+      if (changed) updateFields(process.id, { invoicing: patch });
     }
-    if (selectedKey === "down_payment" && !process.fields.downPayment?.invoiceNumber) {
-      updateFields(process.id, { downPayment: { ...process.fields.downPayment, invoiceNumber: nextDownPaymentInvoiceNumber(allProcesses) } });
+    if (selectedKey === "down_payment") {
+      const patch: any = { ...process.fields.downPayment };
+      let changed = false;
+      if (!patch.invoiceNumber) { patch.invoiceNumber = nextDownPaymentInvoiceNumber(allProcesses); changed = true; }
+      if (!patch.invoiceDate) { patch.invoiceDate = today; changed = true; }
+      if (changed) updateFields(process.id, { downPayment: patch });
     }
     if (selectedKey === "purchase_contract" && !process.fields.purchaseContract?.contractNumber) {
       updateFields(process.id, { purchaseContract: { ...process.fields.purchaseContract, contractNumber: nextContractNumber(allProcesses) } });
