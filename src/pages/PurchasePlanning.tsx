@@ -180,6 +180,7 @@ const PurchasePlanning = () => {
           </div>
         </Card>
 
+        <div data-tour="pp-table">
         <DataTableShell footer={<>{filtered.length} Einträge</>}>
           <table>
             <thead>
