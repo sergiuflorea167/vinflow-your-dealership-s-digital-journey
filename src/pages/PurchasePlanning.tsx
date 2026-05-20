@@ -121,13 +121,16 @@ const PurchasePlanning = () => {
   return (
     <AppShell>
       <div className="space-y-3 animate-fade-in">
-        <div className="flex items-center justify-between gap-4 shrink-0">
+        <div className="flex items-center justify-between gap-4 shrink-0" data-tour="pp-header">
           <div>
             <h1 className="font-display text-2xl font-bold tracking-tight">Einkaufsplanung</h1>
             <p className="text-xs text-muted-foreground">Schnelle Erfassung potenzieller Einkäufe – Eckdaten + Notizen mit Zeitstempel. Sobald der Deal steht: in den Bestand übernehmen.</p>
           </div>
-          <NewPlanDialog open={dialogOpen} onOpenChange={setDialogOpen} onSubmit={(p) => { addPlan(p); toast.success("Einkauf erfasst."); setDialogOpen(false); }} />
+          <div data-tour="pp-new">
+            <NewPlanDialog open={dialogOpen} onOpenChange={setDialogOpen} onSubmit={(p) => { addPlan(p); toast.success("Einkauf erfasst."); setDialogOpen(false); }} />
+          </div>
         </div>
+
 
         <div className="grid grid-cols-2 md:grid-cols-5 gap-2 shrink-0">
           {(["tracking", "won", "received", "lost", "cancelled"] as PurchasePlanStatus[]).map((status) => {
