@@ -404,6 +404,20 @@ const ProcessDetail = () => {
 
 // ---------- Step fields & validation ----------
 
+const PAYMENT_TERMS_OPTIONS = [
+  "Sofort fällig (Barzahlung bei Übergabe)",
+  "Zahlbar sofort nach Erhalt der Rechnung",
+  "Zahlbar innerhalb 7 Tagen ohne Abzug",
+  "Zahlbar innerhalb 14 Tagen ohne Abzug",
+];
+
+const DOWN_PAYMENT_TERMS_OPTIONS = [
+  "Sofort fällig nach Erhalt der Rechnung",
+  "Zahlbar innerhalb 3 Tagen ohne Abzug",
+  "Zahlbar innerhalb 7 Tagen ohne Abzug",
+  "Zahlbar innerhalb 14 Tagen ohne Abzug",
+];
+
 const StepFields = ({ stepKey, fields, onChange, disabled }: { stepKey: ProcessStepKey; fields: ProcessFields; onChange: (patch: Partial<ProcessFields>) => void; disabled?: boolean }) => {
   if (stepKey === "offer") return null;
   if (stepKey === "down_payment") {
