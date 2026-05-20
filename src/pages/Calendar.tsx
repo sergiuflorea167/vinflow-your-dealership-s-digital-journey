@@ -397,7 +397,7 @@ const CalendarPage = () => {
     <AppShell>
       <div className="space-y-4 animate-fade-in">
         {/* Header */}
-        <div className="flex items-center justify-between gap-4 shrink-0 flex-wrap">
+        <div data-tour="cal-header" className="flex items-center justify-between gap-4 shrink-0 flex-wrap">
           <div className="flex items-center gap-3">
             <div className="size-10 rounded-xl bg-gradient-brand grid place-items-center shadow-glow">
               <CalendarDays className="size-5 text-primary-foreground" />
@@ -409,13 +409,15 @@ const CalendarPage = () => {
               </p>
             </div>
           </div>
-          <Button
-            size="sm"
-            className="bg-gradient-brand hover:opacity-90 shadow-elegant gap-2"
-            onClick={() => openCreate({ date: toISO(anchorDate) })}
-          >
-            <Plus className="size-4" /> Neuer Termin
-          </Button>
+          <div data-tour="cal-new">
+            <Button
+              size="sm"
+              className="bg-gradient-brand hover:opacity-90 shadow-elegant gap-2"
+              onClick={() => openCreate({ date: toISO(anchorDate) })}
+            >
+              <Plus className="size-4" /> Neuer Termin
+            </Button>
+          </div>
         </div>
 
         <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)} className="space-y-3">
