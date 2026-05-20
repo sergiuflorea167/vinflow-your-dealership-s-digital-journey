@@ -150,7 +150,7 @@ const PurchasePlanning = () => {
           })}
         </div>
 
-        <Card className="px-3 py-2 flex items-center gap-2 flex-wrap shrink-0">
+        <Card className="px-3 py-2 flex items-center gap-2 flex-wrap shrink-0" data-tour="pp-filters">
           <Select value={sortKey} onValueChange={(v) => setSortKey(v as PlanSortKey)}>
             <SelectTrigger className="w-[200px] h-8 text-xs">
               <SelectValue />
