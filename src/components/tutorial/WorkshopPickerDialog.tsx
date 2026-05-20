@@ -1,9 +1,10 @@
 import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { LayoutDashboard, Warehouse, ShoppingCart, Sparkles } from "lucide-react";
+import { LayoutDashboard, Warehouse, ShoppingCart, ListTodo, Sparkles } from "lucide-react";
 import { useWorkshopStore } from "@/store/workshopStore";
 import { useFleetWorkshopStore } from "@/store/fleetWorkshopStore";
 import { usePurchaseWorkshopStore } from "@/store/purchaseWorkshopStore";
+import { useTodosWorkshopStore } from "@/store/todosWorkshopStore";
 
 interface Props {
   open: boolean;
@@ -31,6 +32,12 @@ export const WorkshopPickerDialog = ({ open, onOpenChange }: Props) => {
     setTimeout(() => usePurchaseWorkshopStore.getState().start(), 80);
   };
 
+  const startTodos = () => {
+    onOpenChange(false);
+    navigate("/todos");
+    setTimeout(() => useTodosWorkshopStore.getState().start(), 80);
+  };
+
   const items = [
     {
       key: "dashboard",
@@ -52,6 +59,13 @@ export const WorkshopPickerDialog = ({ open, onOpenChange }: Props) => {
       title: "Einkaufsplanung-Workshop",
       desc: "Potenzielle Einkäufe tracken, Notizen führen, in den Bestand überführen.",
       onClick: startPurchase,
+    },
+    {
+      key: "todos",
+      icon: ListTodo,
+      title: "To-Dos-Workshop",
+      desc: "Aufgaben filtern, anlegen und Vorgangs-To-Dos automatisch verwalten.",
+      onClick: startTodos,
     },
     {
       key: "full",
