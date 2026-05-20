@@ -410,7 +410,7 @@ const StepFields = ({ stepKey, fields, onChange, disabled }: { stepKey: ProcessS
     return (
       <FieldGrid title="Anzahlungsrechnung">
         <TextField label="Anzahlungs-Rechn.-Nr. (automatisch)" value={fields.downPayment?.invoiceNumber} onChange={() => {}} disabled placeholder="wird automatisch vergeben" />
-        <DateField label="Rechnungsdatum *" value={fields.downPayment?.invoiceDate} onChange={(v) => onChange({ downPayment: { ...fields.downPayment, invoiceDate: v } })} disabled={disabled} />
+        <DateField label="Rechnungsdatum (automatisch)" value={fields.downPayment?.invoiceDate} onChange={(v) => onChange({ downPayment: { ...fields.downPayment, invoiceDate: v } })} disabled={disabled} />
         <NumberField label="Anzahlungsbetrag (EUR) *" value={fields.downPayment?.amount} onChange={(v) => onChange({ downPayment: { ...fields.downPayment, amount: v } })} disabled={disabled} />
         <DateField label="Fällig am *" value={fields.downPayment?.dueDate} onChange={(v) => onChange({ downPayment: { ...fields.downPayment, dueDate: v } })} disabled={disabled} />
         <SelectField label="Zahlungsart *" value={fields.downPayment?.method ?? ""} options={["Überweisung", "Bar", "EC"]} onChange={(v) => onChange({ downPayment: { ...fields.downPayment, method: v as any } })} disabled={disabled} />
