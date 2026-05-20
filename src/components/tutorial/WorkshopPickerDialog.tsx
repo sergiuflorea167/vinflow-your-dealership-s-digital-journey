@@ -1,10 +1,11 @@
 import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { LayoutDashboard, Warehouse, ShoppingCart, ListTodo, Sparkles } from "lucide-react";
+import { LayoutDashboard, Warehouse, ShoppingCart, ListTodo, CalendarDays, Sparkles } from "lucide-react";
 import { useWorkshopStore } from "@/store/workshopStore";
 import { useFleetWorkshopStore } from "@/store/fleetWorkshopStore";
 import { usePurchaseWorkshopStore } from "@/store/purchaseWorkshopStore";
 import { useTodosWorkshopStore } from "@/store/todosWorkshopStore";
+import { useCalendarWorkshopStore } from "@/store/calendarWorkshopStore";
 
 interface Props {
   open: boolean;
@@ -36,6 +37,12 @@ export const WorkshopPickerDialog = ({ open, onOpenChange }: Props) => {
     onOpenChange(false);
     navigate("/todos");
     setTimeout(() => useTodosWorkshopStore.getState().start(), 80);
+  };
+
+  const startCalendar = () => {
+    onOpenChange(false);
+    navigate("/kalender");
+    setTimeout(() => useCalendarWorkshopStore.getState().start(), 80);
   };
 
   const items = [
