@@ -63,11 +63,20 @@ const ProcessDetail = () => {
     const record = process.steps[selectedKey];
     const editable = isCurrent && record?.status !== "completed" && record?.status !== "skipped" && !record?.bookedAt;
     if (!editable) return;
-    if (selectedKey === "invoicing" && !process.fields.invoicing?.invoiceNumber) {
-      updateFields(process.id, { invoicing: { ...process.fields.invoicing, invoiceNumber: nextInvoiceNumber(allProcesses) } });
+    const today = new Date().toISOString().slice(0, 10);
+    if (selectedKey === "invoicing") {
+      const patch: any = { ...process.fields.invoicing };
+      let changed = false;
+      if (!patch.invoiceNumber) { patch.invoiceNumber = nextInvoiceNumber(allProcesses); changed = true; }
+      if (!patch.invoiceDate) { patch.invoiceDate = today; changed = true; }
+      if (changed) updateFields(process.id, { invoicing: patch });
     }
-    if (selectedKey === "down_payment" && !process.fields.downPayment?.invoiceNumber) {
-      updateFields(process.id, { downPayment: { ...process.fields.downPayment, invoiceNumber: nextDownPaymentInvoiceNumber(allProcesses) } });
+    if (selectedKey === "down_payment") {
+      const patch: any = { ...process.fields.downPayment };
+      let changed = false;
+      if (!patch.invoiceNumber) { patch.invoiceNumber = nextDownPaymentInvoiceNumber(allProcesses); changed = true; }
+      if (!patch.invoiceDate) { patch.invoiceDate = today; changed = true; }
+      if (changed) updateFields(process.id, { downPayment: patch });
     }
     if (selectedKey === "purchase_contract" && !process.fields.purchaseContract?.contractNumber) {
       updateFields(process.id, { purchaseContract: { ...process.fields.purchaseContract, contractNumber: nextContractNumber(allProcesses) } });
@@ -401,7 +410,7 @@ const StepFields = ({ stepKey, fields, onChange, disabled }: { stepKey: ProcessS
     return (
       <FieldGrid title="Anzahlungsrechnung">
         <TextField label="Anzahlungs-Rechn.-Nr. (automatisch)" value={fields.downPayment?.invoiceNumber} onChange={() => {}} disabled placeholder="wird automatisch vergeben" />
-        <DateField label="Rechnungsdatum *" value={fields.downPayment?.invoiceDate} onChange={(v) => onChange({ downPayment: { ...fields.downPayment, invoiceDate: v } })} disabled={disabled} />
+        <DateField label="Rechnungsdatum (automatisch)" value={fields.downPayment?.invoiceDate} onChange={(v) => onChange({ downPayment: { ...fields.downPayment, invoiceDate: v } })} disabled={disabled} />
         <NumberField label="Anzahlungsbetrag (EUR) *" value={fields.downPayment?.amount} onChange={(v) => onChange({ downPayment: { ...fields.downPayment, amount: v } })} disabled={disabled} />
         <DateField label="Fällig am *" value={fields.downPayment?.dueDate} onChange={(v) => onChange({ downPayment: { ...fields.downPayment, dueDate: v } })} disabled={disabled} />
         <SelectField label="Zahlungsart *" value={fields.downPayment?.method ?? ""} options={["Überweisung", "Bar", "EC"]} onChange={(v) => onChange({ downPayment: { ...fields.downPayment, method: v as any } })} disabled={disabled} />
@@ -425,7 +434,7 @@ const StepFields = ({ stepKey, fields, onChange, disabled }: { stepKey: ProcessS
     return (
       <FieldGrid title="Rechnungsdaten">
         <TextField label="Rechnungs-Nr. (automatisch)" value={fields.invoicing?.invoiceNumber} onChange={() => {}} disabled placeholder="wird automatisch vergeben" />
-        <DateField label="Rechnungsdatum *" value={fields.invoicing?.invoiceDate} onChange={(v) => onChange({ invoicing: { ...fields.invoicing, invoiceDate: v } })} disabled={disabled} />
+        <DateField label="Rechnungsdatum (automatisch)" value={fields.invoicing?.invoiceDate} onChange={(v) => onChange({ invoicing: { ...fields.invoicing, invoiceDate: v } })} disabled={disabled} />
         <DateField label="Fällig am *" value={fields.invoicing?.dueDate} onChange={(v) => onChange({ invoicing: { ...fields.invoicing, dueDate: v } })} disabled={disabled} />
         <CheckboxField label="Zahlung eingegangen *" checked={!!fields.invoicing?.paid} onChange={(v) => onChange({ invoicing: { ...fields.invoicing, paid: v, paidDate: v ? new Date().toISOString().slice(0, 10) : undefined } })} disabled={disabled} />
         {fields.invoicing?.paid && (
