@@ -743,31 +743,41 @@ const buildKaufvertrag = (
     cursor = 44;
   }
 
-  // § 3 Übergabe
-  cursor = drawSectionTitle(doc, "§ 3  Übergabe und Eigentumsübergang", cursor);
+  // § 3 Übergabe (Mobile.de Standard)
+  cursor = drawSectionTitle(doc, "§ 3  Übergabe und Gefahrübergang", cursor);
   cursor = drawTextBlock(doc,
-    `Die Übergabe des Fahrzeugs erfolgt am ${process.fields.orderConfirmation?.deliveryDate ? formatDate(process.fields.orderConfirmation.deliveryDate) : "vereinbarten Termin"} ` +
-    `am Sitz des Verkäufers, sofern nicht abweichend vereinbart. Mit der Übergabe gehen Besitz, Nutzen, Lasten und die Gefahr des zufälligen Untergangs auf den Käufer über. ` +
-    `Da der Kaufpreis bereits vollständig entrichtet wurde, geht das Eigentum am Fahrzeug mit der Übergabe unmittelbar auf den Käufer über.`,
+    `Die Übergabe des Fahrzeugs erfolgt nach vollständiger Bezahlung des Kaufpreises ` +
+    `am ${process.fields.orderConfirmation?.deliveryDate ? formatDate(process.fields.orderConfirmation.deliveryDate) : "vereinbarten Termin"} ` +
+    `am Sitz des Verkäufers. Mit der Übergabe geht die Gefahr eines zufälligen Untergangs oder einer zufälligen Verschlechterung des Fahrzeugs auf den Käufer über. ` +
+    `Bis zur vollständigen Bezahlung des Kaufpreises bleibt das Fahrzeug Eigentum des Verkäufers (Eigentumsvorbehalt).`,
     cursor, { fontSize: 9 });
   cursor += 4;
 
-  // § 4 Gewährleistung
-  cursor = drawSectionTitle(doc, `§ 4  Sachmangelhaftung / Gewährleistung`, cursor);
+  // § 4 Sachmängelhaftung (Mobile.de Standard – Verbrauchsgüterkauf)
+  cursor = drawSectionTitle(doc, "§ 4  Sachmängelhaftung", cursor);
   cursor = drawTextBlock(doc,
-    `Die Sachmangelhaftung für das verkaufte Gebrauchtfahrzeug beträgt ${kv?.warrantyMonths ?? 12} Monate ab Übergabe (§ 476 Abs. 2 BGB). ` +
-    `Hiervon ausgenommen sind Schäden an Leben, Körper, Gesundheit sowie Schäden, die auf grober Fahrlässigkeit oder Vorsatz des Verkäufers beruhen. ` +
-    `Der Käufer hat das Fahrzeug vor Vertragsschluss besichtigt und Probe gefahren. Offensichtliche Mängel und vereinbarte Beschaffenheiten ergeben sich aus diesem Vertrag.`,
+    `Die Ansprüche des Käufers wegen Sachmängeln verjähren in ${kv?.warrantyMonths ?? 12} Monaten ab Übergabe des Fahrzeugs (§ 476 Abs. 2 BGB). ` +
+    `Von dieser Haftungsbegrenzung ausgenommen sind Schadensersatzansprüche aus der Verletzung des Lebens, des Körpers oder der Gesundheit, die auf einer fahrlässigen Pflichtverletzung des Verkäufers oder einer vorsätzlichen oder fahrlässigen Pflichtverletzung eines gesetzlichen Vertreters oder Erfüllungsgehilfen des Verkäufers beruhen, sowie sonstige Schäden, die auf einer grob fahrlässigen Pflichtverletzung des Verkäufers oder auf einer vorsätzlichen oder grob fahrlässigen Pflichtverletzung eines gesetzlichen Vertreters oder Erfüllungsgehilfen des Verkäufers beruhen. ` +
+    `Eine darüber hinausgehende Garantie für die Beschaffenheit oder Haltbarkeit des Fahrzeugs wird vom Verkäufer nicht übernommen.`,
     cursor, { fontSize: 9 });
   cursor += 4;
 
-  // § 5 Zusicherungen
-  cursor = drawSectionTitle(doc, "§ 5  Zusicherungen des Verkäufers", cursor);
+  // Page 3 if needed
+  if (cursor > 230) {
+    drawFooter(doc, companyName);
+    doc.addPage();
+    drawHeader(doc, "Kaufvertrag (Fortsetzung)", `Vertrags-Nr. ${kv?.contractNumber ?? process.id}`, companyName);
+    cursor = 44;
+  }
+
+  // § 5 Erklärungen des Verkäufers (Mobile.de Standard)
+  cursor = drawSectionTitle(doc, "§ 5  Erklärungen des Verkäufers", cursor);
   const assurances = [
-    `Das Fahrzeug ist ${vehicle.accidentFree ? "nach Kenntnis des Verkäufers unfallfrei" : "kein zugesicherter Unfallfreiheitsanspruch"}.`,
-    `Das Scheckheft ist ${vehicle.serviceBookComplete ? "lückenlos geführt" : "nicht lückenlos / nicht vorhanden"}.`,
     `Anzahl der Vorbesitzer laut Zulassungsbescheinigung Teil II: ${vehicle.previousOwners ?? "—"}.`,
-    `Das Fahrzeug ist frei von Rechten Dritter und unterliegt keinerlei Pfandrechten oder Sicherungseigentum.`,
+    `Das Fahrzeug hat nach Kenntnis des Verkäufers ${vehicle.accidentFree ? "während seiner Besitzzeit keine Unfallschäden erlitten, die über bloße Bagatellschäden hinausgehen" : "Unfallschäden erlitten, die über Bagatellschäden hinausgehen"}.`,
+    `Das Scheckheft ist ${vehicle.serviceBookComplete ? "lückenlos geführt und wird mit dem Fahrzeug übergeben" : "nicht lückenlos geführt bzw. nicht vorhanden"}.`,
+    `Der angegebene Kilometerstand von ${vehicle.mileage.toLocaleString("de-DE")} km entspricht nach Kenntnis des Verkäufers der tatsächlichen Gesamtfahrleistung; eine Garantie für die Richtigkeit wird nicht übernommen.`,
+    `Das Fahrzeug ist frei von Rechten Dritter, insbesondere von Pfandrechten und Sicherungseigentum.`,
   ];
   assurances.forEach((a) => {
     setColor(doc, BRAND.primary, "fill");
@@ -781,8 +791,16 @@ const buildKaufvertrag = (
   });
   cursor += 4;
 
-  // § 6 Besteuerung
-  cursor = drawSectionTitle(doc, "§ 6  Umsatzsteuerliche Behandlung", cursor);
+  // § 6 Erklärungen des Käufers (Mobile.de Standard)
+  cursor = drawSectionTitle(doc, "§ 6  Erklärungen des Käufers", cursor);
+  cursor = drawTextBlock(doc,
+    `Der Käufer hat das Fahrzeug vor Abschluss dieses Vertrages eingehend besichtigt und Probe gefahren. Der gegenwärtige Zustand des Fahrzeugs einschließlich aller offen erkennbaren Mängel ist ihm bekannt. ` +
+    `Der Käufer verpflichtet sich, das Fahrzeug unverzüglich nach Übergabe auf seinen Namen umzumelden bzw. abzumelden und den Verkäufer von etwaigen Halterpflichten (Kfz-Steuer, Versicherung, Bußgelder) ab dem Tag der Übergabe freizustellen.`,
+    cursor, { fontSize: 9 });
+  cursor += 4;
+
+  // § 7 Umsatzsteuerliche Behandlung
+  cursor = drawSectionTitle(doc, "§ 7  Umsatzsteuerliche Behandlung", cursor);
   cursor = drawTextBlock(doc,
     margin
       ? `Der Verkauf erfolgt nach der Differenzbesteuerung gemäß § 25a UStG. Die Umsatzsteuer wird nicht gesondert ausgewiesen und kann vom Käufer nicht als Vorsteuer geltend gemacht werden.`
@@ -790,11 +808,12 @@ const buildKaufvertrag = (
     cursor, { fontSize: 9 });
   cursor += 4;
 
-  // § 7 Sonstiges
-  cursor = drawSectionTitle(doc, "§ 7  Schlussbestimmungen", cursor);
+  // § 8 Schlussbestimmungen (Mobile.de Standard)
+  cursor = drawSectionTitle(doc, "§ 8  Schlussbestimmungen", cursor);
   cursor = drawTextBlock(doc,
-    `Mündliche Nebenabreden bestehen nicht. Änderungen und Ergänzungen dieses Vertrages bedürfen der Schriftform; dies gilt auch für die Aufhebung des Schriftformerfordernisses. ` +
-    `Sollten einzelne Bestimmungen unwirksam sein, bleibt die Wirksamkeit der übrigen Bestimmungen unberührt. Gerichtsstand ist – soweit gesetzlich zulässig – der Sitz des Verkäufers. Es gilt deutsches Recht.`,
+    `Mündliche Nebenabreden bestehen nicht. Änderungen und Ergänzungen dieses Vertrages bedürfen der Schriftform; dies gilt auch für eine Änderung dieser Schriftformklausel. ` +
+    `Sollten einzelne Bestimmungen dieses Vertrages unwirksam sein oder werden, so wird die Wirksamkeit der übrigen Bestimmungen hiervon nicht berührt. ` +
+    `Erfüllungsort und – soweit gesetzlich zulässig – Gerichtsstand ist der Sitz des Verkäufers. Es gilt das Recht der Bundesrepublik Deutschland unter Ausschluss des UN-Kaufrechts.`,
     cursor, { fontSize: 9 });
   cursor += 6;
 
