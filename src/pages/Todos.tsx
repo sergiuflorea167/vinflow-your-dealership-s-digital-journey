@@ -249,22 +249,24 @@ const Todos = () => {
     <AppShell>
       <div className="space-y-3 animate-fade-in">
         {/* Header — kompakt */}
-        <div className="flex items-center justify-between gap-4 shrink-0">
+        <div data-tour="tt-header" className="flex items-center justify-between gap-4 shrink-0">
           <div>
             <h1 className="font-display text-2xl font-bold tracking-tight">To-Dos</h1>
             <p className="text-xs text-muted-foreground">Eigenständige Aufgaben · sortier- und filterbar</p>
           </div>
-          <Button
-            size="sm"
-            className="bg-gradient-brand hover:opacity-90 shadow-elegant gap-2"
-            onClick={() => setCreateOpen(true)}
-          >
-            <Plus className="size-4" /> Neues To-Do
-          </Button>
+          <div data-tour="tt-new">
+            <Button
+              size="sm"
+              className="bg-gradient-brand hover:opacity-90 shadow-elegant gap-2"
+              onClick={() => setCreateOpen(true)}
+            >
+              <Plus className="size-4" /> Neues To-Do
+            </Button>
+          </div>
         </div>
 
         {/* KPI-Strip kompakt */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 shrink-0">
+        <div data-tour="tt-kpis" className="grid grid-cols-2 md:grid-cols-4 gap-2 shrink-0">
           {[
             { label: "Offen",        value: stats.open,    icon: Inbox,          accent: "text-info" },
             { label: "Heute fällig", value: stats.today,   icon: Calendar,       accent: "text-warning" },
@@ -282,7 +284,7 @@ const Todos = () => {
         </div>
 
         {/* Filter-Leiste kompakt */}
-        <Card className="px-3 py-2 flex items-center gap-2 flex-wrap shrink-0">
+        <Card data-tour="tt-filters" className="px-3 py-2 flex items-center gap-2 flex-wrap shrink-0">
           <Select value={scopeFilter} onValueChange={(v) => setScopeFilter(v as typeof scopeFilter)}>
             <SelectTrigger className="w-[160px] h-8 text-xs"><SelectValue placeholder="Bereich" /></SelectTrigger>
             <SelectContent>
@@ -365,7 +367,7 @@ const Todos = () => {
         {sorted.length === 0 ? (
           <Card className="p-12 text-center text-muted-foreground">Keine To-Dos gefunden.</Card>
         ) : (
-          <DataTableShell footer={<>{sorted.length} {sorted.length === 1 ? "Eintrag" : "Einträge"}</>}>
+          <DataTableShell data-tour="tt-table" footer={<>{sorted.length} {sorted.length === 1 ? "Eintrag" : "Einträge"}</>}>
             <table>
               <thead>
                 <tr>
