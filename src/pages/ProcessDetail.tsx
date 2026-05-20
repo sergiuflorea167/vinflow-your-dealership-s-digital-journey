@@ -485,7 +485,7 @@ const validateStep = (key: ProcessStepKey, f: ProcessFields, chkDone: number, ch
   if (key === "offer") return { ok: true };
   if (key === "down_payment") {
     const d = f.downPayment;
-    if (!d?.invoiceNumber || !d.invoiceDate || !d.amount || !d.dueDate || !d.method) return { ok: false, message: "Rechnungsdatum, Anzahlungsbetrag, Fälligkeit und Zahlungsart erforderlich." };
+    if (!d?.invoiceNumber || !d.invoiceDate || !d.amount || !d.paymentTerms || !d.method) return { ok: false, message: "Rechnungsdatum, Anzahlungsbetrag, Zahlungsbedingung und Zahlungsart erforderlich." };
     if (!d.received) return { ok: false, message: "Anzahlungsrechnung muss als bezahlt markiert sein, bevor du weitergehst." };
     return { ok: true };
   }
