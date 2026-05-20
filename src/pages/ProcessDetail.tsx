@@ -426,7 +426,7 @@ const StepFields = ({ stepKey, fields, onChange, disabled }: { stepKey: ProcessS
         <TextField label="Anzahlungs-Rechn.-Nr. (automatisch)" value={fields.downPayment?.invoiceNumber} onChange={() => {}} disabled placeholder="wird automatisch vergeben" />
         <DateField label="Rechnungsdatum (automatisch)" value={fields.downPayment?.invoiceDate} onChange={(v) => onChange({ downPayment: { ...fields.downPayment, invoiceDate: v } })} disabled={disabled} />
         <NumberField label="Anzahlungsbetrag (EUR) *" value={fields.downPayment?.amount} onChange={(v) => onChange({ downPayment: { ...fields.downPayment, amount: v } })} disabled={disabled} />
-        <DateField label="Fällig am *" value={fields.downPayment?.dueDate} onChange={(v) => onChange({ downPayment: { ...fields.downPayment, dueDate: v } })} disabled={disabled} />
+        <SelectField label="Zahlungsbedingung *" value={fields.downPayment?.paymentTerms ?? ""} options={DOWN_PAYMENT_TERMS_OPTIONS} onChange={(v) => onChange({ downPayment: { ...fields.downPayment, paymentTerms: v } })} disabled={disabled} />
         <SelectField label="Zahlungsart *" value={fields.downPayment?.method ?? ""} options={["Überweisung", "Bar", "EC"]} onChange={(v) => onChange({ downPayment: { ...fields.downPayment, method: v as any } })} disabled={disabled} />
         <CheckboxField label="Zahlung eingegangen *" checked={!!fields.downPayment?.received} onChange={(v) => onChange({ downPayment: { ...fields.downPayment, received: v, receivedDate: v ? new Date().toISOString().slice(0, 10) : undefined } })} disabled={disabled} />
         {fields.downPayment?.received && (
