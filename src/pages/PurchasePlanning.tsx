@@ -132,7 +132,7 @@ const PurchasePlanning = () => {
         </div>
 
 
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-2 shrink-0">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-2 shrink-0" data-tour="pp-kpis">
           {(["tracking", "won", "received", "lost", "cancelled"] as PurchasePlanStatus[]).map((status) => {
             const count = plans.filter((p) => p.status === status).length;
             const { label, icon: Icon, className } = STATUS_META[status];
