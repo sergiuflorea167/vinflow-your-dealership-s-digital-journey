@@ -500,7 +500,7 @@ const validateStep = (key: ProcessStepKey, f: ProcessFields, chkDone: number, ch
   }
   if (key === "invoicing") {
     const i = f.invoicing;
-    if (!i?.invoiceNumber || !i.invoiceDate || !i.dueDate) return { ok: false, message: "Rechnungs-Nr., Datum & Fälligkeit erforderlich." };
+    if (!i?.invoiceNumber || !i.invoiceDate || !i.paymentTerms) return { ok: false, message: "Rechnungs-Nr., Datum & Zahlungsbedingung erforderlich." };
     if (!i.paid) return { ok: false, message: "Rechnung muss als bezahlt markiert sein, bevor du weitergehst." };
     return { ok: true };
   }
