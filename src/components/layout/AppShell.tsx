@@ -7,6 +7,7 @@ import { TutorialPilot } from "@/components/tutorial/TutorialPilot";
 import { DashboardWorkshop } from "@/components/tutorial/DashboardWorkshop";
 import { FleetWorkshop } from "@/components/tutorial/FleetWorkshop";
 import { PurchaseWorkshop } from "@/components/tutorial/PurchaseWorkshop";
+import { TodosWorkshop } from "@/components/tutorial/TodosWorkshop";
 import { useTutorialStore } from "@/store/tutorialStore";
 import { useWorkshopStore } from "@/store/workshopStore";
 import { useFleetWorkshopStore } from "@/store/fleetWorkshopStore";
@@ -73,6 +74,7 @@ export const AppShell = ({ children }: { children: ReactNode }) => {
       <DashboardWorkshop />
       <FleetWorkshop />
       <PurchaseWorkshop />
+      <TodosWorkshop />
     </div>
   );
 };
