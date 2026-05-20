@@ -1,8 +1,9 @@
 import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { LayoutDashboard, Warehouse, Sparkles } from "lucide-react";
+import { LayoutDashboard, Warehouse, ShoppingCart, Sparkles } from "lucide-react";
 import { useWorkshopStore } from "@/store/workshopStore";
 import { useFleetWorkshopStore } from "@/store/fleetWorkshopStore";
+import { usePurchaseWorkshopStore } from "@/store/purchaseWorkshopStore";
 
 interface Props {
   open: boolean;
@@ -12,16 +13,22 @@ interface Props {
 export const WorkshopPickerDialog = ({ open, onOpenChange }: Props) => {
   const navigate = useNavigate();
 
-  const startDashboard = (chain: boolean) => {
+  const startDashboard = (chainAll: boolean) => {
     onOpenChange(false);
     navigate("/");
-    setTimeout(() => useWorkshopStore.getState().start({ chainNext: chain ? "fleet" : null }), 80);
+    setTimeout(() => useWorkshopStore.getState().start({ chainNext: chainAll ? "fleet" : null }), 80);
   };
 
   const startFleet = () => {
     onOpenChange(false);
     navigate("/bestand");
     setTimeout(() => useFleetWorkshopStore.getState().start(), 80);
+  };
+
+  const startPurchase = () => {
+    onOpenChange(false);
+    navigate("/einkaufsplanung");
+    setTimeout(() => usePurchaseWorkshopStore.getState().start(), 80);
   };
 
   const items = [
@@ -38,6 +45,13 @@ export const WorkshopPickerDialog = ({ open, onOpenChange }: Props) => {
       title: "Bestand-Workshop",
       desc: "Filter, Sortierung, Aufnahme und Import-Funktionen im Bestand.",
       onClick: startFleet,
+    },
+    {
+      key: "purchase",
+      icon: ShoppingCart,
+      title: "Einkaufsplanung-Workshop",
+      desc: "Potenzielle Einkäufe tracken, Notizen führen, in den Bestand überführen.",
+      onClick: startPurchase,
     },
     {
       key: "full",

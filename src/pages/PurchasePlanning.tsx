@@ -121,15 +121,18 @@ const PurchasePlanning = () => {
   return (
     <AppShell>
       <div className="space-y-3 animate-fade-in">
-        <div className="flex items-center justify-between gap-4 shrink-0">
+        <div className="flex items-center justify-between gap-4 shrink-0" data-tour="pp-header">
           <div>
             <h1 className="font-display text-2xl font-bold tracking-tight">Einkaufsplanung</h1>
             <p className="text-xs text-muted-foreground">Schnelle Erfassung potenzieller Einkäufe – Eckdaten + Notizen mit Zeitstempel. Sobald der Deal steht: in den Bestand übernehmen.</p>
           </div>
-          <NewPlanDialog open={dialogOpen} onOpenChange={setDialogOpen} onSubmit={(p) => { addPlan(p); toast.success("Einkauf erfasst."); setDialogOpen(false); }} />
+          <div data-tour="pp-new">
+            <NewPlanDialog open={dialogOpen} onOpenChange={setDialogOpen} onSubmit={(p) => { addPlan(p); toast.success("Einkauf erfasst."); setDialogOpen(false); }} />
+          </div>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-2 shrink-0">
+
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-2 shrink-0" data-tour="pp-kpis">
           {(["tracking", "won", "received", "lost", "cancelled"] as PurchasePlanStatus[]).map((status) => {
             const count = plans.filter((p) => p.status === status).length;
             const { label, icon: Icon, className } = STATUS_META[status];
@@ -147,7 +150,7 @@ const PurchasePlanning = () => {
           })}
         </div>
 
-        <Card className="px-3 py-2 flex items-center gap-2 flex-wrap shrink-0">
+        <Card className="px-3 py-2 flex items-center gap-2 flex-wrap shrink-0" data-tour="pp-filters">
           <Select value={sortKey} onValueChange={(v) => setSortKey(v as PlanSortKey)}>
             <SelectTrigger className="w-[200px] h-8 text-xs">
               <SelectValue />
@@ -177,6 +180,7 @@ const PurchasePlanning = () => {
           </div>
         </Card>
 
+        <div data-tour="pp-table">
         <DataTableShell footer={<>{filtered.length} Einträge</>}>
           <table>
             <thead>
@@ -282,7 +286,9 @@ const PurchasePlanning = () => {
             </tbody>
           </table>
         </DataTableShell>
+        </div>
       </div>
+
 
       <PlanDetailSheet
         plan={detailPlan}
