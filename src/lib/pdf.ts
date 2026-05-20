@@ -818,7 +818,7 @@ const buildKaufvertrag = (
   cursor += 6;
 
   // § 8 Unterschriften
-  cursor = drawSectionTitle(doc, "§ 8  Unterschriften", cursor);
+  cursor = drawSectionTitle(doc, "§ 9  Unterschriften", cursor);
   cursor += 2;
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
