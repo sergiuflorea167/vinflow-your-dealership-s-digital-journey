@@ -449,7 +449,7 @@ const StepFields = ({ stepKey, fields, onChange, disabled }: { stepKey: ProcessS
       <FieldGrid title="Rechnungsdaten">
         <TextField label="Rechnungs-Nr. (automatisch)" value={fields.invoicing?.invoiceNumber} onChange={() => {}} disabled placeholder="wird automatisch vergeben" />
         <DateField label="Rechnungsdatum (automatisch)" value={fields.invoicing?.invoiceDate} onChange={(v) => onChange({ invoicing: { ...fields.invoicing, invoiceDate: v } })} disabled={disabled} />
-        <DateField label="Fällig am *" value={fields.invoicing?.dueDate} onChange={(v) => onChange({ invoicing: { ...fields.invoicing, dueDate: v } })} disabled={disabled} />
+        <SelectField label="Zahlungsbedingung *" value={fields.invoicing?.paymentTerms ?? ""} options={PAYMENT_TERMS_OPTIONS} onChange={(v) => onChange({ invoicing: { ...fields.invoicing, paymentTerms: v } })} disabled={disabled} />
         <CheckboxField label="Zahlung eingegangen *" checked={!!fields.invoicing?.paid} onChange={(v) => onChange({ invoicing: { ...fields.invoicing, paid: v, paidDate: v ? new Date().toISOString().slice(0, 10) : undefined } })} disabled={disabled} />
         {fields.invoicing?.paid && (
           <DateField label="Zahlungseingang am" value={fields.invoicing?.paidDate} onChange={(v) => onChange({ invoicing: { ...fields.invoicing, paidDate: v } })} disabled={disabled} />
