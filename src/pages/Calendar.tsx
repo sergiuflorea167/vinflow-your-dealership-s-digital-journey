@@ -171,17 +171,12 @@ const useEventDrag = ({
     }
   }, [setPreviewBoth]);
 
-  const detach = useCallback(() => {
-    window.removeEventListener("pointermove", handleMove);
-    window.removeEventListener("pointerup", handleEnd);
-    window.removeEventListener("pointercancel", handleEnd);
-  }, [handleMove]);
-
-  // handleEnd defined as ref-callback because detach references it.
   const handleEnd = useCallback((e: PointerEvent) => {
     const s = stateRef.current;
     if (!s || e.pointerId !== s.pointerId) return;
-    detach();
+    window.removeEventListener("pointermove", handleMove);
+    window.removeEventListener("pointerup", handleEnd);
+    window.removeEventListener("pointercancel", handleEnd);
     const p = previewRef.current;
     const wasMoved = s.moved;
     const cfg = cfgRef.current;
@@ -203,10 +198,13 @@ const useEventDrag = ({
     };
     if (p.date !== cfg.event.date) patch.date = p.date;
     cfg.onCommit(patch);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [detach, setPreviewBoth]);
+  }, [handleMove, setPreviewBoth]);
 
-  useEffect(() => () => detach(), [detach]);
+  useEffect(() => () => {
+    window.removeEventListener("pointermove", handleMove);
+    window.removeEventListener("pointerup", handleEnd);
+    window.removeEventListener("pointercancel", handleEnd);
+  }, [handleMove, handleEnd]);
 
   const startDrag = useCallback((mode: DragMode, e: React.PointerEvent) => {
     if (e.button !== 0) return;
