@@ -557,7 +557,7 @@ export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, c
       ], cursor, "Restbetrag");
       cursor = drawSectionTitle(doc, "Zahlungsdaten", cursor);
       cursor = drawTextBlock(doc,
-        `Rechnungs-Nr.: ${inv?.invoiceNumber ?? "—"}\nRechnungsdatum: ${inv?.invoiceDate ? formatDate(inv.invoiceDate) : formatDate(new Date().toISOString())}\nFällig: ${inv?.dueDate ? formatDate(inv.dueDate) : "sofort"}\nIBAN: ${BANK.iban} · BIC: ${BANK.bic}\nVerwendungszweck: ${process.id}\nDer Restbetrag von ${formatCurrency(remaining)} ist bei Fahrzeugübergabe fällig.\n${taxationLine(vehicle)}`,
+        `Rechnungs-Nr.: ${inv?.invoiceNumber ?? "—"}\nRechnungsdatum: ${inv?.invoiceDate ? formatDate(inv.invoiceDate) : formatDate(new Date().toISOString())}\nZahlungsbedingung: ${inv?.paymentTerms ?? (inv?.dueDate ? `Fällig am ${formatDate(inv.dueDate)}` : "Sofort fällig nach Erhalt der Rechnung")}\nIBAN: ${BANK.iban} · BIC: ${BANK.bic}\nVerwendungszweck: ${process.id}\nDer Restbetrag von ${formatCurrency(remaining)} ist bei Fahrzeugübergabe fällig.\n${taxationLine(vehicle)}`,
         cursor);
       break;
     }
