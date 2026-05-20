@@ -367,7 +367,8 @@ const Todos = () => {
         {sorted.length === 0 ? (
           <Card className="p-12 text-center text-muted-foreground">Keine To-Dos gefunden.</Card>
         ) : (
-          <DataTableShell data-tour="tt-table" footer={<>{sorted.length} {sorted.length === 1 ? "Eintrag" : "Einträge"}</>}>
+          <div data-tour="tt-table">
+          <DataTableShell footer={<>{sorted.length} {sorted.length === 1 ? "Eintrag" : "Einträge"}</>}>
             <table>
               <thead>
                 <tr>
