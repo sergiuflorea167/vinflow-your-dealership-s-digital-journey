@@ -561,15 +561,36 @@ const TEMPLATES: Template[] = [
 // Component
 // ---------------------------------------------------------------------------
 
+const STORAGE_KEY = "vinflow.insightplus.measurements.v1";
+
 export const InsightPlusBuilder = ({ processes, vehicles, purchasePlans }: Props) => {
   const allMakes = useMemo(() => Array.from(new Set(vehicles.map((v) => v.make))).sort(), [vehicles]);
 
-  const [measurements, setMeasurements] = useState<Measurement[]>(() => [
-    TEMPLATES[2].build(),
-    TEMPLATES[3].build(),
-    TEMPLATES[0].build(),
-    TEMPLATES[6].build(),
-  ]);
+  const [measurements, setMeasurements] = useState<Measurement[]>(() => {
+    try {
+      const raw = typeof window !== "undefined" ? window.localStorage.getItem(STORAGE_KEY) : null;
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return parsed as Measurement[];
+      }
+    } catch {
+      // ignore corrupted storage
+    }
+    return [
+      TEMPLATES[2].build(),
+      TEMPLATES[3].build(),
+      TEMPLATES[0].build(),
+      TEMPLATES[6].build(),
+    ];
+  });
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(measurements));
+    } catch {
+      // ignore quota errors
+    }
+  }, [measurements]);
 
   const [draft, setDraft] = useState<Measurement>(baseDraft());
   const [builderOpen, setBuilderOpen] = useState(false);
