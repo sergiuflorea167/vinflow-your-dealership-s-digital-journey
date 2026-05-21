@@ -3,7 +3,7 @@
 // Live berechnet aus Bestands-, Vorgangs- und Einkaufsdaten.
 // Mit Quick-Templates, Trend vs. Vorperiode, Top-Liste, Mini-Bar-Charts.
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { format, differenceInDays, subDays, subMonths } from "date-fns";
 import { de } from "date-fns/locale";
 import {
