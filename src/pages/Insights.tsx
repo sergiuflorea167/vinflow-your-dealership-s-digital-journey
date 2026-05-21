@@ -12,7 +12,7 @@ const Insights = () => {
   return (
     <AppShell>
       <div className="space-y-8 animate-fade-in">
-        <div>
+        <div data-tour="insight-header">
           <Badge variant="outline" className="border-primary/30 text-primary-glow mb-3 gap-1.5">
             <Sparkles className="size-3" /> Insight+ · BI-Builder
           </Badge>
@@ -24,6 +24,7 @@ const Insights = () => {
             Zeitraum und Filtern. Live berechnet aus deinen Bestands- und Vorgangsdaten.
           </p>
         </div>
+
 
         <InsightPlusBuilder
           processes={processes}
