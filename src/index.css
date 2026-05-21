@@ -8,70 +8,70 @@
 
 @layer base {
   :root {
-    /* Core surfaces — Soft Slate Midnight (augenfreundlich, weiterhin dark) */
-    --background: 222 47% 11%;          /* #0f172a slate-900 */
-    --foreground: 214 32% 91%;          /* slate-200 */
+    /* Core surfaces — Cloud White (helles SaaS mit Blau-Akzent) */
+    --background: 220 17% 98%;          /* #fafbfc */
+    --foreground: 222 47% 11%;          /* slate-900 als Text */
 
-    --card: 217 33% 14%;                /* ~#1a2335 */
-    --card-foreground: 214 32% 91%;
+    --card: 0 0% 100%;                  /* reines Weiß für Karten */
+    --card-foreground: 222 47% 11%;
 
-    --popover: 217 33% 15%;
-    --popover-foreground: 214 32% 91%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
 
-    --surface-elevated: 217 33% 17%;    /* slate-800 #1e293b */
-    --surface-muted: 217 25% 20%;
+    --surface-elevated: 214 22% 93%;    /* #e8ecf1 */
+    --surface-muted: 214 22% 96%;
 
-    /* Brand — Indigo bleibt */
-    --primary: 243 75% 59%;             /* #4f46e5 */
+    /* Brand — Blau statt Indigo */
+    --primary: 217 91% 60%;             /* #3b82f6 blue-500 */
     --primary-foreground: 0 0% 100%;
-    --primary-glow: 239 84% 67%;        /* indigo-500 */
+    --primary-glow: 213 94% 68%;        /* blue-400 */
 
-    --secondary: 240 45% 28%;
-    --secondary-foreground: 214 32% 91%;
+    --secondary: 214 22% 93%;
+    --secondary-foreground: 222 47% 11%;
 
-    --muted: 217 25% 18%;
-    --muted-foreground: 215 20% 65%;    /* slate-400 */
+    --muted: 214 22% 95%;
+    --muted-foreground: 215 20% 45%;    /* etwas dunkler als slate-400 für Lesbarkeit */
 
-    --accent: 243 75% 59%;
+    --accent: 217 91% 60%;
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 72% 55%;
+    --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
-    --success: 152 65% 45%;
+    --success: 152 65% 38%;
     --success-foreground: 0 0% 100%;
 
-    --warning: 38 92% 55%;
-    --warning-foreground: 222 47% 11%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
 
-    --info: 199 89% 60%;
-    --info-foreground: 222 47% 11%;
+    --info: 199 89% 48%;
+    --info-foreground: 0 0% 100%;
 
-    --border: 217 25% 22%;
-    --input: 217 25% 22%;
-    --ring: 243 75% 59%;
+    --border: 214 22% 88%;
+    --input: 214 22% 88%;
+    --ring: 217 91% 60%;
 
     --radius: 0.75rem;
 
     /* Gradients */
-    --gradient-brand: linear-gradient(135deg, hsl(243 75% 59%), hsl(258 80% 65%));
-    --gradient-surface: linear-gradient(180deg, hsl(217 33% 15%), hsl(222 47% 11%));
-    --gradient-glow: radial-gradient(circle at 50% 0%, hsl(243 75% 59% / 0.22), transparent 60%);
+    --gradient-brand: linear-gradient(135deg, hsl(217 91% 60%), hsl(213 94% 68%));
+    --gradient-surface: linear-gradient(180deg, hsl(0 0% 100%), hsl(220 17% 98%));
+    --gradient-glow: radial-gradient(circle at 50% 0%, hsl(217 91% 60% / 0.12), transparent 60%);
 
-    /* Shadows */
-    --shadow-elegant: 0 10px 40px -10px hsl(243 75% 59% / 0.30);
-    --shadow-card: 0 4px 24px -8px hsl(222 47% 4% / 0.55);
-    --shadow-glow: 0 0 32px hsl(239 84% 67% / 0.35);
+    /* Shadows — weicher für Light-Mode */
+    --shadow-elegant: 0 10px 40px -10px hsl(217 91% 60% / 0.25);
+    --shadow-card: 0 1px 3px 0 hsl(222 47% 11% / 0.06), 0 1px 2px -1px hsl(222 47% 11% / 0.04);
+    --shadow-glow: 0 0 24px hsl(213 94% 68% / 0.30);
 
-    /* Sidebar */
-    --sidebar-background: 220 39% 11%;  /* #111827 */
-    --sidebar-foreground: 215 20% 75%;
-    --sidebar-primary: 243 75% 59%;
+    /* Sidebar — leicht abgesetzt */
+    --sidebar-background: 214 22% 96%;  /* leichtes Grau */
+    --sidebar-foreground: 222 30% 30%;
+    --sidebar-primary: 217 91% 60%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 217 33% 17%;
-    --sidebar-accent-foreground: 214 32% 95%;
-    --sidebar-border: 217 25% 18%;
-    --sidebar-ring: 243 75% 59%;
+    --sidebar-accent: 214 32% 91%;
+    --sidebar-accent-foreground: 222 47% 11%;
+    --sidebar-border: 214 22% 88%;
+    --sidebar-ring: 217 91% 60%;
 
     /* Transitions */
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -79,33 +79,34 @@
   }
 
   .dark {
-    --background: 222 47% 11%;
-    --foreground: 214 32% 91%;
-    --card: 217 33% 14%;
-    --card-foreground: 214 32% 91%;
-    --popover: 217 33% 15%;
-    --popover-foreground: 214 32% 91%;
-    --primary: 243 75% 59%;
+    /* Light bleibt Standard — die .dark-Klasse spiegelt aktuell dieselben Tokens. */
+    --background: 220 17% 98%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 217 91% 60%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 240 45% 28%;
-    --secondary-foreground: 214 32% 91%;
-    --muted: 217 25% 18%;
-    --muted-foreground: 215 20% 65%;
-    --accent: 243 75% 59%;
+    --secondary: 214 22% 93%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 214 22% 95%;
+    --muted-foreground: 215 20% 45%;
+    --accent: 217 91% 60%;
     --accent-foreground: 0 0% 100%;
-    --destructive: 0 72% 55%;
+    --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
-    --border: 217 25% 22%;
-    --input: 217 25% 22%;
-    --ring: 243 75% 59%;
-    --sidebar-background: 220 39% 11%;
-    --sidebar-foreground: 215 20% 75%;
-    --sidebar-primary: 243 75% 59%;
+    --border: 214 22% 88%;
+    --input: 214 22% 88%;
+    --ring: 217 91% 60%;
+    --sidebar-background: 214 22% 96%;
+    --sidebar-foreground: 222 30% 30%;
+    --sidebar-primary: 217 91% 60%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 217 33% 17%;
-    --sidebar-accent-foreground: 214 32% 95%;
-    --sidebar-border: 217 25% 18%;
-    --sidebar-ring: 243 75% 59%;
+    --sidebar-accent: 214 32% 91%;
+    --sidebar-accent-foreground: 222 47% 11%;
+    --sidebar-border: 214 22% 88%;
+    --sidebar-ring: 217 91% 60%;
   }
 }
 
@@ -115,7 +116,7 @@
   }
 
   html {
-    @apply dark;
+    /* Light-Mode als Standard — keine .dark-Klasse mehr */
   }
 
   body {
