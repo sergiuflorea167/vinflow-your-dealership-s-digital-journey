@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useState, ReactNode } from "react";
 
 export type ThemeId = "slate" | "midnight" | "cloud" | "sand";
 
@@ -29,13 +29,22 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
     return saved && THEMES.some((t) => t.id === saved) ? saved : "slate";
   });
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     applyTheme(theme);
+  }, [theme]);
+
+  useEffect(() => {
     localStorage.setItem(STORAGE_KEY, theme);
   }, [theme]);
 
+  const setTheme = useCallback((nextTheme: ThemeId) => {
+    applyTheme(nextTheme);
+    localStorage.setItem(STORAGE_KEY, nextTheme);
+    setThemeState(nextTheme);
+  }, []);
+
   return (
-    <ThemeContext.Provider value={{ theme, setTheme: setThemeState }}>
+    <ThemeContext.Provider value={{ theme, setTheme }}>
       {children}
     </ThemeContext.Provider>
   );
