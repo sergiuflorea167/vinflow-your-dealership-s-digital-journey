@@ -10,7 +10,8 @@
 
 @layer base {
   :root,
-  .theme-slate {
+  html.theme-slate {
+
     /* Soft Slate Blue – gedämpft, augenfreundlich */
     --background: 215 18% 86%;
     --foreground: 222 28% 20%;
@@ -69,7 +70,7 @@
   }
 
   /* ============ Midnight Indigo – original dunkles Theme ============ */
-  .theme-midnight {
+  html.theme-midnight {
     --background: 230 35% 7%;
     --foreground: 220 20% 92%;
     --card: 230 30% 11%;
@@ -122,7 +123,7 @@
   }
 
   /* ============ Cloud White – helles SaaS ============ */
-  .theme-cloud {
+  html.theme-cloud {
     --background: 220 17% 98%;
     --foreground: 222 30% 14%;
     --card: 0 0% 100%;
@@ -175,7 +176,7 @@
   }
 
   /* ============ Warm Sand – warmes Beige mit Blau-Akzent ============ */
-  .theme-sand {
+  html.theme-sand {
     --background: 36 25% 90%;
     --foreground: 28 22% 18%;
     --card: 36 30% 94%;
