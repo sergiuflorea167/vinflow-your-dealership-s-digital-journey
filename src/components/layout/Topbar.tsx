@@ -7,6 +7,7 @@ import {
 import { useTopbarSearchConfig } from "@/context/TopbarSearchContext";
 import { UserMenu } from "./UserMenu";
 import { LanguageSwitcher } from "./LanguageSwitcher";
+import { ThemeSwitcher } from "./ThemeSwitcher";
 import { useT } from "@/lib/i18n";
 
 export const Topbar = () => {
@@ -42,6 +43,7 @@ export const Topbar = () => {
       </div>
       <div className="flex items-center gap-1 ml-auto">
         <LanguageSwitcher />
+        <ThemeSwitcher />
         <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground" aria-label={t("topbar.notifications")}>
           <Bell className="size-4" />
         </Button>
