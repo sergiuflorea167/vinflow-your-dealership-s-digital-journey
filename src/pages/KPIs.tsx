@@ -137,15 +137,16 @@ const KPIs = () => {
     items.length === 0 ? (
       <Card className="p-8 text-center text-muted-foreground text-sm">Keine KPIs in dieser Kategorie gefunden.</Card>
     ) : (
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+      <div data-tour="kpi-grid" className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
         {items.map((kpi) => <KpiCard key={kpi.id} kpi={kpi} />)}
       </div>
     );
 
+
   return (
     <AppShell>
       <div className="space-y-8 animate-fade-in">
-        <div className="flex items-end justify-between gap-6 flex-wrap">
+        <div data-tour="kpi-header" className="flex items-end justify-between gap-6 flex-wrap">
           <div>
             <Badge variant="outline" className="border-primary/30 text-primary-glow mb-3">Analytics</Badge>
             <h1 className="text-3xl lg:text-4xl font-display font-bold tracking-tight">KPIs &amp; Statistiken</h1>
@@ -164,14 +165,15 @@ const KPIs = () => {
         </div>
 
         {/* Globaler Zeitraum-Filter — gilt für alle zeitabhängigen KPIs */}
-        <KpiRangePicker />
+        <div data-tour="kpi-range"><KpiRangePicker /></div>
 
-        <GoalsPanel />
+        <div data-tour="kpi-goals"><GoalsPanel /></div>
+
 
 
         {/* Tabs */}
         <Tabs value={tab} onValueChange={(v) => setTab(v as KpiCategory)} className="space-y-6">
-          <TabsList className="w-full justify-start flex-wrap h-auto p-1 bg-card border border-border">
+          <TabsList data-tour="kpi-tabs" className="w-full justify-start flex-wrap h-auto p-1 bg-card border border-border">
             {TAB_ORDER.map(({ key, icon: Icon, short }) => {
               const count = KPI_CATALOG.filter((k) => k.category === key).length;
               return (
@@ -187,6 +189,7 @@ const KPIs = () => {
               );
             })}
           </TabsList>
+
 
           {/* Umsatz */}
           <TabsContent value="Umsatz" className="space-y-6 mt-0">

@@ -9,6 +9,9 @@ import { FleetWorkshop } from "@/components/tutorial/FleetWorkshop";
 import { PurchaseWorkshop } from "@/components/tutorial/PurchaseWorkshop";
 import { TodosWorkshop } from "@/components/tutorial/TodosWorkshop";
 import { CalendarWorkshop } from "@/components/tutorial/CalendarWorkshop";
+import { KpiWorkshop } from "@/components/tutorial/KpiWorkshop";
+import { InsightsWorkshop } from "@/components/tutorial/InsightsWorkshop";
+
 import { useTutorialStore } from "@/store/tutorialStore";
 import { useWorkshopStore } from "@/store/workshopStore";
 import { useFleetWorkshopStore } from "@/store/fleetWorkshopStore";
@@ -77,6 +80,9 @@ export const AppShell = ({ children }: { children: ReactNode }) => {
       <PurchaseWorkshop />
       <TodosWorkshop />
       <CalendarWorkshop />
+      <KpiWorkshop />
+      <InsightsWorkshop />
+
     </div>
   );
 };

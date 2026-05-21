@@ -596,8 +596,9 @@ export const InsightPlusBuilder = ({ processes, vehicles, purchasePlans }: Props
       <div className="space-y-4">
 
         {/* ===== Quick-Templates ===== */}
-        <Card className="p-4 bg-card border-border shadow-card">
+        <Card data-tour="insight-templates" className="p-4 bg-card border-border shadow-card">
           <div className="flex items-center gap-2 mb-3">
+
             <Sparkles className="size-4 text-primary-glow" />
             <h3 className="text-sm font-semibold">Schnell-Vorlagen</h3>
             <span className="text-xs text-muted-foreground">— ein Klick → Auswertung erscheint unten</span>
@@ -626,7 +627,8 @@ export const InsightPlusBuilder = ({ processes, vehicles, purchasePlans }: Props
         </Card>
 
         {/* ===== Builder (collapsible) ===== */}
-        <Card className="bg-card border-border shadow-card overflow-hidden">
+        <Card data-tour="insight-builder" className="bg-card border-border shadow-card overflow-hidden">
+
           <button
             type="button"
             onClick={() => setBuilderOpen((v) => !v)}
@@ -814,7 +816,8 @@ export const InsightPlusBuilder = ({ processes, vehicles, purchasePlans }: Props
         </Card>
 
         {/* ===== Ergebnisse ===== */}
-        <div>
+        <div data-tour="insight-results">
+
           <div className="flex items-center justify-between mb-3 px-1">
             <h3 className="text-sm font-semibold flex items-center gap-2">
               <BarChart3 className="size-4 text-primary-glow" />

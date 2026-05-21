@@ -1,11 +1,14 @@
 import { useNavigate } from "react-router-dom";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { LayoutDashboard, Warehouse, ShoppingCart, ListTodo, CalendarDays, Sparkles } from "lucide-react";
+import { LayoutDashboard, Warehouse, ShoppingCart, ListTodo, CalendarDays, Sparkles, BarChart3, Zap } from "lucide-react";
 import { useWorkshopStore } from "@/store/workshopStore";
 import { useFleetWorkshopStore } from "@/store/fleetWorkshopStore";
 import { usePurchaseWorkshopStore } from "@/store/purchaseWorkshopStore";
 import { useTodosWorkshopStore } from "@/store/todosWorkshopStore";
 import { useCalendarWorkshopStore } from "@/store/calendarWorkshopStore";
+import { useKpiWorkshopStore } from "@/store/kpiWorkshopStore";
+import { useInsightsWorkshopStore } from "@/store/insightsWorkshopStore";
+
 
 interface Props {
   open: boolean;
@@ -45,6 +48,19 @@ export const WorkshopPickerDialog = ({ open, onOpenChange }: Props) => {
     setTimeout(() => useCalendarWorkshopStore.getState().start(), 80);
   };
 
+  const startKpis = () => {
+    onOpenChange(false);
+    navigate("/kpis");
+    setTimeout(() => useKpiWorkshopStore.getState().start(), 80);
+  };
+
+  const startInsights = () => {
+    onOpenChange(false);
+    navigate("/insights");
+    setTimeout(() => useInsightsWorkshopStore.getState().start(), 80);
+  };
+
+
   const items = [
     {
       key: "dashboard",
@@ -82,6 +98,20 @@ export const WorkshopPickerDialog = ({ open, onOpenChange }: Props) => {
       onClick: startCalendar,
     },
     {
+      key: "kpis",
+      icon: BarChart3,
+      title: "KPI-Workshop",
+      desc: "Kennzahlen, Zeitraum-Filter, Ziele, Pinnen und Pipeline-Übersicht meistern.",
+      onClick: startKpis,
+    },
+    {
+      key: "insights",
+      icon: Zap,
+      title: "Insight+ Workshop",
+      desc: "BI-Builder verstehen: Metrik, Stationen, Zeitraum, Filter & Breakdown.",
+      onClick: startInsights,
+    },
+    {
       key: "full",
       icon: Sparkles,
       title: "Kompletter Workshop",
@@ -90,6 +120,7 @@ export const WorkshopPickerDialog = ({ open, onOpenChange }: Props) => {
       highlight: true,
     },
   ];
+
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
