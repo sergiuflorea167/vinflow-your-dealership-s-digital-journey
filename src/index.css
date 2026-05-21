@@ -8,70 +8,70 @@
 
 @layer base {
   :root {
-    /* Core surfaces — Cloud White (helles SaaS mit Blau-Akzent) */
-    --background: 220 17% 98%;          /* #fafbfc */
-    --foreground: 222 47% 11%;          /* slate-900 als Text */
+    /* Core surfaces — Dimmed Light (gedämpft, augenfreundlich, Blau-Akzent) */
+    --background: 215 20% 92%;          /* gedämpftes Hellgrau, nicht weiß */
+    --foreground: 222 35% 18%;          /* nicht ganz schwarz */
 
-    --card: 0 0% 100%;                  /* reines Weiß für Karten */
-    --card-foreground: 222 47% 11%;
+    --card: 210 20% 97%;                /* sanftes Off-White für Karten */
+    --card-foreground: 222 35% 18%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
+    --popover: 210 20% 97%;
+    --popover-foreground: 222 35% 18%;
 
-    --surface-elevated: 214 22% 93%;    /* #e8ecf1 */
-    --surface-muted: 214 22% 96%;
+    --surface-elevated: 214 18% 88%;
+    --surface-muted: 214 18% 90%;
 
-    /* Brand — Blau statt Indigo */
-    --primary: 217 91% 60%;             /* #3b82f6 blue-500 */
+    /* Brand — Blau */
+    --primary: 217 91% 55%;             /* etwas tiefer für besseren Kontrast auf Grau */
     --primary-foreground: 0 0% 100%;
-    --primary-glow: 213 94% 68%;        /* blue-400 */
+    --primary-glow: 213 94% 65%;
 
-    --secondary: 214 22% 93%;
-    --secondary-foreground: 222 47% 11%;
+    --secondary: 214 18% 87%;
+    --secondary-foreground: 222 35% 18%;
 
-    --muted: 214 22% 95%;
-    --muted-foreground: 215 20% 45%;    /* etwas dunkler als slate-400 für Lesbarkeit */
+    --muted: 214 18% 89%;
+    --muted-foreground: 215 16% 40%;
 
-    --accent: 217 91% 60%;
+    --accent: 217 91% 55%;
     --accent-foreground: 0 0% 100%;
 
-    --destructive: 0 72% 51%;
+    --destructive: 0 65% 48%;
     --destructive-foreground: 0 0% 100%;
 
-    --success: 152 65% 38%;
+    --success: 152 55% 36%;
     --success-foreground: 0 0% 100%;
 
-    --warning: 38 92% 50%;
+    --warning: 32 90% 48%;
     --warning-foreground: 0 0% 100%;
 
-    --info: 199 89% 48%;
+    --info: 199 80% 42%;
     --info-foreground: 0 0% 100%;
 
-    --border: 214 22% 88%;
-    --input: 214 22% 88%;
-    --ring: 217 91% 60%;
+    --border: 215 16% 80%;
+    --input: 215 16% 80%;
+    --ring: 217 91% 55%;
 
     --radius: 0.75rem;
 
     /* Gradients */
-    --gradient-brand: linear-gradient(135deg, hsl(217 91% 60%), hsl(213 94% 68%));
-    --gradient-surface: linear-gradient(180deg, hsl(0 0% 100%), hsl(220 17% 98%));
-    --gradient-glow: radial-gradient(circle at 50% 0%, hsl(217 91% 60% / 0.12), transparent 60%);
+    --gradient-brand: linear-gradient(135deg, hsl(217 91% 55%), hsl(213 94% 65%));
+    --gradient-surface: linear-gradient(180deg, hsl(210 20% 97%), hsl(215 20% 92%));
+    --gradient-glow: radial-gradient(circle at 50% 0%, hsl(217 91% 55% / 0.10), transparent 60%);
 
-    /* Shadows — weicher für Light-Mode */
-    --shadow-elegant: 0 10px 40px -10px hsl(217 91% 60% / 0.25);
-    --shadow-card: 0 1px 3px 0 hsl(222 47% 11% / 0.06), 0 1px 2px -1px hsl(222 47% 11% / 0.04);
-    --shadow-glow: 0 0 24px hsl(213 94% 68% / 0.30);
+    /* Shadows */
+    --shadow-elegant: 0 10px 40px -10px hsl(217 91% 55% / 0.20);
+    --shadow-card: 0 1px 3px 0 hsl(222 35% 18% / 0.08), 0 1px 2px -1px hsl(222 35% 18% / 0.05);
+    --shadow-glow: 0 0 24px hsl(213 94% 65% / 0.25);
 
-    /* Sidebar — leicht abgesetzt */
-    --sidebar-background: 214 22% 96%;  /* leichtes Grau */
-    --sidebar-foreground: 222 30% 30%;
-    --sidebar-primary: 217 91% 60%;
+    /* Sidebar — etwas dunkler als Background für Abgrenzung */
+    --sidebar-background: 215 20% 88%;
+    --sidebar-foreground: 222 30% 25%;
+    --sidebar-primary: 217 91% 55%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 214 32% 91%;
-    --sidebar-accent-foreground: 222 47% 11%;
-    --sidebar-border: 214 22% 88%;
-    --sidebar-ring: 217 91% 60%;
+    --sidebar-accent: 214 22% 82%;
+    --sidebar-accent-foreground: 222 35% 18%;
+    --sidebar-border: 215 16% 78%;
+    --sidebar-ring: 217 91% 55%;
 
     /* Transitions */
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -79,34 +79,33 @@
   }
 
   .dark {
-    /* Light bleibt Standard — die .dark-Klasse spiegelt aktuell dieselben Tokens. */
-    --background: 220 17% 98%;
-    --foreground: 222 47% 11%;
-    --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
-    --primary: 217 91% 60%;
+    --background: 215 20% 92%;
+    --foreground: 222 35% 18%;
+    --card: 210 20% 97%;
+    --card-foreground: 222 35% 18%;
+    --popover: 210 20% 97%;
+    --popover-foreground: 222 35% 18%;
+    --primary: 217 91% 55%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 214 22% 93%;
-    --secondary-foreground: 222 47% 11%;
-    --muted: 214 22% 95%;
-    --muted-foreground: 215 20% 45%;
-    --accent: 217 91% 60%;
+    --secondary: 214 18% 87%;
+    --secondary-foreground: 222 35% 18%;
+    --muted: 214 18% 89%;
+    --muted-foreground: 215 16% 40%;
+    --accent: 217 91% 55%;
     --accent-foreground: 0 0% 100%;
-    --destructive: 0 72% 51%;
+    --destructive: 0 65% 48%;
     --destructive-foreground: 0 0% 100%;
-    --border: 214 22% 88%;
-    --input: 214 22% 88%;
-    --ring: 217 91% 60%;
-    --sidebar-background: 214 22% 96%;
-    --sidebar-foreground: 222 30% 30%;
-    --sidebar-primary: 217 91% 60%;
+    --border: 215 16% 80%;
+    --input: 215 16% 80%;
+    --ring: 217 91% 55%;
+    --sidebar-background: 215 20% 88%;
+    --sidebar-foreground: 222 30% 25%;
+    --sidebar-primary: 217 91% 55%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 214 32% 91%;
-    --sidebar-accent-foreground: 222 47% 11%;
-    --sidebar-border: 214 22% 88%;
-    --sidebar-ring: 217 91% 60%;
+    --sidebar-accent: 214 22% 82%;
+    --sidebar-accent-foreground: 222 35% 18%;
+    --sidebar-border: 215 16% 78%;
+    --sidebar-ring: 217 91% 55%;
   }
 }
 
