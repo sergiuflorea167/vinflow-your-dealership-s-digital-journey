@@ -228,27 +228,50 @@
     --sidebar-ring: 215 70% 48%;
   }
 
-  /* Legacy: behalte .dark als Alias auf das aktuelle Default-Theme */
+  /* Legacy: .dark bleibt als Alias für Midnight, falls alte Einstellungen noch gespeichert sind */
   .dark {
-    --background: 215 18% 86%;
-    --foreground: 222 28% 20%;
-    --card: 214 22% 93%;
-    --card-foreground: 222 28% 20%;
-    --popover: 214 22% 93%;
-    --popover-foreground: 222 28% 20%;
-    --primary: 215 74% 46%;
+    --background: 230 35% 7%;
+    --foreground: 220 20% 92%;
+    --card: 230 30% 11%;
+    --card-foreground: 220 20% 92%;
+    --popover: 230 30% 11%;
+    --popover-foreground: 220 20% 92%;
+    --surface-elevated: 230 28% 14%;
+    --surface-muted: 230 24% 16%;
+    --primary: 243 75% 62%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 215 16% 82%;
-    --secondary-foreground: 222 28% 20%;
-    --muted: 215 16% 84%;
-    --muted-foreground: 215 22% 24%;
-    --accent: 215 74% 46%;
+    --primary-glow: 235 85% 70%;
+    --secondary: 230 24% 18%;
+    --secondary-foreground: 220 20% 92%;
+    --muted: 230 22% 16%;
+    --muted-foreground: 220 14% 65%;
+    --accent: 243 75% 62%;
     --accent-foreground: 0 0% 100%;
-    --destructive: 0 65% 48%;
+    --destructive: 0 70% 55%;
     --destructive-foreground: 0 0% 100%;
-    --border: 215 14% 74%;
-    --input: 215 14% 74%;
-    --ring: 215 74% 46%;
+    --success: 152 60% 42%;
+    --success-foreground: 0 0% 100%;
+    --warning: 32 90% 55%;
+    --warning-foreground: 0 0% 100%;
+    --info: 199 85% 55%;
+    --info-foreground: 0 0% 100%;
+    --border: 230 22% 20%;
+    --input: 230 22% 20%;
+    --ring: 243 75% 62%;
+    --gradient-brand: linear-gradient(135deg, hsl(243 75% 62%), hsl(235 85% 70%));
+    --gradient-surface: linear-gradient(180deg, hsl(230 30% 11%), hsl(230 35% 7%));
+    --gradient-glow: radial-gradient(circle at 50% 0%, hsl(243 75% 62% / 0.18), transparent 60%);
+    --shadow-elegant: 0 14px 40px -14px hsl(243 75% 62% / 0.35);
+    --shadow-card: 0 1px 3px 0 hsl(0 0% 0% / 0.45), 0 1px 2px -1px hsl(0 0% 0% / 0.30);
+    --shadow-glow: 0 0 28px hsl(235 85% 70% / 0.30);
+    --sidebar-background: 232 32% 9%;
+    --sidebar-foreground: 220 18% 88%;
+    --sidebar-primary: 243 75% 62%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 230 26% 16%;
+    --sidebar-accent-foreground: 220 18% 92%;
+    --sidebar-border: 230 22% 18%;
+    --sidebar-ring: 243 75% 62%;
   }
 }
 

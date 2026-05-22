@@ -11,6 +11,11 @@ export const THEMES: { id: ThemeId; label: string; description: string; swatch: 
 
 const STORAGE_KEY = "vinflow.theme";
 const ALL_CLASSES = THEMES.map((t) => `theme-${t.id}`);
+const normalizeTheme = (value: string | null): ThemeId => {
+  if (value === "dark") return "midnight";
+  return value && THEMES.some((t) => t.id === value) ? (value as ThemeId) : "slate";
+};
+
 const THEME_VARIABLES: Record<ThemeId, Record<string, string>> = {
   slate: {
     background: "215 18% 86%", foreground: "222 28% 20%", card: "214 22% 93%", "card-foreground": "222 28% 20%", popover: "214 22% 93%", "popover-foreground": "222 28% 20%", "surface-elevated": "214 18% 88%", "surface-muted": "215 16% 84%", primary: "215 74% 46%", "primary-foreground": "0 0% 100%", "primary-glow": "212 78% 56%", secondary: "215 16% 82%", "secondary-foreground": "222 28% 20%", muted: "215 16% 84%", "muted-foreground": "215 22% 24%", accent: "215 74% 46%", "accent-foreground": "0 0% 100%", destructive: "0 65% 48%", "destructive-foreground": "0 0% 100%", success: "152 55% 36%", "success-foreground": "0 0% 100%", warning: "32 90% 48%", "warning-foreground": "0 0% 100%", info: "199 80% 42%", "info-foreground": "0 0% 100%", border: "215 14% 74%", input: "215 14% 74%", ring: "215 74% 46%", "sidebar-background": "215 18% 80%", "sidebar-foreground": "222 28% 22%", "sidebar-primary": "215 74% 46%", "sidebar-primary-foreground": "0 0% 100%", "sidebar-accent": "215 16% 75%", "sidebar-accent-foreground": "222 28% 20%", "sidebar-border": "215 14% 70%", "sidebar-ring": "215 74% 46%",
@@ -26,6 +31,41 @@ const THEME_VARIABLES: Record<ThemeId, Record<string, string>> = {
   },
 };
 
+const THEME_APPEARANCE: Record<ThemeId, Record<string, string>> = {
+  slate: {
+    "gradient-brand": "linear-gradient(135deg, hsl(215 74% 46%), hsl(212 78% 56%))",
+    "gradient-surface": "linear-gradient(180deg, hsl(214 22% 93%), hsl(215 18% 86%))",
+    "gradient-glow": "radial-gradient(circle at 50% 0%, hsl(215 74% 46% / 0.08), transparent 60%)",
+    "shadow-elegant": "0 10px 34px -14px hsl(215 74% 46% / 0.18)",
+    "shadow-card": "0 1px 3px 0 hsl(222 28% 20% / 0.10), 0 1px 2px -1px hsl(222 28% 20% / 0.07)",
+    "shadow-glow": "0 0 22px hsl(212 78% 56% / 0.18)",
+  },
+  midnight: {
+    "gradient-brand": "linear-gradient(135deg, hsl(243 75% 62%), hsl(235 85% 70%))",
+    "gradient-surface": "linear-gradient(180deg, hsl(230 30% 11%), hsl(230 35% 7%))",
+    "gradient-glow": "radial-gradient(circle at 50% 0%, hsl(243 75% 62% / 0.18), transparent 60%)",
+    "shadow-elegant": "0 14px 40px -14px hsl(243 75% 62% / 0.35)",
+    "shadow-card": "0 1px 3px 0 hsl(0 0% 0% / 0.45), 0 1px 2px -1px hsl(0 0% 0% / 0.30)",
+    "shadow-glow": "0 0 28px hsl(235 85% 70% / 0.30)",
+  },
+  cloud: {
+    "gradient-brand": "linear-gradient(135deg, hsl(217 91% 60%), hsl(213 94% 68%))",
+    "gradient-surface": "linear-gradient(180deg, hsl(0 0% 100%), hsl(220 17% 98%))",
+    "gradient-glow": "radial-gradient(circle at 50% 0%, hsl(217 91% 60% / 0.10), transparent 60%)",
+    "shadow-elegant": "0 10px 34px -14px hsl(217 91% 60% / 0.25)",
+    "shadow-card": "0 1px 3px 0 hsl(222 30% 14% / 0.08), 0 1px 2px -1px hsl(222 30% 14% / 0.05)",
+    "shadow-glow": "0 0 22px hsl(213 94% 68% / 0.20)",
+  },
+  sand: {
+    "gradient-brand": "linear-gradient(135deg, hsl(215 70% 48%), hsl(212 78% 58%))",
+    "gradient-surface": "linear-gradient(180deg, hsl(36 30% 94%), hsl(36 25% 90%))",
+    "gradient-glow": "radial-gradient(circle at 50% 0%, hsl(215 70% 48% / 0.10), transparent 60%)",
+    "shadow-elegant": "0 10px 34px -14px hsl(215 70% 48% / 0.20)",
+    "shadow-card": "0 1px 3px 0 hsl(28 22% 18% / 0.10), 0 1px 2px -1px hsl(28 22% 18% / 0.07)",
+    "shadow-glow": "0 0 22px hsl(212 78% 58% / 0.18)",
+  },
+};
+
 type Ctx = { theme: ThemeId; setTheme: (t: ThemeId) => void };
 const ThemeContext = createContext<Ctx | null>(null);
 
@@ -34,7 +74,7 @@ const applyTheme = (id: ThemeId) => {
   ALL_CLASSES.forEach((c) => root.classList.remove(c));
   root.classList.remove("dark");
   root.classList.add(`theme-${id}`);
-  Object.entries(THEME_VARIABLES[id]).forEach(([name, value]) => {
+  Object.entries({ ...THEME_VARIABLES[id], ...THEME_APPEARANCE[id] }).forEach(([name, value]) => {
     root.style.setProperty(`--${name}`, value);
   });
 };
@@ -42,8 +82,7 @@ const applyTheme = (id: ThemeId) => {
 export const ThemeProvider = ({ children }: { children: ReactNode }) => {
   const [theme, setThemeState] = useState<ThemeId>(() => {
     if (typeof window === "undefined") return "slate";
-    const saved = localStorage.getItem(STORAGE_KEY) as ThemeId | null;
-    return saved && THEMES.some((t) => t.id === saved) ? saved : "slate";
+    return normalizeTheme(localStorage.getItem(STORAGE_KEY));
   });
 
   useLayoutEffect(() => {
