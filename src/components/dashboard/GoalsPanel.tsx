@@ -66,8 +66,10 @@ const computeGoalProgress = (
   goal: Goal,
   ctx: { processes: ReturnType<typeof useProcessStore.getState>["processes"]; vehicles: ReturnType<typeof useProcessStore.getState>["vehicles"] }
 ) => {
-  const start = new Date(goal.startDate);
-  const end = new Date(goal.endDate);
+  // Wichtig: Zeitraum live aus goal.period berechnen, NICHT aus persistiertem
+  // startDate/endDate – sonst friert das Fenster auf den Anlege-Zeitpunkt ein
+  // und der Wert wirkt zufällig, weil Auslieferungen rein-/rausfallen.
+  const { start, end } = periodRange(goal.period);
 
   const handovers = ctx.processes.filter((p) => {
     const rec = p.steps.delivery_confirmation;
