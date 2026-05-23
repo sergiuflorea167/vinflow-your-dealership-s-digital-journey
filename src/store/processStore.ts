@@ -1360,17 +1360,33 @@ export const useProcessStore = create<State>()(
         }
 
         // ---- Stabile Anker für Demo-Lieferungen (verhindert "wandernde" Monatsumsätze) ----
+        // Wir verankern delivery_confirmation und schieben die direkt vorausgehenden
+        // Steps (purchase_contract, invoicing) nach hinten, falls sie zeitlich nach
+        // der Übergabe liegen, damit die Chronologie konsistent bleibt.
+        const DAY = 86400000;
         state.processes = state.processes.map((p) => {
           const anchor = DEMO_DELIVERY_ANCHORS[p.id];
           if (!anchor) return p;
-          const rec = p.steps?.delivery_confirmation;
-          if (!rec || rec.status !== "completed") return p;
-          if (rec.completedAt === anchor) return p;
+          const recDel = p.steps?.delivery_confirmation;
+          if (!recDel || recDel.status !== "completed") return p;
+          const anchorT = new Date(anchor).getTime();
+          const fixStep = (rec: typeof recDel | undefined, daysBefore: number) => {
+            if (!rec || rec.status !== "completed" || !rec.completedAt) return rec;
+            const t = new Date(rec.completedAt).getTime();
+            if (t <= anchorT - DAY) return rec; // bereits davor → ok
+            return { ...rec, completedAt: new Date(anchorT - daysBefore * DAY).toISOString() };
+          };
           return {
             ...p,
-            steps: { ...p.steps, delivery_confirmation: { ...rec, completedAt: anchor } },
+            steps: {
+              ...p.steps,
+              invoicing: fixStep(p.steps.invoicing, 3),
+              purchase_contract: fixStep(p.steps.purchase_contract, 1),
+              delivery_confirmation: { ...recDel, completedAt: anchor },
+            },
           };
         });
+
       },
     }
   )
