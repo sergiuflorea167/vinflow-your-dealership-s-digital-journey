@@ -1366,6 +1366,37 @@ export const MOCK_PROCESSES: Process[] = [
   },
 ];
 
+// Chronologie der verankerten Lieferungen sicherstellen: alle Schritte vor der
+// Übergabe werden zeitlich vor dem Anker positioniert (Abstände in Tagen).
+const ANCHOR_STEP_OFFSETS: Array<{ key: ProcessStepKey; daysBefore: number }> = [
+  { key: "offer", daysBefore: 22 },
+  { key: "down_payment", daysBefore: 18 },
+  { key: "order_confirmation", daysBefore: 14 },
+  { key: "outbound_check", daysBefore: 7 },
+  { key: "invoicing", daysBefore: 4 },
+  { key: "purchase_contract", daysBefore: 2 },
+];
+(() => {
+  const DAY = 86400000;
+  for (const p of MOCK_PROCESSES) {
+    const anchor = DEMO_DELIVERY_ANCHORS[p.id];
+    if (!anchor) continue;
+    const recDel = p.steps.delivery_confirmation;
+    if (!recDel || recDel.status !== "completed") continue;
+    const at = new Date(anchor).getTime();
+    // Alle abgeschlossenen Vorgänger-Schritte immer auf feste Offsets setzen,
+    // damit die Chronologie unabhängig vom Original-Seed konsistent ist.
+    for (const { key, daysBefore } of ANCHOR_STEP_OFFSETS) {
+      const rec = p.steps[key];
+      if (!rec || (rec.status !== "completed" && rec.status !== "skipped")) continue;
+      rec.completedAt = new Date(at - daysBefore * DAY).toISOString();
+    }
+  }
+})();
+
+
+
+
 export const MOCK_TODOS: Todo[] = [
   { id: "TD-001", title: "Felgenreparatur prüfen", priority: "high", done: false, dueDate: new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10), scope: "internal_fleet", vehicleId: "V-007", createdAt: isoDaysAgo(2), createdBy: "Admin" },
   { id: "TD-002", title: "Originalpapiere von Vorbesitzer anfordern", priority: "medium", done: false, dueDate: new Date(Date.now() + 5 * 86400000).toISOString().slice(0, 10), scope: "internal_pre_purchase", createdAt: isoDaysAgo(1), createdBy: "Admin" },
