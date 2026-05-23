@@ -66,22 +66,24 @@ const computeGoalProgress = (
   goal: Goal,
   ctx: { processes: ReturnType<typeof useProcessStore.getState>["processes"]; vehicles: ReturnType<typeof useProcessStore.getState>["vehicles"] }
 ) => {
-  // Wichtig: Zeitraum live aus goal.period berechnen, NICHT aus persistiertem
-  // startDate/endDate – sonst friert das Fenster auf den Anlege-Zeitpunkt ein
-  // und der Wert wirkt zufällig, weil Auslieferungen rein-/rausfallen.
+  // Zeitraum live aus goal.period berechnen (sonst friert das Fenster auf den
+  // Anlege-Zeitpunkt ein).
   const { start, end } = periodRange(goal.period);
 
-  const handovers = ctx.processes.filter((p) => {
-    const rec = p.steps.delivery_confirmation;
+  // Umsatz/Marge/Stück zählen erst, wenn die Rechnung gestellt & gebucht
+  // wurde (Step "Rechnungsstellung" = Pipeline Step 5). Vorher ist es noch
+  // kein realisierter Umsatz.
+  const invoiced = ctx.processes.filter((p) => {
+    const rec = p.steps.invoicing;
     if (!rec || rec.status !== "completed" || !rec.completedAt) return false;
     const t = new Date(rec.completedAt);
     return t >= start && t <= end;
   });
 
-  if (goal.metric === "vehicles_sold") return handovers.length;
-  if (goal.metric === "revenue") return handovers.reduce((s, p) => s + (p.fields.finalPrice ?? 0), 0);
+  if (goal.metric === "vehicles_sold") return invoiced.length;
+  if (goal.metric === "revenue") return invoiced.reduce((s, p) => s + (p.fields.finalPrice ?? 0), 0);
 
-  return handovers.reduce((s, p) => {
+  return invoiced.reduce((s, p) => {
     const v = ctx.vehicles.find((x) => x.id === p.vehicleId);
     if (!v) return s;
     const ek = v.purchasePrice + vehicleTotalCostsGross(v);
@@ -89,6 +91,7 @@ const computeGoalProgress = (
     return s + (sale - ek);
   }, 0);
 };
+
 
 const formatValue = (metric: GoalMetric, value: number) =>
   metric === "vehicles_sold" ? `${Math.round(value)}` : formatCurrency(value);
