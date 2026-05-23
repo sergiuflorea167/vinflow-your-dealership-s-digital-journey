@@ -1384,14 +1384,16 @@ const ANCHOR_STEP_OFFSETS: Array<{ key: ProcessStepKey; daysBefore: number }> = 
     const recDel = p.steps.delivery_confirmation;
     if (!recDel || recDel.status !== "completed") continue;
     const at = new Date(anchor).getTime();
+    // Alle abgeschlossenen Vorgänger-Schritte immer auf feste Offsets setzen,
+    // damit die Chronologie unabhängig vom Original-Seed konsistent ist.
     for (const { key, daysBefore } of ANCHOR_STEP_OFFSETS) {
       const rec = p.steps[key];
-      if (!rec || rec.status !== "completed" || !rec.completedAt) continue;
-      const t = new Date(rec.completedAt).getTime();
-      if (t > at - DAY) rec.completedAt = new Date(at - daysBefore * DAY).toISOString();
+      if (!rec || rec.status !== "completed") continue;
+      rec.completedAt = new Date(at - daysBefore * DAY).toISOString();
     }
   }
 })();
+
 
 
 

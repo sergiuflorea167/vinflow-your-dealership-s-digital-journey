@@ -1380,12 +1380,10 @@ export const useProcessStore = create<State>()(
           const nextSteps = { ...p.steps };
           for (const [key, days] of ANCHOR_OFFSETS) {
             const rec = nextSteps[key];
-            if (!rec || rec.status !== "completed" || !rec.completedAt) continue;
-            const t = new Date(rec.completedAt).getTime();
-            if (t > at - DAY) {
-              nextSteps[key] = { ...rec, completedAt: new Date(at - days * DAY).toISOString() };
-            }
+            if (!rec || rec.status !== "completed") continue;
+            nextSteps[key] = { ...rec, completedAt: new Date(at - days * DAY).toISOString() };
           }
+
           nextSteps.delivery_confirmation = { ...recDel, completedAt: anchor };
           return { ...p, steps: nextSteps };
         });
