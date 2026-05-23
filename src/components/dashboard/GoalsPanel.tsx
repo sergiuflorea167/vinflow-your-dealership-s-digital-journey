@@ -464,23 +464,15 @@ export const GoalsPanel = () => {
                       className={cn(
                         "group relative rounded-2xl p-[1.5px] transition-smooth",
                         crushed
-                          ? "bg-[linear-gradient(120deg,#34d399,#22d3ee,#a855f7,#f472b6,#34d399)] bg-[length:300%_300%] animate-gradient-shift shadow-[0_0_60px_-10px_hsl(160_90%_55%/0.7)]"
+                          ? "bg-gradient-to-br from-emerald-500/50 to-primary/50 shadow-[0_0_24px_-8px_hsl(var(--primary)/0.35)]"
                           : reached
-                          ? "bg-gradient-to-br from-primary/60 to-primary-glow/60 shadow-glow animate-pulse-glow"
+                          ? "bg-gradient-to-br from-primary/50 to-primary-glow/50 shadow-glow"
                           : "bg-border hover:bg-primary/40"
                       )}
                     >
-                    <div
-                      className={cn(
-                        "relative rounded-[14px] bg-background/85 backdrop-blur-sm p-5 overflow-hidden",
-                      )}
-                    >
+                    <div className="relative rounded-[14px] bg-card p-5 overflow-hidden">
                       {crushed && (
-                        <>
-                          <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-emerald-400/15 via-cyan-400/10 to-fuchsia-500/15" />
-                          <div className="pointer-events-none absolute -top-10 -right-10 size-32 rounded-full bg-emerald-400/30 blur-3xl" />
-                          <div className="pointer-events-none absolute -bottom-10 -left-10 size-32 rounded-full bg-fuchsia-500/30 blur-3xl" />
-                        </>
+                        <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-emerald-500/[0.08] to-primary/[0.08]" />
                       )}
                       <div className="relative">
                       <div className="flex items-start justify-between gap-3 mb-3">
@@ -488,18 +480,18 @@ export const GoalsPanel = () => {
                           <div className="flex items-center gap-2 mb-1 flex-wrap">
                             <Badge variant="outline" className={cn(
                               "text-[10px]",
-                              crushed ? "border-emerald-400/50 text-emerald-300" : "border-primary/30 text-primary-glow"
+                              crushed ? "border-emerald-500/50 text-emerald-600 dark:text-emerald-400" : "border-primary/30 text-primary-glow"
                             )}>
                               {t(PERIOD_KEY[goal.period])}
                             </Badge>
                             <span className="text-[10px] uppercase tracking-wider text-muted-foreground">{t(METRIC_KEY[goal.metric])}</span>
                             {crushed && (
-                              <Badge className="text-[10px] border-0 bg-[linear-gradient(120deg,#34d399,#22d3ee,#a855f7,#f472b6)] bg-[length:200%_200%] animate-gradient-shift text-background font-bold uppercase tracking-wider shadow-[0_0_15px_hsl(160_80%_50%/0.6)]">
-                                <Trophy className="size-3 mr-1 animate-trophy-bounce" /> übertroffen
+                              <Badge className="text-[10px] border-0 bg-emerald-600 text-white font-bold uppercase tracking-wider dark:bg-emerald-500">
+                                <Trophy className="size-3 mr-1" /> übertroffen
                               </Badge>
                             )}
                             {reached && !crushed && (
-                              <Badge className="text-[10px] border-0 bg-primary-glow text-background font-bold uppercase tracking-wider">
+                              <Badge className="text-[10px] border-0 bg-primary text-primary-foreground font-bold uppercase tracking-wider">
                                 <Trophy className="size-3 mr-1" /> erreicht
                               </Badge>
                             )}
@@ -518,11 +510,11 @@ export const GoalsPanel = () => {
                       <div className="flex items-end justify-between mb-3 gap-3">
                         <span className="text-3xl font-display font-bold tracking-tight">{formatValue(goal.metric, value)}</span>
                         <span className={cn(
-                          "font-display font-black tabular-nums leading-none",
+                          "font-display font-black tabular-nums leading-none text-3xl",
                           crushed
-                            ? "text-4xl bg-[linear-gradient(120deg,#6ee7b7,#67e8f9,#d8b4fe,#f9a8d4)] bg-[length:200%_200%] animate-gradient-shift bg-clip-text text-transparent drop-shadow-[0_0_12px_hsl(160_90%_60%/0.5)]"
+                            ? "text-emerald-600 dark:text-emerald-400"
                             : reached
-                            ? "text-3xl text-primary-glow drop-shadow-[0_0_8px_hsl(var(--primary)/0.6)]"
+                            ? "text-primary"
                             : "text-2xl text-foreground"
                         )}>
                           {Math.round(rawPct)}%
@@ -533,8 +525,8 @@ export const GoalsPanel = () => {
                         value={pct}
                         className={cn(
                           "h-2.5",
-                          crushed && "[&>div]:bg-[linear-gradient(120deg,#34d399,#22d3ee,#a855f7,#f472b6)] [&>div]:bg-[length:200%_200%] [&>div]:animate-gradient-shift",
-                          reached && !crushed && "[&>div]:bg-primary-glow"
+                          crushed && "[&>div]:bg-emerald-500",
+                          reached && !crushed && "[&>div]:bg-primary"
                         )}
                       />
 
