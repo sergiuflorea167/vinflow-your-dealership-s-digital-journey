@@ -1388,7 +1388,7 @@ const ANCHOR_STEP_OFFSETS: Array<{ key: ProcessStepKey; daysBefore: number }> = 
     // damit die Chronologie unabhängig vom Original-Seed konsistent ist.
     for (const { key, daysBefore } of ANCHOR_STEP_OFFSETS) {
       const rec = p.steps[key];
-      if (!rec || rec.status !== "completed") continue;
+      if (!rec || (rec.status !== "completed" && rec.status !== "skipped")) continue;
       rec.completedAt = new Date(at - daysBefore * DAY).toISOString();
     }
   }
