@@ -1366,6 +1366,27 @@ export const MOCK_PROCESSES: Process[] = [
   },
 ];
 
+// Chronologie der verankerten Lieferungen sicherstellen: purchase_contract und
+// invoicing dürfen nicht zeitlich NACH der Übergabe liegen.
+(() => {
+  const DAY = 86400000;
+  for (const p of MOCK_PROCESSES) {
+    const anchor = DEMO_DELIVERY_ANCHORS[p.id];
+    if (!anchor) continue;
+    const recDel = p.steps.delivery_confirmation;
+    if (!recDel || recDel.status !== "completed") continue;
+    const at = new Date(anchor).getTime();
+    const fix = (rec: typeof recDel | undefined, daysBefore: number) => {
+      if (!rec || rec.status !== "completed" || !rec.completedAt) return;
+      const t = new Date(rec.completedAt).getTime();
+      if (t > at - DAY) rec.completedAt = new Date(at - daysBefore * DAY).toISOString();
+    };
+    fix(p.steps.invoicing, 3);
+    fix(p.steps.purchase_contract, 1);
+  }
+})();
+
+
 export const MOCK_TODOS: Todo[] = [
   { id: "TD-001", title: "Felgenreparatur prüfen", priority: "high", done: false, dueDate: new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10), scope: "internal_fleet", vehicleId: "V-007", createdAt: isoDaysAgo(2), createdBy: "Admin" },
   { id: "TD-002", title: "Originalpapiere von Vorbesitzer anfordern", priority: "medium", done: false, dueDate: new Date(Date.now() + 5 * 86400000).toISOString().slice(0, 10), scope: "internal_pre_purchase", createdAt: isoDaysAgo(1), createdBy: "Admin" },
