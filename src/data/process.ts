@@ -1366,8 +1366,16 @@ export const MOCK_PROCESSES: Process[] = [
   },
 ];
 
-// Chronologie der verankerten Lieferungen sicherstellen: purchase_contract und
-// invoicing dürfen nicht zeitlich NACH der Übergabe liegen.
+// Chronologie der verankerten Lieferungen sicherstellen: alle Schritte vor der
+// Übergabe werden zeitlich vor dem Anker positioniert (Abstände in Tagen).
+const ANCHOR_STEP_OFFSETS: Array<{ key: ProcessStepKey; daysBefore: number }> = [
+  { key: "offer", daysBefore: 22 },
+  { key: "down_payment", daysBefore: 18 },
+  { key: "order_confirmation", daysBefore: 14 },
+  { key: "outbound_check", daysBefore: 7 },
+  { key: "invoicing", daysBefore: 4 },
+  { key: "purchase_contract", daysBefore: 2 },
+];
 (() => {
   const DAY = 86400000;
   for (const p of MOCK_PROCESSES) {
@@ -1376,15 +1384,15 @@ export const MOCK_PROCESSES: Process[] = [
     const recDel = p.steps.delivery_confirmation;
     if (!recDel || recDel.status !== "completed") continue;
     const at = new Date(anchor).getTime();
-    const fix = (rec: typeof recDel | undefined, daysBefore: number) => {
-      if (!rec || rec.status !== "completed" || !rec.completedAt) return;
+    for (const { key, daysBefore } of ANCHOR_STEP_OFFSETS) {
+      const rec = p.steps[key];
+      if (!rec || rec.status !== "completed" || !rec.completedAt) continue;
       const t = new Date(rec.completedAt).getTime();
       if (t > at - DAY) rec.completedAt = new Date(at - daysBefore * DAY).toISOString();
-    };
-    fix(p.steps.invoicing, 3);
-    fix(p.steps.purchase_contract, 1);
+    }
   }
 })();
+
 
 
 export const MOCK_TODOS: Todo[] = [
