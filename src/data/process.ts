@@ -600,6 +600,36 @@ export const DEFAULT_OUTBOUND_CHECKLIST = (): { id: string; label: string; done:
 const today = new Date();
 const isoDaysAgo = (n: number) => new Date(today.getTime() - n * 86400000).toISOString();
 
+// Stabile Demo-Anker: erzwingen feste Liefer-Zeitpunkte pro aktuellem Monat,
+// damit das Monats-Umsatzziel zwischen Sessions nicht "wandert", wenn der
+// Browser-Storage neu geseedet wird. Wenn der Tag noch in der Zukunft liegt,
+// rutscht der Eintrag in den Vormonat (verhält sich realistisch).
+export const stableThisMonthISO = (dayOfMonth: number): string => {
+  const ref = new Date();
+  const d = new Date(ref.getFullYear(), ref.getMonth(), dayOfMonth, 10, 0, 0, 0);
+  if (d > ref) d.setMonth(d.getMonth() - 1);
+  return d.toISOString();
+};
+
+export const stablePrevMonthISO = (dayOfMonth: number): string => {
+  const ref = new Date();
+  const d = new Date(ref.getFullYear(), ref.getMonth() - 1, dayOfMonth, 10, 0, 0, 0);
+  return d.toISOString();
+};
+
+// Fixe Verankerung der 7 abgeschlossenen Demo-Lieferungen.
+// Summe der 5 "in diesem Monat" Lieferungen = 185.500 € (konstant).
+export const DEMO_DELIVERY_ANCHORS: Record<string, string> = {
+  "VF-2025-0139": stableThisMonthISO(2),   // 38.900 €
+  "VF-2025-0144": stableThisMonthISO(5),   // 39.900 €
+  "VF-2025-0145": stableThisMonthISO(10),  // 36.900 €
+  "VF-2025-0137": stableThisMonthISO(14),  // 32.900 €
+  "VF-2025-0135": stableThisMonthISO(18),  // 36.900 €
+  "VF-2025-0132": stablePrevMonthISO(22),  // 39.900 € (Vormonat)
+  "VF-2025-0128": stablePrevMonthISO(8),   // 39.800 € (Vormonat)
+};
+
+
 export const MOCK_CUSTOMERS: Customer[] = [
   { id: "C-001", name: "Markus Weber", email: "m.weber@example.de", phone: "+49 171 2345678", street: "Leopoldstraße 22", zip: "80802", city: "München" },
   { id: "C-002", name: "Sandra Hoffmann", email: "s.hoffmann@example.de", phone: "+49 162 9876543", street: "Mönckebergstraße 5", zip: "20095", city: "Hamburg" },
@@ -1130,7 +1160,7 @@ export const MOCK_PROCESSES: Process[] = [
       outbound_check: { status: "completed", completedAt: isoDaysAgo(8), documentArchived: true },
       invoicing: { status: "completed", completedAt: isoDaysAgo(5), documentArchived: true },
       purchase_contract: { status: "completed", completedAt: isoDaysAgo(3), documentArchived: true },
-      delivery_confirmation: { status: "completed", completedAt: isoDaysAgo(2), documentArchived: true },
+      delivery_confirmation: { status: "completed", completedAt: DEMO_DELIVERY_ANCHORS["VF-2025-0139"], documentArchived: true },
     },
     fields: {
       finalPrice: 38900,
@@ -1167,7 +1197,7 @@ export const MOCK_PROCESSES: Process[] = [
       outbound_check: { status: "completed", completedAt: isoDaysAgo(20), documentArchived: true },
       invoicing: { status: "completed", completedAt: isoDaysAgo(15), documentArchived: true },
       purchase_contract: { status: "completed", completedAt: isoDaysAgo(10), documentArchived: true },
-      delivery_confirmation: { status: "completed", completedAt: isoDaysAgo(8), documentArchived: true },
+      delivery_confirmation: { status: "completed", completedAt: DEMO_DELIVERY_ANCHORS["VF-2025-0137"], documentArchived: true },
     },
     fields: {
       finalPrice: 32900,
@@ -1190,7 +1220,7 @@ export const MOCK_PROCESSES: Process[] = [
       outbound_check: { status: "completed", completedAt: isoDaysAgo(30), documentArchived: true },
       invoicing: { status: "completed", completedAt: isoDaysAgo(25), documentArchived: true },
       purchase_contract: { status: "completed", completedAt: isoDaysAgo(20), documentArchived: true },
-      delivery_confirmation: { status: "completed", completedAt: isoDaysAgo(18), documentArchived: true },
+      delivery_confirmation: { status: "completed", completedAt: DEMO_DELIVERY_ANCHORS["VF-2025-0135"], documentArchived: true },
     },
     fields: {
       finalPrice: 36900,
@@ -1214,7 +1244,7 @@ export const MOCK_PROCESSES: Process[] = [
       outbound_check: { status: "completed", completedAt: isoDaysAgo(40), documentArchived: true },
       invoicing: { status: "completed", completedAt: isoDaysAgo(32), documentArchived: true },
       purchase_contract: { status: "completed", completedAt: isoDaysAgo(28), documentArchived: true },
-      delivery_confirmation: { status: "completed", completedAt: isoDaysAgo(25), documentArchived: true },
+      delivery_confirmation: { status: "completed", completedAt: DEMO_DELIVERY_ANCHORS["VF-2025-0132"], documentArchived: true },
     },
     fields: {
       finalPrice: 39900,
@@ -1238,7 +1268,7 @@ export const MOCK_PROCESSES: Process[] = [
       outbound_check: { status: "completed", completedAt: isoDaysAgo(50), documentArchived: true },
       invoicing: { status: "completed", completedAt: isoDaysAgo(46), documentArchived: true },
       purchase_contract: { status: "completed", completedAt: isoDaysAgo(43), documentArchived: true },
-      delivery_confirmation: { status: "completed", completedAt: isoDaysAgo(40), documentArchived: true },
+      delivery_confirmation: { status: "completed", completedAt: DEMO_DELIVERY_ANCHORS["VF-2025-0128"], documentArchived: true },
     },
     fields: {
       finalPrice: 39800,
@@ -1274,7 +1304,7 @@ export const MOCK_PROCESSES: Process[] = [
       outbound_check: { status: "completed", completedAt: isoDaysAgo(20), documentArchived: true },
       invoicing: { status: "completed", completedAt: isoDaysAgo(15), documentArchived: true },
       purchase_contract: { status: "completed", completedAt: isoDaysAgo(13), documentArchived: true },
-      delivery_confirmation: { status: "completed", completedAt: isoDaysAgo(12), documentArchived: true },
+      delivery_confirmation: { status: "completed", completedAt: DEMO_DELIVERY_ANCHORS["VF-2025-0144"], documentArchived: true },
     },
     fields: {
       finalPrice: 39900,
@@ -1298,7 +1328,7 @@ export const MOCK_PROCESSES: Process[] = [
       outbound_check: { status: "completed", completedAt: isoDaysAgo(15), documentArchived: true },
       invoicing: { status: "completed", completedAt: isoDaysAgo(10), documentArchived: true },
       purchase_contract: { status: "completed", completedAt: isoDaysAgo(7), documentArchived: true },
-      delivery_confirmation: { status: "completed", completedAt: isoDaysAgo(5), documentArchived: true },
+      delivery_confirmation: { status: "completed", completedAt: DEMO_DELIVERY_ANCHORS["VF-2025-0145"], documentArchived: true },
     },
     fields: {
       finalPrice: 36900,

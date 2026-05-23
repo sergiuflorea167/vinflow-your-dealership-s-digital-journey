@@ -12,6 +12,7 @@ import {
   MOCK_CALENDAR_EVENTS,
   DEFAULT_DAY_TEMPLATES,
   DEFAULT_SETTINGS,
+  DEMO_DELIVERY_ANCHORS,
   PROCESS_STEPS,
   Process,
   Vehicle,
@@ -1357,6 +1358,19 @@ export const useProcessStore = create<State>()(
         if (newTodos.length > 0) {
           state.todos = [...newTodos, ...state.todos];
         }
+
+        // ---- Stabile Anker für Demo-Lieferungen (verhindert "wandernde" Monatsumsätze) ----
+        state.processes = state.processes.map((p) => {
+          const anchor = DEMO_DELIVERY_ANCHORS[p.id];
+          if (!anchor) return p;
+          const rec = p.steps?.delivery_confirmation;
+          if (!rec || rec.status !== "completed") return p;
+          if (rec.completedAt === anchor) return p;
+          return {
+            ...p,
+            steps: { ...p.steps, delivery_confirmation: { ...rec, completedAt: anchor } },
+          };
+        });
       },
     }
   )
