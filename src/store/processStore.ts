@@ -159,7 +159,7 @@ const randomId = (prefix: string) => `${prefix}-${Math.random().toString(36).sli
 const STORE_NAME = "vinflow-store-v8";
 const STORE_VERSION = 8;
 const DATA_VERSION = "2026-05-24-preview-sync-final-invoice-v1";
-const LEGACY_STORE_NAMES = ["vinflow-store-v7", "vinflow-store-v6", "vinflow-store-v5"];
+const LEGACY_STORE_NAMES = Array.from({ length: STORE_VERSION - 1 }, (_, index) => `vinflow-store-v${index + 1}`);
 
 if (typeof window !== "undefined") {
   LEGACY_STORE_NAMES.forEach((key) => window.localStorage.removeItem(key));
