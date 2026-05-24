@@ -1274,9 +1274,10 @@ export const useProcessStore = create<State>()(
       };
     },
     {
-      name: "vinflow-store-v7",
-      version: 7,
+      name: STORE_NAME,
+      version: STORE_VERSION,
       partialize: (s) => ({
+        dataVersion: s.dataVersion,
         vehicles: s.vehicles,
         customers: s.customers,
         offers: s.offers,
@@ -1289,8 +1290,18 @@ export const useProcessStore = create<State>()(
         dayTemplates: s.dayTemplates,
         settings: s.settings,
       }),
+      migrate: (persistedState) => {
+        const state = persistedState as Partial<State> | undefined;
+        if (!state || state.dataVersion !== DATA_VERSION) return seedDataState();
+        return state as State;
+      },
       onRehydrateStorage: () => (state) => {
         if (!state) return;
+
+        if (state.dataVersion !== DATA_VERSION) {
+          Object.assign(state, seedDataState());
+          return;
+        }
 
         // ---- Defaults für neu hinzugefügte Felder (v6) ----
         if (!Array.isArray(state.calendarEvents)) state.calendarEvents = MOCK_CALENDAR_EVENTS;
