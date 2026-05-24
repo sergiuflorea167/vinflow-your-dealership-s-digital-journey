@@ -41,6 +41,7 @@ import {
 } from "@/data/process";
 
 interface State {
+  dataVersion: string;
   vehicles: Vehicle[];
   customers: Customer[];
   offers: Offer[];
@@ -155,6 +156,30 @@ const nextNumericId = (prefix: string, list: { id: string }[]) => {
 
 const randomId = (prefix: string) => `${prefix}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
 
+const STORE_NAME = "vinflow-store-v8";
+const STORE_VERSION = 8;
+const DATA_VERSION = "2026-05-24-preview-sync-final-invoice-v1";
+const LEGACY_STORE_NAMES = ["vinflow-store-v7", "vinflow-store-v6", "vinflow-store-v5"];
+
+if (typeof window !== "undefined") {
+  LEGACY_STORE_NAMES.forEach((key) => window.localStorage.removeItem(key));
+}
+
+const seedDataState = (): Pick<State, "dataVersion" | "vehicles" | "customers" | "offers" | "purchasePlans" | "processes" | "todos" | "activities" | "goals" | "calendarEvents" | "dayTemplates" | "settings"> => ({
+  dataVersion: DATA_VERSION,
+  vehicles: MOCK_VEHICLES,
+  customers: MOCK_CUSTOMERS,
+  offers: MOCK_OFFERS,
+  purchasePlans: MOCK_PURCHASE_PLANS,
+  processes: MOCK_PROCESSES,
+  todos: MOCK_TODOS,
+  activities: MOCK_ACTIVITIES,
+  goals: MOCK_GOALS,
+  calendarEvents: MOCK_CALENDAR_EVENTS,
+  dayTemplates: DEFAULT_DAY_TEMPLATES,
+  settings: DEFAULT_SETTINGS,
+});
+
 /**
  * Mirrored-Todo IDs sind virtuelle IDs für To-Dos, die aus Vorgängen abgeleitet sind.
  * Format: mir|<kind>|<processId>|<itemId>
@@ -194,17 +219,7 @@ export const useProcessStore = create<State>()(
       };
 
       return {
-        vehicles: MOCK_VEHICLES,
-        customers: MOCK_CUSTOMERS,
-        offers: MOCK_OFFERS,
-        purchasePlans: MOCK_PURCHASE_PLANS,
-        processes: MOCK_PROCESSES,
-        todos: MOCK_TODOS,
-        activities: MOCK_ACTIVITIES,
-        goals: MOCK_GOALS,
-        calendarEvents: MOCK_CALENDAR_EVENTS,
-        dayTemplates: DEFAULT_DAY_TEMPLATES,
-        settings: DEFAULT_SETTINGS,
+        ...seedDataState(),
 
         getProcess: (id) => get().processes.find((p) => p.id === id),
         getVehicle: (id) => get().vehicles.find((v) => v.id === id),
