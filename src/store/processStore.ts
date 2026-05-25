@@ -494,8 +494,8 @@ export const useProcessStore = create<State>()(
             costs: v.costs ?? [],
             ...v,
           };
-          // Wenn das Fahrzeug noch nicht inseriert ist, auto-To-Do erzeugen.
-          const needsListingTodo = !vehicle.listed?.active;
+          // Wenn das Fahrzeug noch nicht inseriert ist UND nicht verkauft, auto-To-Do erzeugen.
+          const needsListingTodo = !vehicle.listed?.active && vehicle.status !== "sold";
           set((state) => {
             const todoId = `TD-${String(state.todos.length + 1).padStart(3, "0")}`;
             const nowIso = new Date().toISOString();
