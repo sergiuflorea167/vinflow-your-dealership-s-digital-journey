@@ -438,7 +438,23 @@ const Fleet = () => {
         onOpenChange={setImportOpen}
         defaultLocation={locations[0] ?? "Hof A · Platz 01"}
         onImport={(rows) => {
-          rows.forEach((data) => addVehicle({ ...data, status: "in_stock" }));
+          // Status / soldAt / listed kommen aus der Datei – wenn nichts gesetzt,
+          // fällt addVehicle auf "in_stock" zurück.
+          rows.forEach((data) => addVehicle(data));
+        }}
+      />
+
+      <FleetExportDialog
+        open={exportOpen}
+        onOpenChange={setExportOpen}
+        totalCount={filtered.length}
+        onExport={(keys, format) => {
+          exportVehicles(filtered.map((d) => d.vehicle), format, keys);
+          toast.success(`${format.toUpperCase()}-Export erstellt (${keys.length} Spalten).`);
+        }}
+        onDownloadTemplate={(keys, format) => {
+          downloadTemplate(format, keys);
+          toast.success("Vorlage heruntergeladen.");
         }}
       />
     </AppShell>
