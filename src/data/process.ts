@@ -260,6 +260,8 @@ export interface Vehicle {
   vatReportable?: boolean;    // MwSt. ausweisbar
   status: VehicleStatus;
   arrivedAt?: string;
+  /** Verkaufsdatum (ISO). Nur gesetzt, wenn status === "sold". */
+  soldAt?: string;
   notes?: string;
   /** Inseratstatus: ist das Fahrzeug aktiv inseriert (mobile.de, AutoScout24, eigene Website …)? */
   listed?: { active: boolean; listedAt?: string; portals?: string[] };
