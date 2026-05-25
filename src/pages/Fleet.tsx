@@ -17,7 +17,7 @@ import {
   VehicleType,
   vehicleTotalCostsGross,
 } from "@/data/process";
-import { Car, Megaphone, Plus, Download, Upload, Settings2 } from "lucide-react";
+import { Car, Megaphone, Plus, Download, Settings2 } from "lucide-react";
 import { toast } from "sonner";
 import { useFleetWorkshopStore } from "@/store/fleetWorkshopStore";
 import { FLEET_DEMO_VEHICLES, FLEET_DEMO_OFFERS, FLEET_DEMO_PROCESSES } from "@/data/workshopDemo";
