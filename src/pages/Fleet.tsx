@@ -17,15 +17,13 @@ import {
   VehicleType,
   vehicleTotalCostsGross,
 } from "@/data/process";
-import { Car, Megaphone, Plus, Download, Upload, FileSpreadsheet, FileText } from "lucide-react";
+import { Car, Megaphone, Plus, Download, Upload, Settings2 } from "lucide-react";
 import { toast } from "sonner";
 import { useFleetWorkshopStore } from "@/store/fleetWorkshopStore";
 import { FLEET_DEMO_VEHICLES, FLEET_DEMO_OFFERS, FLEET_DEMO_PROCESSES } from "@/data/workshopDemo";
-import {
-  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuLabel,
-} from "@/components/ui/dropdown-menu";
 import { exportVehicles, downloadTemplate } from "@/lib/fleetIO";
 import { FleetImportDialog } from "@/components/fleet/FleetImportDialog";
+import { FleetExportDialog } from "@/components/fleet/FleetExportDialog";
 import { VehicleIntakeDialog } from "@/components/fleet/VehicleIntakeDialog";
 import { cn } from "@/lib/utils";
 import { useTopbarSearch } from "@/context/TopbarSearchContext";
