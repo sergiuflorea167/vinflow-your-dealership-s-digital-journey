@@ -1,4 +1,7 @@
-// Import/Export für den Fahrzeugbestand (CSV + Excel).
+// Konfigurierbarer Import/Export für den Fahrzeugbestand (CSV + Excel).
+// Felder werden über eine Registry definiert. UI kann Reihenfolge und
+// Auswahl der Spalten frei festlegen, sowohl beim Export als auch beim
+// Mapping beim Import.
 import * as XLSX from "xlsx";
 import {
   Vehicle,
@@ -6,53 +9,262 @@ import {
   VEHICLE_TYPE_LABELS,
   FuelType,
   Transmission,
+  VehicleStatus,
   vehicleTotalCostsGross,
 } from "@/data/process";
 import { VehicleIntakePayload } from "@/components/fleet/VehicleIntakeDialog";
 
-// ---------- Spalten-Definition ----------
-// Reihenfolge = Spaltenreihenfolge im Export.
-// `key` = interner Feldname für den Import.
-const COLUMNS: { key: string; header: string; get: (v: Vehicle) => string | number | undefined }[] = [
-  { key: "vin",            header: "VIN",                       get: (v) => v.vin },
-  { key: "make",           header: "Marke",                     get: (v) => v.make },
-  { key: "model",          header: "Modell",                    get: (v) => v.model },
-  { key: "type",           header: "Fahrzeugtyp",               get: (v) => VEHICLE_TYPE_LABELS[v.type] },
-  { key: "year",           header: "Baujahr",                   get: (v) => v.year },
-  { key: "color",          header: "Farbe",                     get: (v) => v.color },
-  { key: "mileage",        header: "Kilometer",                 get: (v) => v.mileage },
-  { key: "fuel",           header: "Kraftstoff",                get: (v) => v.fuel },
-  { key: "transmission",   header: "Getriebe",                  get: (v) => v.transmission },
-  { key: "power_hp",       header: "Leistung (PS)",             get: (v) => v.power_hp },
-  { key: "firstRegistration", header: "Erstzulassung",          get: (v) => v.firstRegistration ?? "" },
-  { key: "hu",             header: "HU/TÜV gültig bis",         get: (v) => v.hu ?? "" },
-  { key: "hsn",            header: "HSN",                       get: (v) => v.hsn ?? "" },
-  { key: "tsn",            header: "TSN",                       get: (v) => v.tsn ?? "" },
-  { key: "purchasePrice",  header: "Einkaufspreis (EUR)",       get: (v) => v.purchasePrice },
-  { key: "listPrice",      header: "Listenpreis (EUR)",         get: (v) => v.listPrice },
-  { key: "vatReportable",  header: "Besteuerung",               get: (v) => (v.vatReportable ? "Regelbesteuerung" : "Differenzbesteuerung") },
-  { key: "totalCosts",     header: "Kosten gesamt brutto (EUR)", get: (v) => vehicleTotalCostsGross(v) },
-  { key: "location",       header: "Stellplatz",                get: (v) => v.location.name },
-  { key: "status",         header: "Status",                    get: (v) => v.status },
-  { key: "listed",         header: "Inseriert",                 get: (v) => (v.listed?.active ? "Ja" : "Nein") },
-  { key: "arrivedAt",      header: "Zugang am",                 get: (v) => (v.arrivedAt ? v.arrivedAt.slice(0, 10) : "") },
+// ============================================================
+// Feld-Registry
+// ============================================================
+
+export interface FieldDef {
+  /** Interner stabiler Schlüssel. */
+  key: string;
+  /** Sichtbarer Spalten-Header (in Export-Dateien & UI). */
+  header: string;
+  /** Kategorie für die UI-Gruppierung. */
+  group: "ident" | "tech" | "innen" | "preis" | "status" | "datum" | "kosten";
+  /** Standard-Aktivierung beim Export. */
+  defaultEnabled: boolean;
+  /** Wert aus Vehicle für Export ableiten. */
+  get: (v: Vehicle) => string | number | undefined;
+  /** Wert beim Import in das Payload schreiben (optional → Spalte nur Export). */
+  set?: (acc: ImportAccumulator, raw: any) => void;
+  /** Zusätzliche akzeptierte Header-Schreibweisen beim Import. */
+  aliases?: string[];
+}
+
+// Container, in den der Import die Felder schreibt. Wird am Ende in
+// VehicleIntakePayload überführt.
+interface ImportAccumulator {
+  vin?: string;
+  make?: string;
+  model?: string;
+  type?: VehicleType;
+  year?: number;
+  color?: string;
+  mileage?: number;
+  fuel?: FuelType;
+  transmission?: Transmission;
+  power_hp?: number;
+  firstRegistration?: string;
+  hu?: string;
+  hsn?: string;
+  tsn?: string;
+  purchasePrice?: number;
+  listPrice?: number;
+  vatReportable?: boolean;
+  locationName?: string;
+  status?: VehicleStatus;
+  sold?: boolean;
+  arrivedAt?: string;     // Kaufdatum
+  listedAt?: string;
+  soldAt?: string;
+  notes?: string;
+}
+
+const num = (raw: any): number => {
+  if (raw == null || raw === "") return 0;
+  if (typeof raw === "number") return raw;
+  const s = String(raw).replace(/[€\s]/g, "").replace(/\./g, "").replace(",", ".");
+  const n = Number(s);
+  return Number.isFinite(n) ? n : 0;
+};
+
+const parseBool = (raw: any): boolean => {
+  if (typeof raw === "boolean") return raw;
+  const s = String(raw ?? "").trim().toLowerCase();
+  return ["wahr", "true", "ja", "y", "x", "1"].includes(s);
+};
+
+const parseDate = (raw: any): string | undefined => {
+  if (!raw) return undefined;
+  // Excel serial number?
+  if (typeof raw === "number" && raw > 25000 && raw < 80000) {
+    const d = XLSX.SSF.parse_date_code(raw);
+    if (d) return new Date(Date.UTC(d.y, d.m - 1, d.d)).toISOString();
+  }
+  const s = String(raw).trim();
+  if (!s) return undefined;
+  // dd.mm.yyyy
+  const de = s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{2,4})$/);
+  if (de) {
+    const [, d, m, y] = de;
+    const year = y.length === 2 ? 2000 + Number(y) : Number(y);
+    const iso = new Date(Date.UTC(year, Number(m) - 1, Number(d)));
+    if (!isNaN(iso.getTime())) return iso.toISOString();
+  }
+  // ISO / yyyy-mm-dd
+  const d = new Date(s);
+  if (!isNaN(d.getTime())) return d.toISOString();
+  return undefined;
+};
+
+const TYPE_LOOKUP: Record<string, VehicleType> = Object.entries(VEHICLE_TYPE_LABELS).reduce(
+  (acc, [k, v]) => ({ ...acc, [v.toLowerCase()]: k as VehicleType, [k.toLowerCase()]: k as VehicleType }),
+  {} as Record<string, VehicleType>,
+);
+const FUEL_VALUES: FuelType[] = ["Benzin", "Diesel", "Hybrid", "Elektro", "Plug-in-Hybrid", "Gas"];
+const TRANS_VALUES: Transmission[] = ["Schaltgetriebe", "Automatik", "DKG", "CVT"];
+
+export const FIELD_DEFS: FieldDef[] = [
+  // --- Identifikation ---
+  { key: "vin", header: "VIN", group: "ident", defaultEnabled: true,
+    get: (v) => v.vin,
+    set: (a, raw) => { a.vin = String(raw ?? "").trim().toUpperCase(); },
+    aliases: ["fin", "fahrgestellnummer"] },
+  { key: "make", header: "Marke", group: "ident", defaultEnabled: true,
+    get: (v) => v.make,
+    set: (a, raw) => { a.make = String(raw ?? "").trim(); },
+    aliases: ["hersteller", "brand"] },
+  { key: "model", header: "Modell", group: "ident", defaultEnabled: true,
+    get: (v) => v.model,
+    set: (a, raw) => { a.model = String(raw ?? "").trim(); },
+    aliases: ["modell-bezeichnung"] },
+  { key: "type", header: "Fahrzeugtyp", group: "ident", defaultEnabled: true,
+    get: (v) => VEHICLE_TYPE_LABELS[v.type],
+    set: (a, raw) => {
+      const k = String(raw ?? "").trim().toLowerCase();
+      a.type = TYPE_LOOKUP[k] ?? "limousine";
+    },
+    aliases: ["typ", "fahrzeug-typ"] },
+  { key: "year", header: "Baujahr", group: "ident", defaultEnabled: true,
+    get: (v) => v.year,
+    set: (a, raw) => { a.year = num(raw) || undefined; },
+    aliases: ["jahr"] },
+  { key: "color", header: "Farbe", group: "innen", defaultEnabled: true,
+    get: (v) => v.color, set: (a, raw) => { a.color = String(raw ?? "").trim(); } },
+  { key: "mileage", header: "Kilometer", group: "tech", defaultEnabled: true,
+    get: (v) => v.mileage, set: (a, raw) => { a.mileage = num(raw); },
+    aliases: ["km", "laufleistung"] },
+  { key: "fuel", header: "Kraftstoff", group: "tech", defaultEnabled: true,
+    get: (v) => v.fuel,
+    set: (a, raw) => {
+      const s = String(raw ?? "").trim();
+      a.fuel = FUEL_VALUES.find((f) => f.toLowerCase() === s.toLowerCase()) ?? "Benzin";
+    } },
+  { key: "transmission", header: "Getriebe", group: "tech", defaultEnabled: true,
+    get: (v) => v.transmission,
+    set: (a, raw) => {
+      const s = String(raw ?? "").trim();
+      a.transmission = TRANS_VALUES.find((t) => t.toLowerCase() === s.toLowerCase()) ?? "Automatik";
+    } },
+  { key: "power_hp", header: "Leistung (PS)", group: "tech", defaultEnabled: true,
+    get: (v) => v.power_hp, set: (a, raw) => { a.power_hp = num(raw); },
+    aliases: ["ps", "leistung"] },
+  { key: "firstRegistration", header: "Erstzulassung", group: "datum", defaultEnabled: true,
+    get: (v) => v.firstRegistration ?? "",
+    set: (a, raw) => { a.firstRegistration = String(raw ?? "").trim(); },
+    aliases: ["ez", "erstzulassung-datum"] },
+  { key: "hu", header: "HU/TÜV gültig bis", group: "datum", defaultEnabled: true,
+    get: (v) => v.hu ?? "", set: (a, raw) => { a.hu = String(raw ?? "").trim() || undefined; },
+    aliases: ["hu", "tüv", "tuv"] },
+  { key: "hsn", header: "HSN", group: "tech", defaultEnabled: false,
+    get: (v) => v.hsn ?? "", set: (a, raw) => { a.hsn = String(raw ?? "").trim() || undefined; } },
+  { key: "tsn", header: "TSN", group: "tech", defaultEnabled: false,
+    get: (v) => v.tsn ?? "", set: (a, raw) => { a.tsn = String(raw ?? "").trim() || undefined; } },
+
+  // --- Preis ---
+  { key: "purchasePrice", header: "Einkaufspreis (EUR)", group: "preis", defaultEnabled: true,
+    get: (v) => v.purchasePrice, set: (a, raw) => { a.purchasePrice = num(raw); },
+    aliases: ["ek", "einkauf"] },
+  { key: "listPrice", header: "Listenpreis (EUR)", group: "preis", defaultEnabled: true,
+    get: (v) => v.listPrice, set: (a, raw) => { a.listPrice = num(raw); },
+    aliases: ["vk", "listenpreis"] },
+  { key: "vatReportable", header: "Besteuerung", group: "preis", defaultEnabled: true,
+    get: (v) => (v.vatReportable ? "Regelbesteuerung" : "Differenzbesteuerung"),
+    set: (a, raw) => {
+      const s = String(raw ?? "").toLowerCase();
+      a.vatReportable = s.startsWith("regel") || s.includes("19") || s === "true" || s === "ja";
+    } },
+  { key: "totalCosts", header: "Kosten gesamt brutto (EUR)", group: "kosten", defaultEnabled: false,
+    get: (v) => vehicleTotalCostsGross(v) /* read-only Export */ },
+
+  // --- Standort ---
+  { key: "location", header: "Stellplatz", group: "status", defaultEnabled: true,
+    get: (v) => v.location.name,
+    set: (a, raw) => { a.locationName = String(raw ?? "").trim() || undefined; },
+    aliases: ["standort", "platz"] },
+
+  // --- Status / Verkauft ---
+  { key: "sold", header: "Verkauft", group: "status", defaultEnabled: true,
+    get: (v) => (v.status === "sold" ? "WAHR" : "FALSCH"),
+    set: (a, raw) => { a.sold = parseBool(raw); },
+    aliases: ["sold", "verkauf"] },
+  { key: "status", header: "Status", group: "status", defaultEnabled: false,
+    get: (v) => v.status,
+    set: (a, raw) => {
+      const s = String(raw ?? "").trim().toLowerCase();
+      if (["sold", "verkauft"].includes(s)) a.status = "sold";
+      else if (["reserved", "reserviert"].includes(s)) a.status = "reserved";
+      else if (["planned", "geplant"].includes(s)) a.status = "planned";
+      else if (["in_stock", "bestand", "im bestand"].includes(s)) a.status = "in_stock";
+    } },
+  { key: "listed", header: "Inseriert", group: "status", defaultEnabled: true,
+    get: (v) => (v.listed?.active ? "WAHR" : "FALSCH"),
+    set: (a, raw) => {
+      const b = parseBool(raw);
+      a.listedAt = a.listedAt; // keep
+      (a as any).__listedFlag = b;
+    } },
+
+  // --- Daten (Datumsfelder) ---
+  { key: "purchaseDate", header: "Kaufdatum", group: "datum", defaultEnabled: true,
+    get: (v) => (v.arrivedAt ? v.arrivedAt.slice(0, 10) : ""),
+    set: (a, raw) => { a.arrivedAt = parseDate(raw); },
+    aliases: ["zugang", "zugang am", "einkaufsdatum", "ankauf", "ankaufsdatum"] },
+  { key: "listedAt", header: "Inseratsdatum", group: "datum", defaultEnabled: true,
+    get: (v) => (v.listed?.listedAt ? v.listed.listedAt.slice(0, 10) : ""),
+    set: (a, raw) => { a.listedAt = parseDate(raw); },
+    aliases: ["inseriert seit", "inseratdatum", "online seit"] },
+  { key: "soldAt", header: "Verkaufsdatum", group: "datum", defaultEnabled: true,
+    get: (v) => (v.soldAt ? v.soldAt.slice(0, 10) : ""),
+    set: (a, raw) => { a.soldAt = parseDate(raw); },
+    aliases: ["verkauft am", "verkaufdatum"] },
+
+  // --- Notizen ---
+  { key: "notes", header: "Notizen", group: "innen", defaultEnabled: false,
+    get: (v) => v.notes ?? "", set: (a, raw) => { a.notes = String(raw ?? "").trim() || undefined; } },
 ];
 
-// ---------- Export ----------
+export const FIELD_GROUP_LABELS: Record<FieldDef["group"], string> = {
+  ident: "Identifikation",
+  tech: "Technik",
+  innen: "Innen / Außen",
+  preis: "Preise & Besteuerung",
+  status: "Status & Standort",
+  datum: "Daten / Termine",
+  kosten: "Kosten",
+};
 
-export const exportVehicles = (vehicles: Vehicle[], format: "csv" | "xlsx", filenameBase = "bestand") => {
+export const DEFAULT_EXPORT_KEYS = FIELD_DEFS.filter((f) => f.defaultEnabled).map((f) => f.key);
+
+export const getFieldByKey = (key: string): FieldDef | undefined =>
+  FIELD_DEFS.find((f) => f.key === key);
+
+// ============================================================
+// Export
+// ============================================================
+
+export const exportVehicles = (
+  vehicles: Vehicle[],
+  format: "csv" | "xlsx",
+  columnKeys: string[] = DEFAULT_EXPORT_KEYS,
+  filenameBase = "bestand",
+) => {
+  const cols = columnKeys.map(getFieldByKey).filter((f): f is FieldDef => !!f);
   const rows = vehicles.map((v) => {
     const row: Record<string, string | number | undefined> = {};
-    COLUMNS.forEach((c) => (row[c.header] = c.get(v)));
+    cols.forEach((c) => (row[c.header] = c.get(v)));
     return row;
   });
 
-  const ws = XLSX.utils.json_to_sheet(rows, { header: COLUMNS.map((c) => c.header) });
+  const ws = XLSX.utils.json_to_sheet(rows, { header: cols.map((c) => c.header) });
   const stamp = new Date().toISOString().slice(0, 10);
 
   if (format === "csv") {
-    const csv = XLSX.utils.sheet_to_csv(ws, { FS: ";" }); // Semikolon für DE-Excel
-    // BOM für korrekte UTF-8 Umlaute in Excel
+    const csv = XLSX.utils.sheet_to_csv(ws, { FS: ";" });
     downloadBlob(new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" }), `${filenameBase}_${stamp}.csv`);
   } else {
     const wb = XLSX.utils.book_new();
@@ -62,25 +274,38 @@ export const exportVehicles = (vehicles: Vehicle[], format: "csv" | "xlsx", file
   }
 };
 
-/** Leere Vorlagedatei mit Spaltenköpfen + 1 Beispielzeile. */
-export const downloadTemplate = (format: "csv" | "xlsx") => {
+/** Vorlage anhand der ausgewählten Spalten — mit 1 Beispielzeile. */
+export const downloadTemplate = (
+  format: "csv" | "xlsx",
+  columnKeys: string[] = DEFAULT_EXPORT_KEYS,
+) => {
+  const cols = columnKeys.map(getFieldByKey).filter((f): f is FieldDef => !!f);
   const example: Record<string, string | number> = {};
-  COLUMNS.forEach((c) => (example[c.header] = ""));
-  example["VIN"] = "WBA8E9G50GNT12345";
-  example["Marke"] = "BMW";
-  example["Modell"] = "X3 xDrive30d";
-  example["Fahrzeugtyp"] = "SUV";
-  example["Baujahr"] = 2022;
-  example["Kilometer"] = 45000;
-  example["Kraftstoff"] = "Diesel";
-  example["Getriebe"] = "Automatik";
-  example["Leistung (PS)"] = 286;
-  example["Einkaufspreis (EUR)"] = 35000;
-  example["Listenpreis (EUR)"] = 42000;
-  example["Besteuerung"] = "Differenzbesteuerung";
-  example["Stellplatz"] = "Hof A · Platz 01";
+  cols.forEach((c) => (example[c.header] = ""));
 
-  const ws = XLSX.utils.json_to_sheet([example], { header: COLUMNS.map((c) => c.header) });
+  const sample: Record<string, string | number> = {
+    "VIN": "WBA8E9G50GNT12345",
+    "Marke": "BMW",
+    "Modell": "X3 xDrive30d",
+    "Fahrzeugtyp": "SUV",
+    "Baujahr": 2022,
+    "Kilometer": 45000,
+    "Kraftstoff": "Diesel",
+    "Getriebe": "Automatik",
+    "Leistung (PS)": 286,
+    "Einkaufspreis (EUR)": 35000,
+    "Listenpreis (EUR)": 42000,
+    "Besteuerung": "Differenzbesteuerung",
+    "Stellplatz": "Hof A · Platz 01",
+    "Kaufdatum": "2025-01-15",
+    "Inseratsdatum": "2025-01-20",
+    "Verkauft": "FALSCH",
+    "Inseriert": "WAHR",
+    "Verkaufsdatum": "",
+  };
+  cols.forEach((c) => { if (sample[c.header] !== undefined) example[c.header] = sample[c.header]; });
+
+  const ws = XLSX.utils.json_to_sheet([example], { header: cols.map((c) => c.header) });
   if (format === "csv") {
     const csv = XLSX.utils.sheet_to_csv(ws, { FS: ";" });
     downloadBlob(new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" }), "bestand_vorlage.csv");
@@ -92,7 +317,9 @@ export const downloadTemplate = (format: "csv" | "xlsx") => {
   }
 };
 
-// ---------- Import ----------
+// ============================================================
+// Import
+// ============================================================
 
 export interface ImportRow {
   rowNumber: number;
@@ -106,109 +333,47 @@ export interface ImportResult {
   errorCount: number;
 }
 
-const TYPE_LOOKUP: Record<string, VehicleType> = Object.entries(VEHICLE_TYPE_LABELS).reduce(
-  (acc, [k, v]) => ({ ...acc, [v.toLowerCase()]: k as VehicleType, [k.toLowerCase()]: k as VehicleType }),
-  {} as Record<string, VehicleType>,
-);
+/** Liest nur die Header-Zeile aus und liefert die roh enthaltenen Zeilen zurück. */
+export interface ParsedFile {
+  headers: string[];
+  rawRows: Record<string, any>[];
+}
 
-const FUEL_VALUES: FuelType[] = ["Benzin", "Diesel", "Hybrid", "Elektro", "Plug-in-Hybrid", "Gas"];
-const TRANS_VALUES: Transmission[] = ["Schaltgetriebe", "Automatik", "DKG", "CVT"];
-
-const HEADER_ALIASES: Record<string, string> = COLUMNS.reduce(
-  (acc, c) => ({ ...acc, [c.header.toLowerCase()]: c.key }),
-  {} as Record<string, string>,
-);
-// zusätzliche tolerante Aliase
-Object.assign(HEADER_ALIASES, {
-  "vin": "vin",
-  "marke": "make",
-  "modell": "model",
-  "typ": "type",
-  "fahrzeug-typ": "type",
-  "km": "mileage",
-  "ps": "power_hp",
-  "ez": "firstRegistration",
-  "hu": "hu",
-  "tüv": "hu",
-  "einkauf": "purchasePrice",
-  "ek": "purchasePrice",
-  "vk": "listPrice",
-  "listenpreis": "listPrice",
-  "stellplatz": "location",
-  "standort": "location",
-  "platz": "location",
-});
-
-const num = (raw: any): number => {
-  if (raw == null || raw === "") return 0;
-  if (typeof raw === "number") return raw;
-  const s = String(raw).replace(/[€\s]/g, "").replace(/\./g, "").replace(",", ".");
-  const n = Number(s);
-  return Number.isFinite(n) ? n : 0;
-};
-
-const parseRow = (raw: Record<string, any>, rowNumber: number, defaultLocation: string): ImportRow => {
-  const errors: string[] = [];
-  const data: Record<string, any> = {};
-  Object.entries(raw).forEach(([k, v]) => {
-    const norm = HEADER_ALIASES[String(k).trim().toLowerCase()];
-    if (norm) data[norm] = v;
-  });
-
-  const vin = String(data.vin ?? "").trim().toUpperCase();
-  const make = String(data.make ?? "").trim();
-  const model = String(data.model ?? "").trim();
-  if (vin.length < 11) errors.push("VIN fehlt oder zu kurz (min. 11 Zeichen)");
-  if (!make) errors.push("Marke fehlt");
-  if (!model) errors.push("Modell fehlt");
-
-  const typeRaw = String(data.type ?? "limousine").trim().toLowerCase();
-  const type: VehicleType = TYPE_LOOKUP[typeRaw] ?? "limousine";
-
-  const fuelRaw = String(data.fuel ?? "Benzin").trim();
-  const fuel = (FUEL_VALUES.find((f) => f.toLowerCase() === fuelRaw.toLowerCase()) ?? "Benzin") as FuelType;
-
-  const transRaw = String(data.transmission ?? "Automatik").trim();
-  const transmission = (TRANS_VALUES.find((t) => t.toLowerCase() === transRaw.toLowerCase()) ?? "Automatik") as Transmission;
-
-  const hp = num(data.power_hp) || 0;
-  const vatRaw = String(data.vatReportable ?? "Differenz").toLowerCase();
-  const vatReportable = vatRaw.startsWith("regel") || vatRaw.includes("19") || vatRaw === "true" || vatRaw === "ja";
-
-  const locationName = String(data.location ?? "").trim() || defaultLocation;
-
-  if (errors.length > 0) return { rowNumber, errors };
-
-  const payload: VehicleIntakePayload = {
-    vin,
-    type,
-    make,
-    model,
-    year: num(data.year) || new Date().getFullYear(),
-    color: String(data.color ?? "").trim(),
-    mileage: num(data.mileage),
-    fuel,
-    transmission,
-    power_hp: hp,
-    power_kw: Math.round(hp * 0.7355),
-    firstRegistration: String(data.firstRegistration ?? "").trim(),
-    hu: data.hu ? String(data.hu).trim() : undefined,
-    listPrice: num(data.listPrice),
-    purchasePrice: num(data.purchasePrice),
-    vatReportable,
-    arrivedAt: new Date().toISOString(),
-    location: { name: locationName, kind: "lot", since: new Date().toISOString() },
-  };
-  return { rowNumber, payload, errors: [] };
-};
-
-export const parseImportFile = async (file: File, defaultLocation: string): Promise<ImportResult> => {
+export const readFile = async (file: File): Promise<ParsedFile> => {
   const buf = await file.arrayBuffer();
   const wb = XLSX.read(buf, { type: "array" });
   const ws = wb.Sheets[wb.SheetNames[0]];
-  const raw = XLSX.utils.sheet_to_json<Record<string, any>>(ws, { defval: "", raw: false });
+  const rawRows = XLSX.utils.sheet_to_json<Record<string, any>>(ws, { defval: "", raw: false });
+  const headers = rawRows.length > 0 ? Object.keys(rawRows[0]) : [];
+  return { headers, rawRows };
+};
 
-  const rows = raw.map((r, i) => parseRow(r, i + 2, defaultLocation)); // +2 = Header-Zeile + 1-indexed
+/**
+ * Schlägt automatisch eine Zuordnung "Datei-Header → Feld-Key" vor.
+ * Unbekannte Spalten werden auf `null` gesetzt (= ignorieren).
+ */
+export const detectMapping = (headers: string[]): Record<string, string | null> => {
+  const aliasMap = new Map<string, string>();
+  FIELD_DEFS.forEach((f) => {
+    aliasMap.set(f.header.toLowerCase(), f.key);
+    aliasMap.set(f.key.toLowerCase(), f.key);
+    f.aliases?.forEach((a) => aliasMap.set(a.toLowerCase(), f.key));
+  });
+  const mapping: Record<string, string | null> = {};
+  headers.forEach((h) => {
+    const norm = String(h).trim().toLowerCase();
+    mapping[h] = aliasMap.get(norm) ?? null;
+  });
+  return mapping;
+};
+
+/** Parsen mit gegebener Mapping-Konfiguration. */
+export const buildImportResult = (
+  parsed: ParsedFile,
+  mapping: Record<string, string | null>,
+  defaultLocation: string,
+): ImportResult => {
+  const rows = parsed.rawRows.map((raw, i) => parseRow(raw, i + 2, mapping, defaultLocation));
   return {
     rows,
     validCount: rows.filter((r) => r.payload).length,
@@ -216,7 +381,80 @@ export const parseImportFile = async (file: File, defaultLocation: string): Prom
   };
 };
 
-// ---------- Util ----------
+const parseRow = (
+  raw: Record<string, any>,
+  rowNumber: number,
+  mapping: Record<string, string | null>,
+  defaultLocation: string,
+): ImportRow => {
+  const acc: ImportAccumulator = {};
+  Object.entries(raw).forEach(([sourceHeader, value]) => {
+    const fieldKey = mapping[sourceHeader];
+    if (!fieldKey) return;
+    const def = getFieldByKey(fieldKey);
+    if (!def?.set) return;
+    if (value === "" || value == null) return;
+    def.set(acc, value);
+  });
+
+  const errors: string[] = [];
+  if (!acc.vin || acc.vin.length < 11) errors.push("VIN fehlt oder zu kurz (min. 11 Zeichen)");
+  if (!acc.make) errors.push("Marke fehlt");
+  if (!acc.model) errors.push("Modell fehlt");
+  if (errors.length > 0) return { rowNumber, errors };
+
+  // Status ableiten: explizites Status-Feld > "Verkauft"-Flag > default in_stock.
+  let status: VehicleStatus = acc.status ?? "in_stock";
+  if (!acc.status && acc.sold === true) status = "sold";
+
+  const hp = acc.power_hp ?? 0;
+  const arrivedAt = acc.arrivedAt ?? new Date().toISOString();
+  const listedFlag = (acc as any).__listedFlag === true || !!acc.listedAt;
+
+  const payload: VehicleIntakePayload = {
+    vin: acc.vin!,
+    type: acc.type ?? "limousine",
+    make: acc.make!,
+    model: acc.model!,
+    year: acc.year ?? new Date().getFullYear(),
+    color: acc.color ?? "",
+    mileage: acc.mileage ?? 0,
+    fuel: acc.fuel ?? "Benzin",
+    transmission: acc.transmission ?? "Automatik",
+    power_hp: hp,
+    power_kw: Math.round(hp * 0.7355),
+    firstRegistration: acc.firstRegistration ?? "",
+    hu: acc.hu,
+    hsn: acc.hsn,
+    tsn: acc.tsn,
+    listPrice: acc.listPrice ?? 0,
+    purchasePrice: acc.purchasePrice ?? 0,
+    vatReportable: acc.vatReportable ?? false,
+    arrivedAt,
+    location: {
+      name: acc.locationName || defaultLocation,
+      kind: "lot",
+      since: arrivedAt,
+    },
+    status,
+    soldAt: status === "sold" ? (acc.soldAt ?? new Date().toISOString()) : undefined,
+    listed: listedFlag ? { active: true, listedAt: acc.listedAt } : undefined,
+    notes: acc.notes,
+  };
+  return { rowNumber, payload, errors: [] };
+};
+
+/** Bequem-Wrapper: Datei lesen + Auto-Mapping anwenden. */
+export const parseImportFile = async (file: File, defaultLocation: string): Promise<ImportResult & { parsed: ParsedFile; mapping: Record<string, string | null> }> => {
+  const parsed = await readFile(file);
+  const mapping = detectMapping(parsed.headers);
+  const result = buildImportResult(parsed, mapping, defaultLocation);
+  return { ...result, parsed, mapping };
+};
+
+// ============================================================
+// Util
+// ============================================================
 
 const downloadBlob = (blob: Blob, filename: string) => {
   const url = URL.createObjectURL(blob);

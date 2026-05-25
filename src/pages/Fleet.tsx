@@ -17,15 +17,13 @@ import {
   VehicleType,
   vehicleTotalCostsGross,
 } from "@/data/process";
-import { Car, Megaphone, Plus, Download, Upload, FileSpreadsheet, FileText } from "lucide-react";
+import { Car, Megaphone, Plus, Download, Settings2 } from "lucide-react";
 import { toast } from "sonner";
 import { useFleetWorkshopStore } from "@/store/fleetWorkshopStore";
 import { FLEET_DEMO_VEHICLES, FLEET_DEMO_OFFERS, FLEET_DEMO_PROCESSES } from "@/data/workshopDemo";
-import {
-  DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuLabel,
-} from "@/components/ui/dropdown-menu";
 import { exportVehicles, downloadTemplate } from "@/lib/fleetIO";
 import { FleetImportDialog } from "@/components/fleet/FleetImportDialog";
+import { FleetExportDialog } from "@/components/fleet/FleetExportDialog";
 import { VehicleIntakeDialog } from "@/components/fleet/VehicleIntakeDialog";
 import { cn } from "@/lib/utils";
 import { useTopbarSearch } from "@/context/TopbarSearchContext";
@@ -76,6 +74,7 @@ const Fleet = () => {
   const [sort, setSort] = useState<SortState<FleetSortKey>>({ key: "stockDays", dir: "asc" });
   const [intakeOpen, setIntakeOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
 
   const topbarSearch = useMemo(() => ({
     placeholder: "Bestand durchsuchen…",
@@ -187,34 +186,9 @@ const Fleet = () => {
             <p className="text-xs text-muted-foreground">Fahrzeugbestand · VIN-basiert</p>
           </div>
           <div data-tour="fleet-io" className="flex items-center gap-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button size="sm" variant="outline" className="gap-2">
-                  <Upload className="size-4" /> Export
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuLabel className="text-xs">Aktuelle Auswahl ({filtered.length})</DropdownMenuLabel>
-                <DropdownMenuItem onClick={() => { exportVehicles(filtered.map((d) => d.vehicle), "xlsx"); toast.success("Excel-Export erstellt."); }}>
-                  <FileSpreadsheet className="size-4 mr-2" /> Als Excel (.xlsx)
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => { exportVehicles(filtered.map((d) => d.vehicle), "csv"); toast.success("CSV-Export erstellt."); }}>
-                  <FileText className="size-4 mr-2" /> Als CSV (.csv)
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuLabel className="text-xs">Gesamter Bestand ({vehicles.length})</DropdownMenuLabel>
-                <DropdownMenuItem onClick={() => { exportVehicles(vehicles, "xlsx"); toast.success("Excel-Export erstellt."); }}>
-                  <FileSpreadsheet className="size-4 mr-2" /> Als Excel (.xlsx)
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => { exportVehicles(vehicles, "csv"); toast.success("CSV-Export erstellt."); }}>
-                  <FileText className="size-4 mr-2" /> Als CSV (.csv)
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => downloadTemplate("xlsx")}>
-                  <Download className="size-4 mr-2" /> Vorlage (Excel)
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <Button size="sm" variant="outline" className="gap-2" onClick={() => setExportOpen(true)}>
+              <Settings2 className="size-4" /> Export…
+            </Button>
             <Button size="sm" variant="outline" className="gap-2" onClick={() => setImportOpen(true)}>
               <Download className="size-4" /> Import
             </Button>
@@ -438,7 +412,23 @@ const Fleet = () => {
         onOpenChange={setImportOpen}
         defaultLocation={locations[0] ?? "Hof A · Platz 01"}
         onImport={(rows) => {
-          rows.forEach((data) => addVehicle({ ...data, status: "in_stock" }));
+          // Status / soldAt / listed kommen aus der Datei – wenn nichts gesetzt,
+          // fällt addVehicle auf "in_stock" zurück.
+          rows.forEach((data) => addVehicle(data));
+        }}
+      />
+
+      <FleetExportDialog
+        open={exportOpen}
+        onOpenChange={setExportOpen}
+        totalCount={filtered.length}
+        onExport={(keys, format) => {
+          exportVehicles(filtered.map((d) => d.vehicle), format, keys);
+          toast.success(`${format.toUpperCase()}-Export erstellt (${keys.length} Spalten).`);
+        }}
+        onDownloadTemplate={(keys, format) => {
+          downloadTemplate(format, keys);
+          toast.success("Vorlage heruntergeladen.");
         }}
       />
     </AppShell>
