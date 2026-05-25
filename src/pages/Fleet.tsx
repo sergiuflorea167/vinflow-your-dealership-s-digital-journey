@@ -74,6 +74,7 @@ const Fleet = () => {
   const [sort, setSort] = useState<SortState<FleetSortKey>>({ key: "stockDays", dir: "asc" });
   const [intakeOpen, setIntakeOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
 
   const topbarSearch = useMemo(() => ({
     placeholder: "Bestand durchsuchen…",
