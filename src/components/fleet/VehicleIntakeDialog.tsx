@@ -258,16 +258,19 @@ export const VehicleIntakeDialog = ({ open, onOpenChange, locations, preset, tit
           <Button
             disabled={!valid}
             className="bg-gradient-brand"
-            onClick={() => onSubmit({
-              vin, type, make, model, year,
-              color, mileage, fuel, transmission,
-              power_hp: hp, power_kw: Math.round(hp * 0.7355),
-              firstRegistration: firstReg,
-              hu: hu || undefined,
-              listPrice, purchasePrice, vatReportable,
-              arrivedAt: new Date().toISOString(),
-              location: { name: location, kind: "lot", since: new Date().toISOString() },
-            })}>
+            onClick={() => {
+              if (location === "__new__") addLocation(resolvedLocation);
+              onSubmit({
+                vin, type, make, model, year,
+                color, mileage, fuel, transmission,
+                power_hp: hp, power_kw: Math.round(hp * 0.7355),
+                firstRegistration: firstReg,
+                hu: hu || undefined,
+                listPrice, purchasePrice, vatReportable,
+                arrivedAt: new Date().toISOString(),
+                location: { name: resolvedLocation, kind: "lot", since: new Date().toISOString() },
+              });
+            }}>
             In Bestand aufnehmen
           </Button>
         </DialogFooter>
