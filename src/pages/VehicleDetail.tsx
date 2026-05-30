@@ -590,6 +590,7 @@ const IdentificationEditor = ({ vehicle, onSave, onCancel }: { vehicle: Vehicle;
   const [tsn, setTsn] = useState(vehicle.tsn ?? "");
   const [licensePlate, setLicensePlate] = useState(vehicle.licensePlate ?? "");
   const [previousOwners, setPreviousOwners] = useState<number | "">(vehicle.previousOwners ?? "");
+  const [mileage, setMileage] = useState<number>(vehicle.mileage ?? 0);
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
