@@ -1,5 +1,4 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
 import {
   MOCK_PROCESSES,
   MOCK_VEHICLES,
@@ -156,29 +155,35 @@ const nextNumericId = (prefix: string, list: { id: string }[]) => {
 
 const randomId = (prefix: string) => `${prefix}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
 
-const STORE_NAME = "vinflow-store-v8";
-const STORE_VERSION = 8;
-const DATA_VERSION = "2026-05-24-preview-sync-final-invoice-v1";
-const LEGACY_STORE_NAMES = Array.from({ length: STORE_VERSION - 1 }, (_, index) => `vinflow-store-v${index + 1}`);
+export const DATA_VERSION = "2026-05-30-supabase-v1";
 
+// Vollständig leerer Startzustand. Daten kommen ausschließlich aus Supabase.
+// Frisch registrierte Organisationen starten ohne Inhalte.
+const LEGACY_STORE_NAMES = ["vinflow-store-v1","vinflow-store-v2","vinflow-store-v3","vinflow-store-v4","vinflow-store-v5","vinflow-store-v6","vinflow-store-v7","vinflow-store-v8"];
 if (typeof window !== "undefined") {
   LEGACY_STORE_NAMES.forEach((key) => window.localStorage.removeItem(key));
 }
 
-const seedDataState = (): Pick<State, "dataVersion" | "vehicles" | "customers" | "offers" | "purchasePlans" | "processes" | "todos" | "activities" | "goals" | "calendarEvents" | "dayTemplates" | "settings"> => ({
+export const seedDataState = (): Pick<State, "dataVersion" | "vehicles" | "customers" | "offers" | "purchasePlans" | "processes" | "todos" | "activities" | "goals" | "calendarEvents" | "dayTemplates" | "settings"> => ({
   dataVersion: DATA_VERSION,
-  vehicles: MOCK_VEHICLES,
-  customers: MOCK_CUSTOMERS,
-  offers: MOCK_OFFERS,
-  purchasePlans: MOCK_PURCHASE_PLANS,
-  processes: MOCK_PROCESSES,
-  todos: MOCK_TODOS,
-  activities: MOCK_ACTIVITIES,
-  goals: MOCK_GOALS,
-  calendarEvents: MOCK_CALENDAR_EVENTS,
+  vehicles: [],
+  customers: [],
+  offers: [],
+  purchasePlans: [],
+  processes: [],
+  todos: [],
+  activities: [],
+  goals: [],
+  calendarEvents: [],
   dayTemplates: DEFAULT_DAY_TEMPLATES,
   settings: DEFAULT_SETTINGS,
 });
+
+// Felder, die in Supabase persistiert werden
+export const PERSISTED_KEYS = [
+  "dataVersion","vehicles","customers","offers","purchasePlans","processes",
+  "todos","activities","goals","calendarEvents","dayTemplates","settings",
+] as const;
 
 /**
  * Mirrored-Todo IDs sind virtuelle IDs für To-Dos, die aus Vorgängen abgeleitet sind.
