@@ -174,9 +174,27 @@ export const VehicleIntakeDialog = ({ open, onOpenChange, locations, preset, tit
           <FormField label="Marke *"><Input value={make} onChange={(e) => setMake(e.target.value)} placeholder="z. B. BMW" /></FormField>
           <FormField label="Modell *"><Input value={model} onChange={(e) => setModel(e.target.value)} placeholder="z. B. X3 xDrive30d" /></FormField>
           <FormField label="Stellplatz *" full>
-            <select value={location} onChange={(e) => setLocation(e.target.value)} className="w-full h-10 rounded-md border border-input bg-background/40 px-3 text-sm">
+            <select
+              value={location}
+              onChange={(e) => {
+                const v = e.target.value;
+                setLocation(v);
+                if (v !== "__new__") setNewLocation("");
+              }}
+              className="w-full h-10 rounded-md border border-input bg-background/40 px-3 text-sm"
+            >
               {locations.map((l) => <option key={l} value={l}>{l}</option>)}
+              <option value="__new__">+ Neuen Stellplatz anlegen…</option>
             </select>
+            {location === "__new__" && (
+              <Input
+                value={newLocation}
+                onChange={(e) => setNewLocation(e.target.value)}
+                placeholder="z. B. Hof B · Platz 04"
+                className="mt-2"
+                autoFocus
+              />
+            )}
           </FormField>
 
           <div className="col-span-2 mt-2 mb-1 text-[11px] uppercase tracking-widest text-muted-foreground font-semibold">
