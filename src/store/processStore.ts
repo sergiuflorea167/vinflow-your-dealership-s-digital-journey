@@ -203,8 +203,7 @@ const parseMirroredId = (id: string): { kind: "ct" | "oc"; processId: string; it
 };
 
 export const useProcessStore = create<State>()(
-  persist(
-    (set, get) => {
+  (set, get) => {
       // Helper: Activity-Log einfügen (state-mutator)
       const logActivity = (
         state: State,
