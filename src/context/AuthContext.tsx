@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import { startOrgStateSync, stopOrgStateSync } from "@/lib/orgStateSync";
 
 interface Profile {
   id: string;
@@ -56,8 +57,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         .eq("id", prof.organization_id)
         .maybeSingle();
       setOrganization(org as Organization | null);
+      // Daten aus Supabase laden + Live-Sync starten
+      void startOrgStateSync(prof.organization_id, uid);
     } else {
       setOrganization(null);
+      stopOrgStateSync();
     }
 
     const { data: rs } = await supabase
@@ -77,6 +81,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setProfile(null);
         setOrganization(null);
         setRoles([]);
+        stopOrgStateSync();
       }
     });
 
@@ -91,6 +96,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const signOut = async () => {
+    stopOrgStateSync();
     await supabase.auth.signOut();
   };
 

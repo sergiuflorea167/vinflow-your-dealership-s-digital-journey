@@ -41,6 +41,41 @@ export type Database = {
         }
         Relationships: []
       }
+      organization_state: {
+        Row: {
+          created_at: string
+          data: Json
+          data_version: string | null
+          organization_id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          data?: Json
+          data_version?: string | null
+          organization_id: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          data?: Json
+          data_version?: string | null
+          organization_id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_state_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       organizations: {
         Row: {
           created_at: string
