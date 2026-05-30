@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { CustomerQuickSelect } from "@/components/shared/CustomerQuickSelect";
 
 // ---- Helpers / Constants ------------------------------------------------
 
@@ -852,7 +853,7 @@ const FeaturesEditor = ({ vehicle, onSave, onCancel }: { vehicle: Vehicle; onSav
 // =========================================================================
 
 const NewOfferForm = ({
-  defaultPrice, customers, onSubmit, onCancel,
+  defaultPrice, onSubmit, onCancel,
 }: {
   defaultPrice: number;
   customers: { id: string; name: string; city: string }[];
@@ -868,13 +869,7 @@ const NewOfferForm = ({
   return (
     <>
       <div className="space-y-3 py-2">
-        <div className="space-y-1.5">
-          <Label className="text-xs text-muted-foreground">Kunde *</Label>
-          <select value={customerId} onChange={(e) => setCustomerId(e.target.value)} className="w-full h-10 rounded-md border border-input bg-background/40 px-3 text-sm">
-            <option value="">— Kunde wählen —</option>
-            {customers.map((c) => <option key={c.id} value={c.id}>{c.name} · {c.city}</option>)}
-          </select>
-        </div>
+        <CustomerQuickSelect value={customerId} onChange={setCustomerId} required />
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">Angebotspreis (EUR) *</Label>
@@ -897,7 +892,7 @@ const NewOfferForm = ({
 };
 
 const DirectSaleForm = ({
-  defaultPrice, customers, onSubmit, onCancel,
+  defaultPrice, onSubmit, onCancel,
 }: {
   defaultPrice: number;
   customers: { id: string; name: string; city: string }[];
@@ -914,13 +909,7 @@ const DirectSaleForm = ({
         <p className="text-xs text-muted-foreground bg-info/10 border border-info/30 rounded-md p-3">
           Du überspringst das Angebot und startest sofort einen Vorgang ab Schritt „Anzahlung". Geeignet, wenn du dich mit dem Kunden mündlich geeinigt hast.
         </p>
-        <div className="space-y-1.5">
-          <Label className="text-xs text-muted-foreground">Kunde *</Label>
-          <select value={customerId} onChange={(e) => setCustomerId(e.target.value)} className="w-full h-10 rounded-md border border-input bg-background/40 px-3 text-sm">
-            <option value="">— Kunde wählen —</option>
-            {customers.map((c) => <option key={c.id} value={c.id}>{c.name} · {c.city}</option>)}
-          </select>
-        </div>
+        <CustomerQuickSelect value={customerId} onChange={setCustomerId} required />
         <div className="space-y-1.5">
           <Label className="text-xs text-muted-foreground">Vereinbarter Preis (EUR) *</Label>
           <Input type="number" value={price || ""} onChange={(e) => setPrice(Number(e.target.value))} />
