@@ -140,11 +140,12 @@ export const VehicleIntakeDialog = ({ open, onOpenChange, locations, preset, tit
   }, [open]);
 
   // Nur das Nötigste ist Pflicht – Rest kann später ergänzt werden.
+  const resolvedLocation = location === "__new__" ? newLocation.trim() : location;
   const valid =
     make.trim().length > 0 &&
     model.trim().length > 0 &&
     vin.length >= 11 &&
-    !!location;
+    !!resolvedLocation;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
