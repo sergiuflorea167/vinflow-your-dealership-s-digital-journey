@@ -8,6 +8,7 @@ import { FuelType, Transmission, VehicleType, VEHICLE_TYPE_LABELS, Vehicle, Vehi
 import { ScanLine, Loader2, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useProcessStore } from "@/store/processStore";
 
 export interface VehicleIntakePayload {
   vin: string;
