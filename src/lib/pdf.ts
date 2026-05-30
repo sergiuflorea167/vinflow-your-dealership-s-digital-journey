@@ -539,6 +539,10 @@ export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, c
       cursor = drawTextBlock(doc,
         allDone ? `Das Fahrzeug ist übergabebereit.` : `Hinweis: Es sind noch ${checklist.length - doneCount} Punkte offen. Das Fahrzeug ist noch nicht vollständig übergabebereit.`,
         cursor, { muted: true });
+      if (process.customerTodosOC.length) {
+        cursor += 6;
+        cursor = drawTodos(doc, process.customerTodosOC, cursor, "Vereinbarte Leistungen");
+      }
       break;
     }
     case "invoicing": {
