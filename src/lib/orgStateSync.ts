@@ -33,7 +33,7 @@ const flushSave = async (orgId: string, userId: string | null) => {
     .upsert(
       {
         organization_id: orgId,
-        data: snap,
+        data: snap as any,
         data_version: DATA_VERSION,
         updated_by: userId,
       },
@@ -86,7 +86,7 @@ export const startOrgStateSync = async (orgId: string, userId: string) => {
     lastPushedJson = JSON.stringify(seed);
     await supabase.from("organization_state").insert({
       organization_id: orgId,
-      data: seed,
+      data: seed as any,
       data_version: DATA_VERSION,
       updated_by: userId,
     });
