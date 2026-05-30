@@ -590,6 +590,7 @@ const IdentificationEditor = ({ vehicle, onSave, onCancel }: { vehicle: Vehicle;
   const [tsn, setTsn] = useState(vehicle.tsn ?? "");
   const [licensePlate, setLicensePlate] = useState(vehicle.licensePlate ?? "");
   const [previousOwners, setPreviousOwners] = useState<number | "">(vehicle.previousOwners ?? "");
+  const [mileage, setMileage] = useState<number>(vehicle.mileage ?? 0);
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -608,6 +609,9 @@ const IdentificationEditor = ({ vehicle, onSave, onCancel }: { vehicle: Vehicle;
       <Field label="TSN"><Input value={tsn} onChange={(e) => setTsn(e.target.value)} maxLength={3} className="font-mono" /></Field>
       <Field label="Kennzeichen"><Input value={licensePlate} onChange={(e) => setLicensePlate(e.target.value.toUpperCase())} className="font-mono" /></Field>
       <Field label="Vorbesitzer"><Input type="number" min={0} value={previousOwners} onChange={(e) => setPreviousOwners(e.target.value === "" ? "" : Number(e.target.value))} /></Field>
+      <Field label="Kilometerstand">
+        <Input type="number" min={0} value={mileage || ""} onChange={(e) => setMileage(Number(e.target.value))} />
+      </Field>
       <div className="md:col-span-2 lg:col-span-3">
         <FormActions
           onCancel={onCancel}
@@ -615,6 +619,7 @@ const IdentificationEditor = ({ vehicle, onSave, onCancel }: { vehicle: Vehicle;
             type, make, model, modelDetail: modelDetail || undefined, year, condition, vin,
             hsn: hsn || undefined, tsn: tsn || undefined, licensePlate: licensePlate || undefined,
             previousOwners: previousOwners === "" ? undefined : Number(previousOwners),
+            mileage,
           })}
         />
       </div>
