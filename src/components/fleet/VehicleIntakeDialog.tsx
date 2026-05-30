@@ -68,6 +68,8 @@ export const VehicleIntakeDialog = ({ open, onOpenChange, locations, preset, tit
   const [purchasePrice, setPurchasePrice] = useState(preset?.targetPrice ?? 0);
   const [listPrice, setListPrice] = useState(preset?.targetPrice ? Math.round(preset.targetPrice * 1.2) : 0);
   const [location, setLocation] = useState(locations[0] ?? "Hof A · Platz 01");
+  const [newLocation, setNewLocation] = useState("");
+  const addLocation = useProcessStore((s) => s.addLocation);
   const [features, setFeatures] = useState<string[]>([]);
   // Differenzbesteuerung ist Standard für Gebrauchtfahrzeuge.
   const [vatReportable, setVatReportable] = useState<boolean>(false);
