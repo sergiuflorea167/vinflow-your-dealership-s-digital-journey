@@ -141,6 +141,19 @@ export const UserMenu = () => {
           <DropdownMenuItem onClick={() => setWorkshopPickerOpen(true)}>
             <GraduationCap className="size-4 mr-2" /> Workshop starten
           </DropdownMenuItem>
+          {isGF && (
+            <DropdownMenuItem
+              onClick={() => {
+                if (!window.confirm("Demo-Daten laden? Vorhandene Fahrzeuge, Kunden und Vorgänge werden überschrieben (lokale Demo)."))
+                  return;
+                const seed = buildDemoSeed();
+                useProcessStore.setState((s) => ({ ...s, ...seed }));
+                toast.success("Demo-Daten geladen – bereit für die Präsentation");
+              }}
+            >
+              <Database className="size-4 mr-2" /> Demo-Daten laden
+            </DropdownMenuItem>
+          )}
 
           <DropdownMenuSeparator />
           <DropdownMenuItem
