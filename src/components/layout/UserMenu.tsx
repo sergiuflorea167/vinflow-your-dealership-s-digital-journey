@@ -12,7 +12,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { User, Settings as SettingsIcon, LogOut, Camera, Mail, Phone, Briefcase, Palette, Check, Building2, KeyRound, Copy, Sparkles, GraduationCap } from "lucide-react";
+import { User, Settings as SettingsIcon, LogOut, Camera, Mail, Phone, Briefcase, Palette, Check, Building2, KeyRound, Copy, Sparkles, GraduationCap, Database } from "lucide-react";
+import { buildDemoSeed } from "@/data/demoSeed";
 import { useTutorialStore } from "@/store/tutorialStore";
 import { WorkshopPickerDialog } from "@/components/tutorial/WorkshopPickerDialog";
 import { PDF_THEMES } from "@/lib/pdf";
