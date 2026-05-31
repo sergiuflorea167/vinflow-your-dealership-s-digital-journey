@@ -12,7 +12,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { User, Settings as SettingsIcon, LogOut, Camera, Mail, Phone, Briefcase, Palette, Check, Building2, KeyRound, Copy, Sparkles, GraduationCap } from "lucide-react";
+import { User, Settings as SettingsIcon, LogOut, Camera, Mail, Phone, Briefcase, Palette, Check, Building2, KeyRound, Copy, Sparkles, GraduationCap, Database } from "lucide-react";
+import { buildDemoSeed } from "@/data/demoSeed";
 import { useTutorialStore } from "@/store/tutorialStore";
 import { WorkshopPickerDialog } from "@/components/tutorial/WorkshopPickerDialog";
 import { PDF_THEMES } from "@/lib/pdf";
@@ -140,6 +141,19 @@ export const UserMenu = () => {
           <DropdownMenuItem onClick={() => setWorkshopPickerOpen(true)}>
             <GraduationCap className="size-4 mr-2" /> Workshop starten
           </DropdownMenuItem>
+          {isGF && (
+            <DropdownMenuItem
+              onClick={() => {
+                if (!window.confirm("Demo-Daten laden? Vorhandene Fahrzeuge, Kunden und Vorgänge werden überschrieben (lokale Demo)."))
+                  return;
+                const seed = buildDemoSeed();
+                useProcessStore.setState((s) => ({ ...s, ...seed }));
+                toast.success("Demo-Daten geladen – bereit für die Präsentation");
+              }}
+            >
+              <Database className="size-4 mr-2" /> Demo-Daten laden
+            </DropdownMenuItem>
+          )}
 
           <DropdownMenuSeparator />
           <DropdownMenuItem
