@@ -278,11 +278,12 @@ export const exportVehicles = (
   format: "csv" | "xlsx",
   columnKeys: string[] = DEFAULT_EXPORT_KEYS,
   filenameBase = "bestand",
+  ctx: ExportContext = {},
 ) => {
   const cols = columnKeys.map(getFieldByKey).filter((f): f is FieldDef => !!f);
   const rows = vehicles.map((v) => {
     const row: Record<string, string | number | undefined> = {};
-    cols.forEach((c) => (row[c.header] = c.get(v)));
+    cols.forEach((c) => (row[c.header] = c.get(v, ctx)));
     return row;
   });
 
