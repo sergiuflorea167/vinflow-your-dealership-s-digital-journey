@@ -11,8 +11,32 @@ import {
   Transmission,
   VehicleStatus,
   vehicleTotalCostsGross,
+  Process,
 } from "@/data/process";
 import { VehicleIntakePayload } from "@/components/fleet/VehicleIntakeDialog";
+
+// ============================================================
+// Export-Kontext: erlaubt z.B. Umsatz aus dem Vorgang zu ziehen.
+// ============================================================
+export interface ExportContext {
+  processes?: Process[];
+}
+
+/**
+ * Umsatz wird nur als realisiert behandelt, wenn:
+ * - eine Rechnung erstellt wurde (invoiceNumber + invoiceDate)
+ * - die Rechnung als bezahlt markiert ist (paid)
+ * - der Rechnungsstellungs-Schritt gebucht/abgeschlossen ist (completed)
+ */
+const realizedRevenue = (v: Vehicle, ctx?: ExportContext): number | undefined => {
+  if (!ctx?.processes) return undefined;
+  const proc = ctx.processes.find((p) => p.vehicleId === v.id);
+  if (!proc) return undefined;
+  const inv = proc.fields.invoicing;
+  const stepDone = proc.steps?.invoicing?.status === "completed";
+  if (!inv?.invoiceNumber || !inv.invoiceDate || !inv.paid || !stepDone) return undefined;
+  return proc.fields.finalPrice ?? undefined;
+};
 
 // ============================================================
 // Feld-Registry
@@ -28,7 +52,7 @@ export interface FieldDef {
   /** Standard-Aktivierung beim Export. */
   defaultEnabled: boolean;
   /** Wert aus Vehicle für Export ableiten. */
-  get: (v: Vehicle) => string | number | undefined;
+  get: (v: Vehicle, ctx?: ExportContext) => string | number | undefined;
   /** Wert beim Import in das Payload schreiben (optional → Spalte nur Export). */
   set?: (acc: ImportAccumulator, raw: any) => void;
   /** Zusätzliche akzeptierte Header-Schreibweisen beim Import. */
@@ -180,6 +204,8 @@ export const FIELD_DEFS: FieldDef[] = [
     } },
   { key: "totalCosts", header: "Kosten gesamt brutto (EUR)", group: "kosten", defaultEnabled: false,
     get: (v) => vehicleTotalCostsGross(v) /* read-only Export */ },
+  { key: "salesRevenue", header: "Verkauft für (EUR)", group: "preis", defaultEnabled: true,
+    get: (v, ctx) => realizedRevenue(v, ctx) ?? "" /* nur gebuchter & bezahlter Umsatz */ },
 
   // --- Standort ---
   { key: "location", header: "Stellplatz", group: "status", defaultEnabled: true,
@@ -252,11 +278,12 @@ export const exportVehicles = (
   format: "csv" | "xlsx",
   columnKeys: string[] = DEFAULT_EXPORT_KEYS,
   filenameBase = "bestand",
+  ctx: ExportContext = {},
 ) => {
   const cols = columnKeys.map(getFieldByKey).filter((f): f is FieldDef => !!f);
   const rows = vehicles.map((v) => {
     const row: Record<string, string | number | undefined> = {};
-    cols.forEach((c) => (row[c.header] = c.get(v)));
+    cols.forEach((c) => (row[c.header] = c.get(v, ctx)));
     return row;
   });
 
@@ -302,6 +329,8 @@ export const downloadTemplate = (
     "Verkauft": "FALSCH",
     "Inseriert": "WAHR",
     "Verkaufsdatum": "",
+    "Verkauft für (EUR)": "",
+    "Kosten gesamt brutto (EUR)": "",
   };
   cols.forEach((c) => { if (sample[c.header] !== undefined) example[c.header] = sample[c.header]; });
 

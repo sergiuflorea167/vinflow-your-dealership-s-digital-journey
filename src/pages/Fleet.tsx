@@ -423,7 +423,7 @@ const Fleet = () => {
         onOpenChange={setExportOpen}
         totalCount={filtered.length}
         onExport={(keys, format) => {
-          exportVehicles(filtered.map((d) => d.vehicle), format, keys);
+          exportVehicles(filtered.map((d) => d.vehicle), format, keys, "bestand", { processes });
           toast.success(`${format.toUpperCase()}-Export erstellt (${keys.length} Spalten).`);
         }}
         onDownloadTemplate={(keys, format) => {
