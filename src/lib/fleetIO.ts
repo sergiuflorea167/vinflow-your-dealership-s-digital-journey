@@ -329,6 +329,8 @@ export const downloadTemplate = (
     "Verkauft": "FALSCH",
     "Inseriert": "WAHR",
     "Verkaufsdatum": "",
+    "Verkauft für (EUR)": "",
+    "Kosten gesamt brutto (EUR)": "",
   };
   cols.forEach((c) => { if (sample[c.header] !== undefined) example[c.header] = sample[c.header]; });
 
