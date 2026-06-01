@@ -11,8 +11,32 @@ import {
   Transmission,
   VehicleStatus,
   vehicleTotalCostsGross,
+  Process,
 } from "@/data/process";
 import { VehicleIntakePayload } from "@/components/fleet/VehicleIntakeDialog";
+
+// ============================================================
+// Export-Kontext: erlaubt z.B. Umsatz aus dem Vorgang zu ziehen.
+// ============================================================
+export interface ExportContext {
+  processes?: Process[];
+}
+
+/**
+ * Umsatz wird nur als realisiert behandelt, wenn:
+ * - eine Rechnung erstellt wurde (invoiceNumber + invoiceDate)
+ * - die Rechnung als bezahlt markiert ist (paid)
+ * - der Rechnungsstellungs-Schritt gebucht/abgeschlossen ist (completed)
+ */
+const realizedRevenue = (v: Vehicle, ctx?: ExportContext): number | undefined => {
+  if (!ctx?.processes) return undefined;
+  const proc = ctx.processes.find((p) => p.vehicleId === v.id);
+  if (!proc) return undefined;
+  const inv = proc.fields.invoicing;
+  const stepDone = proc.steps?.invoicing?.status === "completed";
+  if (!inv?.invoiceNumber || !inv.invoiceDate || !inv.paid || !stepDone) return undefined;
+  return proc.fields.finalPrice ?? undefined;
+};
 
 // ============================================================
 // Feld-Registry
