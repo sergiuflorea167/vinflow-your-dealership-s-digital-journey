@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { User, Settings as SettingsIcon, LogOut, Camera, Mail, Phone, Briefcase, Palette, Check, Building2, KeyRound, Copy, Sparkles, GraduationCap, Database } from "lucide-react";
 import { buildDemoSeed } from "@/data/demoSeed";
+import { flushOrgStateNow } from "@/lib/orgStateSync";
 import { useTutorialStore } from "@/store/tutorialStore";
 import { WorkshopPickerDialog } from "@/components/tutorial/WorkshopPickerDialog";
 import { PDF_THEMES } from "@/lib/pdf";
@@ -143,12 +144,18 @@ export const UserMenu = () => {
           </DropdownMenuItem>
           {isGF && (
             <DropdownMenuItem
-              onClick={() => {
-                if (!window.confirm("Demo-Daten laden? Vorhandene Fahrzeuge, Kunden und Vorgänge werden überschrieben (lokale Demo)."))
+              onClick={async () => {
+                if (!window.confirm("Demo-Daten laden? Vorhandene Fahrzeuge, Kunden und Vorgänge werden überschrieben."))
                   return;
                 const seed = buildDemoSeed();
                 useProcessStore.setState((s) => ({ ...s, ...seed }));
-                toast.success("Demo-Daten geladen – bereit für die Präsentation");
+                try {
+                  await flushOrgStateNow();
+                  toast.success("Demo-Daten geladen & gespeichert");
+                } catch (e) {
+                  console.error(e);
+                  toast.error("Demo-Daten lokal geladen, Speichern fehlgeschlagen");
+                }
               }}
             >
               <Database className="size-4 mr-2" /> Demo-Daten laden

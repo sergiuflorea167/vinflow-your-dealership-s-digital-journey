@@ -102,8 +102,6 @@ export interface DemoSeed {
   activities: typeof MOCK_ACTIVITIES;
   goals: typeof MOCK_GOALS;
   calendarEvents: typeof MOCK_CALENDAR_EVENTS;
-  dayTemplates: typeof DEFAULT_DAY_TEMPLATES;
-  settings: typeof DEFAULT_SETTINGS;
 }
 
 /**
@@ -119,9 +117,9 @@ export const buildDemoSeed = (): DemoSeed => {
   const extraOffers: Offer[] = [];
   const extraProcesses: Process[] = [];
 
-  // 28 Vorgänge in den letzten 11 Monaten (vor dem aktuellen Monat),
-  // damit die aktuellen Monatsdaten / Anker der MOCK_PROCESSES sichtbar bleiben.
-  const N = 28;
+  // 38 Vorgänge in den letzten 11 Monaten (vor dem aktuellen Monat),
+  // damit der Jahresumsatz inkl. der aktuellen MOCK-Verkäufe bei ca. 1.000.000 € liegt.
+  const N = 38;
   for (let i = 0; i < N; i++) {
     const idx = i + 1;
     const vId = `VD-${String(idx).padStart(3, "0")}`;
@@ -249,7 +247,7 @@ export const buildDemoSeed = (): DemoSeed => {
     activities: MOCK_ACTIVITIES,
     goals: MOCK_GOALS,
     calendarEvents: MOCK_CALENDAR_EVENTS,
-    dayTemplates: DEFAULT_DAY_TEMPLATES,
-    settings: DEFAULT_SETTINGS,
+    // Bewusst NICHT zurückgegeben: dayTemplates & settings.
+    // So bleiben Profil, Firmenname, PDF-Theme & Tagesvorlagen des Nutzers erhalten.
   };
 };

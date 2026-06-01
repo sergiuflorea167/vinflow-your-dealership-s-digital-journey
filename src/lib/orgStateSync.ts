@@ -15,11 +15,19 @@ const applySnapshot = (snapshot: Snapshot) => {
 };
 
 let activeOrgId: string | null = null;
+let activeUserId: string | null = null;
 let unsubStore: (() => void) | null = null;
 let realtimeChannel: ReturnType<typeof supabase.channel> | null = null;
 let saveTimer: ReturnType<typeof setTimeout> | null = null;
 let lastPushedJson = "";
 let suppressNextSave = false;
+
+/** Sofort speichern (umgeht Debounce). Wird z. B. nach „Demo-Daten laden" verwendet. */
+export const flushOrgStateNow = async () => {
+  if (!activeOrgId) return;
+  if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
+  await flushSave(activeOrgId, activeUserId);
+};
 
 const SAVE_DEBOUNCE_MS = 800;
 
@@ -52,6 +60,7 @@ const scheduleSave = (orgId: string, userId: string | null) => {
 
 export const stopOrgStateSync = () => {
   activeOrgId = null;
+  activeUserId = null;
   if (unsubStore) { unsubStore(); unsubStore = null; }
   if (realtimeChannel) { supabase.removeChannel(realtimeChannel); realtimeChannel = null; }
   if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
@@ -64,6 +73,7 @@ export const startOrgStateSync = async (orgId: string, userId: string) => {
   if (activeOrgId === orgId) return;
   stopOrgStateSync();
   activeOrgId = orgId;
+  activeUserId = userId;
 
   // 1) Initial laden
   const { data, error } = await supabase
