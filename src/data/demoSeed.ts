@@ -102,8 +102,6 @@ export interface DemoSeed {
   activities: typeof MOCK_ACTIVITIES;
   goals: typeof MOCK_GOALS;
   calendarEvents: typeof MOCK_CALENDAR_EVENTS;
-  dayTemplates: typeof DEFAULT_DAY_TEMPLATES;
-  settings: typeof DEFAULT_SETTINGS;
 }
 
 /**
