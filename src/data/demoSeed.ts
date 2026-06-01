@@ -249,7 +249,7 @@ export const buildDemoSeed = (): DemoSeed => {
     activities: MOCK_ACTIVITIES,
     goals: MOCK_GOALS,
     calendarEvents: MOCK_CALENDAR_EVENTS,
-    dayTemplates: DEFAULT_DAY_TEMPLATES,
-    settings: DEFAULT_SETTINGS,
+    // Bewusst NICHT zurückgegeben: dayTemplates & settings.
+    // So bleiben Profil, Firmenname, PDF-Theme & Tagesvorlagen des Nutzers erhalten.
   };
 };
