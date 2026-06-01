@@ -52,7 +52,7 @@ export interface FieldDef {
   /** Standard-Aktivierung beim Export. */
   defaultEnabled: boolean;
   /** Wert aus Vehicle für Export ableiten. */
-  get: (v: Vehicle) => string | number | undefined;
+  get: (v: Vehicle, ctx?: ExportContext) => string | number | undefined;
   /** Wert beim Import in das Payload schreiben (optional → Spalte nur Export). */
   set?: (acc: ImportAccumulator, raw: any) => void;
   /** Zusätzliche akzeptierte Header-Schreibweisen beim Import. */
