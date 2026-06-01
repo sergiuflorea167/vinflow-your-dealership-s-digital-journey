@@ -119,9 +119,9 @@ export const buildDemoSeed = (): DemoSeed => {
   const extraOffers: Offer[] = [];
   const extraProcesses: Process[] = [];
 
-  // 28 Vorgänge in den letzten 11 Monaten (vor dem aktuellen Monat),
-  // damit die aktuellen Monatsdaten / Anker der MOCK_PROCESSES sichtbar bleiben.
-  const N = 28;
+  // 38 Vorgänge in den letzten 11 Monaten (vor dem aktuellen Monat),
+  // damit der Jahresumsatz inkl. der aktuellen MOCK-Verkäufe bei ca. 1.000.000 € liegt.
+  const N = 38;
   for (let i = 0; i < N; i++) {
     const idx = i + 1;
     const vId = `VD-${String(idx).padStart(3, "0")}`;
