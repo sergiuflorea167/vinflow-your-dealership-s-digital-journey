@@ -204,6 +204,8 @@ export const FIELD_DEFS: FieldDef[] = [
     } },
   { key: "totalCosts", header: "Kosten gesamt brutto (EUR)", group: "kosten", defaultEnabled: false,
     get: (v) => vehicleTotalCostsGross(v) /* read-only Export */ },
+  { key: "salesRevenue", header: "Verkauft für (EUR)", group: "preis", defaultEnabled: true,
+    get: (v, ctx) => realizedRevenue(v, ctx) ?? "" /* nur gebuchter & bezahlter Umsatz */ },
 
   // --- Standort ---
   { key: "location", header: "Stellplatz", group: "status", defaultEnabled: true,
