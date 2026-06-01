@@ -60,6 +60,7 @@ const scheduleSave = (orgId: string, userId: string | null) => {
 
 export const stopOrgStateSync = () => {
   activeOrgId = null;
+  activeUserId = null;
   if (unsubStore) { unsubStore(); unsubStore = null; }
   if (realtimeChannel) { supabase.removeChannel(realtimeChannel); realtimeChannel = null; }
   if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
@@ -72,6 +73,7 @@ export const startOrgStateSync = async (orgId: string, userId: string) => {
   if (activeOrgId === orgId) return;
   stopOrgStateSync();
   activeOrgId = orgId;
+  activeUserId = userId;
 
   // 1) Initial laden
   const { data, error } = await supabase
