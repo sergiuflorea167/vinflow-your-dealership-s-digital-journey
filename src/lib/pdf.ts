@@ -653,7 +653,7 @@ const drawKvSpecsTable = (doc: jsPDF, vehicle: Vehicle, y: number) => {
     ["Farbe (außen)", `${vehicle.color}${vehicle.paintCode ? ` (${vehicle.paintCode})` : ""}`],
     ["Innenraum", `${vehicle.interiorColor ?? "—"}${vehicle.interiorMaterial ? `, ${vehicle.interiorMaterial}` : ""}`],
     ["HU/AU gültig bis", vehicle.hu ? formatDate(vehicle.hu) : "—"],
-    ["Scheckheft / Unfallfrei", `${vehicle.serviceBookComplete ? "ja" : "nein"} / ${vehicle.accidentFree ? "ja" : "nein"}`],
+    ["Scheckheft / Unfallfrei", `${(vehicle.serviceBookComplete || kv?.docServiceBook) ? "ja" : "nein"} / ${(kv?.accidentVehicle !== undefined ? !kv.accidentVehicle : vehicle.accidentFree) ? "ja" : "nein"}`],
   ];
 
   doc.setFont("helvetica", "normal");
