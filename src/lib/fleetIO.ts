@@ -203,8 +203,9 @@ const parseDate = (raw: any): string | undefined => {
   if (!raw) return undefined;
   // Excel serial number?
   if (typeof raw === "number" && raw > 25000 && raw < 80000) {
-    const d = XLSX.SSF.parse_date_code(raw);
-    if (d) return new Date(Date.UTC(d.y, d.m - 1, d.d)).toISOString();
+    // Excel serial date: days since 1899-12-30 (UTC)
+    const ms = Math.round(raw * 86400000);
+    return new Date(Date.UTC(1899, 11, 30) + ms).toISOString();
   }
   const s = String(raw).trim();
   if (!s) return undefined;
