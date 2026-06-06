@@ -541,6 +541,13 @@ export interface Settings {
   role?: string;
   avatarUrl?: string;
   pdfTheme?: string;
+  // Unternehmensdaten – werden u.a. im Kaufvertrag als Verkäuferdaten genutzt
+  companyStreet?: string;
+  companyZip?: string;
+  companyCity?: string;
+  companyRepresentative?: string;
+  companyVatId?: string;
+  companyRegistration?: string; // z. B. „HRB 12345, AG München"
 }
 
 // ---------- Helpers ----------
