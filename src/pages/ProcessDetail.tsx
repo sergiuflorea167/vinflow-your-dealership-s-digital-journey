@@ -471,12 +471,41 @@ const StepFields = ({ stepKey, fields, onChange, disabled }: { stepKey: ProcessS
     );
   }
   if (stepKey === "purchase_contract") {
+    const pc = fields.purchaseContract ?? {};
+    const set = (patch: Partial<NonNullable<ProcessFields["purchaseContract"]>>) =>
+      onChange({ purchaseContract: { ...pc, ...patch } });
+    const isB2B = pc.customerType === "b2b";
     return (
       <FieldGrid title="Kaufvertrag">
-        <TextField label="Vertrags-Nr. (automatisch)" value={fields.purchaseContract?.contractNumber} onChange={() => {}} disabled placeholder="wird automatisch vergeben" />
-        <DateField label="Vertragsdatum *" value={fields.purchaseContract?.contractDate} onChange={(v) => onChange({ purchaseContract: { ...fields.purchaseContract, contractDate: v } })} disabled={disabled} />
-        <NumberField label="Gewährleistung (Monate) *" value={fields.purchaseContract?.warrantyMonths ?? 12} onChange={(v) => onChange({ purchaseContract: { ...fields.purchaseContract, warrantyMonths: v } })} disabled={disabled} />
-        <TextField label="Vertragsort *" value={fields.purchaseContract?.place} onChange={(v) => onChange({ purchaseContract: { ...fields.purchaseContract, place: v } })} disabled={disabled} placeholder="z. B. München" />
+        <TextField label="Vertrags-Nr. (automatisch)" value={pc.contractNumber} onChange={() => {}} disabled placeholder="wird automatisch vergeben" />
+        <DateField label="Vertragsdatum *" value={pc.contractDate} onChange={(v) => set({ contractDate: v })} disabled={disabled} />
+        <TextField label="Vertragsort *" value={pc.place} onChange={(v) => set({ place: v })} disabled={disabled} placeholder="z. B. München" />
+        <SelectField label="Käufertyp *" value={pc.customerType ?? "b2c"} options={["b2c", "b2b"]} onChange={(v) => set({ customerType: v as "b2c" | "b2b", warrantyExcluded: v === "b2b" ? pc.warrantyExcluded : false })} disabled={disabled} />
+        <NumberField label={isB2B ? "Gewährleistung (Monate)" : "Gewährleistung (Monate, mind. 12) *"} value={pc.warrantyMonths ?? 12} onChange={(v) => set({ warrantyMonths: v })} disabled={disabled || (isB2B && !!pc.warrantyExcluded)} />
+        {isB2B && (
+          <CheckboxField label="Sachmängelhaftung vollständig ausschließen (nur B2B)" checked={!!pc.warrantyExcluded} onChange={(v) => set({ warrantyExcluded: v })} disabled={disabled} />
+        )}
+
+        <TextField label="Verkäufer · Straße & Hausnr." value={pc.sellerStreet} onChange={(v) => set({ sellerStreet: v })} disabled={disabled} />
+        <TextField label="Verkäufer · PLZ" value={pc.sellerZip} onChange={(v) => set({ sellerZip: v })} disabled={disabled} />
+        <TextField label="Verkäufer · Ort" value={pc.sellerCity} onChange={(v) => set({ sellerCity: v })} disabled={disabled} />
+        <TextField label="Vertretungsberechtigte/r *" value={pc.sellerRepresentative} onChange={(v) => set({ sellerRepresentative: v })} disabled={disabled} placeholder="z. B. Geschäftsführer Max Mustermann" />
+        <TextField label="USt-IdNr." value={pc.sellerVatId} onChange={(v) => set({ sellerVatId: v })} disabled={disabled} placeholder="DE123456789" />
+        <TextField label="Handelsregister (HRB)" value={pc.sellerRegistration} onChange={(v) => set({ sellerRegistration: v })} disabled={disabled} placeholder="z. B. HRB 12345, AG München" />
+
+        <CheckboxField label="Unfallfahrzeug (bekannte Vorschäden über Bagatelle hinaus)" checked={!!pc.accidentVehicle} onChange={(v) => set({ accidentVehicle: v })} disabled={disabled} />
+        <NumberField label="Anzahl Schlüssel" value={pc.keysCount ?? 2} onChange={(v) => set({ keysCount: v })} disabled={disabled} />
+        <TextField label="Bekannte Mängel (z. B. Steinschlag, Klima ohne Funktion)" value={pc.knownDefects} onChange={(v) => set({ knownDefects: v })} disabled={disabled} full />
+        <TextField label="Vorschäden / Reparaturhistorie" value={pc.preDamage} onChange={(v) => set({ preDamage: v })} disabled={disabled} full />
+
+        <CheckboxField label="Zulassungsbescheinigung Teil I (ZB I) übergeben" checked={!!pc.docZB1} onChange={(v) => set({ docZB1: v })} disabled={disabled} />
+        <CheckboxField label="Zulassungsbescheinigung Teil II (ZB II) übergeben" checked={!!pc.docZB2} onChange={(v) => set({ docZB2: v })} disabled={disabled} />
+        <CheckboxField label="HU/AU-Bericht übergeben" checked={!!pc.docHuAu} onChange={(v) => set({ docHuAu: v })} disabled={disabled} />
+        <CheckboxField label="Scheckheft / Serviceheft übergeben" checked={!!pc.docServiceBook} onChange={(v) => set({ docServiceBook: v })} disabled={disabled} />
+        <CheckboxField label="Bedienungsanleitung übergeben" checked={!!pc.docOwnerManual} onChange={(v) => set({ docOwnerManual: v })} disabled={disabled} />
+        <CheckboxField label="COC-Papiere übergeben" checked={!!pc.docCocPapers} onChange={(v) => set({ docCocPapers: v })} disabled={disabled} />
+
+        <CheckboxField label="DSGVO-Einwilligung des Käufers zur Datenverarbeitung *" checked={!!pc.dsgvoConsent} onChange={(v) => set({ dsgvoConsent: v })} disabled={disabled} />
       </FieldGrid>
     );
   }
@@ -519,7 +548,13 @@ const validateStep = (key: ProcessStepKey, f: ProcessFields, chkDone: number, ch
   }
   if (key === "purchase_contract") {
     const c = f.purchaseContract;
-    if (!c?.contractNumber || !c.contractDate || !c.place || !c.warrantyMonths) return { ok: false, message: "Vertrags-Nr., Datum, Ort & Gewährleistung erforderlich." };
+    if (!c?.contractNumber || !c.contractDate || !c.place) return { ok: false, message: "Vertrags-Nr., Datum & Ort erforderlich." };
+    if (!c.sellerRepresentative) return { ok: false, message: "Vertretungsberechtigte/r des Verkäufers erforderlich." };
+    if (!c.customerType) return { ok: false, message: "Käufertyp (B2C/B2B) erforderlich." };
+    if (c.customerType === "b2c" && (!c.warrantyMonths || c.warrantyMonths < 12)) {
+      return { ok: false, message: "Bei Verkauf an Verbraucher (B2C) muss die Sachmängelhaftung mindestens 12 Monate betragen." };
+    }
+    if (!c.dsgvoConsent) return { ok: false, message: "DSGVO-Einwilligung des Käufers muss bestätigt werden." };
     return { ok: true };
   }
   if (key === "delivery_confirmation") {

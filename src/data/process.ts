@@ -393,6 +393,31 @@ export interface ProcessFields {
     contractDate?: string;
     warrantyMonths?: number;
     place?: string;
+    /** B2C = Verbraucher (Sachmängelhaftung verkürzt, mind. 12 Monate). B2B = Unternehmer (Ausschluss möglich). */
+    customerType?: "b2c" | "b2b";
+    /** Verkäuferdaten (überschreibt Stammdaten im Vertrag) */
+    sellerStreet?: string;
+    sellerZip?: string;
+    sellerCity?: string;
+    sellerRepresentative?: string;
+    sellerVatId?: string;
+    sellerRegistration?: string; // HRB-Nr. / Handelsregister
+    /** Übergebene Unterlagen */
+    docZB1?: boolean;   // Zulassungsbescheinigung Teil I
+    docZB2?: boolean;   // Zulassungsbescheinigung Teil II
+    docHuAu?: boolean;  // HU/AU-Bericht
+    docServiceBook?: boolean;
+    docOwnerManual?: boolean;
+    docCocPapers?: boolean; // COC-Papiere
+    keysCount?: number;
+    /** Zustand */
+    knownDefects?: string;
+    preDamage?: string;
+    accidentVehicle?: boolean; // Ja = Unfallfahrzeug
+    /** B2B-Sonderfall: vollständiger Gewährleistungsausschluss */
+    warrantyExcluded?: boolean;
+    /** DSGVO-Einwilligung des Käufers zur Verarbeitung seiner Daten */
+    dsgvoConsent?: boolean;
   };
   delivery?: {
     handoverDate?: string;

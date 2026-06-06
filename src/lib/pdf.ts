@@ -694,8 +694,17 @@ const buildKaufvertrag = (
 
   // Parties
   const w = (PAGE.w - 2 * PAGE.margin - 6) / 2;
-  drawKvParty(doc, "Verkäufer", [companyName, "—", "—", "USt-IdNr.: DE—", "HRB —"], PAGE.margin, cursor, w);
-  drawKvParty(doc, "Käufer", [
+  const sellerAddr = [kv?.sellerStreet, kv?.sellerZip && kv?.sellerCity ? `${kv.sellerZip} ${kv.sellerCity}` : (kv?.sellerCity ?? undefined)].filter(Boolean) as string[];
+  const sellerLines = [
+    companyName,
+    sellerAddr[0] ?? "—",
+    sellerAddr[1] ?? "—",
+    kv?.sellerRepresentative ? `vertreten durch ${kv.sellerRepresentative}` : "vertreten durch —",
+    [kv?.sellerVatId ? `USt-IdNr.: ${kv.sellerVatId}` : null, kv?.sellerRegistration ?? null].filter(Boolean).join(" · ") || "USt-IdNr.: — · HRB —",
+  ];
+  drawKvParty(doc, "Verkäufer", sellerLines, PAGE.margin, cursor, w);
+  const isB2B = kv?.customerType === "b2b";
+  drawKvParty(doc, isB2B ? "Käufer (Unternehmer · B2B)" : "Käufer (Verbraucher · B2C)", [
     customer.name,
     customer.street ?? "—",
     `${customer.zip ?? ""} ${customer.city}`.trim(),
@@ -751,38 +760,111 @@ const buildKaufvertrag = (
     cursor = 44;
   }
 
-  // § 3 Übergabe (Mobile.de Standard)
-  cursor = drawSectionTitle(doc, "§ 3  Übergabe und Gefahrübergang", cursor);
+  // Helper: page break if needed
+  const ensureSpace = (minRemaining = 230) => {
+    if (cursor > minRemaining) {
+      drawFooter(doc, companyName);
+      doc.addPage();
+      drawHeader(doc, "Kaufvertrag (Fortsetzung)", `Vertrags-Nr. ${kv?.contractNumber ?? process.id}`, companyName);
+      cursor = 44;
+    }
+  };
+
+  // § 3 Übergabe und übergebene Unterlagen
+  cursor = drawSectionTitle(doc, "§ 3  Übergabe, Gefahrübergang und übergebene Unterlagen", cursor);
   cursor = drawTextBlock(doc,
     `Die Übergabe des Fahrzeugs erfolgt nach vollständiger Bezahlung des Kaufpreises ` +
     `am ${process.fields.orderConfirmation?.deliveryDate ? formatDate(process.fields.orderConfirmation.deliveryDate) : "vereinbarten Termin"} ` +
     `am Sitz des Verkäufers. Mit der Übergabe geht die Gefahr eines zufälligen Untergangs oder einer zufälligen Verschlechterung des Fahrzeugs auf den Käufer über. ` +
     `Bis zur vollständigen Bezahlung des Kaufpreises bleibt das Fahrzeug Eigentum des Verkäufers (Eigentumsvorbehalt).`,
     cursor, { fontSize: 9 });
+  cursor += 2;
+  const docsList: Array<[string, boolean]> = [
+    ["Zulassungsbescheinigung Teil I (ZB I / Fahrzeugschein)", !!kv?.docZB1],
+    ["Zulassungsbescheinigung Teil II (ZB II / Fahrzeugbrief)", !!kv?.docZB2],
+    ["HU/AU-Bericht", !!kv?.docHuAu],
+    ["Scheckheft / Serviceheft", !!kv?.docServiceBook],
+    ["Bedienungsanleitung", !!kv?.docOwnerManual],
+    ["COC-Papiere (EG-Übereinstimmungsbescheinigung)", !!kv?.docCocPapers],
+    [`Fahrzeugschlüssel (Anzahl: ${kv?.keysCount ?? "—"})`, (kv?.keysCount ?? 0) > 0],
+  ];
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  setColor(doc, BRAND.ink);
+  doc.text("Übergebene Unterlagen / Gegenstände:", PAGE.margin, cursor);
+  cursor += 4;
+  docsList.forEach(([label, ok]) => {
+    setColor(doc, ok ? BRAND.primary : BRAND.border, "draw");
+    doc.setLineWidth(0.4);
+    doc.rect(PAGE.margin, cursor - 2.6, 2.6, 2.6);
+    if (ok) {
+      setColor(doc, BRAND.primary);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(8);
+      doc.text("✓", PAGE.margin + 0.5, cursor - 0.4);
+    }
+    setColor(doc, BRAND.ink);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.text(label, PAGE.margin + 5, cursor);
+    cursor += 4.5;
+  });
   cursor += 4;
 
-  // § 4 Sachmängelhaftung (Mobile.de Standard – Verbrauchsgüterkauf)
-  cursor = drawSectionTitle(doc, "§ 4  Sachmängelhaftung", cursor);
+  ensureSpace();
+
+  // § 4 Zustand, bekannte Mängel und Vorschäden
+  cursor = drawSectionTitle(doc, "§ 4  Zustand, bekannte Mängel und Unfallschäden", cursor);
+  const isAccident = kv?.accidentVehicle ?? !vehicle.accidentFree;
   cursor = drawTextBlock(doc,
-    `Die Ansprüche des Käufers wegen Sachmängeln verjähren in ${kv?.warrantyMonths ?? 12} Monaten ab Übergabe des Fahrzeugs (§ 476 Abs. 2 BGB). ` +
-    `Von dieser Haftungsbegrenzung ausgenommen sind Schadensersatzansprüche aus der Verletzung des Lebens, des Körpers oder der Gesundheit, die auf einer fahrlässigen Pflichtverletzung des Verkäufers oder einer vorsätzlichen oder fahrlässigen Pflichtverletzung eines gesetzlichen Vertreters oder Erfüllungsgehilfen des Verkäufers beruhen, sowie sonstige Schäden, die auf einer grob fahrlässigen Pflichtverletzung des Verkäufers oder auf einer vorsätzlichen oder grob fahrlässigen Pflichtverletzung eines gesetzlichen Vertreters oder Erfüllungsgehilfen des Verkäufers beruhen. ` +
-    `Eine darüber hinausgehende Garantie für die Beschaffenheit oder Haltbarkeit des Fahrzeugs wird vom Verkäufer nicht übernommen.`,
+    `Unfallfahrzeug im Sinne dieses Vertrages: ${isAccident ? "JA" : "NEIN"}. ` +
+    (isAccident
+      ? `Der Verkäufer offenbart, dass das Fahrzeug Unfallschäden erlitten hat, die über bloße Bagatellschäden hinausgehen. Einzelheiten sind nachstehend dokumentiert.`
+      : `Nach Kenntnis des Verkäufers hat das Fahrzeug während seiner Besitzzeit keine Unfallschäden erlitten, die über bloße Bagatellschäden (kleine Lack-/Blechschäden) hinausgehen.`),
     cursor, { fontSize: 9 });
+  cursor += 2;
+  if (kv?.knownDefects && kv.knownDefects.trim()) {
+    cursor = drawTextBlock(doc, `Bekannte Mängel zum Zeitpunkt des Vertragsschlusses: ${kv.knownDefects.trim()}`, cursor, { fontSize: 9 });
+  } else {
+    cursor = drawTextBlock(doc, `Bekannte Mängel zum Zeitpunkt des Vertragsschlusses: keine über den altersgemäßen Gebrauchszustand hinausgehenden Mängel bekannt.`, cursor, { fontSize: 9, muted: true });
+  }
+  if (kv?.preDamage && kv.preDamage.trim()) {
+    cursor = drawTextBlock(doc, `Vorschäden / Reparaturhistorie: ${kv.preDamage.trim()}`, cursor, { fontSize: 9 });
+  } else {
+    cursor = drawTextBlock(doc, `Vorschäden / Reparaturhistorie: keine Vorschäden bekannt.`, cursor, { fontSize: 9, muted: true });
+  }
   cursor += 4;
 
-  // Page 3 if needed
-  if (cursor > 230) {
-    drawFooter(doc, companyName);
-    doc.addPage();
-    drawHeader(doc, "Kaufvertrag (Fortsetzung)", `Vertrags-Nr. ${kv?.contractNumber ?? process.id}`, companyName);
-    cursor = 44;
-  }
+  ensureSpace();
 
-  // § 5 Erklärungen des Verkäufers (Mobile.de Standard)
-  cursor = drawSectionTitle(doc, "§ 5  Erklärungen des Verkäufers", cursor);
+  // § 5 Sachmängelhaftung (B2C vs. B2B differenziert)
+  cursor = drawSectionTitle(doc, "§ 5  Sachmängelhaftung", cursor);
+  if (isB2B && kv?.warrantyExcluded) {
+    cursor = drawTextBlock(doc,
+      `Da der Käufer Unternehmer im Sinne des § 14 BGB ist und das Fahrzeug im Rahmen seiner gewerblichen oder selbständigen beruflichen Tätigkeit erwirbt, wird die Sachmängelhaftung für das gebrauchte Fahrzeug hiermit vollständig ausgeschlossen. ` +
+      `Dieser Ausschluss gilt nicht für Schadensersatzansprüche aus der Verletzung des Lebens, des Körpers oder der Gesundheit, die auf einer fahrlässigen Pflichtverletzung des Verkäufers oder einer vorsätzlichen oder fahrlässigen Pflichtverletzung eines gesetzlichen Vertreters oder Erfüllungsgehilfen des Verkäufers beruhen, sowie für sonstige Schäden, die auf einer grob fahrlässigen Pflichtverletzung des Verkäufers oder auf einer vorsätzlichen oder grob fahrlässigen Pflichtverletzung eines gesetzlichen Vertreters oder Erfüllungsgehilfen des Verkäufers beruhen. ` +
+      `Ebenfalls unberührt bleibt die Haftung für arglistig verschwiegene Mängel sowie aus übernommenen Garantien (§ 444 BGB).`,
+      cursor, { fontSize: 9 });
+  } else if (isB2B) {
+    cursor = drawTextBlock(doc,
+      `Da der Käufer Unternehmer im Sinne des § 14 BGB ist, verjähren die Ansprüche wegen Sachmängeln in ${kv?.warrantyMonths ?? 12} Monaten ab Übergabe des Fahrzeugs. ` +
+      `Schadensersatzansprüche bei Verletzung von Leben, Körper oder Gesundheit sowie bei grob fahrlässiger oder vorsätzlicher Pflichtverletzung des Verkäufers, seiner gesetzlichen Vertreter oder Erfüllungsgehilfen bleiben hiervon unberührt; ebenso Ansprüche aus übernommenen Garantien und wegen arglistig verschwiegener Mängel.`,
+      cursor, { fontSize: 9 });
+  } else {
+    cursor = drawTextBlock(doc,
+      `Der Käufer ist Verbraucher im Sinne des § 13 BGB. Die Ansprüche des Käufers wegen Sachmängeln verjähren in ${kv?.warrantyMonths ?? 12} Monaten ab Übergabe des Fahrzeugs. Die Verkürzung auf weniger als 12 Monate ist nach § 476 Abs. 2 BGB unzulässig und gilt insoweit nicht. ` +
+      `Von dieser Haftungsbegrenzung ausgenommen sind Schadensersatzansprüche aus der Verletzung des Lebens, des Körpers oder der Gesundheit, die auf einer fahrlässigen Pflichtverletzung des Verkäufers oder einer vorsätzlichen oder fahrlässigen Pflichtverletzung eines gesetzlichen Vertreters oder Erfüllungsgehilfen des Verkäufers beruhen, sowie sonstige Schäden, die auf einer grob fahrlässigen Pflichtverletzung des Verkäufers oder auf einer vorsätzlichen oder grob fahrlässigen Pflichtverletzung eines gesetzlichen Vertreters oder Erfüllungsgehilfen des Verkäufers beruhen. ` +
+      `Ansprüche aus arglistig verschwiegenen Mängeln sowie aus übernommenen Garantien (§ 444 BGB) bleiben unberührt. Eine darüber hinausgehende Garantie für die Beschaffenheit oder Haltbarkeit des Fahrzeugs wird vom Verkäufer nicht übernommen.`,
+      cursor, { fontSize: 9 });
+  }
+  cursor += 4;
+
+  ensureSpace();
+
+  // § 6 Erklärungen des Verkäufers
+  cursor = drawSectionTitle(doc, "§ 6  Erklärungen des Verkäufers", cursor);
   const assurances = [
     `Anzahl der Vorbesitzer laut Zulassungsbescheinigung Teil II: ${vehicle.previousOwners ?? "—"}.`,
-    `Das Fahrzeug hat nach Kenntnis des Verkäufers ${vehicle.accidentFree ? "während seiner Besitzzeit keine Unfallschäden erlitten, die über bloße Bagatellschäden hinausgehen" : "Unfallschäden erlitten, die über Bagatellschäden hinausgehen"}.`,
     `Das Scheckheft ist ${vehicle.serviceBookComplete ? "lückenlos geführt und wird mit dem Fahrzeug übergeben" : "nicht lückenlos geführt bzw. nicht vorhanden"}.`,
     `Der angegebene Kilometerstand von ${vehicle.mileage.toLocaleString("de-DE")} km entspricht nach Kenntnis des Verkäufers der tatsächlichen Gesamtfahrleistung; eine Garantie für die Richtigkeit wird nicht übernommen.`,
     `Das Fahrzeug ist frei von Rechten Dritter, insbesondere von Pfandrechten und Sicherungseigentum.`,
@@ -799,16 +881,18 @@ const buildKaufvertrag = (
   });
   cursor += 4;
 
-  // § 6 Erklärungen des Käufers (Mobile.de Standard)
-  cursor = drawSectionTitle(doc, "§ 6  Erklärungen des Käufers", cursor);
+  ensureSpace();
+
+  // § 7 Erklärungen des Käufers
+  cursor = drawSectionTitle(doc, "§ 7  Erklärungen des Käufers", cursor);
   cursor = drawTextBlock(doc,
-    `Der Käufer hat das Fahrzeug vor Abschluss dieses Vertrages eingehend besichtigt und Probe gefahren. Der gegenwärtige Zustand des Fahrzeugs einschließlich aller offen erkennbaren Mängel ist ihm bekannt. ` +
+    `Der Käufer hat das Fahrzeug vor Abschluss dieses Vertrages eingehend besichtigt und Probe gefahren. Der gegenwärtige Zustand des Fahrzeugs einschließlich aller offen erkennbaren Mängel sowie der unter § 4 dokumentierten bekannten Mängel und Vorschäden ist ihm bekannt. ` +
     `Der Käufer verpflichtet sich, das Fahrzeug unverzüglich nach Übergabe auf seinen Namen umzumelden bzw. abzumelden und den Verkäufer von etwaigen Halterpflichten (Kfz-Steuer, Versicherung, Bußgelder) ab dem Tag der Übergabe freizustellen.`,
     cursor, { fontSize: 9 });
   cursor += 4;
 
-  // § 7 Umsatzsteuerliche Behandlung
-  cursor = drawSectionTitle(doc, "§ 7  Umsatzsteuerliche Behandlung", cursor);
+  // § 8 Umsatzsteuerliche Behandlung
+  cursor = drawSectionTitle(doc, "§ 8  Umsatzsteuerliche Behandlung", cursor);
   cursor = drawTextBlock(doc,
     margin
       ? `Der Verkauf erfolgt nach der Differenzbesteuerung gemäß § 25a UStG. Die Umsatzsteuer wird nicht gesondert ausgewiesen und kann vom Käufer nicht als Vorsteuer geltend gemacht werden.`
@@ -816,8 +900,21 @@ const buildKaufvertrag = (
     cursor, { fontSize: 9 });
   cursor += 4;
 
-  // § 8 Schlussbestimmungen (Mobile.de Standard)
-  cursor = drawSectionTitle(doc, "§ 8  Schlussbestimmungen", cursor);
+  ensureSpace();
+
+  // § 9 Datenschutz (DSGVO)
+  cursor = drawSectionTitle(doc, "§ 9  Datenschutz / DSGVO-Einwilligung", cursor);
+  cursor = drawTextBlock(doc,
+    `Der Käufer willigt ein, dass der Verkäufer die im Rahmen dieses Vertrages erhobenen personenbezogenen Daten (Name, Anschrift, Kontaktdaten, Geburtsdatum, Vertrags- und Fahrzeugdaten) zum Zweck der Vertragsdurchführung, der Erfüllung gesetzlicher Aufbewahrungs- und Nachweispflichten (insb. § 147 AO, § 257 HGB) sowie zur Abwicklung etwaiger Gewährleistungs-, Garantie- und Rückrufmaßnahmen verarbeitet und speichert. ` +
+    `Rechtsgrundlage ist Art. 6 Abs. 1 lit. b und lit. c DSGVO. Eine Weitergabe an Dritte erfolgt nur, soweit dies zur Vertragsabwicklung erforderlich ist oder eine gesetzliche Verpflichtung besteht. Dem Käufer stehen die Rechte auf Auskunft, Berichtigung, Löschung, Einschränkung der Verarbeitung, Datenübertragbarkeit und Widerspruch gemäß Art. 15–21 DSGVO zu. ` +
+    `Eine ausführliche Datenschutzerklärung ist beim Verkäufer erhältlich. Mit seiner Unterschrift bestätigt der Käufer die Kenntnisnahme dieser Datenschutzhinweise${kv?.dsgvoConsent ? " und willigt ausdrücklich in die Verarbeitung ein" : ""}.`,
+    cursor, { fontSize: 9 });
+  cursor += 4;
+
+  ensureSpace();
+
+  // § 10 Schlussbestimmungen
+  cursor = drawSectionTitle(doc, "§ 10  Schlussbestimmungen", cursor);
   cursor = drawTextBlock(doc,
     `Mündliche Nebenabreden bestehen nicht. Änderungen und Ergänzungen dieses Vertrages bedürfen der Schriftform; dies gilt auch für eine Änderung dieser Schriftformklausel. ` +
     `Sollten einzelne Bestimmungen dieses Vertrages unwirksam sein oder werden, so wird die Wirksamkeit der übrigen Bestimmungen hiervon nicht berührt. ` +
@@ -825,15 +922,17 @@ const buildKaufvertrag = (
     cursor, { fontSize: 9 });
   cursor += 6;
 
-  // § 8 Unterschriften
-  cursor = drawSectionTitle(doc, "§ 9  Unterschriften", cursor);
+  ensureSpace(245);
+
+  // § 11 Unterschriften
+  cursor = drawSectionTitle(doc, "§ 11  Unterschriften", cursor);
   cursor += 2;
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
   setColor(doc, BRAND.ink);
   doc.text(`Ort, Datum: ${place}, ${contractDate}`, PAGE.margin, cursor);
   cursor += 16;
-  drawSignatureRow(doc, cursor, `Käufer · ${customer.name}`, `Verkäufer · ${companyName}`);
+  drawSignatureRow(doc, cursor, `Käufer · ${customer.name}`, `Verkäufer · ${companyName}${kv?.sellerRepresentative ? ` (${kv.sellerRepresentative})` : ""}`);
 
   drawFooter(doc, companyName);
   return doc;
