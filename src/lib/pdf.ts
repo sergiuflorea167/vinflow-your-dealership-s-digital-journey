@@ -761,11 +761,19 @@ const buildKaufvertrag = (
     ...(down > 0 ? [{ description: "geleistete Anzahlung", qty: "1", unitPrice: -down, total: -down }] : []),
     ...(remaining > 0 ? [{ description: "geleistete Restzahlung", qty: "1", unitPrice: -remaining, total: -remaining }] : []),
   ], cursor, "Offener Betrag");
+  const dpTerms = process.fields.downPayment?.paymentTerms
+    ?? (process.fields.downPayment?.dueDate ? `Fällig am ${formatDate(process.fields.downPayment.dueDate)}` : "Sofort fällig nach Vertragsabschluss");
+  const restTerms = process.fields.orderConfirmation?.paymentTerms
+    ?? process.fields.invoicing?.paymentTerms
+    ?? (process.fields.invoicing?.dueDate ? `Fällig am ${formatDate(process.fields.invoicing.dueDate)}` : "Restzahlung bei Fahrzeugübergabe");
+  const dpMethod = process.fields.downPayment?.method ?? "Überweisung";
   cursor = drawTextBlock(doc,
-    `Der vereinbarte Kaufpreis in Höhe von ${formatCurrency(finalPrice)} wurde vom Käufer vor Vertragsabschluss vollständig an den Verkäufer entrichtet ` +
-    `(Anzahlung: ${formatCurrency(down)}, Restzahlung: ${formatCurrency(remaining)}). ` +
-    `Der Verkäufer bestätigt hiermit den vollständigen Erhalt des Kaufpreises. Eine weitere Zahlungsverpflichtung des Käufers besteht nicht. ` +
-    `Zahlungsweise: ${process.fields.downPayment?.method ?? "Überweisung"}. ` +
+    `Der vereinbarte Kaufpreis in Höhe von ${formatCurrency(finalPrice)} setzt sich wie folgt zusammen:\n` +
+    `• Anzahlung: ${formatCurrency(down)} – Zahlungsbedingung: ${dpTerms}. Zahlungsweise: ${dpMethod}.\n` +
+    `• Restzahlung: ${formatCurrency(remaining)} – Zahlungsbedingung: ${restTerms}.\n` +
+    `${down + remaining >= finalPrice
+      ? `Der Verkäufer bestätigt hiermit den vollständigen Erhalt des Kaufpreises. Eine weitere Zahlungsverpflichtung des Käufers besteht nicht.`
+      : `Der offene Betrag ist gemäß der oben genannten Zahlungsbedingung für die Restzahlung zu entrichten.`} ` +
     `${taxationLine(vehicle)}`,
     cursor, { fontSize: 9 });
   cursor += 4;
