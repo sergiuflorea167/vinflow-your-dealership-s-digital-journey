@@ -2,7 +2,100 @@
 // Felder werden über eine Registry definiert. UI kann Reihenfolge und
 // Auswahl der Spalten frei festlegen, sowohl beim Export als auch beim
 // Mapping beim Import.
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
+
+// CSV helpers
+const escapeCsvCell = (val: unknown): string => {
+  if (val === undefined || val === null) return "";
+  const s = String(val);
+  if (s.includes(";") || s.includes('"') || s.includes("\n") || s.includes("\r")) {
+    return `"${s.replace(/"/g, '""')}"`;
+  }
+  return s;
+};
+
+const rowsToCsv = (headers: string[], rows: Record<string, unknown>[]): string => {
+  const lines = [headers.map(escapeCsvCell).join(";")];
+  for (const r of rows) lines.push(headers.map((h) => escapeCsvCell(r[h])).join(";"));
+  return lines.join("\r\n");
+};
+
+const parseCsv = (text: string): Record<string, string>[] => {
+  // Strip BOM
+  if (text.charCodeAt(0) === 0xfeff) text = text.slice(1);
+  const rows: string[][] = [];
+  let cur: string[] = [];
+  let cell = "";
+  let inQuotes = false;
+  const delim = text.includes(";") ? ";" : ",";
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (inQuotes) {
+      if (ch === '"') {
+        if (text[i + 1] === '"') { cell += '"'; i++; }
+        else inQuotes = false;
+      } else cell += ch;
+    } else {
+      if (ch === '"') inQuotes = true;
+      else if (ch === delim) { cur.push(cell); cell = ""; }
+      else if (ch === "\n") { cur.push(cell); rows.push(cur); cur = []; cell = ""; }
+      else if (ch === "\r") { /* skip */ }
+      else cell += ch;
+    }
+  }
+  if (cell.length > 0 || cur.length > 0) { cur.push(cell); rows.push(cur); }
+  if (rows.length === 0) return [];
+  const headers = rows[0].map((h) => h.trim());
+  return rows.slice(1).filter((r) => r.some((c) => c !== "")).map((r) => {
+    const obj: Record<string, string> = {};
+    headers.forEach((h, idx) => { obj[h] = r[idx] ?? ""; });
+    return obj;
+  });
+};
+
+const writeXlsxBuffer = async (
+  sheetName: string,
+  headers: string[],
+  rows: Record<string, unknown>[],
+): Promise<ArrayBuffer> => {
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet(sheetName);
+  ws.addRow(headers);
+  for (const r of rows) ws.addRow(headers.map((h) => r[h] ?? ""));
+  return await wb.xlsx.writeBuffer();
+};
+
+const readXlsxRows = async (buf: ArrayBuffer): Promise<Record<string, string>[]> => {
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load(buf);
+  const ws = wb.worksheets[0];
+  if (!ws) return [];
+  const headerRow = ws.getRow(1);
+  const headers: string[] = [];
+  headerRow.eachCell({ includeEmpty: false }, (cell, col) => {
+    headers[col - 1] = String(cell.value ?? "").trim();
+  });
+  const out: Record<string, string>[] = [];
+  for (let r = 2; r <= ws.rowCount; r++) {
+    const row = ws.getRow(r);
+    const obj: Record<string, string> = {};
+    let any = false;
+    headers.forEach((h, i) => {
+      if (!h) return;
+      const v = row.getCell(i + 1).value;
+      let s = "";
+      if (v == null) s = "";
+      else if (v instanceof Date) s = v.toISOString().slice(0, 10);
+      else if (typeof v === "object" && "text" in (v as Record<string, unknown>)) s = String((v as { text: unknown }).text ?? "");
+      else if (typeof v === "object" && "result" in (v as Record<string, unknown>)) s = String((v as { result: unknown }).result ?? "");
+      else s = String(v);
+      obj[h] = s;
+      if (s !== "") any = true;
+    });
+    if (any) out.push(obj);
+  }
+  return out;
+};
 import {
   Vehicle,
   VehicleType,
