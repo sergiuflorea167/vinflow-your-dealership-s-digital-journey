@@ -434,7 +434,7 @@ const drawStandardChrome = (
   return cursor;
 };
 
-export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, companyName = "VINflow Autohaus GmbH", pdfTheme }: GeneratePdfArgs): jsPDF => {
+export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, companyName = "VINflow Autohaus GmbH", seller, pdfTheme }: GeneratePdfArgs): jsPDF => {
   applyPdfTheme(pdfTheme);
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const step = PROCESS_STEPS.find((s) => s.key === stepKey)!;
@@ -442,7 +442,7 @@ export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, c
 
   // Kaufvertrag: spezielles, längeres Layout
   if (stepKey === "purchase_contract") {
-    return buildKaufvertrag(doc, { process, vehicle, customer, companyName, finalPrice });
+    return buildKaufvertrag(doc, { process, vehicle, customer, companyName, seller, finalPrice });
   }
 
   const docNumber = `${process.id} · ${step.shortLabel}`;
