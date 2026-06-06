@@ -400,6 +400,15 @@ export const taxationLine = (vehicle: Vehicle): string =>
 
 // ---------- Public API ----------
 
+export interface SellerInfo {
+  street?: string;
+  zip?: string;
+  city?: string;
+  representative?: string;
+  vatId?: string;
+  registration?: string;
+}
+
 export interface GeneratePdfArgs {
   process: Process;
   vehicle: Vehicle;
@@ -407,6 +416,8 @@ export interface GeneratePdfArgs {
   offer?: Offer;
   stepKey: ProcessStepKey;
   companyName?: string;
+  /** Unternehmensdaten des Nutzers – werden als Verkäuferdaten im Kaufvertrag verwendet. */
+  seller?: SellerInfo;
   pdfTheme?: PdfThemeKey;
 }
 
@@ -423,7 +434,7 @@ const drawStandardChrome = (
   return cursor;
 };
 
-export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, companyName = "VINflow Autohaus GmbH", pdfTheme }: GeneratePdfArgs): jsPDF => {
+export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, companyName = "VINflow Autohaus GmbH", seller, pdfTheme }: GeneratePdfArgs): jsPDF => {
   applyPdfTheme(pdfTheme);
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const step = PROCESS_STEPS.find((s) => s.key === stepKey)!;
@@ -431,7 +442,7 @@ export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, c
 
   // Kaufvertrag: spezielles, längeres Layout
   if (stepKey === "purchase_contract") {
-    return buildKaufvertrag(doc, { process, vehicle, customer, companyName, finalPrice });
+    return buildKaufvertrag(doc, { process, vehicle, customer, companyName, seller, finalPrice });
   }
 
   const docNumber = `${process.id} · ${step.shortLabel}`;
@@ -672,7 +683,7 @@ const drawKvSpecsTable = (doc: jsPDF, vehicle: Vehicle, y: number) => {
 
 const buildKaufvertrag = (
   doc: jsPDF,
-  { process, vehicle, customer, companyName, finalPrice }: { process: Process; vehicle: Vehicle; customer: Customer; companyName: string; finalPrice: number }
+  { process, vehicle, customer, companyName, seller, finalPrice }: { process: Process; vehicle: Vehicle; customer: Customer; companyName: string; seller?: SellerInfo; finalPrice: number }
 ): jsPDF => {
   const kv = process.fields.purchaseContract;
   const down = process.fields.downPayment?.amount ?? 0;
@@ -680,6 +691,14 @@ const buildKaufvertrag = (
   const margin = isMarginTaxed(vehicle);
   const place = kv?.place ?? customer.city ?? "—";
   const contractDate = kv?.contractDate ? formatDate(kv.contractDate) : formatDate(new Date().toISOString());
+
+  // Verkäuferdaten: Unternehmensdaten aus den Einstellungen, mit optionalem Override am Vertrag
+  const sStreet = kv?.sellerStreet || seller?.street;
+  const sZip = kv?.sellerZip || seller?.zip;
+  const sCity = kv?.sellerCity || seller?.city;
+  const sRep = kv?.sellerRepresentative || seller?.representative;
+  const sVat = kv?.sellerVatId || seller?.vatId;
+  const sReg = kv?.sellerRegistration || seller?.registration;
 
   drawHeader(doc, "Kaufvertrag", `Vertrags-Nr. ${kv?.contractNumber ?? process.id}`, companyName);
 
@@ -694,13 +713,12 @@ const buildKaufvertrag = (
 
   // Parties
   const w = (PAGE.w - 2 * PAGE.margin - 6) / 2;
-  const sellerAddr = [kv?.sellerStreet, kv?.sellerZip && kv?.sellerCity ? `${kv.sellerZip} ${kv.sellerCity}` : (kv?.sellerCity ?? undefined)].filter(Boolean) as string[];
   const sellerLines = [
     companyName,
-    sellerAddr[0] ?? "—",
-    sellerAddr[1] ?? "—",
-    kv?.sellerRepresentative ? `vertreten durch ${kv.sellerRepresentative}` : "vertreten durch —",
-    [kv?.sellerVatId ? `USt-IdNr.: ${kv.sellerVatId}` : null, kv?.sellerRegistration ?? null].filter(Boolean).join(" · ") || "USt-IdNr.: — · HRB —",
+    sStreet || "—",
+    [sZip, sCity].filter(Boolean).join(" ") || "—",
+    sRep ? `vertreten durch ${sRep}` : "vertreten durch —",
+    [sVat ? `USt-IdNr.: ${sVat}` : null, sReg ?? null].filter(Boolean).join(" · ") || "USt-IdNr.: — · HRB —",
   ];
   drawKvParty(doc, "Verkäufer", sellerLines, PAGE.margin, cursor, w);
   const isB2B = kv?.customerType === "b2b";
@@ -932,7 +950,7 @@ const buildKaufvertrag = (
   setColor(doc, BRAND.ink);
   doc.text(`Ort, Datum: ${place}, ${contractDate}`, PAGE.margin, cursor);
   cursor += 16;
-  drawSignatureRow(doc, cursor, `Käufer · ${customer.name}`, `Verkäufer · ${companyName}${kv?.sellerRepresentative ? ` (${kv.sellerRepresentative})` : ""}`);
+  drawSignatureRow(doc, cursor, `Käufer · ${customer.name}`, `Verkäufer · ${companyName}${sRep ? ` (${sRep})` : ""}`);
 
   drawFooter(doc, companyName);
   return doc;

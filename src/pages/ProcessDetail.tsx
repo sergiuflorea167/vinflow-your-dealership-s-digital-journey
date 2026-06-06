@@ -34,6 +34,7 @@ const ProcessDetail = () => {
   const allActivities = useProcessStore((s) => s.activities);
   const activities = useMemo(() => allActivities.filter((a) => a.processId === process?.id), [allActivities, process?.id]);
   const companyName = useProcessStore((s) => s.settings.companyName);
+  const settings = useProcessStore((s) => s.settings);
   const pdfTheme = useProcessStore((s) => s.settings.pdfTheme);
 
   const completeStep = useProcessStore((s) => s.completeStep);
@@ -136,7 +137,17 @@ const ProcessDetail = () => {
   };
 
   const handleDownload = (key: ProcessStepKey) => {
-    downloadBelegPdf({ process, vehicle, customer, offer, stepKey: key, companyName, pdfTheme });
+    downloadBelegPdf({
+      process, vehicle, customer, offer, stepKey: key, companyName, pdfTheme,
+      seller: {
+        street: settings.companyStreet,
+        zip: settings.companyZip,
+        city: settings.companyCity,
+        representative: settings.companyRepresentative,
+        vatId: settings.companyVatId,
+        registration: settings.companyRegistration,
+      },
+    });
     toast.success("PDF heruntergeladen.");
   };
 
@@ -486,12 +497,9 @@ const StepFields = ({ stepKey, fields, onChange, disabled }: { stepKey: ProcessS
           <CheckboxField label="Sachmängelhaftung vollständig ausschließen (nur B2B)" checked={!!pc.warrantyExcluded} onChange={(v) => set({ warrantyExcluded: v })} disabled={disabled} />
         )}
 
-        <TextField label="Verkäufer · Straße & Hausnr." value={pc.sellerStreet} onChange={(v) => set({ sellerStreet: v })} disabled={disabled} />
-        <TextField label="Verkäufer · PLZ" value={pc.sellerZip} onChange={(v) => set({ sellerZip: v })} disabled={disabled} />
-        <TextField label="Verkäufer · Ort" value={pc.sellerCity} onChange={(v) => set({ sellerCity: v })} disabled={disabled} />
-        <TextField label="Vertretungsberechtigte/r *" value={pc.sellerRepresentative} onChange={(v) => set({ sellerRepresentative: v })} disabled={disabled} placeholder="z. B. Geschäftsführer Max Mustermann" />
-        <TextField label="USt-IdNr." value={pc.sellerVatId} onChange={(v) => set({ sellerVatId: v })} disabled={disabled} placeholder="DE123456789" />
-        <TextField label="Handelsregister (HRB)" value={pc.sellerRegistration} onChange={(v) => set({ sellerRegistration: v })} disabled={disabled} placeholder="z. B. HRB 12345, AG München" />
+        <div className="col-span-2 rounded-md border border-border bg-surface-elevated/40 px-3 py-2 text-[11px] text-muted-foreground">
+          Verkäuferdaten (Firma, Anschrift, Vertretungsberechtigte/r, USt-IdNr., HRB) werden aus deinen <strong>Unternehmensdaten</strong> übernommen. Anpassen kannst du sie oben rechts über dein Profil.
+        </div>
 
         <CheckboxField label="Unfallfahrzeug (bekannte Vorschäden über Bagatelle hinaus)" checked={!!pc.accidentVehicle} onChange={(v) => set({ accidentVehicle: v })} disabled={disabled} />
         <NumberField label="Anzahl Schlüssel" value={pc.keysCount ?? 2} onChange={(v) => set({ keysCount: v })} disabled={disabled} />
@@ -549,7 +557,7 @@ const validateStep = (key: ProcessStepKey, f: ProcessFields, chkDone: number, ch
   if (key === "purchase_contract") {
     const c = f.purchaseContract;
     if (!c?.contractNumber || !c.contractDate || !c.place) return { ok: false, message: "Vertrags-Nr., Datum & Ort erforderlich." };
-    if (!c.sellerRepresentative) return { ok: false, message: "Vertretungsberechtigte/r des Verkäufers erforderlich." };
+    
     if (!c.customerType) return { ok: false, message: "Käufertyp (B2C/B2B) erforderlich." };
     if (c.customerType === "b2c" && (!c.warrantyMonths || c.warrantyMonths < 12)) {
       return { ok: false, message: "Bei Verkauf an Verbraucher (B2C) muss die Sachmängelhaftung mindestens 12 Monate betragen." };
