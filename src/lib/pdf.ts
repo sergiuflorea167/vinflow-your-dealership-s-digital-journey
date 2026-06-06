@@ -634,7 +634,7 @@ const drawKvParty = (doc: jsPDF, label: string, lines: string[], x: number, y: n
   });
 };
 
-const drawKvSpecsTable = (doc: jsPDF, vehicle: Vehicle, y: number) => {
+const drawKvSpecsTable = (doc: jsPDF, vehicle: Vehicle, y: number, kv?: any) => {
   const w = PAGE.w - 2 * PAGE.margin;
   const colW = w / 2;
   const rows: Array<[string, string]> = [
