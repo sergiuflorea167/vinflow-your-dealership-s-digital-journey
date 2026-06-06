@@ -741,7 +741,7 @@ const buildKaufvertrag = (
   cursor = drawSectionTitle(doc, "§ 1  Kaufgegenstand", cursor);
   cursor = drawTextBlock(doc, "Der Verkäufer verkauft an den Käufer das nachstehend bezeichnete Fahrzeug:", cursor, { muted: true });
   cursor += 3;
-  cursor = drawKvSpecsTable(doc, vehicle, cursor);
+  cursor = drawKvSpecsTable(doc, vehicle, cursor, kv);
 
   if (vehicle.features && vehicle.features.length) {
     cursor += 2;
