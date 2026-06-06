@@ -231,6 +231,35 @@ export const UserMenu = () => {
               <Label className="text-xs">{t("profile.company")}</Label>
               <Input value={draft.companyName} onChange={(e) => setDraft({ ...draft, companyName: e.target.value })} />
             </div>
+            <div className="col-span-2 pt-2 -mb-1">
+              <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">
+                Unternehmensdaten · werden u. a. im Kaufvertrag als Verkäuferdaten verwendet
+              </p>
+            </div>
+            <div className="col-span-2">
+              <Label className="text-xs">Straße & Hausnummer</Label>
+              <Input value={draft.companyStreet ?? ""} onChange={(e) => setDraft({ ...draft, companyStreet: e.target.value })} placeholder="z. B. Musterstraße 12" />
+            </div>
+            <div>
+              <Label className="text-xs">PLZ</Label>
+              <Input value={draft.companyZip ?? ""} onChange={(e) => setDraft({ ...draft, companyZip: e.target.value })} placeholder="80331" />
+            </div>
+            <div>
+              <Label className="text-xs">Ort</Label>
+              <Input value={draft.companyCity ?? ""} onChange={(e) => setDraft({ ...draft, companyCity: e.target.value })} placeholder="München" />
+            </div>
+            <div className="col-span-2">
+              <Label className="text-xs">Vertretungsberechtigte/r</Label>
+              <Input value={draft.companyRepresentative ?? ""} onChange={(e) => setDraft({ ...draft, companyRepresentative: e.target.value })} placeholder="z. B. Geschäftsführer Max Mustermann" />
+            </div>
+            <div>
+              <Label className="text-xs">USt-IdNr.</Label>
+              <Input value={draft.companyVatId ?? ""} onChange={(e) => setDraft({ ...draft, companyVatId: e.target.value })} placeholder="DE123456789" />
+            </div>
+            <div>
+              <Label className="text-xs">Handelsregister</Label>
+              <Input value={draft.companyRegistration ?? ""} onChange={(e) => setDraft({ ...draft, companyRegistration: e.target.value })} placeholder="HRB 12345, AG München" />
+            </div>
 
             <div className="col-span-2 pt-2">
               <Label className="text-xs flex items-center gap-1.5 mb-2">
