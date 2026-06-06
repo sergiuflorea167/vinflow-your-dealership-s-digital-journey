@@ -2,7 +2,104 @@
 // Felder werden über eine Registry definiert. UI kann Reihenfolge und
 // Auswahl der Spalten frei festlegen, sowohl beim Export als auch beim
 // Mapping beim Import.
-import * as XLSX from "xlsx";
+import ExcelJS from "exceljs";
+
+// CSV helpers
+const escapeCsvCell = (val: unknown): string => {
+  if (val === undefined || val === null) return "";
+  const s = String(val);
+  if (s.includes(";") || s.includes('"') || s.includes("\n") || s.includes("\r")) {
+    return `"${s.replace(/"/g, '""')}"`;
+  }
+  return s;
+};
+
+const rowsToCsv = (headers: string[], rows: Record<string, unknown>[]): string => {
+  const lines = [headers.map(escapeCsvCell).join(";")];
+  for (const r of rows) lines.push(headers.map((h) => escapeCsvCell(r[h])).join(";"));
+  return lines.join("\r\n");
+};
+
+const parseCsv = (text: string): Record<string, string>[] => {
+  // Strip BOM
+  if (text.charCodeAt(0) === 0xfeff) text = text.slice(1);
+  const rows: string[][] = [];
+  let cur: string[] = [];
+  let cell = "";
+  let inQuotes = false;
+  const delim = text.includes(";") ? ";" : ",";
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (inQuotes) {
+      if (ch === '"') {
+        if (text[i + 1] === '"') { cell += '"'; i++; }
+        else inQuotes = false;
+      } else cell += ch;
+    } else {
+      if (ch === '"') inQuotes = true;
+      else if (ch === delim) { cur.push(cell); cell = ""; }
+      else if (ch === "\n") { cur.push(cell); rows.push(cur); cur = []; cell = ""; }
+      else if (ch === "\r") { /* skip */ }
+      else cell += ch;
+    }
+  }
+  if (cell.length > 0 || cur.length > 0) { cur.push(cell); rows.push(cur); }
+  if (rows.length === 0) return [];
+  const headers = rows[0].map((h) => h.trim());
+  return rows.slice(1).filter((r) => r.some((c) => c !== "")).map((r) => {
+    const obj: Record<string, string> = {};
+    headers.forEach((h, idx) => { obj[h] = r[idx] ?? ""; });
+    return obj;
+  });
+};
+
+const writeXlsxBuffer = async (
+  sheetName: string,
+  headers: string[],
+  rows: Record<string, unknown>[],
+): Promise<ArrayBuffer> => {
+  const wb = new ExcelJS.Workbook();
+  const ws = wb.addWorksheet(sheetName);
+  ws.addRow(headers);
+  for (const r of rows) ws.addRow(headers.map((h) => r[h] ?? ""));
+  return await wb.xlsx.writeBuffer();
+};
+
+const readXlsxRows = async (buf: ArrayBuffer): Promise<Record<string, string>[]> => {
+  const wb = new ExcelJS.Workbook();
+  await wb.xlsx.load(buf);
+  const ws = wb.worksheets[0];
+  if (!ws) return [];
+  const headerRow = ws.getRow(1);
+  const headers: string[] = [];
+  headerRow.eachCell({ includeEmpty: false }, (cell, col) => {
+    headers[col - 1] = String(cell.value ?? "").trim();
+  });
+  const out: Record<string, string>[] = [];
+  for (let r = 2; r <= ws.rowCount; r++) {
+    const row = ws.getRow(r);
+    const obj: Record<string, string> = {};
+    let any = false;
+    headers.forEach((h, i) => {
+      if (!h) return;
+      const v = row.getCell(i + 1).value as unknown;
+      let s = "";
+      if (v == null) s = "";
+      else if (v instanceof Date) s = v.toISOString().slice(0, 10);
+      else if (typeof v === "object") {
+        const obj = v as Record<string, unknown>;
+        if ("text" in obj) s = String(obj.text ?? "");
+        else if ("result" in obj) s = String(obj.result ?? "");
+        else s = String(v);
+      }
+      else s = String(v);
+      obj[h] = s;
+      if (s !== "") any = true;
+    });
+    if (any) out.push(obj);
+  }
+  return out;
+};
 import {
   Vehicle,
   VehicleType,
@@ -106,8 +203,9 @@ const parseDate = (raw: any): string | undefined => {
   if (!raw) return undefined;
   // Excel serial number?
   if (typeof raw === "number" && raw > 25000 && raw < 80000) {
-    const d = XLSX.SSF.parse_date_code(raw);
-    if (d) return new Date(Date.UTC(d.y, d.m - 1, d.d)).toISOString();
+    // Excel serial date: days since 1899-12-30 (UTC)
+    const ms = Math.round(raw * 86400000);
+    return new Date(Date.UTC(1899, 11, 30) + ms).toISOString();
   }
   const s = String(raw).trim();
   if (!s) return undefined;
@@ -273,7 +371,7 @@ export const getFieldByKey = (key: string): FieldDef | undefined =>
 // Export
 // ============================================================
 
-export const exportVehicles = (
+export const exportVehicles = async (
   vehicles: Vehicle[],
   format: "csv" | "xlsx",
   columnKeys: string[] = DEFAULT_EXPORT_KEYS,
@@ -281,32 +379,30 @@ export const exportVehicles = (
   ctx: ExportContext = {},
 ) => {
   const cols = columnKeys.map(getFieldByKey).filter((f): f is FieldDef => !!f);
+  const headers = cols.map((c) => c.header);
   const rows = vehicles.map((v) => {
-    const row: Record<string, string | number | undefined> = {};
+    const row: Record<string, unknown> = {};
     cols.forEach((c) => (row[c.header] = c.get(v, ctx)));
     return row;
   });
-
-  const ws = XLSX.utils.json_to_sheet(rows, { header: cols.map((c) => c.header) });
   const stamp = new Date().toISOString().slice(0, 10);
 
   if (format === "csv") {
-    const csv = XLSX.utils.sheet_to_csv(ws, { FS: ";" });
+    const csv = rowsToCsv(headers, rows);
     downloadBlob(new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" }), `${filenameBase}_${stamp}.csv`);
   } else {
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Bestand");
-    const buf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+    const buf = await writeXlsxBuffer("Bestand", headers, rows);
     downloadBlob(new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), `${filenameBase}_${stamp}.xlsx`);
   }
 };
 
 /** Vorlage anhand der ausgewählten Spalten — mit 1 Beispielzeile. */
-export const downloadTemplate = (
+export const downloadTemplate = async (
   format: "csv" | "xlsx",
   columnKeys: string[] = DEFAULT_EXPORT_KEYS,
 ) => {
   const cols = columnKeys.map(getFieldByKey).filter((f): f is FieldDef => !!f);
+  const headers = cols.map((c) => c.header);
   const example: Record<string, string | number> = {};
   cols.forEach((c) => (example[c.header] = ""));
 
@@ -334,14 +430,11 @@ export const downloadTemplate = (
   };
   cols.forEach((c) => { if (sample[c.header] !== undefined) example[c.header] = sample[c.header]; });
 
-  const ws = XLSX.utils.json_to_sheet([example], { header: cols.map((c) => c.header) });
   if (format === "csv") {
-    const csv = XLSX.utils.sheet_to_csv(ws, { FS: ";" });
+    const csv = rowsToCsv(headers, [example]);
     downloadBlob(new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" }), "bestand_vorlage.csv");
   } else {
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Vorlage");
-    const buf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+    const buf = await writeXlsxBuffer("Vorlage", headers, [example]);
     downloadBlob(new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), "bestand_vorlage.xlsx");
   }
 };
@@ -369,10 +462,15 @@ export interface ParsedFile {
 }
 
 export const readFile = async (file: File): Promise<ParsedFile> => {
+  const name = file.name.toLowerCase();
+  if (name.endsWith(".csv")) {
+    const text = await file.text();
+    const rawRows = parseCsv(text);
+    const headers = rawRows.length > 0 ? Object.keys(rawRows[0]) : [];
+    return { headers, rawRows };
+  }
   const buf = await file.arrayBuffer();
-  const wb = XLSX.read(buf, { type: "array" });
-  const ws = wb.Sheets[wb.SheetNames[0]];
-  const rawRows = XLSX.utils.sheet_to_json<Record<string, any>>(ws, { defval: "", raw: false });
+  const rawRows = await readXlsxRows(buf);
   const headers = rawRows.length > 0 ? Object.keys(rawRows[0]) : [];
   return { headers, rawRows };
 };
