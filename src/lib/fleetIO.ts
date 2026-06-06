@@ -371,7 +371,7 @@ export const getFieldByKey = (key: string): FieldDef | undefined =>
 // Export
 // ============================================================
 
-export const exportVehicles = (
+export const exportVehicles = async (
   vehicles: Vehicle[],
   format: "csv" | "xlsx",
   columnKeys: string[] = DEFAULT_EXPORT_KEYS,
@@ -379,32 +379,30 @@ export const exportVehicles = (
   ctx: ExportContext = {},
 ) => {
   const cols = columnKeys.map(getFieldByKey).filter((f): f is FieldDef => !!f);
+  const headers = cols.map((c) => c.header);
   const rows = vehicles.map((v) => {
-    const row: Record<string, string | number | undefined> = {};
+    const row: Record<string, unknown> = {};
     cols.forEach((c) => (row[c.header] = c.get(v, ctx)));
     return row;
   });
-
-  const ws = XLSX.utils.json_to_sheet(rows, { header: cols.map((c) => c.header) });
   const stamp = new Date().toISOString().slice(0, 10);
 
   if (format === "csv") {
-    const csv = XLSX.utils.sheet_to_csv(ws, { FS: ";" });
+    const csv = rowsToCsv(headers, rows);
     downloadBlob(new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" }), `${filenameBase}_${stamp}.csv`);
   } else {
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Bestand");
-    const buf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+    const buf = await writeXlsxBuffer("Bestand", headers, rows);
     downloadBlob(new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), `${filenameBase}_${stamp}.xlsx`);
   }
 };
 
 /** Vorlage anhand der ausgewählten Spalten — mit 1 Beispielzeile. */
-export const downloadTemplate = (
+export const downloadTemplate = async (
   format: "csv" | "xlsx",
   columnKeys: string[] = DEFAULT_EXPORT_KEYS,
 ) => {
   const cols = columnKeys.map(getFieldByKey).filter((f): f is FieldDef => !!f);
+  const headers = cols.map((c) => c.header);
   const example: Record<string, string | number> = {};
   cols.forEach((c) => (example[c.header] = ""));
 
@@ -432,14 +430,11 @@ export const downloadTemplate = (
   };
   cols.forEach((c) => { if (sample[c.header] !== undefined) example[c.header] = sample[c.header]; });
 
-  const ws = XLSX.utils.json_to_sheet([example], { header: cols.map((c) => c.header) });
   if (format === "csv") {
-    const csv = XLSX.utils.sheet_to_csv(ws, { FS: ";" });
+    const csv = rowsToCsv(headers, [example]);
     downloadBlob(new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8" }), "bestand_vorlage.csv");
   } else {
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Vorlage");
-    const buf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+    const buf = await writeXlsxBuffer("Vorlage", headers, [example]);
     downloadBlob(new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), "bestand_vorlage.xlsx");
   }
 };
@@ -467,10 +462,15 @@ export interface ParsedFile {
 }
 
 export const readFile = async (file: File): Promise<ParsedFile> => {
+  const name = file.name.toLowerCase();
+  if (name.endsWith(".csv")) {
+    const text = await file.text();
+    const rawRows = parseCsv(text);
+    const headers = rawRows.length > 0 ? Object.keys(rawRows[0]) : [];
+    return { headers, rawRows };
+  }
   const buf = await file.arrayBuffer();
-  const wb = XLSX.read(buf, { type: "array" });
-  const ws = wb.Sheets[wb.SheetNames[0]];
-  const rawRows = XLSX.utils.sheet_to_json<Record<string, any>>(ws, { defval: "", raw: false });
+  const rawRows = await readXlsxRows(buf);
   const headers = rawRows.length > 0 ? Object.keys(rawRows[0]) : [];
   return { headers, rawRows };
 };
