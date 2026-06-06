@@ -694,8 +694,17 @@ const buildKaufvertrag = (
 
   // Parties
   const w = (PAGE.w - 2 * PAGE.margin - 6) / 2;
-  drawKvParty(doc, "Verkäufer", [companyName, "—", "—", "USt-IdNr.: DE—", "HRB —"], PAGE.margin, cursor, w);
-  drawKvParty(doc, "Käufer", [
+  const sellerAddr = [kv?.sellerStreet, kv?.sellerZip && kv?.sellerCity ? `${kv.sellerZip} ${kv.sellerCity}` : (kv?.sellerCity ?? undefined)].filter(Boolean) as string[];
+  const sellerLines = [
+    companyName,
+    sellerAddr[0] ?? "—",
+    sellerAddr[1] ?? "—",
+    kv?.sellerRepresentative ? `vertreten durch ${kv.sellerRepresentative}` : "vertreten durch —",
+    [kv?.sellerVatId ? `USt-IdNr.: ${kv.sellerVatId}` : null, kv?.sellerRegistration ?? null].filter(Boolean).join(" · ") || "USt-IdNr.: — · HRB —",
+  ];
+  drawKvParty(doc, "Verkäufer", sellerLines, PAGE.margin, cursor, w);
+  const isB2B = kv?.customerType === "b2b";
+  drawKvParty(doc, isB2B ? "Käufer (Unternehmer · B2B)" : "Käufer (Verbraucher · B2C)", [
     customer.name,
     customer.street ?? "—",
     `${customer.zip ?? ""} ${customer.city}`.trim(),
