@@ -634,7 +634,7 @@ const drawKvParty = (doc: jsPDF, label: string, lines: string[], x: number, y: n
   });
 };
 
-const drawKvSpecsTable = (doc: jsPDF, vehicle: Vehicle, y: number) => {
+const drawKvSpecsTable = (doc: jsPDF, vehicle: Vehicle, y: number, kv?: any) => {
   const w = PAGE.w - 2 * PAGE.margin;
   const colW = w / 2;
   const rows: Array<[string, string]> = [
@@ -653,7 +653,7 @@ const drawKvSpecsTable = (doc: jsPDF, vehicle: Vehicle, y: number) => {
     ["Farbe (außen)", `${vehicle.color}${vehicle.paintCode ? ` (${vehicle.paintCode})` : ""}`],
     ["Innenraum", `${vehicle.interiorColor ?? "—"}${vehicle.interiorMaterial ? `, ${vehicle.interiorMaterial}` : ""}`],
     ["HU/AU gültig bis", vehicle.hu ? formatDate(vehicle.hu) : "—"],
-    ["Scheckheft / Unfallfrei", `${vehicle.serviceBookComplete ? "ja" : "nein"} / ${vehicle.accidentFree ? "ja" : "nein"}`],
+    ["Scheckheft / Unfallfrei", `${(vehicle.serviceBookComplete || kv?.docServiceBook) ? "ja" : "nein"} / ${(kv?.accidentVehicle !== undefined ? !kv.accidentVehicle : vehicle.accidentFree) ? "ja" : "nein"}`],
   ];
 
   doc.setFont("helvetica", "normal");
@@ -741,7 +741,7 @@ const buildKaufvertrag = (
   cursor = drawSectionTitle(doc, "§ 1  Kaufgegenstand", cursor);
   cursor = drawTextBlock(doc, "Der Verkäufer verkauft an den Käufer das nachstehend bezeichnete Fahrzeug:", cursor, { muted: true });
   cursor += 3;
-  cursor = drawKvSpecsTable(doc, vehicle, cursor);
+  cursor = drawKvSpecsTable(doc, vehicle, cursor, kv);
 
   if (vehicle.features && vehicle.features.length) {
     cursor += 2;
