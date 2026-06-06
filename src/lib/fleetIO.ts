@@ -82,12 +82,16 @@ const readXlsxRows = async (buf: ArrayBuffer): Promise<Record<string, string>[]>
     let any = false;
     headers.forEach((h, i) => {
       if (!h) return;
-      const v = row.getCell(i + 1).value;
+      const v = row.getCell(i + 1).value as unknown;
       let s = "";
       if (v == null) s = "";
       else if (v instanceof Date) s = v.toISOString().slice(0, 10);
-      else if (typeof v === "object" && "text" in (v as Record<string, unknown>)) s = String((v as { text: unknown }).text ?? "");
-      else if (typeof v === "object" && "result" in (v as Record<string, unknown>)) s = String((v as { result: unknown }).result ?? "");
+      else if (typeof v === "object") {
+        const obj = v as Record<string, unknown>;
+        if ("text" in obj) s = String(obj.text ?? "");
+        else if ("result" in obj) s = String(obj.result ?? "");
+        else s = String(v);
+      }
       else s = String(v);
       obj[h] = s;
       if (s !== "") any = true;
