@@ -400,6 +400,15 @@ export const taxationLine = (vehicle: Vehicle): string =>
 
 // ---------- Public API ----------
 
+export interface SellerInfo {
+  street?: string;
+  zip?: string;
+  city?: string;
+  representative?: string;
+  vatId?: string;
+  registration?: string;
+}
+
 export interface GeneratePdfArgs {
   process: Process;
   vehicle: Vehicle;
@@ -407,6 +416,8 @@ export interface GeneratePdfArgs {
   offer?: Offer;
   stepKey: ProcessStepKey;
   companyName?: string;
+  /** Unternehmensdaten des Nutzers – werden als Verkäuferdaten im Kaufvertrag verwendet. */
+  seller?: SellerInfo;
   pdfTheme?: PdfThemeKey;
 }
 
