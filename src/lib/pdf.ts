@@ -950,7 +950,7 @@ const buildKaufvertrag = (
   setColor(doc, BRAND.ink);
   doc.text(`Ort, Datum: ${place}, ${contractDate}`, PAGE.margin, cursor);
   cursor += 16;
-  drawSignatureRow(doc, cursor, `Käufer · ${customer.name}`, `Verkäufer · ${companyName}${kv?.sellerRepresentative ? ` (${kv.sellerRepresentative})` : ""}`);
+  drawSignatureRow(doc, cursor, `Käufer · ${customer.name}`, `Verkäufer · ${companyName}${sRep ? ` (${sRep})` : ""}`);
 
   drawFooter(doc, companyName);
   return doc;
