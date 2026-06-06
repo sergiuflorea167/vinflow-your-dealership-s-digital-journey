@@ -883,7 +883,7 @@ const buildKaufvertrag = (
   cursor = drawSectionTitle(doc, "§ 6  Erklärungen des Verkäufers", cursor);
   const assurances = [
     `Anzahl der Vorbesitzer laut Zulassungsbescheinigung Teil II: ${vehicle.previousOwners ?? "—"}.`,
-    `Das Scheckheft ist ${vehicle.serviceBookComplete ? "lückenlos geführt und wird mit dem Fahrzeug übergeben" : "nicht lückenlos geführt bzw. nicht vorhanden"}.`,
+    `Das Scheckheft ist ${(vehicle.serviceBookComplete || kv?.docServiceBook) ? "lückenlos geführt und wird mit dem Fahrzeug übergeben" : "nicht lückenlos geführt bzw. nicht vorhanden"}.`,
     `Der angegebene Kilometerstand von ${vehicle.mileage.toLocaleString("de-DE")} km entspricht nach Kenntnis des Verkäufers der tatsächlichen Gesamtfahrleistung; eine Garantie für die Richtigkeit wird nicht übernommen.`,
     `Das Fahrzeug ist frei von Rechten Dritter, insbesondere von Pfandrechten und Sicherungseigentum.`,
   ];
