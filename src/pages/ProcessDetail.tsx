@@ -557,7 +557,7 @@ const validateStep = (key: ProcessStepKey, f: ProcessFields, chkDone: number, ch
   if (key === "purchase_contract") {
     const c = f.purchaseContract;
     if (!c?.contractNumber || !c.contractDate || !c.place) return { ok: false, message: "Vertrags-Nr., Datum & Ort erforderlich." };
-    if (!c.sellerRepresentative) return { ok: false, message: "Vertretungsberechtigte/r des Verkäufers erforderlich." };
+    
     if (!c.customerType) return { ok: false, message: "Käufertyp (B2C/B2B) erforderlich." };
     if (c.customerType === "b2c" && (!c.warrantyMonths || c.warrantyMonths < 12)) {
       return { ok: false, message: "Bei Verkauf an Verbraucher (B2C) muss die Sachmängelhaftung mindestens 12 Monate betragen." };
