@@ -981,11 +981,7 @@ export const downloadBelegPdf = async (args: GeneratePdfArgs) => {
   // E-Rechnung: factur-x.xml an PDF anhängen
   const { buildZugferdXml, attachZugferdXml } = await import("./eInvoice");
   const pdfBytes = doc.output("arraybuffer");
-  const finalPrice =
-    args.process.fields.orderConfirmation?.finalPrice
-      ?? args.offer?.salePrice
-      ?? args.vehicle.salePrice
-      ?? 0;
+  const finalPrice = args.process.fields.finalPrice ?? args.vehicle.listPrice;
   const xml = buildZugferdXml({
     process: args.process,
     vehicle: args.vehicle,
