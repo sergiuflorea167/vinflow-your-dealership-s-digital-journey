@@ -96,6 +96,7 @@ interface State {
 
   // ------- Customer -------
   addCustomer: (c: Omit<Customer, "id">) => Customer;
+  updateCustomer: (id: string, patch: Partial<Omit<Customer, "id">>) => void;
 
   // ------- Offer -------
   addOffer: (o: Omit<Offer, "id" | "createdAt" | "status" | "customerTodos"> & { status?: Offer["status"]; customerTodos?: Offer["customerTodos"] }) => Offer;
