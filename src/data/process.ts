@@ -387,6 +387,8 @@ export interface ProcessFields {
     paymentTerms?: string;
     paid?: boolean;
     paidDate?: string;
+    /** E-Rechnung gem. § 14 UStG (XRechnung/ZUGFeRD) – nur bei B2B sinnvoll */
+    eInvoice?: boolean;
   };
   purchaseContract?: {
     contractNumber?: string;
