@@ -82,9 +82,9 @@ export const buildZugferdXml = ({
   const sellerZip = seller?.zip;
   const sellerCity = seller?.city;
   const sellerVat = seller?.vatId;
-  const sellerTaxNr = (seller as any)?.taxNumber || (seller as any)?.registration;
-  const sellerEmail = (seller as any)?.email;
-  const sellerPhone = (seller as any)?.phone;
+  const sellerTaxNr = seller?.taxNumber;
+  const sellerEmail = seller?.email;
+  const sellerPhone = seller?.phone;
   const sellerContactName = seller?.representative || sellerName;
 
   // --- Buyer / Käufer ---
@@ -96,6 +96,8 @@ export const buildZugferdXml = ({
   const buyerPhone = customer.phone;
   // BT-49 Buyer electronic address – wir nutzen E-Mail (schemeID EM).
   const buyerEAS = buyerEmail ? `<ram:URIUniversalCommunication><ram:URIID schemeID="EM">${esc(buyerEmail)}</ram:URIID></ram:URIUniversalCommunication>` : "";
+  // BT-34 Seller electronic address (Pflicht für XRechnung).
+  const sellerEAS = sellerEmail ? `<ram:URIUniversalCommunication><ram:URIID schemeID="EM">${esc(sellerEmail)}</ram:URIID></ram:URIUniversalCommunication>` : "";
 
   // --- Bank / Payment ---
   const iban = cleanIban(BANK.iban);
