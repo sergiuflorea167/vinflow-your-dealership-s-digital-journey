@@ -964,10 +964,46 @@ const buildKaufvertrag = (
   return doc;
 };
 
-export const downloadBelegPdf = (args: GeneratePdfArgs) => {
+export const downloadBelegPdf = async (args: GeneratePdfArgs) => {
   const doc = generateBelegPdf(args);
   const step = PROCESS_STEPS.find((s) => s.key === args.stepKey)!;
-  doc.save(`${args.process.id}_${step.documentName.replace(/[^A-Za-z0-9]/g, "_")}.pdf`);
+  const baseName = `${args.process.id}_${step.documentName.replace(/[^A-Za-z0-9]/g, "_")}`;
+
+  const inv = args.process.fields.invoicing;
+  const isB2B = args.process.fields.purchaseContract?.customerType === "b2b";
+  const wantsEInvoice = args.stepKey === "invoicing" && !!inv?.eInvoice && isB2B;
+
+  if (!wantsEInvoice) {
+    doc.save(`${baseName}.pdf`);
+    return;
+  }
+
+  // E-Rechnung: factur-x.xml an PDF anhängen
+  const { buildZugferdXml, attachZugferdXml } = await import("./eInvoice");
+  const pdfBytes = doc.output("arraybuffer");
+  const finalPrice =
+    args.process.fields.orderConfirmation?.finalPrice
+      ?? args.offer?.salePrice
+      ?? args.vehicle.salePrice
+      ?? 0;
+  const xml = buildZugferdXml({
+    process: args.process,
+    vehicle: args.vehicle,
+    customer: args.customer,
+    companyName: args.companyName ?? "VINflow Autohaus GmbH",
+    seller: args.seller,
+    finalPrice,
+  });
+  const merged = await attachZugferdXml(pdfBytes, xml);
+  const blob = new Blob([merged as BlobPart], { type: "application/pdf" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${baseName}_E-Rechnung.pdf`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
 };
 
 // ---------- Standalone Angebot ----------
