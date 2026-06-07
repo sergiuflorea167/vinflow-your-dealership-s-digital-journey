@@ -159,6 +159,9 @@ const ProcessDetail = () => {
         city: settings.companyCity,
         representative: settings.companyRepresentative,
         vatId: settings.companyVatId,
+        taxNumber: settings.companyTaxNumber,
+        email: settings.companyEmail ?? settings.email,
+        phone: settings.companyPhone ?? settings.phone,
         registration: settings.companyRegistration,
       },
     });
