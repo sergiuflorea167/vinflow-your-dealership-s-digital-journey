@@ -283,6 +283,22 @@ const CustomerDetailDialog = ({ customerId, onClose }: { customerId: string | nu
         </DialogHeader>
 
         <div className="grid sm:grid-cols-2 gap-3 mt-2">
+          <div className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-2">
+            <User className="size-4 text-muted-foreground shrink-0" />
+            <div className="flex-1 min-w-0">
+              <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Anrede</p>
+              <select
+                value={customer.salutation ?? ""}
+                onChange={(e) => updateCustomer(customer.id, { salutation: (e.target.value || undefined) as Customer["salutation"] })}
+                className="w-full bg-transparent text-sm font-medium focus:outline-none"
+              >
+                <option value="">— wählen —</option>
+                <option value="herr">Herr</option>
+                <option value="frau">Frau</option>
+                <option value="firma">Firma</option>
+              </select>
+            </div>
+          </div>
           <DetailRow icon={<Mail className="size-4" />} label="E-Mail" value={customer.email} />
           <DetailRow icon={<Phone className="size-4" />} label="Telefon" value={customer.phone} />
           <DetailRow
