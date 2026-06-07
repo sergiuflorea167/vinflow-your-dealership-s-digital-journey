@@ -666,6 +666,12 @@ export const useProcessStore = create<State>()(
           return customer;
         },
 
+        updateCustomer: (id, patch) => {
+          set((state) => ({
+            customers: state.customers.map((c) => (c.id === id ? { ...c, ...patch } : c)),
+          }));
+        },
+
         // ------- Offer -------
         addOffer: (o) => {
           const id = `OFR-${new Date().getFullYear()}-${String(get().offers.length + 1).padStart(4, "0")}`;
