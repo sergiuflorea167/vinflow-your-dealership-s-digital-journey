@@ -245,6 +245,7 @@ const CustomerDetailDialog = ({ customerId, onClose }: { customerId: string | nu
   const allProcesses = useProcessStore((s) => s.processes);
   const allActivities = useProcessStore((s) => s.activities);
   const getVehicle = useProcessStore((s) => s.getVehicle);
+  const updateCustomer = useProcessStore((s) => s.updateCustomer);
   const offers = useMemo(() => allOffers.filter((o) => o.customerId === customerId), [allOffers, customerId]);
   const processes = useMemo(() => allProcesses.filter((p) => p.customerId === customerId), [allProcesses, customerId]);
   const activities = useMemo(
