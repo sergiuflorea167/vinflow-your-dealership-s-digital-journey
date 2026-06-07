@@ -406,6 +406,9 @@ export interface SellerInfo {
   city?: string;
   representative?: string;
   vatId?: string;
+  taxNumber?: string;
+  email?: string;
+  phone?: string;
   registration?: string;
 }
 
