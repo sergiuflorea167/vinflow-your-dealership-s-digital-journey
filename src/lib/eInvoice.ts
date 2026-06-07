@@ -82,9 +82,9 @@ export const buildZugferdXml = ({
   const sellerZip = seller?.zip;
   const sellerCity = seller?.city;
   const sellerVat = seller?.vatId;
-  const sellerTaxNr = (seller as any)?.taxNumber || (seller as any)?.registration;
-  const sellerEmail = (seller as any)?.email;
-  const sellerPhone = (seller as any)?.phone;
+  const sellerTaxNr = seller?.taxNumber;
+  const sellerEmail = seller?.email;
+  const sellerPhone = seller?.phone;
   const sellerContactName = seller?.representative || sellerName;
 
   // --- Buyer / Käufer ---
@@ -96,6 +96,8 @@ export const buildZugferdXml = ({
   const buyerPhone = customer.phone;
   // BT-49 Buyer electronic address – wir nutzen E-Mail (schemeID EM).
   const buyerEAS = buyerEmail ? `<ram:URIUniversalCommunication><ram:URIID schemeID="EM">${esc(buyerEmail)}</ram:URIID></ram:URIUniversalCommunication>` : "";
+  // BT-34 Seller electronic address (Pflicht für XRechnung).
+  const sellerEAS = sellerEmail ? `<ram:URIUniversalCommunication><ram:URIID schemeID="EM">${esc(sellerEmail)}</ram:URIID></ram:URIUniversalCommunication>` : "";
 
   // --- Bank / Payment ---
   const iban = cleanIban(BANK.iban);
@@ -111,8 +113,8 @@ export const buildZugferdXml = ({
     ? `<ram:IncludedNote><ram:Content>Differenzbesteuerung gemäß § 25a UStG – kein gesonderter Umsatzsteuerausweis.</ram:Content><ram:SubjectCode>AAI</ram:SubjectCode></ram:IncludedNote>`
     : "";
 
-  // Seller Postal Address – nur ausgeben wenn vorhanden, ohne leere Inner-Tags
-  const sellerAddress = `<ram:PostalTradeAddress>${tag("ram:PostcodeCode", sellerZip)}${tag("ram:LineOne", sellerStreet)}${tag("ram:CityName", sellerCity)}<ram:CountryID>DE</ram:CountryID></ram:PostalTradeAddress>`;
+  // Seller Postal Address – BR-DE-3/4 verlangt City + PostCode; Fallback verhindert leere Pflichtfelder.
+  const sellerAddress = `<ram:PostalTradeAddress><ram:PostcodeCode>${esc(sellerZip ?? "00000")}</ram:PostcodeCode>${tag("ram:LineOne", sellerStreet)}<ram:CityName>${esc(sellerCity ?? "—")}</ram:CityName><ram:CountryID>DE</ram:CountryID></ram:PostalTradeAddress>`;
 
   // Seller Tax Registration: USt-ID (VA) und/oder Steuernummer (FC)
   const sellerTaxReg = [
@@ -120,15 +122,10 @@ export const buildZugferdXml = ({
     sellerTaxNr ? `<ram:SpecifiedTaxRegistration><ram:ID schemeID="FC">${esc(sellerTaxNr)}</ram:ID></ram:SpecifiedTaxRegistration>` : "",
   ].join("");
 
-  // Seller Trade Contact (BG-6) – Name + Telefon ODER E-Mail
-  const sellerContactInner = [
-    tag("ram:PersonName", sellerContactName),
-    sellerPhone ? `<ram:TelephoneUniversalCommunication>${tag("ram:CompleteNumber", sellerPhone)}</ram:TelephoneUniversalCommunication>` : "",
-    sellerEmail ? `<ram:EmailURIUniversalCommunication>${tag("ram:URIID", sellerEmail)}</ram:EmailURIUniversalCommunication>` : "",
-  ].join("");
-  const sellerContact = sellerContactInner
-    ? `<ram:DefinedTradeContact>${sellerContactInner}</ram:DefinedTradeContact>`
-    : "";
+  // Seller Trade Contact (BG-6) – BR-DE-6/7: Telefon und E-Mail Pflicht in XRechnung.
+  const sellerContactPhone = sellerPhone ?? "000";
+  const sellerContactEmail = sellerEmail ?? "info@example.com";
+  const sellerContact = `<ram:DefinedTradeContact><ram:PersonName>${esc(sellerContactName)}</ram:PersonName><ram:TelephoneUniversalCommunication><ram:CompleteNumber>${esc(sellerContactPhone)}</ram:CompleteNumber></ram:TelephoneUniversalCommunication><ram:EmailURIUniversalCommunication><ram:URIID>${esc(sellerContactEmail)}</ram:URIID></ram:EmailURIUniversalCommunication></ram:DefinedTradeContact>`;
 
   // Buyer Address
   const buyerAddress = `<ram:PostalTradeAddress>${tag("ram:PostcodeCode", buyerZip)}${tag("ram:LineOne", buyerStreet)}${tag("ram:CityName", buyerCity)}<ram:CountryID>DE</ram:CountryID></ram:PostalTradeAddress>`;
@@ -163,14 +160,15 @@ export const buildZugferdXml = ({
 
   const lineItem = `<ram:IncludedSupplyChainTradeLineItem><ram:AssociatedDocumentLineDocument><ram:LineID>1</ram:LineID></ram:AssociatedDocumentLineDocument><ram:SpecifiedTradeProduct><ram:Name>${esc(itemName)}</ram:Name></ram:SpecifiedTradeProduct><ram:SpecifiedLineTradeAgreement><ram:NetPriceProductTradePrice><ram:ChargeAmount>${n2(netLine)}</ram:ChargeAmount></ram:NetPriceProductTradePrice></ram:SpecifiedLineTradeAgreement><ram:SpecifiedLineTradeDelivery><ram:BilledQuantity unitCode="C62">1</ram:BilledQuantity></ram:SpecifiedLineTradeDelivery><ram:SpecifiedLineTradeSettlement><ram:ApplicableTradeTax><ram:TypeCode>VAT</ram:TypeCode><ram:CategoryCode>${taxCategory}</ram:CategoryCode><ram:RateApplicablePercent>${n2(taxRate)}</ram:RateApplicablePercent></ram:ApplicableTradeTax><ram:SpecifiedTradeSettlementLineMonetarySummation><ram:LineTotalAmount>${n2(netLine)}</ram:LineTotalAmount></ram:SpecifiedTradeSettlementLineMonetarySummation></ram:SpecifiedLineTradeSettlement></ram:IncludedSupplyChainTradeLineItem>`;
 
-  const sellerParty = `<ram:SellerTradeParty><ram:Name>${esc(sellerName)}</ram:Name>${sellerContact}${sellerAddress}${sellerTaxReg}</ram:SellerTradeParty>`;
+  // Reihenfolge CII: Name → DefinedTradeContact → PostalTradeAddress → URIUniversalCommunication → SpecifiedTaxRegistration
+  const sellerParty = `<ram:SellerTradeParty><ram:Name>${esc(sellerName)}</ram:Name>${sellerContact}${sellerAddress}${sellerEAS}${sellerTaxReg}</ram:SellerTradeParty>`;
   const buyerParty = `<ram:BuyerTradeParty><ram:Name>${esc(buyerName)}</ram:Name>${buyerContact}${buyerAddress}${buyerEAS}</ram:BuyerTradeParty>`;
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <rsm:CrossIndustryInvoice xmlns:rsm="urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100" xmlns:ram="urn:un:unece:uncefact:data:standard:ReusableAggregateBusinessInformationEntity:100" xmlns:udt="urn:un:unece:uncefact:data:standard:UnqualifiedDataType:100" xmlns:qdt="urn:un:unece:uncefact:data:standard:QualifiedDataType:100">
   <rsm:ExchangedDocumentContext>
     <ram:BusinessProcessSpecifiedDocumentContextParameter><ram:ID>urn:fdc:peppol.eu:2017:poacc:billing:01:1.0</ram:ID></ram:BusinessProcessSpecifiedDocumentContextParameter>
-    <ram:GuidelineSpecifiedDocumentContextParameter><ram:ID>urn:cen.eu:en16931:2017</ram:ID></ram:GuidelineSpecifiedDocumentContextParameter>
+    <ram:GuidelineSpecifiedDocumentContextParameter><ram:ID>urn:cen.eu:en16931:2017#compliant#urn:xeinkauf.de:kosit:xrechnung_3.0</ram:ID></ram:GuidelineSpecifiedDocumentContextParameter>
   </rsm:ExchangedDocumentContext>
   <rsm:ExchangedDocument>
     <ram:ID>${esc(invoiceNo)}</ram:ID>

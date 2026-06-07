@@ -257,6 +257,18 @@ export const UserMenu = () => {
               <Input value={draft.companyVatId ?? ""} onChange={(e) => setDraft({ ...draft, companyVatId: e.target.value })} placeholder="DE123456789" />
             </div>
             <div>
+              <Label className="text-xs">Steuernummer</Label>
+              <Input value={draft.companyTaxNumber ?? ""} onChange={(e) => setDraft({ ...draft, companyTaxNumber: e.target.value })} placeholder="z. B. 143/824/02666" />
+            </div>
+            <div>
+              <Label className="text-xs">Firmen-E-Mail (für E-Rechnung)</Label>
+              <Input type="email" value={draft.companyEmail ?? ""} onChange={(e) => setDraft({ ...draft, companyEmail: e.target.value })} placeholder="rechnung@firma.de" />
+            </div>
+            <div>
+              <Label className="text-xs">Firmen-Telefon (für E-Rechnung)</Label>
+              <Input value={draft.companyPhone ?? ""} onChange={(e) => setDraft({ ...draft, companyPhone: e.target.value })} placeholder="+49 89 1234567" />
+            </div>
+            <div className="col-span-2">
               <Label className="text-xs">Handelsregister</Label>
               <Input value={draft.companyRegistration ?? ""} onChange={(e) => setDraft({ ...draft, companyRegistration: e.target.value })} placeholder="HRB 12345, AG München" />
             </div>
