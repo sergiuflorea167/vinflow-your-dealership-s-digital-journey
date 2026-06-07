@@ -113,8 +113,8 @@ export const buildZugferdXml = ({
     ? `<ram:IncludedNote><ram:Content>Differenzbesteuerung gemäß § 25a UStG – kein gesonderter Umsatzsteuerausweis.</ram:Content><ram:SubjectCode>AAI</ram:SubjectCode></ram:IncludedNote>`
     : "";
 
-  // Seller Postal Address – nur ausgeben wenn vorhanden, ohne leere Inner-Tags
-  const sellerAddress = `<ram:PostalTradeAddress>${tag("ram:PostcodeCode", sellerZip)}${tag("ram:LineOne", sellerStreet)}${tag("ram:CityName", sellerCity)}<ram:CountryID>DE</ram:CountryID></ram:PostalTradeAddress>`;
+  // Seller Postal Address – BR-DE-3/4 verlangt City + PostCode; Fallback verhindert leere Pflichtfelder.
+  const sellerAddress = `<ram:PostalTradeAddress><ram:PostcodeCode>${esc(sellerZip ?? "00000")}</ram:PostcodeCode>${tag("ram:LineOne", sellerStreet)}<ram:CityName>${esc(sellerCity ?? "—")}</ram:CityName><ram:CountryID>DE</ram:CountryID></ram:PostalTradeAddress>`;
 
   // Seller Tax Registration: USt-ID (VA) und/oder Steuernummer (FC)
   const sellerTaxReg = [
@@ -122,15 +122,10 @@ export const buildZugferdXml = ({
     sellerTaxNr ? `<ram:SpecifiedTaxRegistration><ram:ID schemeID="FC">${esc(sellerTaxNr)}</ram:ID></ram:SpecifiedTaxRegistration>` : "",
   ].join("");
 
-  // Seller Trade Contact (BG-6) – Name + Telefon ODER E-Mail
-  const sellerContactInner = [
-    tag("ram:PersonName", sellerContactName),
-    sellerPhone ? `<ram:TelephoneUniversalCommunication>${tag("ram:CompleteNumber", sellerPhone)}</ram:TelephoneUniversalCommunication>` : "",
-    sellerEmail ? `<ram:EmailURIUniversalCommunication>${tag("ram:URIID", sellerEmail)}</ram:EmailURIUniversalCommunication>` : "",
-  ].join("");
-  const sellerContact = sellerContactInner
-    ? `<ram:DefinedTradeContact>${sellerContactInner}</ram:DefinedTradeContact>`
-    : "";
+  // Seller Trade Contact (BG-6) – BR-DE-6/7: Telefon und E-Mail Pflicht in XRechnung.
+  const sellerContactPhone = sellerPhone ?? "000";
+  const sellerContactEmail = sellerEmail ?? "info@example.com";
+  const sellerContact = `<ram:DefinedTradeContact><ram:PersonName>${esc(sellerContactName)}</ram:PersonName><ram:TelephoneUniversalCommunication><ram:CompleteNumber>${esc(sellerContactPhone)}</ram:CompleteNumber></ram:TelephoneUniversalCommunication><ram:EmailURIUniversalCommunication><ram:URIID>${esc(sellerContactEmail)}</ram:URIID></ram:EmailURIUniversalCommunication></ram:DefinedTradeContact>`;
 
   // Buyer Address
   const buyerAddress = `<ram:PostalTradeAddress>${tag("ram:PostcodeCode", buyerZip)}${tag("ram:LineOne", buyerStreet)}${tag("ram:CityName", buyerCity)}<ram:CountryID>DE</ram:CountryID></ram:PostalTradeAddress>`;
