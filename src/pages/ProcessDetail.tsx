@@ -469,6 +469,7 @@ const StepFields = ({ stepKey, fields, onChange, disabled }: { stepKey: ProcessS
     );
   }
   if (stepKey === "invoicing") {
+    const isB2BInvoice = fields.purchaseContract?.customerType === "b2b";
     return (
       <FieldGrid title="Rechnungsdaten">
         <TextField label="Rechnungs-Nr. (automatisch)" value={fields.invoicing?.invoiceNumber} onChange={() => {}} disabled placeholder="wird automatisch vergeben" />
@@ -477,6 +478,21 @@ const StepFields = ({ stepKey, fields, onChange, disabled }: { stepKey: ProcessS
         <CheckboxField label="Zahlung eingegangen *" checked={!!fields.invoicing?.paid} onChange={(v) => onChange({ invoicing: { ...fields.invoicing, paid: v, paidDate: v ? new Date().toISOString().slice(0, 10) : undefined } })} disabled={disabled} />
         {fields.invoicing?.paid && (
           <DateField label="Zahlungseingang am" value={fields.invoicing?.paidDate} onChange={(v) => onChange({ invoicing: { ...fields.invoicing, paidDate: v } })} disabled={disabled} />
+        )}
+        {isB2BInvoice && (
+          <div className="col-span-full -mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+            <input
+              id="eInvoiceToggle"
+              type="checkbox"
+              className="h-3.5 w-3.5 rounded border-border accent-primary"
+              checked={!!fields.invoicing?.eInvoice}
+              onChange={(e) => onChange({ invoicing: { ...fields.invoicing, eInvoice: e.target.checked } })}
+              disabled={disabled}
+            />
+            <label htmlFor="eInvoiceToggle" className="cursor-pointer select-none">
+              Als E-Rechnung ausstellen (XRechnung / ZUGFeRD nach § 14 UStG)
+            </label>
+          </div>
         )}
       </FieldGrid>
     );
