@@ -89,7 +89,7 @@ const applyPdfTheme = (key?: PdfThemeKey) => {
 };
 
 const PAGE = { w: 210, h: 297, margin: 20 };
-const BANK = { iban: "DE89 3704 0044 0532 0130 00", bic: "COBADEFFXXX", bank: "Commerzbank" };
+export const BANK = { iban: "DE89 3704 0044 0532 0130 00", bic: "COBADEFFXXX", bank: "Commerzbank" };
 
 const setColor = (doc: jsPDF, c: RGB, type: "fill" | "draw" | "text" = "text") => {
   if (type === "fill") doc.setFillColor(c[0], c[1], c[2]);
