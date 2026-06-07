@@ -553,6 +553,9 @@ export interface Settings {
   companyCity?: string;
   companyRepresentative?: string;
   companyVatId?: string;
+  companyTaxNumber?: string; // Steuernummer, alternativ zur USt-IdNr.
+  companyEmail?: string;     // Kontakt-E-Mail (BT-43, Seller electronic address)
+  companyPhone?: string;     // Kontakt-Telefon (BT-42)
   companyRegistration?: string; // z. B. „HRB 12345, AG München"
 }
 
