@@ -83,6 +83,20 @@ export const buildZugferdXml = ({
     `${vehicle.make} ${vehicle.model} (${vehicle.year}) · FIN ${vehicle.vin}`,
   );
 
+  // BT-10 BuyerReference ist in EN 16931 verpflichtend (Leitweg-ID o.ä.).
+  // Fallback: Kundencode oder Rechnungsnummer.
+  const buyerReference = esc(
+    (customer as any).code ?? (customer as any).leitwegId ?? invoiceNo,
+  );
+
+  // BT-30 Seller legal registration (handelsregister) optional
+  const sellerLegalId = esc((seller as any)?.registerNumber);
+
+  // Note für Differenzbesteuerung (BT-22 / IncludedNote) auf Dokumentebene
+  const documentNote = margin
+    ? `<ram:IncludedNote><ram:Content>${esc("Differenzbesteuerung gemäß § 25a UStG – kein gesonderter Umsatzsteuerausweis.")}</ram:Content><ram:SubjectCode>AAI</ram:SubjectCode></ram:IncludedNote>`
+    : "";
+
   return `<?xml version="1.0" encoding="UTF-8"?>
 <rsm:CrossIndustryInvoice
   xmlns:rsm="urn:un:unece:uncefact:data:standard:CrossIndustryInvoice:100"
@@ -90,8 +104,11 @@ export const buildZugferdXml = ({
   xmlns:udt="urn:un:unece:uncefact:data:standard:UnqualifiedDataType:100"
   xmlns:qdt="urn:un:unece:uncefact:data:standard:QualifiedDataType:100">
   <rsm:ExchangedDocumentContext>
+    <ram:BusinessProcessSpecifiedDocumentContextParameter>
+      <ram:ID>urn:fdc:peppol.eu:2017:poacc:billing:01:1.0</ram:ID>
+    </ram:BusinessProcessSpecifiedDocumentContextParameter>
     <ram:GuidelineSpecifiedDocumentContextParameter>
-      <ram:ID>urn:cen.eu:en16931:2017#conformant#urn:factur-x.eu:1p0:basic</ram:ID>
+      <ram:ID>urn:cen.eu:en16931:2017#compliant#urn:factur-x.eu:1p0:basic</ram:ID>
     </ram:GuidelineSpecifiedDocumentContextParameter>
   </rsm:ExchangedDocumentContext>
   <rsm:ExchangedDocument>
@@ -100,6 +117,7 @@ export const buildZugferdXml = ({
     <ram:IssueDateTime>
       <udt:DateTimeString format="102">${invoiceDate}</udt:DateTimeString>
     </ram:IssueDateTime>
+    ${documentNote}
   </rsm:ExchangedDocument>
   <rsm:SupplyChainTradeTransaction>
     <ram:IncludedSupplyChainTradeLineItem>
@@ -129,8 +147,10 @@ export const buildZugferdXml = ({
       </ram:SpecifiedLineTradeSettlement>
     </ram:IncludedSupplyChainTradeLineItem>
     <ram:ApplicableHeaderTradeAgreement>
+      <ram:BuyerReference>${buyerReference}</ram:BuyerReference>
       <ram:SellerTradeParty>
         <ram:Name>${sellerName}</ram:Name>
+        ${sellerLegalId ? `<ram:SpecifiedLegalOrganization><ram:ID schemeID="0002">${sellerLegalId}</ram:ID></ram:SpecifiedLegalOrganization>` : ""}
         <ram:PostalTradeAddress>
           <ram:PostcodeCode>${sellerZip}</ram:PostcodeCode>
           <ram:LineOne>${sellerStreet}</ram:LineOne>
@@ -158,6 +178,10 @@ export const buildZugferdXml = ({
     </ram:ApplicableHeaderTradeDelivery>
     <ram:ApplicableHeaderTradeSettlement>
       <ram:InvoiceCurrencyCode>EUR</ram:InvoiceCurrencyCode>
+      <ram:SpecifiedTradeSettlementPaymentMeans>
+        <ram:TypeCode>58</ram:TypeCode>
+        <ram:Information>${esc("SEPA-Überweisung")}</ram:Information>
+      </ram:SpecifiedTradeSettlementPaymentMeans>
       <ram:ApplicableTradeTax>
         <ram:CalculatedAmount>${n2(taxAmount)}</ram:CalculatedAmount>
         <ram:TypeCode>VAT</ram:TypeCode>
