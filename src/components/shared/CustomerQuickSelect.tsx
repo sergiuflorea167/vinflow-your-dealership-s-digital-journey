@@ -65,6 +65,7 @@ interface QuickCreateProps {
 }
 
 const QuickCreateCustomerDialog = ({ open, onOpenChange, onCreated, addCustomer }: QuickCreateProps) => {
+  const [salutation, setSalutation] = useState<"herr" | "frau" | "firma">("herr");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -74,7 +75,7 @@ const QuickCreateCustomerDialog = ({ open, onOpenChange, onCreated, addCustomer 
   const [birthDate, setBirthDate] = useState("");
 
   const reset = () => {
-    setName(""); setEmail(""); setPhone(""); setStreet(""); setZip(""); setCity(""); setBirthDate("");
+    setSalutation("herr"); setName(""); setEmail(""); setPhone(""); setStreet(""); setZip(""); setCity(""); setBirthDate("");
   };
 
   const valid = name.trim() && city.trim();
@@ -82,6 +83,7 @@ const QuickCreateCustomerDialog = ({ open, onOpenChange, onCreated, addCustomer 
   const handleSubmit = () => {
     if (!valid) return;
     const created = addCustomer({
+      salutation,
       name: name.trim(),
       email: email.trim(),
       phone: phone.trim(),
@@ -90,10 +92,12 @@ const QuickCreateCustomerDialog = ({ open, onOpenChange, onCreated, addCustomer 
       city: city.trim(),
       birthDate: birthDate || undefined,
     });
-    toast.success(`Kunde ${created.name} angelegt.`);
+    toast.success(`${salutation === "firma" ? "Firma" : "Kunde"} ${created.name} angelegt.`);
     reset();
     onCreated(created.id);
   };
+
+  const isFirma = salutation === "firma";
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) reset(); onOpenChange(v); }}>
@@ -107,9 +111,23 @@ const QuickCreateCustomerDialog = ({ open, onOpenChange, onCreated, addCustomer 
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-3 py-2">
-          <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">Name *</Label>
-            <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Vor- und Nachname" autoFocus />
+          <div className="grid grid-cols-[140px_1fr] gap-3">
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Anrede *</Label>
+              <select
+                value={salutation}
+                onChange={(e) => setSalutation(e.target.value as "herr" | "frau" | "firma")}
+                className="w-full h-10 rounded-md border border-input bg-background/40 px-2 text-sm"
+              >
+                <option value="herr">Herr</option>
+                <option value="frau">Frau</option>
+                <option value="firma">Firma</option>
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">{isFirma ? "Firmenname *" : "Name *"}</Label>
+              <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={isFirma ? "z. B. Mustermann GmbH" : "Vor- und Nachname"} autoFocus />
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">

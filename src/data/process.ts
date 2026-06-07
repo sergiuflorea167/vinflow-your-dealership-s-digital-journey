@@ -274,8 +274,12 @@ export interface Vehicle {
 
 // ---------- Kunden ----------
 
+export type CustomerSalutation = "herr" | "frau" | "firma";
+
 export interface Customer {
   id: string;
+  /** Anrede – steuert u. a. ob im Vorgang automatisch B2B/E-Rechnung gewählt wird. */
+  salutation?: CustomerSalutation;
   name: string;
   email: string;
   phone: string;

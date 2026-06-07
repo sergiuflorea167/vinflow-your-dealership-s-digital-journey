@@ -96,6 +96,7 @@ interface State {
 
   // ------- Customer -------
   addCustomer: (c: Omit<Customer, "id">) => Customer;
+  updateCustomer: (id: string, patch: Partial<Omit<Customer, "id">>) => void;
 
   // ------- Offer -------
   addOffer: (o: Omit<Offer, "id" | "createdAt" | "status" | "customerTodos"> & { status?: Offer["status"]; customerTodos?: Offer["customerTodos"] }) => Offer;
@@ -663,6 +664,12 @@ export const useProcessStore = create<State>()(
             activities: logActivity(state, "customer_added", `Neuer Kunde ${customer.name}`, { customerId: id }),
           }));
           return customer;
+        },
+
+        updateCustomer: (id, patch) => {
+          set((state) => ({
+            customers: state.customers.map((c) => (c.id === id ? { ...c, ...patch } : c)),
+          }));
         },
 
         // ------- Offer -------

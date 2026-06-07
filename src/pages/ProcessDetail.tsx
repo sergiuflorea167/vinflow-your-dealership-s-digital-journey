@@ -70,6 +70,12 @@ const ProcessDetail = () => {
       let changed = false;
       if (!patch.invoiceNumber) { patch.invoiceNumber = nextInvoiceNumber(allProcesses); changed = true; }
       if (!patch.invoiceDate) { patch.invoiceDate = today; changed = true; }
+      // E-Rechnung automatisch aktivieren, wenn Kunde eine Firma ist und noch keine
+      // bewusste Auswahl getroffen wurde.
+      if (customer?.salutation === "firma" && patch.eInvoice === undefined) {
+        patch.eInvoice = true;
+        changed = true;
+      }
       if (changed) updateFields(process.id, { invoicing: patch });
     }
     if (selectedKey === "down_payment") {
@@ -79,11 +85,19 @@ const ProcessDetail = () => {
       if (!patch.invoiceDate) { patch.invoiceDate = today; changed = true; }
       if (changed) updateFields(process.id, { downPayment: patch });
     }
-    if (selectedKey === "purchase_contract" && !process.fields.purchaseContract?.contractNumber) {
-      updateFields(process.id, { purchaseContract: { ...process.fields.purchaseContract, contractNumber: nextContractNumber(allProcesses) } });
+    if (selectedKey === "purchase_contract") {
+      const pc: any = { ...process.fields.purchaseContract };
+      let changed = false;
+      if (!pc.contractNumber) { pc.contractNumber = nextContractNumber(allProcesses); changed = true; }
+      // Firma → automatisch B2B vorbelegen (nur wenn noch nichts gewählt).
+      if (customer?.salutation === "firma" && !pc.customerType) {
+        pc.customerType = "b2b";
+        changed = true;
+      }
+      if (changed) updateFields(process.id, { purchaseContract: pc });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedKey, process?.id, process?.fields.invoicing?.invoiceNumber, process?.fields.downPayment?.invoiceNumber, process?.fields.purchaseContract?.contractNumber]);
+  }, [selectedKey, process?.id, process?.fields.invoicing?.invoiceNumber, process?.fields.downPayment?.invoiceNumber, process?.fields.purchaseContract?.contractNumber, customer?.salutation]);
 
   const checklistDone = process?.outboundChecklist.filter((c) => c.done).length ?? 0;
   const checklistTotal = process?.outboundChecklist.length ?? 0;
