@@ -87,6 +87,26 @@ const Auth = () => {
     toast.success("Willkommen zurück!");
   };
 
+  const handleForgot = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const email = forgotEmail.trim();
+    if (!email || !email.includes("@")) {
+      toast.error("Bitte eine gültige E-Mail eingeben.");
+      return;
+    }
+    setBusy(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    setBusy(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Falls ein Konto existiert, erhältst du einen Reset-Link per E-Mail.");
+    setForgotMode(false);
+  };
+
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     const parsed = signupSchema.safeParse({
