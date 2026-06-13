@@ -37,6 +37,8 @@ const Auth = () => {
   const { session, loading: authLoading } = useAuth();
   const [tab, setTab] = useState<"login" | "signup">("login");
   const [busy, setBusy] = useState(false);
+  const [forgotMode, setForgotMode] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
 
   // login
   const [loginEmail, setLoginEmail] = useState("");
