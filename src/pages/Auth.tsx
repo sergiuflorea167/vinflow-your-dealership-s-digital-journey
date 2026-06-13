@@ -37,6 +37,8 @@ const Auth = () => {
   const { session, loading: authLoading } = useAuth();
   const [tab, setTab] = useState<"login" | "signup">("login");
   const [busy, setBusy] = useState(false);
+  const [forgotMode, setForgotMode] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
 
   // login
   const [loginEmail, setLoginEmail] = useState("");
@@ -83,6 +85,26 @@ const Auth = () => {
       return;
     }
     toast.success("Willkommen zurück!");
+  };
+
+  const handleForgot = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const email = forgotEmail.trim();
+    if (!email || !email.includes("@")) {
+      toast.error("Bitte eine gültige E-Mail eingeben.");
+      return;
+    }
+    setBusy(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    setBusy(false);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success("Falls ein Konto existiert, erhältst du einen Reset-Link per E-Mail.");
+    setForgotMode(false);
   };
 
   const handleSignup = async (e: React.FormEvent) => {
@@ -152,20 +174,49 @@ const Auth = () => {
               </TabsList>
 
               <TabsContent value="login">
-                <form onSubmit={handleLogin} className="space-y-4">
-                  <div>
-                    <Label>E-Mail</Label>
-                    <Input type="email" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} required autoComplete="email" />
-                  </div>
-                  <div>
-                    <Label>Passwort</Label>
-                    <Input type="password" value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} required autoComplete="current-password" />
-                  </div>
-                  <Button type="submit" className="w-full bg-gradient-brand" disabled={busy}>
-                    {busy ? <Loader2 className="size-4 mr-2 animate-spin" /> : <Mail className="size-4 mr-2" />}
-                    Anmelden
-                  </Button>
-                </form>
+                {forgotMode ? (
+                  <form onSubmit={handleForgot} className="space-y-4">
+                    <div>
+                      <Label>E-Mail</Label>
+                      <Input type="email" value={forgotEmail} onChange={(e) => setForgotEmail(e.target.value)} required autoComplete="email" placeholder="deine@email.de" />
+                    </div>
+                    <Button type="submit" className="w-full bg-gradient-brand" disabled={busy}>
+                      {busy ? <Loader2 className="size-4 mr-2 animate-spin" /> : <Mail className="size-4 mr-2" />}
+                      Reset-Link senden
+                    </Button>
+                    <button
+                      type="button"
+                      onClick={() => setForgotMode(false)}
+                      className="w-full text-center text-sm text-muted-foreground hover:text-foreground transition-smooth"
+                    >
+                      Zurück zum Login
+                    </button>
+                  </form>
+                ) : (
+                  <form onSubmit={handleLogin} className="space-y-4">
+                    <div>
+                      <Label>E-Mail</Label>
+                      <Input type="email" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} required autoComplete="email" />
+                    </div>
+                    <div>
+                      <Label>Passwort</Label>
+                      <Input type="password" value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} required autoComplete="current-password" />
+                    </div>
+                    <Button type="submit" className="w-full bg-gradient-brand" disabled={busy}>
+                      {busy ? <Loader2 className="size-4 mr-2 animate-spin" /> : <Mail className="size-4 mr-2" />}
+                      Anmelden
+                    </Button>
+                    <div className="text-center">
+                      <button
+                        type="button"
+                        onClick={() => setForgotMode(true)}
+                        className="text-sm text-muted-foreground hover:text-foreground transition-smooth"
+                      >
+                        Passwort vergessen?
+                      </button>
+                    </div>
+                  </form>
+                )}
               </TabsContent>
 
               <TabsContent value="signup">

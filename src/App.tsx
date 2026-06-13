@@ -19,6 +19,7 @@ import Calendar from "./pages/Calendar.tsx";
 import Stammdaten from "./pages/Stammdaten.tsx";
 import CustomerTracking from "./pages/CustomerTracking.tsx";
 import Auth from "./pages/Auth.tsx";
+import ResetPassword from "./pages/ResetPassword.tsx";
 import { TopbarSearchProvider } from "./context/TopbarSearchContext";
 import { KpiRangeProvider } from "./context/KpiRangeContext";
 import { AuthProvider } from "./context/AuthContext";
@@ -50,6 +51,7 @@ const App = () => (
         <AuthProvider>
           <Routes>
             <Route path="/auth" element={<Auth />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/track/:token" element={<CustomerTracking />} />
 
             <Route path="/" element={<Protected><Index /></Protected>} />
