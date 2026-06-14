@@ -55,11 +55,20 @@ const Auth = () => {
   const [inviteCode, setInviteCode] = useState("");
 
   useEffect(() => {
+    const isRecoveryLink =
+      new URLSearchParams(window.location.hash.replace(/^#/, "")).get("type") === "recovery" ||
+      new URLSearchParams(location.search).get("type") === "recovery";
+
+    if (isRecoveryLink) {
+      navigate(`/reset-password${location.search}${window.location.hash}`, { replace: true });
+      return;
+    }
+
     if (!authLoading && session) {
       const from = (location.state as { from?: string } | null)?.from ?? "/";
       navigate(from, { replace: true });
     }
-  }, [session, authLoading, navigate, location.state]);
+  }, [session, authLoading, navigate, location.state, location.search]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
