@@ -299,25 +299,36 @@ export const FIELD_DEFS: FieldDef[] = [
     get: (v) => v.color, set: (a, raw) => { a.color = String(raw ?? "").trim(); } },
   { key: "mileage", header: "Kilometer", group: "tech", defaultEnabled: true,
     get: (v) => v.mileage, set: (a, raw) => { a.mileage = num(raw); },
-    aliases: ["km", "laufleistung"] },
+    aliases: ["km", "laufleistung", "km-stand", "kmstand", "km stand"] },
   { key: "fuel", header: "Kraftstoff", group: "tech", defaultEnabled: true,
     get: (v) => v.fuel,
     set: (a, raw) => {
-      const s = String(raw ?? "").trim();
-      a.fuel = FUEL_VALUES.find((f) => f.toLowerCase() === s.toLowerCase()) ?? "Benzin";
-    } },
+      const s = String(raw ?? "").trim().toLowerCase();
+      a.fuel = FUEL_VALUES.find((f) => f.toLowerCase() === s) ?? "Benzin";
+    },
+    aliases: ["kraftstoffart", "treibstoff"] },
   { key: "transmission", header: "Getriebe", group: "tech", defaultEnabled: true,
     get: (v) => v.transmission,
     set: (a, raw) => {
-      const s = String(raw ?? "").trim();
-      a.transmission = TRANS_VALUES.find((t) => t.toLowerCase() === s.toLowerCase()) ?? "Automatik";
+      const s = String(raw ?? "").trim().toLowerCase();
+      if (["schalter", "manuell", "manual"].includes(s)) { a.transmission = "Schaltgetriebe"; return; }
+      if (["automat", "auto"].includes(s)) { a.transmission = "Automatik"; return; }
+      a.transmission = TRANS_VALUES.find((t) => t.toLowerCase() === s) ?? "Automatik";
     } },
   { key: "power_hp", header: "Leistung (PS)", group: "tech", defaultEnabled: true,
     get: (v) => v.power_hp, set: (a, raw) => { a.power_hp = num(raw); },
     aliases: ["ps", "leistung"] },
   { key: "firstRegistration", header: "Erstzulassung", group: "datum", defaultEnabled: true,
     get: (v) => v.firstRegistration ?? "",
-    set: (a, raw) => { a.firstRegistration = String(raw ?? "").trim(); },
+    set: (a, raw) => {
+      const s = String(raw ?? "").trim();
+      // Nur Jahr (z.B. "2010") → 01.01.2010
+      if (/^\d{4}$/.test(s)) a.firstRegistration = `01.01.${s}`;
+      else a.firstRegistration = s;
+      // Baujahr aus EZ ableiten, falls separat fehlend
+      const y = s.match(/(\d{4})/);
+      if (y && !a.year) a.year = Number(y[1]);
+    },
     aliases: ["ez", "erstzulassung-datum"] },
   { key: "hu", header: "HU/TÜV gültig bis", group: "datum", defaultEnabled: true,
     get: (v) => v.hu ?? "", set: (a, raw) => { a.hu = String(raw ?? "").trim() || undefined; },
