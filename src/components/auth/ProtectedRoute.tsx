@@ -5,6 +5,13 @@ import { useAuth } from "@/context/AuthContext";
 export const ProtectedRoute = ({ children }: { children: ReactNode }) => {
   const { session, loading } = useAuth();
   const location = useLocation();
+  const isRecoveryLink =
+    new URLSearchParams(window.location.hash.replace(/^#/, "")).get("type") === "recovery" ||
+    new URLSearchParams(location.search).get("type") === "recovery";
+
+  if (isRecoveryLink) {
+    return <Navigate to={`/reset-password${location.search}${window.location.hash}`} replace />;
+  }
 
   if (loading) {
     return (
