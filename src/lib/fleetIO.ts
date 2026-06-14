@@ -341,10 +341,10 @@ export const FIELD_DEFS: FieldDef[] = [
   // --- Preis ---
   { key: "purchasePrice", header: "Einkaufspreis (EUR)", group: "preis", defaultEnabled: true,
     get: (v) => v.purchasePrice, set: (a, raw) => { a.purchasePrice = num(raw); },
-    aliases: ["ek", "einkauf"] },
+    aliases: ["ek", "einkauf", "ek preis", "einkaufspreis"] },
   { key: "listPrice", header: "Listenpreis (EUR)", group: "preis", defaultEnabled: true,
     get: (v) => v.listPrice, set: (a, raw) => { a.listPrice = num(raw); },
-    aliases: ["vk", "listenpreis"] },
+    aliases: ["vk", "listenpreis", "vk preis"] },
   { key: "vatReportable", header: "Besteuerung", group: "preis", defaultEnabled: true,
     get: (v) => (v.vatReportable ? "Regelbesteuerung" : "Differenzbesteuerung"),
     set: (a, raw) => {
@@ -374,7 +374,7 @@ export const FIELD_DEFS: FieldDef[] = [
       if (["sold", "verkauft"].includes(s)) a.status = "sold";
       else if (["reserved", "reserviert"].includes(s)) a.status = "reserved";
       else if (["planned", "geplant"].includes(s)) a.status = "planned";
-      else if (["in_stock", "bestand", "im bestand"].includes(s)) a.status = "in_stock";
+      else if (["in_stock", "bestand", "im bestand", "verfügbar", "verfuegbar", "auf lager"].includes(s)) a.status = "in_stock";
     } },
   { key: "listed", header: "Inseriert", group: "status", defaultEnabled: true,
     get: (v) => (v.listed?.active ? "WAHR" : "FALSCH"),
