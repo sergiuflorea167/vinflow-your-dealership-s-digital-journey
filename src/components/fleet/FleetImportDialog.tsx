@@ -134,7 +134,7 @@ export const FleetImportDialog = ({ open, onOpenChange, defaultLocation, onImpor
                   <FileText className="size-3.5" /> CSV
                 </Button>
                 <span className="text-muted-foreground ml-2">
-                  Pflichtfelder: <span className="text-foreground">VIN, Marke, Modell</span>. Datumsfelder (Kauf-, Inserats-, Verkaufsdatum) und <span className="text-foreground">Verkauft (WAHR/FALSCH)</span> werden unterstützt.
+                  Pflichtfelder: <span className="text-foreground">Marke, Modell</span>. Fehlt eine VIN, wird automatisch ein Platzhalter erzeugt (du kannst die VIN später nachtragen). Zweizeilige Header (EK/VK-Gruppen) werden automatisch erkannt.
                 </span>
               </div>
             </>

@@ -65,34 +65,74 @@ const writeXlsxBuffer = async (
   return await wb.xlsx.writeBuffer();
 };
 
+const GENERIC_SUBHEADERS = new Set(["datum", "preis", "€", "%", "betrag", "summe", "wert"]);
+
+const cellToString = (v: unknown): string => {
+  if (v == null) return "";
+  if (v instanceof Date) return v.toISOString().slice(0, 10);
+  if (typeof v === "object") {
+    const o = v as Record<string, unknown>;
+    if ("text" in o) return String(o.text ?? "");
+    if ("result" in o) return String(o.result ?? "");
+    return String(v);
+  }
+  return String(v);
+};
+
 const readXlsxRows = async (buf: ArrayBuffer): Promise<Record<string, string>[]> => {
   const wb = new ExcelJS.Workbook();
   await wb.xlsx.load(buf);
   const ws = wb.worksheets[0];
   if (!ws) return [];
-  const headerRow = ws.getRow(1);
+
+  const row1 = ws.getRow(1);
+  const row2 = ws.getRow(2);
+  const colCount = ws.columnCount;
+  const r1: string[] = [];
+  const r2: string[] = [];
+  for (let c = 1; c <= colCount; c++) {
+    r1.push(cellToString(row1.getCell(c).value).trim());
+    r2.push(cellToString(row2.getCell(c).value).trim());
+  }
+  const r1Filled = r1.filter(Boolean).length;
+  const r2Filled = r2.filter(Boolean).length;
+  // Heuristik: Zweizeiliger Header, wenn Zeile 2 erkennbar mehr Spalten füllt
+  // als Zeile 1 (Zeile 1 = nur Gruppen-Labels wie EK / VK / Marge).
+  const twoRowHeader = r2Filled > r1Filled && r2Filled >= colCount / 2;
+
   const headers: string[] = [];
-  headerRow.eachCell({ includeEmpty: false }, (cell, col) => {
-    headers[col - 1] = String(cell.value ?? "").trim();
+  if (twoRowHeader) {
+    // Gruppen-Label aus Zeile 1 nach rechts „forwarden“, bis nächstes Label kommt.
+    let currentGroup = "";
+    for (let c = 0; c < colCount; c++) {
+      if (r1[c]) currentGroup = r1[c];
+      const sub = r2[c];
+      if (!sub) { headers[c] = ""; continue; }
+      // Generische Sub-Header mit Gruppe prefixen (z.B. EK Datum, VK Preis).
+      const isGeneric = GENERIC_SUBHEADERS.has(sub.toLowerCase());
+      headers[c] = isGeneric && currentGroup ? `${currentGroup} ${sub}` : sub;
+    }
+  } else {
+    for (let c = 0; c < colCount; c++) headers[c] = r1[c];
+  }
+  // Duplikate eindeutig machen
+  const seen = new Map<string, number>();
+  headers.forEach((h, i) => {
+    if (!h) return;
+    const n = seen.get(h) ?? 0;
+    if (n > 0) headers[i] = `${h} (${n + 1})`;
+    seen.set(h, n + 1);
   });
+
+  const firstData = twoRowHeader ? 3 : 2;
   const out: Record<string, string>[] = [];
-  for (let r = 2; r <= ws.rowCount; r++) {
+  for (let r = firstData; r <= ws.rowCount; r++) {
     const row = ws.getRow(r);
     const obj: Record<string, string> = {};
     let any = false;
     headers.forEach((h, i) => {
       if (!h) return;
-      const v = row.getCell(i + 1).value as unknown;
-      let s = "";
-      if (v == null) s = "";
-      else if (v instanceof Date) s = v.toISOString().slice(0, 10);
-      else if (typeof v === "object") {
-        const obj = v as Record<string, unknown>;
-        if ("text" in obj) s = String(obj.text ?? "");
-        else if ("result" in obj) s = String(obj.result ?? "");
-        else s = String(v);
-      }
-      else s = String(v);
+      const s = cellToString(row.getCell(i + 1).value);
       obj[h] = s;
       if (s !== "") any = true;
     });
@@ -259,25 +299,36 @@ export const FIELD_DEFS: FieldDef[] = [
     get: (v) => v.color, set: (a, raw) => { a.color = String(raw ?? "").trim(); } },
   { key: "mileage", header: "Kilometer", group: "tech", defaultEnabled: true,
     get: (v) => v.mileage, set: (a, raw) => { a.mileage = num(raw); },
-    aliases: ["km", "laufleistung"] },
+    aliases: ["km", "laufleistung", "km-stand", "kmstand", "km stand"] },
   { key: "fuel", header: "Kraftstoff", group: "tech", defaultEnabled: true,
     get: (v) => v.fuel,
     set: (a, raw) => {
-      const s = String(raw ?? "").trim();
-      a.fuel = FUEL_VALUES.find((f) => f.toLowerCase() === s.toLowerCase()) ?? "Benzin";
-    } },
+      const s = String(raw ?? "").trim().toLowerCase();
+      a.fuel = FUEL_VALUES.find((f) => f.toLowerCase() === s) ?? "Benzin";
+    },
+    aliases: ["kraftstoffart", "treibstoff"] },
   { key: "transmission", header: "Getriebe", group: "tech", defaultEnabled: true,
     get: (v) => v.transmission,
     set: (a, raw) => {
-      const s = String(raw ?? "").trim();
-      a.transmission = TRANS_VALUES.find((t) => t.toLowerCase() === s.toLowerCase()) ?? "Automatik";
+      const s = String(raw ?? "").trim().toLowerCase();
+      if (["schalter", "manuell", "manual"].includes(s)) { a.transmission = "Schaltgetriebe"; return; }
+      if (["automat", "auto"].includes(s)) { a.transmission = "Automatik"; return; }
+      a.transmission = TRANS_VALUES.find((t) => t.toLowerCase() === s) ?? "Automatik";
     } },
   { key: "power_hp", header: "Leistung (PS)", group: "tech", defaultEnabled: true,
     get: (v) => v.power_hp, set: (a, raw) => { a.power_hp = num(raw); },
     aliases: ["ps", "leistung"] },
   { key: "firstRegistration", header: "Erstzulassung", group: "datum", defaultEnabled: true,
     get: (v) => v.firstRegistration ?? "",
-    set: (a, raw) => { a.firstRegistration = String(raw ?? "").trim(); },
+    set: (a, raw) => {
+      const s = String(raw ?? "").trim();
+      // Nur Jahr (z.B. "2010") → 01.01.2010
+      if (/^\d{4}$/.test(s)) a.firstRegistration = `01.01.${s}`;
+      else a.firstRegistration = s;
+      // Baujahr aus EZ ableiten, falls separat fehlend
+      const y = s.match(/(\d{4})/);
+      if (y && !a.year) a.year = Number(y[1]);
+    },
     aliases: ["ez", "erstzulassung-datum"] },
   { key: "hu", header: "HU/TÜV gültig bis", group: "datum", defaultEnabled: true,
     get: (v) => v.hu ?? "", set: (a, raw) => { a.hu = String(raw ?? "").trim() || undefined; },
@@ -290,10 +341,10 @@ export const FIELD_DEFS: FieldDef[] = [
   // --- Preis ---
   { key: "purchasePrice", header: "Einkaufspreis (EUR)", group: "preis", defaultEnabled: true,
     get: (v) => v.purchasePrice, set: (a, raw) => { a.purchasePrice = num(raw); },
-    aliases: ["ek", "einkauf"] },
+    aliases: ["ek", "einkauf", "ek preis", "einkaufspreis"] },
   { key: "listPrice", header: "Listenpreis (EUR)", group: "preis", defaultEnabled: true,
     get: (v) => v.listPrice, set: (a, raw) => { a.listPrice = num(raw); },
-    aliases: ["vk", "listenpreis"] },
+    aliases: ["vk", "listenpreis", "vk preis"] },
   { key: "vatReportable", header: "Besteuerung", group: "preis", defaultEnabled: true,
     get: (v) => (v.vatReportable ? "Regelbesteuerung" : "Differenzbesteuerung"),
     set: (a, raw) => {
@@ -323,7 +374,7 @@ export const FIELD_DEFS: FieldDef[] = [
       if (["sold", "verkauft"].includes(s)) a.status = "sold";
       else if (["reserved", "reserviert"].includes(s)) a.status = "reserved";
       else if (["planned", "geplant"].includes(s)) a.status = "planned";
-      else if (["in_stock", "bestand", "im bestand"].includes(s)) a.status = "in_stock";
+      else if (["in_stock", "bestand", "im bestand", "verfügbar", "verfuegbar", "auf lager"].includes(s)) a.status = "in_stock";
     } },
   { key: "listed", header: "Inseriert", group: "status", defaultEnabled: true,
     get: (v) => (v.listed?.active ? "WAHR" : "FALSCH"),
@@ -337,7 +388,7 @@ export const FIELD_DEFS: FieldDef[] = [
   { key: "purchaseDate", header: "Kaufdatum", group: "datum", defaultEnabled: true,
     get: (v) => (v.arrivedAt ? v.arrivedAt.slice(0, 10) : ""),
     set: (a, raw) => { a.arrivedAt = parseDate(raw); },
-    aliases: ["zugang", "zugang am", "einkaufsdatum", "ankauf", "ankaufsdatum"] },
+    aliases: ["zugang", "zugang am", "einkaufsdatum", "ankauf", "ankaufsdatum", "ek datum"] },
   { key: "listedAt", header: "Inseratsdatum", group: "datum", defaultEnabled: true,
     get: (v) => (v.listed?.listedAt ? v.listed.listedAt.slice(0, 10) : ""),
     set: (a, raw) => { a.listedAt = parseDate(raw); },
@@ -515,7 +566,15 @@ const parseRow = (
   defaultLocation: string,
 ): ImportRow => {
   const acc: ImportAccumulator = {};
+  let legacyNumber: string | undefined;
   Object.entries(raw).forEach(([sourceHeader, value]) => {
+    // Verkaufsdatum-Spalten überspringen (laut Anwender ignorieren)
+    if (/verkaufsdatum/i.test(sourceHeader)) return;
+    // Fahrzeugnr. als Platzhalter für fehlende VIN merken
+    if (/^fahrzeug(nr|nummer)\.?$/i.test(sourceHeader.trim())) {
+      if (value != null && value !== "") legacyNumber = String(value).trim();
+      return;
+    }
     const fieldKey = mapping[sourceHeader];
     if (!fieldKey) return;
     const def = getFieldByKey(fieldKey);
@@ -524,8 +583,22 @@ const parseRow = (
     def.set(acc, value);
   });
 
+  // Make/Model trimmen + Kapitalisierung normalisieren (z.B. "Vw ", "Bmw ")
+  const titleCase = (s: string) =>
+    s.trim().split(/\s+/).map((w) => {
+      const u = w.toUpperCase();
+      if (["BMW","VW","DS","KTM","MG","SEAT"].includes(u)) return u;
+      return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+    }).join(" ");
+  if (acc.make) acc.make = titleCase(acc.make);
+
+  // VIN-Platzhalter, wenn keine echte VIN vorhanden ist
+  if (!acc.vin || acc.vin.length < 11) {
+    const ref = legacyNumber || String(rowNumber);
+    acc.vin = `LEGACY-${ref.padStart(6, "0")}`;
+  }
+
   const errors: string[] = [];
-  if (!acc.vin || acc.vin.length < 11) errors.push("VIN fehlt oder zu kurz (min. 11 Zeichen)");
   if (!acc.make) errors.push("Marke fehlt");
   if (!acc.model) errors.push("Modell fehlt");
   if (errors.length > 0) return { rowNumber, errors };
