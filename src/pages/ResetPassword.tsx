@@ -8,22 +8,53 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { toast } from "sonner";
 import { Loader2, KeyRound } from "lucide-react";
 
+const getRecoveryParams = () => {
+  const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
+  const searchParams = new URLSearchParams(window.location.search);
+  return {
+    isRecovery: hashParams.get("type") === "recovery" || searchParams.get("type") === "recovery",
+    accessToken: hashParams.get("access_token") ?? searchParams.get("access_token"),
+    refreshToken: hashParams.get("refresh_token") ?? searchParams.get("refresh_token"),
+  };
+};
+
 const ResetPassword = () => {
   const navigate = useNavigate();
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [busy, setBusy] = useState(false);
-  const [validSession, setValidSession] = useState(false);
+  const [checkingLink, setCheckingLink] = useState(true);
+  const [canReset, setCanReset] = useState(false);
 
   useEffect(() => {
-    const hash = window.location.hash;
-    if (hash.includes("type=recovery")) {
-      setValidSession(true);
-    } else {
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        if (session) setValidSession(true);
-      });
-    }
+    const prepareReset = async () => {
+      const { isRecovery, accessToken, refreshToken } = getRecoveryParams();
+
+      if (isRecovery && accessToken && refreshToken) {
+        const { error } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        });
+
+        if (error) {
+          toast.error("Der Reset-Link ist ungültig oder abgelaufen.");
+          setCanReset(false);
+          setCheckingLink(false);
+          return;
+        }
+
+        window.history.replaceState(null, "", "/reset-password");
+        setCanReset(true);
+        setCheckingLink(false);
+        return;
+      }
+
+      const { data: { session } } = await supabase.auth.getSession();
+      setCanReset(Boolean(session));
+      setCheckingLink(false);
+    };
+
+    void prepareReset();
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -66,7 +97,11 @@ const ResetPassword = () => {
             <CardDescription>Lege ein neues Passwort für dein Konto fest.</CardDescription>
           </CardHeader>
           <CardContent>
-            {validSession ? (
+            {checkingLink ? (
+              <div className="grid place-items-center py-8">
+                <Loader2 className="size-6 animate-spin text-primary" />
+              </div>
+            ) : canReset ? (
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                   <Label>Neues Passwort</Label>
@@ -98,7 +133,7 @@ const ResetPassword = () => {
             ) : (
               <div className="text-center py-6">
                 <p className="text-muted-foreground mb-4">
-                  Dieser Link ist ungültig oder abgelaufen.
+                  Dieser Reset-Link ist ungültig oder abgelaufen. Bitte fordere einen neuen Link an.
                 </p>
                 <Button variant="outline" onClick={() => navigate("/auth")}>
                   Zurück zum Login
