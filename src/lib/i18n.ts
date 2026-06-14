@@ -34,7 +34,7 @@ const DE: Dict = {
 
   // Greetings
   "greeting.morning": "Guten Morgen",
-  "greeting.day": "Guten Tag",
+  "greeting.day": "Hallo",
   "greeting.evening": "Guten Abend",
   "greeting.welcomeBack": "Willkommen zurück",
 
