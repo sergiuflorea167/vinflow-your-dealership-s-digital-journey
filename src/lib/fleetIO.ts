@@ -566,7 +566,15 @@ const parseRow = (
   defaultLocation: string,
 ): ImportRow => {
   const acc: ImportAccumulator = {};
+  let legacyNumber: string | undefined;
   Object.entries(raw).forEach(([sourceHeader, value]) => {
+    // Verkaufsdatum-Spalten überspringen (laut Anwender ignorieren)
+    if (/verkaufsdatum/i.test(sourceHeader)) return;
+    // Fahrzeugnr. als Platzhalter für fehlende VIN merken
+    if (/^fahrzeug(nr|nummer)\.?$/i.test(sourceHeader.trim())) {
+      if (value != null && value !== "") legacyNumber = String(value).trim();
+      return;
+    }
     const fieldKey = mapping[sourceHeader];
     if (!fieldKey) return;
     const def = getFieldByKey(fieldKey);
@@ -575,8 +583,22 @@ const parseRow = (
     def.set(acc, value);
   });
 
+  // Make/Model trimmen + Kapitalisierung normalisieren (z.B. "Vw ", "Bmw ")
+  const titleCase = (s: string) =>
+    s.trim().split(/\s+/).map((w) => {
+      const u = w.toUpperCase();
+      if (["BMW","VW","DS","KTM","MG","SEAT"].includes(u)) return u;
+      return w.charAt(0).toUpperCase() + w.slice(1).toLowerCase();
+    }).join(" ");
+  if (acc.make) acc.make = titleCase(acc.make);
+
+  // VIN-Platzhalter, wenn keine echte VIN vorhanden ist
+  if (!acc.vin || acc.vin.length < 11) {
+    const ref = legacyNumber || String(rowNumber);
+    acc.vin = `LEGACY-${ref.padStart(6, "0")}`;
+  }
+
   const errors: string[] = [];
-  if (!acc.vin || acc.vin.length < 11) errors.push("VIN fehlt oder zu kurz (min. 11 Zeichen)");
   if (!acc.make) errors.push("Marke fehlt");
   if (!acc.model) errors.push("Modell fehlt");
   if (errors.length > 0) return { rowNumber, errors };
