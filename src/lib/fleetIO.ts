@@ -388,7 +388,7 @@ export const FIELD_DEFS: FieldDef[] = [
   { key: "purchaseDate", header: "Kaufdatum", group: "datum", defaultEnabled: true,
     get: (v) => (v.arrivedAt ? v.arrivedAt.slice(0, 10) : ""),
     set: (a, raw) => { a.arrivedAt = parseDate(raw); },
-    aliases: ["zugang", "zugang am", "einkaufsdatum", "ankauf", "ankaufsdatum"] },
+    aliases: ["zugang", "zugang am", "einkaufsdatum", "ankauf", "ankaufsdatum", "ek datum"] },
   { key: "listedAt", header: "Inseratsdatum", group: "datum", defaultEnabled: true,
     get: (v) => (v.listed?.listedAt ? v.listed.listedAt.slice(0, 10) : ""),
     set: (a, raw) => { a.listedAt = parseDate(raw); },
