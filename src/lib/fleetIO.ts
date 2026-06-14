@@ -65,34 +65,74 @@ const writeXlsxBuffer = async (
   return await wb.xlsx.writeBuffer();
 };
 
+const GENERIC_SUBHEADERS = new Set(["datum", "preis", "€", "%", "betrag", "summe", "wert"]);
+
+const cellToString = (v: unknown): string => {
+  if (v == null) return "";
+  if (v instanceof Date) return v.toISOString().slice(0, 10);
+  if (typeof v === "object") {
+    const o = v as Record<string, unknown>;
+    if ("text" in o) return String(o.text ?? "");
+    if ("result" in o) return String(o.result ?? "");
+    return String(v);
+  }
+  return String(v);
+};
+
 const readXlsxRows = async (buf: ArrayBuffer): Promise<Record<string, string>[]> => {
   const wb = new ExcelJS.Workbook();
   await wb.xlsx.load(buf);
   const ws = wb.worksheets[0];
   if (!ws) return [];
-  const headerRow = ws.getRow(1);
+
+  const row1 = ws.getRow(1);
+  const row2 = ws.getRow(2);
+  const colCount = ws.columnCount;
+  const r1: string[] = [];
+  const r2: string[] = [];
+  for (let c = 1; c <= colCount; c++) {
+    r1.push(cellToString(row1.getCell(c).value).trim());
+    r2.push(cellToString(row2.getCell(c).value).trim());
+  }
+  const r1Filled = r1.filter(Boolean).length;
+  const r2Filled = r2.filter(Boolean).length;
+  // Heuristik: Zweizeiliger Header, wenn Zeile 2 erkennbar mehr Spalten füllt
+  // als Zeile 1 (Zeile 1 = nur Gruppen-Labels wie EK / VK / Marge).
+  const twoRowHeader = r2Filled > r1Filled && r2Filled >= colCount / 2;
+
   const headers: string[] = [];
-  headerRow.eachCell({ includeEmpty: false }, (cell, col) => {
-    headers[col - 1] = String(cell.value ?? "").trim();
+  if (twoRowHeader) {
+    // Gruppen-Label aus Zeile 1 nach rechts „forwarden“, bis nächstes Label kommt.
+    let currentGroup = "";
+    for (let c = 0; c < colCount; c++) {
+      if (r1[c]) currentGroup = r1[c];
+      const sub = r2[c];
+      if (!sub) { headers[c] = ""; continue; }
+      // Generische Sub-Header mit Gruppe prefixen (z.B. EK Datum, VK Preis).
+      const isGeneric = GENERIC_SUBHEADERS.has(sub.toLowerCase());
+      headers[c] = isGeneric && currentGroup ? `${currentGroup} ${sub}` : sub;
+    }
+  } else {
+    for (let c = 0; c < colCount; c++) headers[c] = r1[c];
+  }
+  // Duplikate eindeutig machen
+  const seen = new Map<string, number>();
+  headers.forEach((h, i) => {
+    if (!h) return;
+    const n = seen.get(h) ?? 0;
+    if (n > 0) headers[i] = `${h} (${n + 1})`;
+    seen.set(h, n + 1);
   });
+
+  const firstData = twoRowHeader ? 3 : 2;
   const out: Record<string, string>[] = [];
-  for (let r = 2; r <= ws.rowCount; r++) {
+  for (let r = firstData; r <= ws.rowCount; r++) {
     const row = ws.getRow(r);
     const obj: Record<string, string> = {};
     let any = false;
     headers.forEach((h, i) => {
       if (!h) return;
-      const v = row.getCell(i + 1).value as unknown;
-      let s = "";
-      if (v == null) s = "";
-      else if (v instanceof Date) s = v.toISOString().slice(0, 10);
-      else if (typeof v === "object") {
-        const obj = v as Record<string, unknown>;
-        if ("text" in obj) s = String(obj.text ?? "");
-        else if ("result" in obj) s = String(obj.result ?? "");
-        else s = String(v);
-      }
-      else s = String(v);
+      const s = cellToString(row.getCell(i + 1).value);
       obj[h] = s;
       if (s !== "") any = true;
     });
