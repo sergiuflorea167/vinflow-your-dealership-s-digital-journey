@@ -63,8 +63,13 @@ export const DashboardHero = ({ activeCount, todoCount, eventCount }: Props) => 
             </div>
 
             <h1 className="font-display font-bold tracking-tight leading-[1.05] text-foreground text-2xl lg:text-3xl">
-              <span className="text-muted-foreground/90 font-semibold">{greeting}, </span>
-              <span>{firstName}.</span>
+              <span className="text-muted-foreground/90 font-semibold">{greeting} </span>
+              <span className="relative inline-flex">
+                <span className="relative z-10 bg-gradient-to-r from-foreground via-primary-glow to-foreground bg-clip-text text-transparent">
+                  {firstName}
+                </span>
+                <span className="absolute inset-x-0 bottom-0 h-2 rounded-full bg-primary/20 blur-sm" />
+              </span>
             </h1>
 
             <p className="text-sm text-muted-foreground leading-relaxed max-w-xl">
