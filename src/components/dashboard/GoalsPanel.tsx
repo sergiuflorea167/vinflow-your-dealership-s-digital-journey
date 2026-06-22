@@ -70,20 +70,19 @@ const computeGoalProgress = (
   // Anlege-Zeitpunkt ein).
   const { start, end } = periodRange(goal.period);
 
-  // Umsatz/Marge/Stück zählen erst, wenn die Rechnung gestellt & gebucht
-  // wurde (Step "Rechnungsstellung" = Pipeline Step 5). Vorher ist es noch
-  // kein realisierter Umsatz.
-  const invoiced = ctx.processes.filter((p) => {
-    const rec = p.steps.invoicing;
+  // Ziele zählen Verkäufe zum Zeitpunkt der Übergabe. Das entspricht der KPI-
+  // Logik und verhindert, dass noch nicht ausgelieferte Rechnungen Ziel-Fortschritt erzeugen.
+  const delivered = ctx.processes.filter((p) => {
+    const rec = p.steps.delivery_confirmation;
     if (!rec || rec.status !== "completed" || !rec.completedAt) return false;
     const t = new Date(rec.completedAt);
     return t >= start && t <= end;
   });
 
-  if (goal.metric === "vehicles_sold") return invoiced.length;
-  if (goal.metric === "revenue") return invoiced.reduce((s, p) => s + (p.fields.finalPrice ?? 0), 0);
+  if (goal.metric === "vehicles_sold") return delivered.length;
+  if (goal.metric === "revenue") return delivered.reduce((s, p) => s + (p.fields.finalPrice ?? 0), 0);
 
-  return invoiced.reduce((s, p) => {
+  return delivered.reduce((s, p) => {
     const v = ctx.vehicles.find((x) => x.id === p.vehicleId);
     if (!v) return s;
     const ek = v.purchasePrice + vehicleTotalCostsGross(v);
@@ -96,7 +95,13 @@ const computeGoalProgress = (
 const formatValue = (metric: GoalMetric, value: number) =>
   metric === "vehicles_sold" ? `${Math.round(value)}` : formatCurrency(value);
 
-type EnrichedGoal = { goal: Goal; value: number; pct: number };
+type EnrichedGoal = {
+  goal: Goal;
+  value: number;
+  pct: number;
+  rawPct: number;
+  range: { start: Date; end: Date };
+};
 
 const daysLeft = (endISO: string) => {
   const ms = new Date(endISO).getTime() - Date.now();
@@ -144,7 +149,7 @@ const personalizedMotivation = (enriched: EnrichedGoal[], firstName: string | un
     focus.goal.metric === "vehicles_sold"
       ? `${Math.ceil(remainingNum)} Fahrzeug${Math.ceil(remainingNum) === 1 ? "" : "e"}`
       : formatCurrency(remainingNum);
-  const days = daysLeft(focus.goal.endDate);
+  const days = daysLeft(focus.range.end.toISOString());
   const dayWord = `${days} Tag${days === 1 ? "" : "e"}`;
   const period = periodNoun(focus.goal.period);
   const pctR = Math.round(focus.pct);
@@ -232,10 +237,11 @@ export const GoalsPanel = () => {
   const enriched = useMemo(
     () =>
       goals.map((g) => {
+        const range = periodRange(g.period);
         const value = computeGoalProgress(g, { processes, vehicles });
         const rawPct = g.target > 0 ? (value / g.target) * 100 : 0;
         const pct = Math.min(100, rawPct);
-        return { goal: g, value, pct, rawPct };
+        return { goal: g, value, pct, rawPct, range };
       }),
     [goals, processes, vehicles]
   );
@@ -261,7 +267,7 @@ export const GoalsPanel = () => {
         target.goal.metric === "vehicles_sold"
           ? `${Math.ceil(remaining)} Fahrzeuge`
           : formatCurrency(remaining);
-      prompt = `Hilf mir, mein Ziel "${target.goal.label}" zu erreichen. Aktuell ${Math.round(target.pct)} % – es fehlen noch ${remStr} bis ${formatDate(target.goal.endDate)}. Was sollte ich konkret in den nächsten Tagen tun? Schau auf meinen Bestand (Standzeit, Marge), offene Vorgänge und To-Dos und gib mir 3–5 priorisierte Aktionen.`;
+      prompt = `Hilf mir, mein Ziel "${target.goal.label}" zu erreichen. Aktuell ${Math.round(target.pct)} % – es fehlen noch ${remStr} bis ${formatDate(target.range.end.toISOString())}. Was sollte ich konkret in den nächsten Tagen tun? Schau auf meinen Bestand (Standzeit, Marge), offene Vorgänge und To-Dos und gib mir 3–5 priorisierte Aktionen.`;
     }
     window.dispatchEvent(new CustomEvent("vincent:open", { detail: { prompt } }));
   };
@@ -281,13 +287,12 @@ export const GoalsPanel = () => {
 
   return (
     <Card className="relative overflow-hidden bg-gradient-surface border-primary/20 shadow-elegant ring-1 ring-primary/10">
-      {/* Background flair */}
       <div className="absolute inset-0 bg-gradient-glow pointer-events-none opacity-80" />
       <div className="absolute -top-20 -right-20 size-80 rounded-full bg-primary/10 blur-3xl pointer-events-none" />
       <div className="absolute -bottom-24 -left-16 size-72 rounded-full bg-primary-glow/10 blur-3xl pointer-events-none" />
 
+
       <div className="relative p-6 lg:p-8">
-        {/* Hero header */}
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="flex items-start gap-4 min-w-0">
             <button
@@ -403,7 +408,7 @@ export const GoalsPanel = () => {
                         </SelectContent>
                       </Select>
                     </div>
-                  </div>
+                 </div>
                   <div>
                     <Label className="text-xs">{t("goals.target")} {metric === "vehicles_sold" ? "(#)" : "(€)"}</Label>
                     <Input
@@ -434,7 +439,6 @@ export const GoalsPanel = () => {
           </div>
         </div>
 
-        {/* Collapsed mini-bar */}
         {collapsed && enriched.length > 0 && (
           <div className="relative mt-5 flex items-center gap-3">
             <Progress value={avgPct} className="h-2 flex-1" />
@@ -442,7 +446,6 @@ export const GoalsPanel = () => {
           </div>
         )}
 
-        {/* Expanded goals */}
         {!collapsed && (
           <div className="relative mt-6">
             {enriched.length === 0 ? (
@@ -455,14 +458,14 @@ export const GoalsPanel = () => {
               </div>
             ) : (
               <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {enriched.map(({ goal, value, pct, rawPct }) => {
+                {enriched.map(({ goal, value, pct, rawPct, range }) => {
                   const reached = rawPct >= 100;
                   const crushed = rawPct >= 110;
                   return (
                     <div
                       key={goal.id}
                       className={cn(
-                        "group relative rounded-2xl p-[1.5px] transition-smooth",
+                        "group relative rounded-2xl p[[1.5px] transition-smooth",
                         crushed
                           ? "bg-gradient-to-br from-emerald-500/50 to-primary/50 shadow-[0_0_24px_-8px_hsl(var(--primary)/0.35)]"
                           : reached
@@ -470,7 +473,7 @@ export const GoalsPanel = () => {
                           : "bg-border hover:bg-primary/40"
                       )}
                     >
-                    <div className="relative rounded-[14px] bg-card p-5 overflow-hidden">
+                    <div className="relative rounded[14px] bg-card p-5 overflow-hidden">
                       {crushed && (
                         <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-emerald-500/[0.08] to-primary/[0.08]" />
                       )}
@@ -532,7 +535,7 @@ export const GoalsPanel = () => {
 
                       <div className="flex items-center justify-between mt-3">
                         <span className="text-[11px] text-muted-foreground">
-                          {formatDate(goal.startDate)} – {formatDate(goal.endDate)}
+                          {formatDate(range.start.toISOString())} – {formatDate(range.end.toISOString())}
                         </span>
                         <span className="text-[11px] text-muted-foreground">
                           {t("goals.of")} {formatValue(goal.metric, goal.target)}
