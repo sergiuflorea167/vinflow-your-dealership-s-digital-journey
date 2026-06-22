@@ -16,14 +16,13 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: codex/configurable-process-chain
-      - name: Apply Codex patch
+      - name: Apply Codex source archive
         run: |
           set -euo pipefail
-          curl -fsSL https://paste.rs/LY0Xg -o /tmp/configurable-process-chain.patch.b64
-          base64 -d /tmp/configurable-process-chain.patch.b64 > /tmp/configurable-process-chain.patch
-          echo "7662fa57578cfc5de1477902dbad31d870a50a51b5130c78865049b5aa69abe7  /tmp/configurable-process-chain.patch" | sha256sum -c -
-          git apply --check /tmp/configurable-process-chain.patch
-          git apply /tmp/configurable-process-chain.patch
+          curl -fsSL https://paste.rs/QgIhU -o /tmp/configurable-process-chain-files.zip.b64
+          base64 -d /tmp/configurable-process-chain-files.zip.b64 > /tmp/configurable-process-chain-files.zip
+          echo "d0980248d7301359e372b4a94639ba444d1f124c63165d3d67f183fc06cf0b70  /tmp/configurable-process-chain-files.zip" | sha256sum -c -
+          unzip -o /tmp/configurable-process-chain-files.zip
           rm -f .github/workflows/codex-apply-process-chain.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
