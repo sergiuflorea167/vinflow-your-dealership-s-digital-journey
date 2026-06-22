@@ -11,7 +11,7 @@ import { KpiCard } from "@/components/kpi/KpiCard";
 import { useProcessStore } from "@/store/processStore";
 import { useDashboardStore } from "@/store/dashboardStore";
 import {
-  PROCESS_STEPS, VEHICLE_TYPE_LABELS, VehicleType, formatCurrency,
+  VEHICLE_TYPE_LABELS, VehicleType, formatCurrency, getConfiguredProcessSteps,
   vehicleTotalCostsGross, COST_CATEGORY_LABELS, CostCategory,
 } from "@/data/process";
 import { KPI_CATALOG, KpiCategory, KpiDef } from "@/lib/kpis";
@@ -40,6 +40,7 @@ const KPIs = () => {
   const processes = useProcessStore((s) => s.processes);
   const customers = useProcessStore((s) => s.customers);
   const activities = useProcessStore((s) => s.activities);
+  const settings = useProcessStore((s) => s.settings);
   
 
   const pinnedCount = useDashboardStore((s) => s.pinnedKpis.length);
@@ -92,11 +93,11 @@ const KPIs = () => {
 
   const pipeline = useMemo(
     () =>
-      PROCESS_STEPS.map((step) => ({
+      getConfiguredProcessSteps(settings).map((step) => ({
         step,
         count: processes.filter((p) => p.currentStep === step.key && p.steps[step.key]?.status !== "completed").length,
       })),
-    [processes]
+    [processes, settings]
   );
 
 

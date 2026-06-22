@@ -4,7 +4,7 @@ import {
   CheckCircle2, Clock, Download, FileText, Lock, MapPin, Package, Phone, Mail, Car, Calendar as CalendarIcon, ShieldCheck,
 } from "lucide-react";
 import { useProcessStore } from "@/store/processStore";
-import { PROCESS_STEPS, formatCurrency, formatDate, stepIndex } from "@/data/process";
+import { ProcessStepKey, formatCurrency, formatDate, getProcessStepsForDisplay, stepIndexIn } from "@/data/process";
 import { findProcessIdForToken, loadCustomerTrackingSnapshot, type CustomerTrackingSnapshot } from "@/lib/customerLink";
 import { buildCustomerAccessCode, matchesCustomerAccessCode, normalizeAccessCode } from "@/lib/customerCode";
 import { downloadBelegPdf } from "@/lib/pdf";
@@ -131,13 +131,14 @@ const CustomerTracking = () => {
     );
   }
 
-  const completedCount = PROCESS_STEPS.filter((s) => {
+  const processSteps = getProcessStepsForDisplay(process.currentStep, storeSettings);
+  const completedCount = processSteps.filter((s) => {
     const r = process.steps[s.key];
     return r.status === "completed" || r.status === "skipped";
   }).length;
-  const progressPct = Math.round((completedCount / PROCESS_STEPS.length) * 100);
-  const currentIdx = stepIndex(process.currentStep);
-  const isFinished = completedCount === PROCESS_STEPS.length;
+  const progressPct = Math.round((completedCount / processSteps.length) * 100);
+  const currentIdx = Math.max(0, stepIndexIn(process.currentStep, processSteps));
+  const isFinished = completedCount === processSteps.length;
 
   // Voraussichtlicher Abholtermin: Liefertermin aus AB > Übergabedatum > +14 Tage ab Erstellung.
   const pickupDate =
@@ -145,7 +146,7 @@ const CustomerTracking = () => {
     process.fields.orderConfirmation?.deliveryDate ||
     new Date(new Date(process.createdAt).getTime() + 14 * 86400000).toISOString().slice(0, 10);
 
-  const handleDownload = (key: typeof PROCESS_STEPS[number]["key"]) => {
+  const handleDownload = (key: ProcessStepKey) => {
     downloadBelegPdf({ process, vehicle, customer, offer: offer ?? undefined, stepKey: key, companyName, pdfTheme });
   };
 
@@ -193,12 +194,12 @@ const CustomerTracking = () => {
             <div>
               <p className="text-xs uppercase tracking-widest text-muted-foreground">Auftragsstatus</p>
               <h2 className="font-display text-2xl font-bold mt-1">
-                {isFinished ? "Abgeschlossen 🎉" : PROCESS_STEPS[currentIdx].label}
+                {isFinished ? "Abgeschlossen 🎉" : processSteps[currentIdx].label}
               </h2>
             </div>
             <div className="text-right">
               <p className="font-display text-4xl font-bold text-primary-glow leading-none">{progressPct}%</p>
-              <p className="text-xs text-muted-foreground mt-1">{completedCount} / {PROCESS_STEPS.length} Schritte</p>
+              <p className="text-xs text-muted-foreground mt-1">{completedCount} / {processSteps.length} Schritte</p>
             </div>
           </div>
 
@@ -212,13 +213,13 @@ const CustomerTracking = () => {
 
           {/* Vertical timeline */}
           <ol className="space-y-1">
-            {PROCESS_STEPS.map((step, i) => {
+            {processSteps.map((step, i) => {
               const r = process.steps[step.key];
               const done = r.status === "completed";
               const skipped = r.status === "skipped";
               const active = !done && !skipped && i === currentIdx;
               const upcoming = !done && !skipped && i > currentIdx;
-              const isLast = i === PROCESS_STEPS.length - 1;
+              const isLast = i === processSteps.length - 1;
 
               return (
                 <li key={step.key} className="flex gap-4 relative">
@@ -284,7 +285,7 @@ const CustomerTracking = () => {
           </p>
 
           <div className="grid sm:grid-cols-2 gap-3">
-            {PROCESS_STEPS.map((s) => {
+            {processSteps.map((s) => {
               const r = process.steps[s.key];
               const done = r.status === "completed";
               const skipped = r.status === "skipped";

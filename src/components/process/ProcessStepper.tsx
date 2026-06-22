@@ -1,27 +1,31 @@
 import { Check, SkipForward } from "lucide-react";
-import { PROCESS_STEPS, ProcessStepKey, stepIndex } from "@/data/process";
+import { ProcessStep, ProcessStepKey, getProcessStepsForDisplay, stepIndexIn } from "@/data/process";
 import { cn } from "@/lib/utils";
+import { useProcessStore } from "@/store/processStore";
 
 interface Props {
   currentStep: ProcessStepKey;
   selectedStep?: ProcessStepKey;
   onSelect?: (key: ProcessStepKey) => void;
   steps?: Record<ProcessStepKey, { status: "pending" | "active" | "completed" | "skipped" }>;
+  processSteps?: ProcessStep[];
   compact?: boolean;
 }
 
-export const ProcessStepper = ({ currentStep, selectedStep, onSelect, compact, steps }: Props) => {
-  const currentIdx = stepIndex(currentStep);
+export const ProcessStepper = ({ currentStep, selectedStep, onSelect, compact, steps, processSteps }: Props) => {
+  const settings = useProcessStore((s) => s.settings);
+  const visibleSteps = processSteps ?? getProcessStepsForDisplay(currentStep, settings);
+  const currentIdx = Math.max(0, stepIndexIn(currentStep, visibleSteps));
 
   if (compact) {
     return (
       <ol className="flex items-center w-full gap-1">
-        {PROCESS_STEPS.map((step, i) => {
+        {visibleSteps.map((step, i) => {
           const status = steps?.[step.key]?.status;
           const isSkipped = status === "skipped";
           const isCompleted = status === "completed" || (i < currentIdx && status !== "skipped");
           const isActive = i === currentIdx && !isCompleted && !isSkipped;
-          const isLast = i === PROCESS_STEPS.length - 1;
+          const isLast = i === visibleSteps.length - 1;
           return (
             <li key={step.key} className="flex items-center flex-1 min-w-0" title={step.shortLabel}>
               <div
@@ -48,14 +52,14 @@ export const ProcessStepper = ({ currentStep, selectedStep, onSelect, compact, s
   return (
     <div className="w-full overflow-x-auto">
       <ol className="flex items-start min-w-max gap-0">
-        {PROCESS_STEPS.map((step, i) => {
+        {visibleSteps.map((step, i) => {
           const status = steps?.[step.key]?.status;
           const isSkipped = status === "skipped";
           const isCompleted = status === "completed" || (i < currentIdx && status !== "skipped");
           const isActive = i === currentIdx && !isCompleted && !isSkipped;
           const isLocked = i > currentIdx;
           const isSelected = selectedStep === step.key;
-          const isLast = i === PROCESS_STEPS.length - 1;
+          const isLast = i === visibleSteps.length - 1;
 
           return (
             <li key={step.key} className="flex-1 min-w-[100px] flex items-start">

@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Plus, Target, Trash2, Sparkles, ChevronDown, ChevronUp, Trophy, Flame } from "lucide-react";
 import { useProcessStore } from "@/store/processStore";
-import { Goal, GoalMetric, GoalPeriod, formatCurrency, formatDate, vehicleTotalCostsGross } from "@/data/process";
+import { Goal, GoalMetric, GoalPeriod, ProcessStepKey, formatCurrency, formatDate, getLastProcessStepKey, vehicleTotalCostsGross } from "@/data/process";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useT } from "@/lib/i18n";
@@ -64,7 +64,11 @@ const periodRange = (period: GoalPeriod): { start: Date; end: Date } => {
 
 const computeGoalProgress = (
   goal: Goal,
-  ctx: { processes: ReturnType<typeof useProcessStore.getState>["processes"]; vehicles: ReturnType<typeof useProcessStore.getState>["vehicles"] }
+  ctx: {
+    processes: ReturnType<typeof useProcessStore.getState>["processes"];
+    vehicles: ReturnType<typeof useProcessStore.getState>["vehicles"];
+    saleStepKey: ProcessStepKey;
+  }
 ) => {
   // Zeitraum live aus goal.period berechnen (sonst friert das Fenster auf den
   // Anlege-Zeitpunkt ein).
@@ -72,17 +76,17 @@ const computeGoalProgress = (
 
   // Ziele zählen Verkäufe zum Zeitpunkt der Übergabe. Das entspricht der KPI-
   // Logik und verhindert, dass noch nicht ausgelieferte Rechnungen Ziel-Fortschritt erzeugen.
-  const delivered = ctx.processes.filter((p) => {
-    const rec = p.steps.delivery_confirmation;
+  const completedSales = ctx.processes.filter((p) => {
+    const rec = p.steps[ctx.saleStepKey];
     if (!rec || rec.status !== "completed" || !rec.completedAt) return false;
     const t = new Date(rec.completedAt);
     return t >= start && t <= end;
   });
 
-  if (goal.metric === "vehicles_sold") return delivered.length;
-  if (goal.metric === "revenue") return delivered.reduce((s, p) => s + (p.fields.finalPrice ?? 0), 0);
+  if (goal.metric === "vehicles_sold") return completedSales.length;
+  if (goal.metric === "revenue") return completedSales.reduce((s, p) => s + (p.fields.finalPrice ?? 0), 0);
 
-  return delivered.reduce((s, p) => {
+  return completedSales.reduce((s, p) => {
     const v = ctx.vehicles.find((x) => x.id === p.vehicleId);
     if (!v) return s;
     const ek = v.purchasePrice + vehicleTotalCostsGross(v);
@@ -215,8 +219,10 @@ export const GoalsPanel = () => {
   const goals = useProcessStore((s) => s.goals);
   const processes = useProcessStore((s) => s.processes);
   const vehicles = useProcessStore((s) => s.vehicles);
+  const settings = useProcessStore((s) => s.settings);
   const addGoal = useProcessStore((s) => s.addGoal);
   const removeGoal = useProcessStore((s) => s.removeGoal);
+  const saleStepKey = getLastProcessStepKey(settings.processStepKeys);
 
   const [collapsed, setCollapsed] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
@@ -238,12 +244,12 @@ export const GoalsPanel = () => {
     () =>
       goals.map((g) => {
         const range = periodRange(g.period);
-        const value = computeGoalProgress(g, { processes, vehicles });
+        const value = computeGoalProgress(g, { processes, vehicles, saleStepKey });
         const rawPct = g.target > 0 ? (value / g.target) * 100 : 0;
         const pct = Math.min(100, rawPct);
         return { goal: g, value, pct, rawPct, range };
       }),
-    [goals, processes, vehicles]
+    [goals, processes, vehicles, saleStepKey]
   );
 
   const firstName = useProcessStore((s) => s.settings?.firstName);

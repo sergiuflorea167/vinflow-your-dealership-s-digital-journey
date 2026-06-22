@@ -36,6 +36,10 @@ import {
   DayTemplate,
   buildEmptySteps,
   DEFAULT_OUTBOUND_CHECKLIST,
+  getFirstProcessStepKey,
+  getLastProcessStepKey,
+  getNextProcessStepKey,
+  normalizeProcessStepKeys,
   stepIndex,
 } from "@/data/process";
 
@@ -298,19 +302,21 @@ export const useProcessStore = create<State>()(
             const process = state.processes.find((p) => p.id === processId);
             if (!process) return state;
             const idx = stepIndex(stepKey);
-            const nextStep = PROCESS_STEPS[idx + 1];
-            const isLastStep = !nextStep;
+            const activeStepKeys = normalizeProcessStepKeys(state.settings.processStepKeys);
+            const nextStepKey = getNextProcessStepKey(stepKey, activeStepKeys);
+            const nextStep = nextStepKey ? PROCESS_STEPS.find((s) => s.key === nextStepKey) : undefined;
+            const isLastStep = !nextStepKey;
 
             const updatedProcesses = state.processes.map((p) => {
               if (p.id !== processId) return p;
               return {
                 ...p,
-                currentStep: nextStep ? nextStep.key : p.currentStep,
+                currentStep: nextStepKey ?? p.currentStep,
                 updatedAt: new Date().toISOString(),
                 steps: {
                   ...p.steps,
                   [stepKey]: { ...p.steps[stepKey], status: "completed" as const, completedAt: new Date().toISOString(), documentArchived: true },
-                  ...(nextStep ? { [nextStep.key]: { status: "active" as const } } : {}),
+                  ...(nextStepKey ? { [nextStepKey]: { ...p.steps[nextStepKey], status: "active" as const } } : {}),
                 },
               };
             });
@@ -332,19 +338,20 @@ export const useProcessStore = create<State>()(
             const process = state.processes.find((p) => p.id === processId);
             if (!process) return state;
             const idx = stepIndex(stepKey);
-            const nextStep = PROCESS_STEPS[idx + 1];
-            if (!nextStep) return state;
+            const activeStepKeys = normalizeProcessStepKeys(state.settings.processStepKeys);
+            const nextStepKey = getNextProcessStepKey(stepKey, activeStepKeys);
+            if (!nextStepKey) return state;
 
             const updatedProcesses = state.processes.map((p) => {
               if (p.id !== processId) return p;
               return {
                 ...p,
-                currentStep: nextStep.key,
+                currentStep: nextStepKey,
                 updatedAt: new Date().toISOString(),
                 steps: {
                   ...p.steps,
                   [stepKey]: { ...p.steps[stepKey], status: "skipped" as const, completedAt: new Date().toISOString() },
-                  [nextStep.key]: { status: "active" as const },
+                  [nextStepKey]: { ...p.steps[nextStepKey], status: "active" as const },
                 },
               };
             });
@@ -364,6 +371,8 @@ export const useProcessStore = create<State>()(
             // Only allow cancelling steps that were completed or skipped.
             const record = process.steps[stepKey];
             if (!record || (record.status !== "completed" && record.status !== "skipped")) return state;
+            const activeStepKeys = normalizeProcessStepKeys(state.settings.processStepKeys);
+            const activeSet = new Set(activeStepKeys);
 
             const updatedProcesses = state.processes.map((p) => {
               if (p.id !== processId) return p;
@@ -371,6 +380,10 @@ export const useProcessStore = create<State>()(
               // Reset selected step to active and all later steps to pending.
               PROCESS_STEPS.forEach((s, i) => {
                 if (i < idx) return; // keep earlier steps as-is
+                if (!activeSet.has(s.key)) {
+                  newSteps[s.key] = { ...newSteps[s.key], status: "skipped" };
+                  return;
+                }
                 if (i === idx) {
                   newSteps[s.key] = { status: "active" };
                 } else {
@@ -733,6 +746,10 @@ export const useProcessStore = create<State>()(
           const existing = state.processes.find((p) => p.vehicleId === offer.vehicleId);
           if (existing) return existing;
 
+          const activeStepKeys = normalizeProcessStepKeys(state.settings.processStepKeys);
+          const currentStep = activeStepKeys.includes("offer")
+            ? getNextProcessStepKey("offer", activeStepKeys) ?? "offer"
+            : getFirstProcessStepKey(activeStepKeys);
           const processId = `VF-${new Date().getFullYear()}-${String(state.processes.length + 142).padStart(4, "0")}`;
           const newProcess: Process = {
             id: processId,
@@ -741,15 +758,17 @@ export const useProcessStore = create<State>()(
             acceptedOfferId: offer.id,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
-            currentStep: "down_payment",
-            steps: buildEmptySteps("down_payment"),
+            currentStep,
+            steps: buildEmptySteps(currentStep, activeStepKeys),
             fields: { finalPrice: offer.price },
             // Übernehme Kunden-To-Dos aus dem Angebot
             customerTodosOC: offer.customerTodos.map((t) => ({ id: randomId("ct"), title: t.title })),
             outboundChecklist: DEFAULT_OUTBOUND_CHECKLIST(),
           };
           // Markiere das Angebot als abgeschlossen + setze "offer"-Step
-          newProcess.steps.offer = { status: "completed", completedAt: new Date().toISOString(), documentArchived: true };
+          newProcess.steps.offer = activeStepKeys.includes("offer")
+            ? { status: "completed", completedAt: new Date().toISOString(), documentArchived: true }
+            : { status: "skipped", completedAt: new Date().toISOString() };
 
           set((s) => ({
             processes: [newProcess, ...s.processes],
@@ -795,6 +814,10 @@ export const useProcessStore = create<State>()(
           const existing = state.processes.find((p) => p.vehicleId === vehicleId);
           if (existing) return existing;
 
+          const activeStepKeys = normalizeProcessStepKeys(state.settings.processStepKeys);
+          const currentStep = activeStepKeys.includes("offer")
+            ? getNextProcessStepKey("offer", activeStepKeys) ?? getLastProcessStepKey(activeStepKeys)
+            : getFirstProcessStepKey(activeStepKeys);
           const processId = `VF-${new Date().getFullYear()}-${String(state.processes.length + 142).padStart(4, "0")}`;
           const newProcess: Process = {
             id: processId,
@@ -804,13 +827,15 @@ export const useProcessStore = create<State>()(
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
             // Angebot wird übersprungen, wir starten direkt bei Anzahlung
-            currentStep: "down_payment",
-            steps: buildEmptySteps("down_payment"),
+            currentStep,
+            steps: buildEmptySteps(currentStep, activeStepKeys),
             fields: { finalPrice: price },
             customerTodosOC: [],
             outboundChecklist: DEFAULT_OUTBOUND_CHECKLIST(),
           };
-          newProcess.steps.offer = { status: "skipped", completedAt: new Date().toISOString() };
+          newProcess.steps.offer = activeStepKeys.length === 1 && activeStepKeys[0] === "offer"
+            ? { status: "completed", completedAt: new Date().toISOString(), documentArchived: false }
+            : { status: "skipped", completedAt: new Date().toISOString() };
 
           set((s) => ({
             processes: [newProcess, ...s.processes],

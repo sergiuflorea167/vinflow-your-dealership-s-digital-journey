@@ -1,16 +1,16 @@
 // Baut einen kompakten Daten-Snapshot, den Vincent als Kontext bekommt.
 import { useProcessStore } from "@/store/processStore";
 import { KPI_CATALOG } from "@/lib/kpis";
-import { PROCESS_STEPS, vehicleTotalCostsGross } from "@/data/process";
+import { getConfiguredProcessSteps, vehicleTotalCostsGross } from "@/data/process";
 
 export function buildVincentContext() {
   const s = useProcessStore.getState();
-  const { vehicles, processes, offers, customers, todos, calendarEvents } = s;
+  const { vehicles, processes, offers, customers, todos, calendarEvents, settings } = s;
 
   const now = new Date();
   const yearStart = new Date(now.getFullYear(), 0, 1);
   const range = { from: yearStart, to: now, label: `YTD ${now.getFullYear()}` };
-  const ctx = { vehicles, processes, offers, customers, range };
+  const ctx = { vehicles, processes, offers, customers, processStepKeys: settings.processStepKeys, range };
 
   const kpis = KPI_CATALOG.map((k) => {
     try {
@@ -30,7 +30,7 @@ export function buildVincentContext() {
     }
   }).filter(Boolean);
 
-  const stepCounts = PROCESS_STEPS.map((step) => ({
+  const stepCounts = getConfiguredProcessSteps(settings).map((step) => ({
     key: step.key,
     label: step.label,
     count: processes.filter(

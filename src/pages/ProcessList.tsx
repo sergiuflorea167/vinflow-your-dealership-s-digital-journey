@@ -10,7 +10,8 @@ import {
 } from "@/components/ui/select";
 import { useProcessStore } from "@/store/processStore";
 import {
-  PROCESS_STEPS, ProcessStepKey, OfferStatus, formatCurrency, formatDate, stepIndex,
+  ProcessStep, ProcessStepKey, OfferStatus, formatCurrency, formatDate,
+  getConfiguredProcessSteps, getLastProcessStepKey, getProcessStepsForDisplay, stepIndexIn,
 } from "@/data/process";
 import {
   ChevronRight, FileText, Download, ArrowDownAZ, ArrowUpAZ, CheckCircle2,
@@ -25,11 +26,6 @@ import { toast } from "sonner";
 type ProcessSortKey = "updated" | "created" | "price" | "id" | "customer";
 type OfferSortKey = "validUntil" | "created" | "price" | "customer" | "id";
 type ValidityFilter = "all" | "active" | "soon" | "expired";
-
-/** Ein Vorgang gilt als archiviert, sobald der letzte Schritt der Kette abgeschlossen wurde. */
-const LAST_STEP_KEY: ProcessStepKey = PROCESS_STEPS[PROCESS_STEPS.length - 1].key;
-const isProcessArchived = (p: { steps: Record<string, { status?: string } | undefined> }) =>
-  p.steps?.[LAST_STEP_KEY]?.status === "completed";
 
 const STATUS_META: Record<OfferStatus, { label: string; className: string }> = {
   draft:    { label: "Entwurf",     className: "bg-muted text-muted-foreground border-border" },
@@ -49,6 +45,12 @@ const ProcessList = () => {
   const acceptOffer = useProcessStore((s) => s.acceptOffer);
   const companyName = useProcessStore((s) => s.settings.companyName);
   const pdfTheme = useProcessStore((s) => s.settings.pdfTheme);
+  const settings = useProcessStore((s) => s.settings);
+  const processSteps = useMemo(() => getConfiguredProcessSteps(settings), [settings]);
+  const lastStepKey = getLastProcessStepKey(settings.processStepKeys);
+  const lastStep = processSteps[processSteps.length - 1];
+  const isProcessArchived = (p: { steps: Record<string, { status?: string } | undefined> }) =>
+    p.steps?.[lastStepKey]?.status === "completed";
 
   // ---- Tabs ----
   const [tab, setTab] = useState<"list" | "archived" | "offers" | "documents">("list");
@@ -74,8 +76,8 @@ const ProcessList = () => {
     [processes, getVehicle, getCustomer]
   );
 
-  const activeEnriched = useMemo(() => enriched.filter((e) => !isProcessArchived(e.p)), [enriched]);
-  const archivedEnriched = useMemo(() => enriched.filter((e) => isProcessArchived(e.p)), [enriched]);
+  const activeEnriched = useMemo(() => enriched.filter((e) => !isProcessArchived(e.p)), [enriched, lastStepKey]);
+  const archivedEnriched = useMemo(() => enriched.filter((e) => isProcessArchived(e.p)), [enriched, lastStepKey]);
 
   const filtered = useMemo(() => {
     const list = activeEnriched.filter(({ p, vehicle, customer }) => {
@@ -272,14 +274,14 @@ const ProcessList = () => {
   const documents = useMemo(() => {
     const docs: Array<{
       processId: string;
-      step: typeof PROCESS_STEPS[number];
+      step: ProcessStep;
       completedAt: string;
       vehicleLabel: string;
       vin: string;
       customerName: string;
     }> = [];
     enriched.forEach(({ p, vehicle, customer }) => {
-      PROCESS_STEPS.forEach((step) => {
+      processSteps.forEach((step) => {
         const rec = p.steps[step.key];
         if (rec?.status === "completed" && rec.documentArchived && rec.completedAt) {
           docs.push({
@@ -294,7 +296,7 @@ const ProcessList = () => {
       });
     });
     return docs;
-  }, [enriched]);
+  }, [enriched, processSteps]);
 
   const filteredDocs = useMemo(() => {
     const list = documents.filter((d) => {
@@ -377,7 +379,7 @@ const ProcessList = () => {
                   <FilterPill active={filter === "all"} onClick={() => setFilter("all")}>
                     Alle ({activeEnriched.length})
                   </FilterPill>
-                  {PROCESS_STEPS.map((s) => {
+                  {processSteps.map((s) => {
                     const c = activeEnriched.filter((e) => e.p.currentStep === s.key).length;
                     if (c === 0) return null;
                     return (
@@ -405,8 +407,9 @@ const ProcessList = () => {
                 </thead>
                 <tbody>
                   {filtered.map(({ p, vehicle, customer }) => {
-                    const idx = stepIndex(p.currentStep);
-                    const step = PROCESS_STEPS[idx];
+                    const visibleSteps = getProcessStepsForDisplay(p.currentStep, settings);
+                    const idx = Math.max(0, stepIndexIn(p.currentStep, visibleSteps));
+                    const step = visibleSteps[idx];
                     return (
                       <tr key={p.id} className="hover:bg-surface-elevated/40 transition-smooth group">
                         <td>
@@ -479,7 +482,7 @@ const ProcessList = () => {
                   {archSortDir === "asc" ? <ArrowUpAZ className="size-4" /> : <ArrowDownAZ className="size-4" />}
                 </Button>
                 <p className="text-[11px] text-muted-foreground ml-auto">
-                  Vorgänge, deren letzter Schritt („{PROCESS_STEPS[PROCESS_STEPS.length - 1].shortLabel}") abgeschlossen wurde.
+                  Vorgänge, deren letzter aktiver Schritt („{lastStep.shortLabel}") abgeschlossen wurde.
                 </p>
               </div>
             </Card>
@@ -498,7 +501,7 @@ const ProcessList = () => {
                 </thead>
                 <tbody>
                   {filteredArchived.map(({ p, vehicle, customer }) => {
-                    const completedAt = p.steps[LAST_STEP_KEY]?.completedAt ?? p.updatedAt;
+                    const completedAt = p.steps[lastStepKey]?.completedAt ?? p.updatedAt;
                     return (
                       <tr key={p.id} className="hover:bg-surface-elevated/40 transition-smooth group">
                         <td>
@@ -765,7 +768,7 @@ const ProcessList = () => {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Alle Belegarten</SelectItem>
-                    {PROCESS_STEPS.map((s) => (
+                    {processSteps.map((s) => (
                       <SelectItem key={s.key} value={s.key}>{s.documentName}</SelectItem>
                     ))}
                   </SelectContent>

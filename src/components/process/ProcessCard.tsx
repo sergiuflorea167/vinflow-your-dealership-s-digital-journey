@@ -2,16 +2,18 @@ import { Link } from "react-router-dom";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ChevronRight } from "lucide-react";
-import { Process, PROCESS_STEPS, formatCurrency, stepIndex } from "@/data/process";
+import { Process, formatCurrency, getProcessStepsForDisplay, stepIndexIn } from "@/data/process";
 import { ProcessStepper } from "./ProcessStepper";
 import { useProcessStore } from "@/store/processStore";
 
 export const ProcessCard = ({ process }: { process: Process }) => {
   const vehicle = useProcessStore((s) => s.getVehicle(process.vehicleId));
   const customer = useProcessStore((s) => s.getCustomer(process.customerId));
-  const idx = stepIndex(process.currentStep);
-  const currentStep = PROCESS_STEPS[idx];
-  const progress = Math.round((idx / (PROCESS_STEPS.length - 1)) * 100);
+  const settings = useProcessStore((s) => s.settings);
+  const processSteps = getProcessStepsForDisplay(process.currentStep, settings);
+  const idx = Math.max(0, stepIndexIn(process.currentStep, processSteps));
+  const currentStep = processSteps[idx];
+  const progress = processSteps.length > 1 ? Math.round((idx / (processSteps.length - 1)) * 100) : 100;
 
   if (!vehicle || !customer) return null;
 
@@ -51,7 +53,7 @@ export const ProcessCard = ({ process }: { process: Process }) => {
           </div>
         </div>
 
-        <ProcessStepper currentStep={process.currentStep} compact />
+        <ProcessStepper currentStep={process.currentStep} steps={process.steps} processSteps={processSteps} compact />
       </Card>
     </Link>
   );

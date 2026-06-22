@@ -2,7 +2,10 @@
 // Jeder KPI berechnet sich live aus dem Store-State.
 // Zeitabhängige KPIs (timeMode: "range") nutzen den globalen Zeitraum-Filter.
 
-import { Process, Vehicle, Offer, Customer, formatCurrency, vehicleTotalCostsGross } from "@/data/process";
+import {
+  Customer, Offer, Process, ProcessStepKey, Vehicle, formatCurrency,
+  getLastProcessStepKey, vehicleTotalCostsGross,
+} from "@/data/process";
 
 export type KpiCategory = "Umsatz" | "Verkauf & Marge" | "Bestand" | "Kosten" | "Pipeline";
 
@@ -13,6 +16,7 @@ export interface KpiContext {
   processes: Process[];
   offers: Offer[];
   customers: Customer[];
+  processStepKeys?: ProcessStepKey[];
   /** Globaler Zeitraum-Filter (zentral via KpiRangeContext). */
   range: { from: Date; to: Date; label: string };
 }
@@ -56,13 +60,16 @@ const fmt = (value: number, format: KpiFormat) => {
   }
 };
 
-// Verkauf zählt zum Zeitpunkt der Übergabe (delivery_confirmation completed)
-const handoverInRange = (p: Process, from: Date, to: Date) => {
-  const rec = p.steps.delivery_confirmation;
+// Verkauf zählt am Ende der konfigurierten Vorgangskette.
+const saleInRange = (p: Process, from: Date, to: Date, saleStepKey: ProcessStepKey) => {
+  const rec = p.steps[saleStepKey];
   if (!rec || rec.status !== "completed" || !rec.completedAt) return false;
   const t = new Date(rec.completedAt);
   return t >= from && t <= to;
 };
+
+const isSaleCompleted = (p: Process, saleStepKey: ProcessStepKey) =>
+  p.steps[saleStepKey]?.status === "completed";
 
 // Rechnung gestellt im Zeitraum
 const invoicedInRange = (p: Process, from: Date, to: Date) => {
@@ -91,8 +98,9 @@ export const KPI_CATALOG: KpiDef[] = [
       "Hauptindikator für den geschäftlichen Erfolg. Ein Wert deutlich unter Vergleichszeitraum → Vertrieb / Lead-Zufluss prüfen.",
     format: "currency",
     timeMode: "range",
-    compute: ({ processes, range }) => {
-      const sold = processes.filter((p) => handoverInRange(p, range.from, range.to));
+    compute: ({ processes, range, processStepKeys }) => {
+      const saleStepKey = getLastProcessStepKey(processStepKeys);
+      const sold = processes.filter((p) => saleInRange(p, range.from, range.to, saleStepKey));
       const value = sold.reduce((s, p) => s + (p.fields.finalPrice ?? 0), 0);
       return { value, display: fmt(value, "currency"), sub: `${sold.length} Übergaben · ${range.label}` };
     },
@@ -181,9 +189,10 @@ export const KPI_CATALOG: KpiDef[] = [
       "Klassisches Debitorenrisiko. Sollte zeitnah Richtung Null gehen — sonst Mahnwesen aktivieren.",
     format: "currency",
     timeMode: "static",
-    compute: ({ processes }) => {
+    compute: ({ processes, processStepKeys }) => {
+      const saleStepKey = getLastProcessStepKey(processStepKeys);
       const value = processes
-        .filter((p) => p.steps.invoicing?.status === "completed" && p.steps.delivery_confirmation?.status !== "completed")
+        .filter((p) => p.steps.invoicing?.status === "completed" && !isSaleCompleted(p, saleStepKey))
         .reduce((s, p) => {
           const total = p.fields.finalPrice ?? 0;
           const dp = p.fields.downPayment?.received ? (p.fields.downPayment.amount ?? 0) : 0;
@@ -203,8 +212,9 @@ export const KPI_CATALOG: KpiDef[] = [
       "Echte Wertschöpfung — wichtiger als Bruttoumsatz. Sinkt bei Preisnachlässen oder hohen Aufbereitungskosten.",
     format: "currency",
     timeMode: "range",
-    compute: ({ processes, vehicles, range }) => {
-      const sold = processes.filter((p) => handoverInRange(p, range.from, range.to));
+    compute: ({ processes, vehicles, range, processStepKeys }) => {
+      const saleStepKey = getLastProcessStepKey(processStepKeys);
+      const sold = processes.filter((p) => saleInRange(p, range.from, range.to, saleStepKey));
       const value = sold.reduce((s, p) => s + profitOf(p, vehicles), 0);
       return { value, display: fmt(value, "currency"), sub: `${sold.length} Übergaben · ${range.label}` };
     },
@@ -218,8 +228,9 @@ export const KPI_CATALOG: KpiDef[] = [
       'Steuerungsgröße für die Profitabilität eines „typischen" Deals. Sinkt → Einkauf oder Pricing prüfen.',
     format: "currency",
     timeMode: "range",
-    compute: ({ processes, vehicles, range }) => {
-      const sold = processes.filter((p) => handoverInRange(p, range.from, range.to));
+    compute: ({ processes, vehicles, range, processStepKeys }) => {
+      const saleStepKey = getLastProcessStepKey(processStepKeys);
+      const sold = processes.filter((p) => saleInRange(p, range.from, range.to, saleStepKey));
       const total = sold.reduce((s, p) => s + profitOf(p, vehicles), 0);
       const value = sold.length ? total / sold.length : 0;
       return { value, display: fmt(value, "currency"), sub: `${sold.length} Verkäufe · ${range.label}` };
@@ -234,8 +245,9 @@ export const KPI_CATALOG: KpiDef[] = [
       "Effizienz: Wieviel % vom VK bleibt als Roh-Gewinn? Branchenwert ~10–15%. Sinkt sie → EK oder Standzeit zu hoch.",
     format: "percent",
     timeMode: "range",
-    compute: ({ processes, vehicles, range }) => {
-      const sold = processes.filter((p) => handoverInRange(p, range.from, range.to));
+    compute: ({ processes, vehicles, range, processStepKeys }) => {
+      const saleStepKey = getLastProcessStepKey(processStepKeys);
+      const sold = processes.filter((p) => saleInRange(p, range.from, range.to, saleStepKey));
       const value = sold.length
         ? sold.reduce((acc, p) => {
             const v = vehicles.find((x) => x.id === p.vehicleId);
@@ -324,10 +336,11 @@ export const KPI_CATALOG: KpiDef[] = [
       "Effizienz der Verkaufsabwicklung. Lang trotz Anzahlung = interne Engpässe (Aufbereitung, Termine).",
     format: "days",
     timeMode: "range",
-    compute: ({ processes, range }) => {
-      const sold = processes.filter((p) => handoverInRange(p, range.from, range.to));
+    compute: ({ processes, range, processStepKeys }) => {
+      const saleStepKey = getLastProcessStepKey(processStepKeys);
+      const sold = processes.filter((p) => saleInRange(p, range.from, range.to, saleStepKey));
       const times = sold.map((p) =>
-        Math.max(0, (new Date(p.steps.delivery_confirmation!.completedAt!).getTime() - new Date(p.createdAt).getTime()) / 86400000)
+        Math.max(0, (new Date(p.steps[saleStepKey]!.completedAt!).getTime() - new Date(p.createdAt).getTime()) / 86400000)
       );
       const value = times.length ? times.reduce((s, n) => s + n, 0) / times.length : 0;
       return { value, display: fmt(value, "days"), sub: `${sold.length} Verkäufe · ${range.label}` };
@@ -390,8 +403,9 @@ export const KPI_CATALOG: KpiDef[] = [
       'Operative Arbeitslast. Hoher Wert in „in Kontrolle" = Übergaben stehen kurz bevor (gut für Cashflow).',
     format: "number",
     timeMode: "static",
-    compute: ({ processes }) => {
-      const active = processes.filter((p) => p.steps.delivery_confirmation?.status !== "completed");
+    compute: ({ processes, processStepKeys }) => {
+      const saleStepKey = getLastProcessStepKey(processStepKeys);
+      const active = processes.filter((p) => !isSaleCompleted(p, saleStepKey));
       const inOutbound = active.filter((p) => p.currentStep === "outbound_check").length;
       return { value: active.length, display: fmt(active.length, "number"), sub: `${inOutbound} in Kontrolle` };
     },
@@ -419,9 +433,10 @@ export const KPI_CATALOG: KpiDef[] = [
       "Erwarteter Umsatz aus aktuell laufenden Verkäufen — die Forecast-Zahl.",
     format: "currency",
     timeMode: "static",
-    compute: ({ processes }) => {
+    compute: ({ processes, processStepKeys }) => {
+      const saleStepKey = getLastProcessStepKey(processStepKeys);
       const value = processes
-        .filter((p) => p.steps.delivery_confirmation?.status !== "completed")
+        .filter((p) => !isSaleCompleted(p, saleStepKey))
         .reduce((s, p) => s + (p.fields.finalPrice ?? 0), 0);
       return { value, display: fmt(value, "currency"), sub: "In Arbeit" };
     },
@@ -435,8 +450,9 @@ export const KPI_CATALOG: KpiDef[] = [
       "Volumen-Indikator: Wie viele Deals wurden abgeschlossen? Ergänzt den Umsatz um die Stückzahl.",
     format: "number",
     timeMode: "range",
-    compute: ({ processes, range }) => {
-      const sold = processes.filter((p) => handoverInRange(p, range.from, range.to));
+    compute: ({ processes, range, processStepKeys }) => {
+      const saleStepKey = getLastProcessStepKey(processStepKeys);
+      const sold = processes.filter((p) => saleInRange(p, range.from, range.to, saleStepKey));
       return { value: sold.length, display: fmt(sold.length, "number"), sub: range.label };
     },
   },

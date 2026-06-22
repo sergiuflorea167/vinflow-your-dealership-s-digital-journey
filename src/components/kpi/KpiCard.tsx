@@ -23,14 +23,15 @@ export const KpiCard = ({ kpi, variant = "catalog", dragHandleProps }: KpiCardPr
   const processes = useProcessStore((s) => s.processes);
   const offers = useProcessStore((s) => s.offers);
   const customers = useProcessStore((s) => s.customers);
+  const processStepKeys = useProcessStore((s) => s.settings.processStepKeys);
   const { range } = useKpiRange();
 
   const togglePin = useDashboardStore((s) => s.togglePin);
   const pinned = useDashboardStore((s) => s.pinnedKpis.includes(kpi.id));
 
   const result = useMemo(
-    () => kpi.compute({ vehicles, processes, offers, customers, range }),
-    [kpi, vehicles, processes, offers, customers, range]
+    () => kpi.compute({ vehicles, processes, offers, customers, processStepKeys, range }),
+    [kpi, vehicles, processes, offers, customers, processStepKeys, range]
   );
 
   return (

@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -18,15 +19,17 @@ import {
 } from "@/components/ui/dialog";
 import { useProcessStore } from "@/store/processStore";
 import {
-  Partner, PartnerKind, PARTNER_KIND_LABELS, formatCurrency,
+  DEFAULT_PROCESS_STEP_KEYS, PROCESS_STEPS, Partner, PartnerKind, PARTNER_KIND_LABELS,
+  ProcessStepKey, formatCurrency, normalizeProcessStepKeys,
 } from "@/data/process";
 import {
-  Database, Users, Handshake, MapPin, Plus, Pencil, Trash2, X, Save, Mail, Phone,
+  CheckCircle2, Database, FileText, Handshake, Mail, MapPin, Pencil, Phone, Plus,
+  RotateCcw, Save, Trash2, Users, Workflow, X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
-type StammTab = "customers" | "partners" | "locations";
+type StammTab = "customers" | "partners" | "locations" | "process";
 
 const Stammdaten = () => {
   const [tab, setTab] = useState<StammTab>("customers");
@@ -51,11 +54,13 @@ const Stammdaten = () => {
             <TabsTrigger value="customers" className="gap-2"><Users className="size-4" /> Kunden</TabsTrigger>
             <TabsTrigger value="partners"  className="gap-2"><Handshake className="size-4" /> Partner</TabsTrigger>
             <TabsTrigger value="locations" className="gap-2"><MapPin className="size-4" /> Standorte</TabsTrigger>
+            <TabsTrigger value="process"   className="gap-2"><Workflow className="size-4" /> Vorgangskette</TabsTrigger>
           </TabsList>
 
           <TabsContent value="customers" className="mt-0"><CustomersPanel /></TabsContent>
           <TabsContent value="partners"  className="mt-0"><PartnersPanel /></TabsContent>
           <TabsContent value="locations" className="mt-0"><LocationsPanel /></TabsContent>
+          <TabsContent value="process"   className="mt-0"><ProcessChainPanel /></TabsContent>
         </Tabs>
       </div>
     </AppShell>
@@ -156,6 +161,120 @@ const CustomersPanel = () => {
           </table>
         </div>
       )}
+    </Card>
+  );
+};
+
+// ===========================================================================
+// Process Chain Panel
+// ===========================================================================
+
+const ProcessChainPanel = () => {
+  const settings = useProcessStore((s) => s.settings);
+  const updateSettings = useProcessStore((s) => s.updateSettings);
+  const selected = normalizeProcessStepKeys(settings.processStepKeys);
+  const selectedSet = new Set<ProcessStepKey>(selected);
+
+  const toggleStep = (key: ProcessStepKey) => {
+    if (selectedSet.has(key)) {
+      if (selected.length === 1) {
+        toast.error("Mindestens ein Beleg muss aktiv bleiben.");
+        return;
+      }
+      updateSettings({ processStepKeys: selected.filter((stepKey) => stepKey !== key) });
+      toast.success("Beleg aus der Vorgangskette entfernt.");
+      return;
+    }
+
+    updateSettings({
+      processStepKeys: PROCESS_STEPS.map((step) => step.key).filter((stepKey) => (
+        selectedSet.has(stepKey) || stepKey === key
+      )),
+    });
+    toast.success("Beleg zur Vorgangskette hinzugefügt.");
+  };
+
+  const resetChain = () => {
+    updateSettings({ processStepKeys: DEFAULT_PROCESS_STEP_KEYS });
+    toast.success("Alle Belege sind wieder aktiv.");
+  };
+
+  return (
+    <Card className="bg-card border-border overflow-hidden">
+      <div className="p-4 border-b border-border flex items-start justify-between gap-4 flex-wrap">
+        <div className="flex items-start gap-3 min-w-0">
+          <div className="size-10 rounded-lg bg-primary/15 text-primary-glow grid place-items-center shrink-0">
+            <Workflow className="size-5" />
+          </div>
+          <div className="min-w-0">
+            <h2 className="font-display text-lg font-semibold">Vorgangskette konfigurieren</h2>
+            <p className="text-xs text-muted-foreground mt-1 max-w-2xl">
+              Wähle, welche Belege im Verkaufsvorgang verwendet werden. Neue Vorgänge überspringen deaktivierte Belege automatisch.
+            </p>
+          </div>
+        </div>
+        <Button variant="outline" size="sm" onClick={resetChain} className="gap-2">
+          <RotateCcw className="size-4" /> Standard
+        </Button>
+      </div>
+
+      <div className="grid gap-2 p-4">
+        {PROCESS_STEPS.map((step) => {
+          const active = selectedSet.has(step.key);
+          const activeIndex = selected.findIndex((key) => key === step.key);
+          return (
+            <div
+              key={step.key}
+              role="button"
+              tabIndex={0}
+              onClick={() => toggleStep(step.key)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  toggleStep(step.key);
+                }
+              }}
+              className={cn(
+                "cursor-pointer",
+                "w-full text-left rounded-lg border p-3 transition-smooth",
+                "hover:border-primary/40 hover:bg-surface-elevated/40",
+                active ? "border-primary/35 bg-primary/5" : "border-border bg-background/30 opacity-75",
+              )}
+            >
+              <div className="flex items-start gap-3">
+                <Checkbox
+                  checked={active}
+                  onCheckedChange={() => toggleStep(step.key)}
+                  onClick={(e) => e.stopPropagation()}
+                  aria-label={`${step.documentName} aktivieren`}
+                  className="mt-1"
+                />
+                <div className="size-8 rounded-lg bg-background/60 border border-border grid place-items-center shrink-0">
+                  {active ? (
+                    <CheckCircle2 className="size-4 text-success" />
+                  ) : (
+                    <FileText className="size-4 text-muted-foreground" />
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="font-medium text-foreground">{step.documentName}</p>
+                    <Badge variant="outline" className={cn(
+                      "text-[10px] px-1.5 py-0",
+                      active ? "border-success/30 text-success" : "border-border text-muted-foreground",
+                    )}>
+                      {active ? `Aktiv ${activeIndex + 1}` : "Aus"}
+                    </Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {step.label} · {step.description}
+                  </p>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </Card>
   );
 };

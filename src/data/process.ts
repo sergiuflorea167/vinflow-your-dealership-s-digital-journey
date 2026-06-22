@@ -33,6 +33,50 @@ export const PROCESS_STEPS: ProcessStep[] = [
   { key: "delivery_confirmation", label: "Abhol- / Lieferbestätigung", shortLabel: "Lieferung", description: "Übergabe mit Kundenunterschrift.", documentName: "Übergabeprotokoll" },
 ];
 
+export const DEFAULT_PROCESS_STEP_KEYS: ProcessStepKey[] = PROCESS_STEPS.map((step) => step.key);
+
+const PROCESS_STEP_KEY_SET = new Set<ProcessStepKey>(DEFAULT_PROCESS_STEP_KEYS);
+
+export const normalizeProcessStepKeys = (keys?: ProcessStepKey[]): ProcessStepKey[] => {
+  if (!keys?.length) return [...DEFAULT_PROCESS_STEP_KEYS];
+  const selected = new Set(keys.filter((key): key is ProcessStepKey => PROCESS_STEP_KEY_SET.has(key)));
+  const normalized = PROCESS_STEPS.map((step) => step.key).filter((key) => selected.has(key));
+  return normalized.length > 0 ? normalized : [...DEFAULT_PROCESS_STEP_KEYS];
+};
+
+export const getConfiguredProcessSteps = (settings?: { processStepKeys?: ProcessStepKey[] }): ProcessStep[] => {
+  const keys = new Set(normalizeProcessStepKeys(settings?.processStepKeys));
+  return PROCESS_STEPS.filter((step) => keys.has(step.key));
+};
+
+export const stepIndexIn = (key: ProcessStepKey, steps: Pick<ProcessStep, "key">[]): number =>
+  steps.findIndex((step) => step.key === key);
+
+export const getFirstProcessStepKey = (keys?: ProcessStepKey[]): ProcessStepKey =>
+  normalizeProcessStepKeys(keys)[0];
+
+export const getLastProcessStepKey = (keys?: ProcessStepKey[]): ProcessStepKey => {
+  const normalized = normalizeProcessStepKeys(keys);
+  return normalized[normalized.length - 1];
+};
+
+export const getNextProcessStepKey = (current: ProcessStepKey, keys?: ProcessStepKey[]): ProcessStepKey | undefined => {
+  const normalized = normalizeProcessStepKeys(keys);
+  const globalIdx = stepIndex(current);
+  return normalized.find((key) => stepIndex(key) > globalIdx);
+};
+
+export const getProcessStepsForDisplay = (
+  currentStep: ProcessStepKey,
+  settings?: { processStepKeys?: ProcessStepKey[] },
+): ProcessStep[] => {
+  const configured = getConfiguredProcessSteps(settings);
+  if (configured.some((step) => step.key === currentStep)) return configured;
+  const current = PROCESS_STEPS.find((step) => step.key === currentStep);
+  if (!current) return configured;
+  return [...configured, current].sort((a, b) => stepIndex(a.key) - stepIndex(b.key));
+};
+
 export interface StepRecord {
   status: StepStatus;
   completedAt?: string;
@@ -537,6 +581,7 @@ export interface Partner {
 export interface Settings {
   userName: string;
   companyName: string;
+  processStepKeys?: ProcessStepKey[];
   locations: string[];     // freie Stellplatz-Liste
   partners: Partner[];
   // Profil – optional für Rückwärtskompatibilität
@@ -616,11 +661,16 @@ export const vehicleMargin = (v: Vehicle, salePriceGross: number) => {
   return salePriceGross - ekGross;
 };
 
-export const buildEmptySteps = (current: ProcessStepKey): Record<ProcessStepKey, StepRecord> => {
-  const idx = PROCESS_STEPS.findIndex((s) => s.key === current);
+export const buildEmptySteps = (current: ProcessStepKey, processStepKeys?: ProcessStepKey[]): Record<ProcessStepKey, StepRecord> => {
+  const activeKeys = normalizeProcessStepKeys(processStepKeys);
+  const active = new Set(activeKeys);
+  const effectiveCurrent = active.has(current) ? current : activeKeys[0];
+  const idx = stepIndex(effectiveCurrent);
   const map = {} as Record<ProcessStepKey, StepRecord>;
   PROCESS_STEPS.forEach((step, i) => {
-    if (i < idx) {
+    if (!active.has(step.key)) {
+      map[step.key] = { status: "skipped" };
+    } else if (i < idx) {
       map[step.key] = { status: "completed", completedAt: new Date(Date.now() - (idx - i) * 86400000).toISOString(), documentArchived: true };
     } else if (i === idx) {
       map[step.key] = { status: "active" };
@@ -1603,6 +1653,7 @@ export const DEFAULT_SETTINGS: Settings = {
   avatarUrl: "",
   companyName: "VINflow Autohaus GmbH",
   pdfTheme: "indigo",
+  processStepKeys: DEFAULT_PROCESS_STEP_KEYS,
   locations: [
     "Hof A · Platz 01", "Hof A · Platz 02", "Hof A · Platz 03", "Hof A · Platz 04", "Hof A · Platz 05",
     "Hof A · Platz 06", "Hof A · Platz 07", "Hof A · Platz 08", "Hof A · Platz 09", "Hof A · Platz 10",
