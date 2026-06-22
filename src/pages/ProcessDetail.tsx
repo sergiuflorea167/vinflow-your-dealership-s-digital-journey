@@ -17,7 +17,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useProcessStore } from "@/store/processStore";
 import {
-  PROCESS_STEPS, ProcessStepKey, ProcessFields, formatCurrency, formatDate, stepIndex,
+  PROCESS_STEPS, ProcessStepKey, ProcessFields, formatCurrency, formatDate,
+  getNextProcessStepKey, getProcessStepsForDisplay, normalizeProcessStepKeys, stepIndexIn,
   nextInvoiceNumber, nextContractNumber, nextDownPaymentInvoiceNumber,
 } from "@/data/process";
 import { toast } from "sonner";
@@ -108,16 +109,19 @@ const ProcessDetail = () => {
   );
 
   if (!process || !vehicle || !customer) return <Navigate to="/vorgaenge" replace />;
-  const selectedStep = PROCESS_STEPS.find((s) => s.key === selectedKey)!;
-  const selectedIdx = stepIndex(selectedKey);
-  const currentIdx = stepIndex(process.currentStep);
+  const activeStepKeys = normalizeProcessStepKeys(settings.processStepKeys);
+  const processSteps = getProcessStepsForDisplay(process.currentStep, settings);
+  const selectedStep = PROCESS_STEPS.find((s) => s.key === selectedKey) ?? processSteps[0];
+  const selectedIdx = Math.max(0, stepIndexIn(selectedStep.key, processSteps));
+  const currentIdx = Math.max(0, stepIndexIn(process.currentStep, processSteps));
   const record = process.steps[selectedKey];
   const isCurrent = selectedIdx === currentIdx;
   const isCompleted = record.status === "completed";
   const isSkipped = record.status === "skipped";
   const isLocked = selectedIdx > currentIdx;
   const isBooked = !!record.bookedAt && !isCompleted && !isSkipped;
-  const nextStep = PROCESS_STEPS[currentIdx + 1];
+  const nextStepKey = getNextProcessStepKey(process.currentStep, activeStepKeys);
+  const nextStep = nextStepKey ? PROCESS_STEPS.find((s) => s.key === nextStepKey) : undefined;
 
   const handleBook = () => {
     if (!validation.ok) { toast.error(validation.message ?? "Bitte alle Pflichtfelder ausfüllen."); return; }
@@ -176,7 +180,7 @@ const ProcessDetail = () => {
             <ArrowLeft className="size-4" /> Alle Vorgänge
           </Link>
           <Badge variant="outline" className="border-primary/30 text-primary-glow">
-            Aktiver Schritt: {PROCESS_STEPS[currentIdx].shortLabel}
+            Aktiver Schritt: {processSteps[currentIdx]?.shortLabel ?? selectedStep.shortLabel}
           </Badge>
         </div>
 
@@ -197,7 +201,7 @@ const ProcessDetail = () => {
         </Card>
 
         <Card className="p-6 bg-card border-border shadow-card">
-          <ProcessStepper currentStep={process.currentStep} selectedStep={selectedKey} onSelect={setSelected} steps={process.steps} />
+          <ProcessStepper currentStep={process.currentStep} selectedStep={selectedKey} onSelect={setSelected} steps={process.steps} processSteps={processSteps} />
         </Card>
 
         <div className="grid lg:grid-cols-3 gap-6">
@@ -205,7 +209,7 @@ const ProcessDetail = () => {
             <div className="flex items-start justify-between gap-4 mb-4">
               <div>
                 <div className="flex items-center gap-2 mb-2">
-                  <span className="text-xs font-mono text-muted-foreground">Schritt {selectedIdx + 1} / {PROCESS_STEPS.length}</span>
+                  <span className="text-xs font-mono text-muted-foreground">Schritt {selectedIdx + 1} / {processSteps.length}</span>
                   {isCompleted && <Badge className="bg-success text-success-foreground hover:bg-success">Abgeschlossen</Badge>}
                   {isSkipped && <Badge variant="outline" className="border-muted-foreground/30 text-muted-foreground">Übersprungen</Badge>}
                   {isCurrent && !isCompleted && !isSkipped && !isBooked && <Badge className="bg-primary text-primary-foreground hover:bg-primary">Aktiv</Badge>}
@@ -404,7 +408,7 @@ const ProcessDetail = () => {
             <Card className="p-6 bg-card border-border shadow-card">
               <h3 className="font-display font-semibold text-sm mb-4">Beleg-Archiv</h3>
               <div className="space-y-2">
-                {PROCESS_STEPS.map((s, i) => {
+                {processSteps.map((s, i) => {
                   const r = process.steps[s.key];
                   const done = r.status === "completed";
                   const skipped = r.status === "skipped";
