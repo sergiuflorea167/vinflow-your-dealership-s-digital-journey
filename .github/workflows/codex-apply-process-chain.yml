@@ -19,7 +19,8 @@ jobs:
       - name: Apply Codex patch
         run: |
           set -euo pipefail
-          curl -fsSL https://paste.rs/tM3ww -o /tmp/configurable-process-chain.patch
+          curl -fsSL https://paste.rs/LY0Xg -o /tmp/configurable-process-chain.patch.b64
+          base64 -d /tmp/configurable-process-chain.patch.b64 > /tmp/configurable-process-chain.patch
           echo "7662fa57578cfc5de1477902dbad31d870a50a51b5130c78865049b5aa69abe7  /tmp/configurable-process-chain.patch" | sha256sum -c -
           git apply --check /tmp/configurable-process-chain.patch
           git apply /tmp/configurable-process-chain.patch
