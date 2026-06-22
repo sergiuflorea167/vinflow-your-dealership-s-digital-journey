@@ -287,12 +287,13 @@ export const GoalsPanel = () => {
 
   return (
     <Card className="relative overflow-hidden bg-gradient-surface border-primary/20 shadow-elegant ring-1 ring-primary/10">
+      {/* Background flair */}
       <div className="absolute inset-0 bg-gradient-glow pointer-events-none opacity-80" />
       <div className="absolute -top-20 -right-20 size-80 rounded-full bg-primary/10 blur-3xl pointer-events-none" />
       <div className="absolute -bottom-24 -left-16 size-72 rounded-full bg-primary-glow/10 blur-3xl pointer-events-none" />
 
-
       <div className="relative p-6 lg:p-8">
+        {/* Hero header */}
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="flex items-start gap-4 min-w-0">
             <button
@@ -408,7 +409,7 @@ export const GoalsPanel = () => {
                         </SelectContent>
                       </Select>
                     </div>
-                 </div>
+                  </div>
                   <div>
                     <Label className="text-xs">{t("goals.target")} {metric === "vehicles_sold" ? "(#)" : "(€)"}</Label>
                     <Input
@@ -439,6 +440,7 @@ export const GoalsPanel = () => {
           </div>
         </div>
 
+        {/* Collapsed mini-bar */}
         {collapsed && enriched.length > 0 && (
           <div className="relative mt-5 flex items-center gap-3">
             <Progress value={avgPct} className="h-2 flex-1" />
@@ -446,6 +448,7 @@ export const GoalsPanel = () => {
           </div>
         )}
 
+        {/* Expanded goals */}
         {!collapsed && (
           <div className="relative mt-6">
             {enriched.length === 0 ? (
@@ -465,7 +468,7 @@ export const GoalsPanel = () => {
                     <div
                       key={goal.id}
                       className={cn(
-                        "group relative rounded-2xl p[[1.5px] transition-smooth",
+                        "group relative rounded-2xl p-[1.5px] transition-smooth",
                         crushed
                           ? "bg-gradient-to-br from-emerald-500/50 to-primary/50 shadow-[0_0_24px_-8px_hsl(var(--primary)/0.35)]"
                           : reached
@@ -473,7 +476,7 @@ export const GoalsPanel = () => {
                           : "bg-border hover:bg-primary/40"
                       )}
                     >
-                    <div className="relative rounded[14px] bg-card p-5 overflow-hidden">
+                    <div className="relative rounded-[14px] bg-card p-5 overflow-hidden">
                       {crushed && (
                         <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-emerald-500/[0.08] to-primary/[0.08]" />
                       )}
