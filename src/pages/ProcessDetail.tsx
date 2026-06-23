@@ -1,12 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
-import { useParams, Link, Navigate } from "react-router-dom";
-import { ArrowLeft, FileText, Lock, CheckCircle2, ArrowRight, Download, Archive, AlertCircle, SkipForward, RotateCcw } from "lucide-react";
-import { AppShell } from "@/components/layout/AppShell";
-import { ProcessStepper } from "@/components/process/ProcessStepper";
-import { ActivityLog } from "@/components/process/ActivityLog";
-import { TodoList } from "@/components/shared/TodoList";
-import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { useParams, Link, Navigate } from "react-property-name-router-dom-placeholder";
+
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
