@@ -511,6 +511,7 @@ export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, c
       cursor = drawProcessTodos(cursor);
       break;
     }
+    case "order_confirmation": {
       const oc = process.fields.orderConfirmation;
       cursor = drawTextBlock(doc,
         `Wir bestätigen Ihnen hiermit den verbindlichen Kaufauftrag für das oben aufgeführte Fahrzeug zu folgenden Konditionen:`,
@@ -524,10 +525,7 @@ export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, c
       cursor = drawTextBlock(doc,
         `Auftragsdatum: ${oc?.orderDate ? formatDate(oc.orderDate) : "—"}\nZahlungsbedingungen: ${oc?.paymentTerms ?? "Restzahlung bei Übergabe"}\nBereits geleistete Anzahlung: ${formatCurrency(process.fields.downPayment?.amount ?? 0)}\n${taxationLine(vehicle)}`,
         cursor);
-      if (process.customerTodosOC.length) {
-        cursor += 6;
-        cursor = drawTodos(doc, process.customerTodosOC, cursor, "Vereinbarte Leistungen");
-      }
+      cursor = drawProcessTodos(cursor);
       break;
     }
     case "outbound_check": {
