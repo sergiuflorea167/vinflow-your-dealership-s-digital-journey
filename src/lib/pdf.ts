@@ -463,6 +463,15 @@ export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, c
   });
   cursor = Math.max(cursor, STANDARD_LAYOUT_START_Y);
 
+  // To-Dos für genau diesen Beleg (jedes To-Do trägt sein Druckziel)
+  const todosForThisStep = process.customerTodosOC.filter(
+    (t) => (t.printOnStep ?? "order_confirmation") === stepKey,
+  );
+  const drawProcessTodos = (c: number) => {
+    if (!todosForThisStep.length) return c;
+    return drawTodos(doc, todosForThisStep, c + 6, "Vereinbarte Leistungen");
+  };
+
   switch (stepKey) {
     case "offer": {
       cursor = drawTextBlock(doc,
@@ -480,6 +489,7 @@ export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, c
         cursor += 6;
         cursor = drawTodos(doc, offer.customerTodos, cursor, "Vereinbarte Leistungen");
       }
+      cursor = drawProcessTodos(cursor);
       break;
     }
     case "down_payment": {
@@ -498,6 +508,7 @@ export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, c
       cursor = drawTextBlock(doc,
         `Empfänger: ${companyName}\nIBAN: ${BANK.iban}\nBIC: ${BANK.bic}\nVerwendungszweck: ${dp?.invoiceNumber ?? process.id}\nRechnungsdatum: ${dp?.invoiceDate ? formatDate(dp.invoiceDate) : "—"}\nZahlungsbedingung: ${dp?.paymentTerms ?? (dp?.dueDate ? `Fällig am ${formatDate(dp.dueDate)}` : "Sofort fällig nach Erhalt der Rechnung")}${dp?.received ? `\nZahlung eingegangen am: ${dp.receivedDate ? formatDate(dp.receivedDate) : "—"}` : ""}\n${taxationLine(vehicle)}`,
         cursor);
+      cursor = drawProcessTodos(cursor);
       break;
     }
     case "order_confirmation": {
@@ -514,10 +525,7 @@ export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, c
       cursor = drawTextBlock(doc,
         `Auftragsdatum: ${oc?.orderDate ? formatDate(oc.orderDate) : "—"}\nZahlungsbedingungen: ${oc?.paymentTerms ?? "Restzahlung bei Übergabe"}\nBereits geleistete Anzahlung: ${formatCurrency(process.fields.downPayment?.amount ?? 0)}\n${taxationLine(vehicle)}`,
         cursor);
-      if (process.customerTodosOC.length) {
-        cursor += 6;
-        cursor = drawTodos(doc, process.customerTodosOC, cursor, "Vereinbarte Leistungen");
-      }
+      cursor = drawProcessTodos(cursor);
       break;
     }
     case "outbound_check": {
@@ -553,10 +561,7 @@ export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, c
       cursor = drawTextBlock(doc,
         allDone ? `Das Fahrzeug ist übergabebereit.` : `Hinweis: Es sind noch ${checklist.length - doneCount} Punkte offen. Das Fahrzeug ist noch nicht vollständig übergabebereit.`,
         cursor, { muted: true });
-      if (process.customerTodosOC.length) {
-        cursor += 6;
-        cursor = drawTodos(doc, process.customerTodosOC, cursor, "Vereinbarte Leistungen");
-      }
+      cursor = drawProcessTodos(cursor);
       break;
     }
     case "invoicing": {
@@ -577,6 +582,7 @@ export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, c
       cursor = drawTextBlock(doc,
         `Rechnungs-Nr.: ${inv?.invoiceNumber ?? "—"}\nRechnungsdatum: ${inv?.invoiceDate ? formatDate(inv.invoiceDate) : formatDate(new Date().toISOString())}\nZahlungsbedingung: ${inv?.paymentTerms ?? (inv?.dueDate ? `Fällig am ${formatDate(inv.dueDate)}` : "Sofort fällig nach Erhalt der Rechnung")}\nIBAN: ${BANK.iban} · BIC: ${BANK.bic}\nVerwendungszweck: ${process.id}${inv?.paid ? `\nZahlungsstatus: Bezahlt${inv.paidDate ? ` am ${formatDate(inv.paidDate)}` : ""} – Vielen Dank!` : `\nDer Restbetrag von ${formatCurrency(remaining)} ist bei Fahrzeugübergabe fällig.`}\n${taxationLine(vehicle)}`,
         cursor);
+      cursor = drawProcessTodos(cursor);
       break;
     }
     case "delivery_confirmation": {
@@ -587,10 +593,7 @@ export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, c
       cursor = drawTextBlock(doc,
         `Übergabedatum: ${del?.handoverDate ? formatDate(del.handoverDate) : formatDate(new Date().toISOString())}\nÜbergabeort: ${del?.handoverLocation ?? "Filiale"}\nKilometerstand bei Übergabe: ${del?.finalMileage?.toLocaleString("de-DE") ?? vehicle.mileage.toLocaleString("de-DE")} km\nTankfüllung: ${del?.fuelLevel ?? "voll"}\nMitgegeben: 2 Schlüssel, Zulassungsbescheinigung Teil I & II, Service-Heft`,
         cursor);
-      if (process.customerTodosOC.length) {
-        cursor += 6;
-        cursor = drawTodos(doc, process.customerTodosOC, cursor, "Vereinbarte Leistungen");
-      }
+      cursor = drawProcessTodos(cursor);
       cursor = drawSignatureRow(doc, cursor + 20, "Unterschrift Kunde", `Unterschrift ${companyName}`);
       break;
     }
