@@ -1,5 +1,18 @@
 import { useState, useMemo, useEffect } from "react";
-import { useParams, Link, Navigate } from "react-property-name-router-dom-placeholder";
+import { useParams, Link, Navigate } from "react-router-dom";
+import { ArrowLeft, FileText, Lock, CheckCircle2, ArrowRight, Download, Archive, AlertCircle, SkipForward, RotateCcw, Plus, Trash2, CalendarIcon, X, Printer } from "lucide-react";
+import { format } from "date-fns";
+import { de } from "date-fns/locale";
+import { AppShell } from "@/components/layout/AppShell";
+import { ProcessStepper } from "@/components/process/ProcessStepper";
+import { ActivityLog } from "@/components/process/ActivityLog";
+import { TodoList } from "@/components/shared/TodoList";
+import { Card } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
