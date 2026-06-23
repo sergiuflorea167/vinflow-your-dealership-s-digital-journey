@@ -489,6 +489,7 @@ export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, c
         cursor += 6;
         cursor = drawTodos(doc, offer.customerTodos, cursor, "Vereinbarte Leistungen");
       }
+      cursor = drawProcessTodos(cursor);
       break;
     }
     case "down_payment": {
@@ -507,9 +508,9 @@ export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, c
       cursor = drawTextBlock(doc,
         `Empfänger: ${companyName}\nIBAN: ${BANK.iban}\nBIC: ${BANK.bic}\nVerwendungszweck: ${dp?.invoiceNumber ?? process.id}\nRechnungsdatum: ${dp?.invoiceDate ? formatDate(dp.invoiceDate) : "—"}\nZahlungsbedingung: ${dp?.paymentTerms ?? (dp?.dueDate ? `Fällig am ${formatDate(dp.dueDate)}` : "Sofort fällig nach Erhalt der Rechnung")}${dp?.received ? `\nZahlung eingegangen am: ${dp.receivedDate ? formatDate(dp.receivedDate) : "—"}` : ""}\n${taxationLine(vehicle)}`,
         cursor);
+      cursor = drawProcessTodos(cursor);
       break;
     }
-    case "order_confirmation": {
       const oc = process.fields.orderConfirmation;
       cursor = drawTextBlock(doc,
         `Wir bestätigen Ihnen hiermit den verbindlichen Kaufauftrag für das oben aufgeführte Fahrzeug zu folgenden Konditionen:`,
