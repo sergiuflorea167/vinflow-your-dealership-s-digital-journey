@@ -488,8 +488,8 @@ export interface Process {
   currentStep: ProcessStepKey;
   steps: Record<ProcessStepKey, StepRecord>;
   fields: ProcessFields;
-  // Customer-To-Dos pro Schritt (Angebot/AB) – mit optionalem Fälligkeitsdatum + Erledigt-Status
-  customerTodosOC: { id: string; title: string; dueDate?: string; done?: boolean }[];
+  // Vorgangs-To-Dos – sichtbar auf jedem Beleg; `printOnStep` legt fest, auf welchem Beleg gedruckt wird.
+  customerTodosOC: { id: string; title: string; dueDate?: string; done?: boolean; printOnStep?: ProcessStepKey }[];
   // Interne Ausgangskontroll-Checkliste – mit optionalem Fälligkeitsdatum
   outboundChecklist: { id: string; label: string; done: boolean; dueDate?: string }[];
 }
