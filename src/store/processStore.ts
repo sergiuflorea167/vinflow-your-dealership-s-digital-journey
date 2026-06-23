@@ -503,6 +503,19 @@ export const useProcessStore = create<State>()(
             ),
           })),
 
+        setProcessCustomerTodoPrintOn: (processId, todoId, printOnStep) =>
+          set((state) => ({
+            processes: state.processes.map((p) =>
+              p.id !== processId ? p : {
+                ...p,
+                customerTodosOC: p.customerTodosOC.map((t) =>
+                  t.id === todoId ? { ...t, printOnStep } : t
+                ),
+                updatedAt: new Date().toISOString(),
+              }
+            ),
+          })),
+
         // ------- Vehicle -------
         addVehicle: (v) => {
           const id = nextNumericId("V", get().vehicles);
