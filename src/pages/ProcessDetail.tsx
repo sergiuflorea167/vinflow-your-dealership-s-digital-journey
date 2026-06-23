@@ -455,6 +455,150 @@ const DOWN_PAYMENT_TERMS_OPTIONS = [
   "Zahlbar innerhalb 14 Tagen ohne Abzug",
 ];
 
+// ---------- Vorgangs-To-Do Panel ----------
+
+interface CTItem { id: string; title: string; dueDate?: string; done?: boolean; printOnStep?: ProcessStepKey }
+
+const toISO = (d: Date) => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+};
+const parseISO = (iso?: string) => (iso ? new Date(`${iso}T00:00:00`) : undefined);
+
+const ProcessTodoPanel = ({
+  items, steps, currentStepKey, onAdd, onRemove, onToggle, onChangeDueDate, onChangePrintOn, disabled,
+}: {
+  items: CTItem[];
+  steps: { key: ProcessStepKey; shortLabel: string; documentName: string }[];
+  currentStepKey: ProcessStepKey;
+  onAdd: (title: string) => void;
+  onRemove: (id: string) => void;
+  onToggle: (id: string) => void;
+  onChangeDueDate: (id: string, d?: string) => void;
+  onChangePrintOn: (id: string, k: ProcessStepKey) => void;
+  disabled?: boolean;
+}) => {
+  const [draft, setDraft] = useState("");
+  const submit = () => {
+    const v = draft.trim();
+    if (!v) return;
+    onAdd(v);
+    setDraft("");
+  };
+  const onCurrent = items.filter((i) => (i.printOnStep ?? "order_confirmation") === currentStepKey);
+  const todayISO = toISO(new Date());
+
+  return (
+    <div className="rounded-xl border border-border bg-background/40 p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="font-display font-semibold text-sm">Vorgangs-To-Dos</h3>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            Auf jedem Beleg sichtbar. Wähle pro To-Do auf welchem Beleg es gedruckt wird – auf diesem Beleg sind aktuell <strong>{onCurrent.length}</strong> Einträge vorgesehen.
+          </p>
+        </div>
+        <span className="text-[10px] text-muted-foreground uppercase tracking-wider">{items.length}</span>
+      </div>
+
+      <div className="space-y-2">
+        {items.map((it) => {
+          const overdue = !!it.dueDate && !it.done && it.dueDate < todayISO;
+          const printKey = (it.printOnStep ?? "order_confirmation") as ProcessStepKey;
+          const isHere = printKey === currentStepKey;
+          return (
+            <div
+              key={it.id}
+              className={cn(
+                "flex flex-wrap items-center gap-2 p-3 rounded-lg border bg-background/60",
+                isHere ? "border-primary/40" : "border-border/60",
+                it.done && "opacity-60"
+              )}
+            >
+              <Checkbox checked={!!it.done} onCheckedChange={() => onToggle(it.id)} disabled={disabled} />
+              <span className={cn("text-sm flex-1 min-w-[160px] truncate", it.done && "line-through text-muted-foreground")}>
+                {it.title}
+              </span>
+
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={disabled}
+                    className={cn("h-7 px-2 gap-1 text-xs", it.dueDate ? "text-foreground" : "text-muted-foreground", overdue && "text-destructive")}
+                  >
+                    <CalendarIcon className="size-3.5" />
+                    {it.dueDate ? format(parseISO(it.dueDate)!, "dd.MM.yyyy") : "Fällig?"}
+                    {it.dueDate && !disabled && (
+                      <span
+                        role="button"
+                        onClick={(e) => { e.stopPropagation(); e.preventDefault(); onChangeDueDate(it.id, undefined); }}
+                        className="ml-1 -mr-1 inline-flex size-4 items-center justify-center rounded hover:bg-muted"
+                      >
+                        <X className="size-3" />
+                      </span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="end">
+                  <Calendar
+                    mode="single"
+                    locale={de}
+                    selected={parseISO(it.dueDate)}
+                    onSelect={(d) => onChangeDueDate(it.id, d ? toISO(d) : undefined)}
+                    initialFocus
+                    className="p-3 pointer-events-auto"
+                  />
+                </PopoverContent>
+              </Popover>
+
+              <Select value={printKey} onValueChange={(v) => onChangePrintOn(it.id, v as ProcessStepKey)} disabled={disabled}>
+                <SelectTrigger className="h-7 w-[180px] text-xs gap-1 bg-background">
+                  <Printer className="size-3.5 text-muted-foreground" />
+                  <SelectValue placeholder="Druck-Beleg" />
+                </SelectTrigger>
+                <SelectContent>
+                  {steps.map((s) => (
+                    <SelectItem key={s.key} value={s.key} className="text-xs">{s.documentName}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              {!disabled && (
+                <Button size="icon" variant="ghost" className="size-7 text-muted-foreground hover:text-destructive" onClick={() => onRemove(it.id)}>
+                  <Trash2 className="size-3.5" />
+                </Button>
+              )}
+            </div>
+          );
+        })}
+        {items.length === 0 && (
+          <p className="text-xs text-muted-foreground text-center py-3 border border-dashed border-border rounded-lg">
+            Noch keine To-Dos für diesen Vorgang.
+          </p>
+        )}
+      </div>
+
+      {!disabled && (
+        <div className="flex gap-2">
+          <Input
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); submit(); } }}
+            placeholder="z. B. AHK montieren, Winterreifen einlagern…"
+            className="bg-background/60"
+          />
+          <Button onClick={submit} className="bg-gradient-brand gap-1.5 shrink-0">
+            <Plus className="size-4" /> Hinzufügen
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const StepFields = ({ stepKey, fields, onChange, disabled }: { stepKey: ProcessStepKey; fields: ProcessFields; onChange: (patch: Partial<ProcessFields>) => void; disabled?: boolean }) => {
   if (stepKey === "offer") return null;
   if (stepKey === "down_payment") {
