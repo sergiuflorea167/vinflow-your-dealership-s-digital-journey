@@ -463,6 +463,15 @@ export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, c
   });
   cursor = Math.max(cursor, STANDARD_LAYOUT_START_Y);
 
+  // To-Dos für genau diesen Beleg (jedes To-Do trägt sein Druckziel)
+  const todosForThisStep = process.customerTodosOC.filter(
+    (t) => (t.printOnStep ?? "order_confirmation") === stepKey,
+  );
+  const drawProcessTodos = (c: number) => {
+    if (!todosForThisStep.length) return c;
+    return drawTodos(doc, todosForThisStep, c + 6, "Vereinbarte Leistungen");
+  };
+
   switch (stepKey) {
     case "offer": {
       cursor = drawTextBlock(doc,
