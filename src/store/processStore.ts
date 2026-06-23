@@ -78,10 +78,11 @@ interface State {
   updateProcessFields: (processId: string, patch: Partial<ProcessFields>) => void;
 
   // Customer-To-Dos auf AB
-  addProcessCustomerTodo: (processId: string, title: string) => void;
+  addProcessCustomerTodo: (processId: string, title: string, printOnStep?: ProcessStepKey) => void;
   removeProcessCustomerTodo: (processId: string, todoId: string) => void;
   toggleProcessCustomerTodo: (processId: string, todoId: string) => void;
   setProcessCustomerTodoDueDate: (processId: string, todoId: string, dueDate?: string) => void;
+  setProcessCustomerTodoPrintOn: (processId: string, todoId: string, printOnStep: ProcessStepKey) => void;
 
   // Outbound checklist
   toggleOutboundChecklistItem: (processId: string, itemId: string) => void;
@@ -424,12 +425,12 @@ export const useProcessStore = create<State>()(
             ),
           })),
 
-        addProcessCustomerTodo: (processId, title) =>
+        addProcessCustomerTodo: (processId, title, printOnStep) =>
           set((state) => ({
             processes: state.processes.map((p) =>
               p.id !== processId ? p : {
                 ...p,
-                customerTodosOC: [...p.customerTodosOC, { id: randomId("ct"), title }],
+                customerTodosOC: [...p.customerTodosOC, { id: randomId("ct"), title, printOnStep: printOnStep ?? "order_confirmation" }],
                 updatedAt: new Date().toISOString(),
               }
             ),
