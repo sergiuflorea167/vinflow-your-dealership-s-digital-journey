@@ -18,6 +18,7 @@ import OfferDetail from "./pages/OfferDetail.tsx";
 import Todos from "./pages/Todos.tsx";
 import Calendar from "./pages/Calendar.tsx";
 import Stammdaten from "./pages/Stammdaten.tsx";
+import Konfiguration from "./pages/Konfiguration.tsx";
 import CustomerTracking from "./pages/CustomerTracking.tsx";
 import Auth from "./pages/Auth.tsx";
 import ResetPassword from "./pages/ResetPassword.tsx";
@@ -87,6 +88,7 @@ const App = () => (
             <Route path="/todos" element={<Protected><Todos /></Protected>} />
             <Route path="/kalender" element={<Protected><Calendar /></Protected>} />
             <Route path="/stammdaten" element={<Protected><Stammdaten /></Protected>} />
+            <Route path="/konfiguration" element={<Protected><Konfiguration /></Protected>} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
