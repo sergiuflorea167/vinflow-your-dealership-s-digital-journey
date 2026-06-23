@@ -776,7 +776,7 @@ export const useProcessStore = create<State>()(
             steps: buildEmptySteps(currentStep, activeStepKeys),
             fields: { finalPrice: offer.price },
             // Übernehme Kunden-To-Dos aus dem Angebot
-            customerTodosOC: offer.customerTodos.map((t) => ({ id: randomId("ct"), title: t.title })),
+            customerTodosOC: offer.customerTodos.map((t) => ({ id: randomId("ct"), title: t.title, printOnStep: "order_confirmation" as ProcessStepKey })),
             outboundChecklist: DEFAULT_OUTBOUND_CHECKLIST(),
           };
           // Markiere das Angebot als abgeschlossen + setze "offer"-Step
