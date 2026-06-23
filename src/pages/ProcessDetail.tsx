@@ -59,6 +59,7 @@ const ProcessDetail = () => {
   const removeCT = useProcessStore((s) => s.removeProcessCustomerTodo);
   const toggleCT = useProcessStore((s) => s.toggleProcessCustomerTodo);
   const setCTDue = useProcessStore((s) => s.setProcessCustomerTodoDueDate);
+  const setCTPrintOn = useProcessStore((s) => s.setProcessCustomerTodoPrintOn);
 
   const [selected, setSelected] = useState<ProcessStepKey | undefined>(process?.currentStep);
 
