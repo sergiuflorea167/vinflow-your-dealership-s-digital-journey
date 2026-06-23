@@ -29,7 +29,7 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
-type StammTab = "customers" | "partners" | "locations" | "process";
+type StammTab = "customers" | "partners" | "locations";
 
 const Stammdaten = () => {
   const [tab, setTab] = useState<StammTab>("customers");
@@ -54,13 +54,11 @@ const Stammdaten = () => {
             <TabsTrigger value="customers" className="gap-2"><Users className="size-4" /> Kunden</TabsTrigger>
             <TabsTrigger value="partners"  className="gap-2"><Handshake className="size-4" /> Partner</TabsTrigger>
             <TabsTrigger value="locations" className="gap-2"><MapPin className="size-4" /> Standorte</TabsTrigger>
-            <TabsTrigger value="process"   className="gap-2"><Workflow className="size-4" /> Vorgangskette</TabsTrigger>
           </TabsList>
 
           <TabsContent value="customers" className="mt-0"><CustomersPanel /></TabsContent>
           <TabsContent value="partners"  className="mt-0"><PartnersPanel /></TabsContent>
           <TabsContent value="locations" className="mt-0"><LocationsPanel /></TabsContent>
-          <TabsContent value="process"   className="mt-0"><ProcessChainPanel /></TabsContent>
         </Tabs>
       </div>
     </AppShell>

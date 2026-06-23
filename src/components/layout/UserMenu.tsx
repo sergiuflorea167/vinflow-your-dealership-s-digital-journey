@@ -12,7 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { User, Settings as SettingsIcon, LogOut, Camera, Mail, Phone, Briefcase, Palette, Check, Building2, KeyRound, Copy, Sparkles, GraduationCap, Database } from "lucide-react";
+import { User, Settings as SettingsIcon, LogOut, Camera, Mail, Phone, Briefcase, Palette, Check, Building2, KeyRound, Copy, Sparkles, GraduationCap, Database, SlidersHorizontal } from "lucide-react";
 import { buildDemoSeed } from "@/data/demoSeed";
 import { flushOrgStateNow } from "@/lib/orgStateSync";
 import { useTutorialStore } from "@/store/tutorialStore";
@@ -135,6 +135,9 @@ export const UserMenu = () => {
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
             <Link to="/stammdaten"><SettingsIcon className="size-4 mr-2" /> {t("menu.settings")}</Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <Link to="/konfiguration"><SlidersHorizontal className="size-4 mr-2" /> Konfiguration</Link>
           </DropdownMenuItem>
           <DropdownMenuItem onClick={() => useTutorialStore.getState().reset()}>
             <Sparkles className="size-4 mr-2" /> Einführungs-Tour starten
