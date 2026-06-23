@@ -239,40 +239,24 @@ const ProcessDetail = () => {
               />
             )}
 
-            {/* Customer-To-Dos auf AB */}
-            {selectedKey === "order_confirmation" && (
-              <div className="mt-6">
-                <TodoList
-                  title="Kunden-To-Dos auf AB"
-                  description='Diese Punkte werden auf der Auftragsbestätigung gedruckt – sichtbar für den Kunden. Fälligkeit hilft dir beim Tracking unter „To-Dos".'
-                  items={process.customerTodosOC}
-                  onAdd={(t) => addCT(process.id, t)}
-                  onRemove={(id) => removeCT(process.id, id)}
-                  onToggle={(id) => toggleCT(process.id, id)}
-                  onChangeDueDate={(id, d) => setCTDue(process.id, id, d)}
-                  showCheckbox
-                  placeholder="z. B. AHK montieren, Standheizung nachrüsten…"
-                  disabled={!isCurrent || isBooked}
-                />
-              </div>
-            )}
+            {/* Vorgangs-To-Dos – auf jedem Beleg sichtbar; jedes To-Do hat ein Druckziel */}
+            <div className="mt-6">
+              <ProcessTodoPanel
+                items={process.customerTodosOC}
+                steps={processSteps}
+                currentStepKey={selectedKey}
+                onAdd={(t) => addCT(process.id, t, selectedKey)}
+                onRemove={(id) => removeCT(process.id, id)}
+                onToggle={(id) => toggleCT(process.id, id)}
+                onChangeDueDate={(id, d) => setCTDue(process.id, id, d)}
+                onChangePrintOn={(id, k) => setCTPrintOn(process.id, id, k)}
+                disabled={isLocked}
+              />
+            </div>
 
-            {/* Outbound checklist */}
+            {/* Outbound checklist – nur auf Ausgangskontrolle */}
             {selectedKey === "outbound_check" && (
-              <div className="mt-6 space-y-6">
-                {process.customerTodosOC.length > 0 && (
-                  <TodoList
-                    title="Vereinbarte Leistungen (aus AB)"
-                    description="Aus der Auftragsbestätigung übernommen. Hier abhaken, sobald für die Übergabe erledigt."
-                    items={process.customerTodosOC}
-                    onAdd={(t) => addCT(process.id, t)}
-                    onRemove={(id) => removeCT(process.id, id)}
-                    onToggle={(id) => toggleCT(process.id, id)}
-                    onChangeDueDate={(id, d) => setCTDue(process.id, id, d)}
-                    showCheckbox
-                    disabled={!isCurrent || isBooked}
-                  />
-                )}
+              <div className="mt-6">
                 <TodoList
                   title="Übergabe-Checkliste (intern)"
                   description={`${checklistDone} / ${checklistTotal} erledigt – alle müssen vor dem Abschluss abgehakt sein. Erscheint auch unter „To-Dos" mit Tag „Ausgangskontrolle".`}
