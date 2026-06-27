@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -70,18 +71,20 @@ const Todos = () => {
   const navigate = useNavigate();
   const rawTodos = useProcessStore((s) => s.todos);
   const vehicles = useProcessStore((s) => s.vehicles);
+  const offers = useProcessStore((s) => s.offers);
   const processes = useProcessStore((s) => s.processes);
   const addTodo = useProcessStore((s) => s.addTodo);
   const toggleTodo = useProcessStore((s) => s.toggleTodo);
   const removeTodo = useProcessStore((s) => s.removeTodo);
   const updateTodo = useProcessStore((s) => s.updateTodo);
+  const [section, setSection] = useState<"todos" | "agreements">("todos");
 
-  // Merge: globale To-Dos + abgeleitete To-Dos aus Vorgängen (AB-Kunden-To-Dos & Ausgangskontrolle)
-  const todos = useMemo<Todo[]>(() => {
-    const mirrored: Todo[] = [];
+  const todoGroups = useMemo(() => {
+    const operational: Todo[] = [...rawTodos];
+    const agreements: Todo[] = [];
     processes.forEach((p) => {
       p.customerTodosOC.forEach((it) => {
-        mirrored.push({
+        agreements.push({
           id: mirroredTodoId("ct", p.id, it.id),
           title: it.title,
           priority: "medium",
@@ -90,13 +93,13 @@ const Todos = () => {
           dueDate: it.dueDate,
           processId: p.id,
           vehicleId: p.vehicleId,
-          tags: ["Vorgang", p.id, "AB"],
+          tags: ["Kundenvereinbarung", p.id],
           createdAt: p.createdAt,
-          createdBy: "Vorgang",
+          createdBy: "Kundenvereinbarung",
         });
       });
       p.outboundChecklist.forEach((it) => {
-        mirrored.push({
+        operational.push({
           id: mirroredTodoId("oc", p.id, it.id),
           title: it.label,
           priority: "medium",
@@ -111,8 +114,27 @@ const Todos = () => {
         });
       });
     });
-    return [...rawTodos, ...mirrored];
-  }, [rawTodos, processes]);
+    const acceptedOfferIds = new Set(processes.map((process) => process.acceptedOfferId).filter(Boolean));
+    offers.forEach((offer) => {
+      if (acceptedOfferIds.has(offer.id) || (offer.status !== "draft" && offer.status !== "sent")) return;
+      offer.customerTodos.forEach((agreement) => {
+        agreements.push({
+          id: mirroredTodoId("of", offer.id, agreement.id),
+          title: agreement.title,
+          priority: "medium",
+          scope: "offer",
+          done: !!agreement.done,
+          dueDate: agreement.dueDate,
+          vehicleId: offer.vehicleId,
+          tags: ["Kundenvereinbarung", offer.id],
+          createdAt: offer.createdAt,
+          createdBy: "Angebot",
+        });
+      });
+    });
+    return { operational, agreements };
+  }, [rawTodos, processes, offers]);
+  const todos = section === "agreements" ? todoGroups.agreements : todoGroups.operational;
 
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("open");
   const [scopeFilter, setScopeFilter] = useState<"all" | TodoScope>("all");
@@ -127,7 +149,7 @@ const Todos = () => {
 
   // ---- Topbar-Suche -------------------------------------------------------
   const topbarSearch = useMemo(() => ({
-    placeholder: "To-Dos durchsuchen…",
+    placeholder: section === "agreements" ? "Kundenvereinbarungen durchsuchen…" : "To-Dos durchsuchen…",
     value: query,
     onChange: setQuery,
     field: searchField,
@@ -138,7 +160,7 @@ const Todos = () => {
       { key: "tag",      label: "Tag" },
       { key: "assignee", label: "Zuständig" },
     ],
-  }), [query, searchField]);
+  }), [query, searchField, section]);
   useTopbarSearch(topbarSearch);
 
   // ---- Helpers ------------------------------------------------------------
@@ -252,9 +274,11 @@ const Todos = () => {
         <div data-tour="tt-header" className="flex items-center justify-between gap-4 shrink-0">
           <div>
             <h1 className="font-display text-2xl font-bold tracking-tight">To-Dos</h1>
-            <p className="text-xs text-muted-foreground">Eigenständige Aufgaben · sortier- und filterbar</p>
+            <p className="text-xs text-muted-foreground">
+              {section === "agreements" ? "Schriftliche Zusagen an Kunden · mit den Vorgängen synchronisiert" : "Eigenständige Aufgaben · sortier- und filterbar"}
+            </p>
           </div>
-          <div data-tour="tt-new">
+          {section === "todos" && <div data-tour="tt-new">
             <Button
               size="sm"
               className="bg-gradient-brand hover:opacity-90 shadow-elegant gap-2"
@@ -262,8 +286,25 @@ const Todos = () => {
             >
               <Plus className="size-4" /> Neues To-Do
             </Button>
-          </div>
+          </div>}
         </div>
+
+        <Tabs value={section} onValueChange={(value) => {
+          setSection(value as typeof section);
+          setStatusFilter("open");
+          setScopeFilter("all");
+          setPriorityFilter("all");
+          setDueFilter("any");
+          setCustomDue(undefined);
+          setQuery("");
+        }}>
+          <TabsList className="grid h-auto w-full grid-cols-2 p-1">
+            <TabsTrigger value="todos" className="py-2.5">To-Dos</TabsTrigger>
+            <TabsTrigger value="agreements" className="py-2.5">
+              Kundenvereinbarungen ({todoGroups.agreements.length})
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
 
         {/* KPI-Strip kompakt */}
         <div data-tour="tt-kpis" className="grid grid-cols-2 md:grid-cols-4 gap-2 shrink-0">
@@ -365,7 +406,9 @@ const Todos = () => {
         </Card>
 
         {sorted.length === 0 ? (
-          <Card className="p-12 text-center text-muted-foreground">Keine To-Dos gefunden.</Card>
+          <Card className="p-12 text-center text-muted-foreground">
+            {section === "agreements" ? "Keine Kundenvereinbarungen gefunden." : "Keine To-Dos gefunden."}
+          </Card>
         ) : (
           <div data-tour="tt-table">
           <DataTableShell footer={<>{sorted.length} {sorted.length === 1 ? "Eintrag" : "Einträge"}</>}>
@@ -434,7 +477,7 @@ const Todos = () => {
                         </Badge>
                       </td>
                       <td>
-                        <Select value={t.priority} onValueChange={(v) => updateTodo(t.id, { priority: v as TodoPriority })}>
+                        <Select value={t.priority} onValueChange={(v) => updateTodo(t.id, { priority: v as TodoPriority })} disabled={section === "agreements"}>
                           <SelectTrigger className={cn("h-6 px-1.5 text-[10px] gap-1 border w-auto", prio.className)}>
                             <span className={cn("size-1.5 rounded-full", prio.dot)} />
                             <SelectValue />
@@ -461,7 +504,15 @@ const Todos = () => {
                       </td>
                       <td className="text-muted-foreground truncate max-w-[120px]">{t.assignee ?? "–"}</td>
                       <td>
-                        {veh ? (
+                        {proc ? (
+                          <button
+                            type="button"
+                            onClick={() => navigate(`/vorgaenge/${proc.id}`)}
+                            className="font-mono text-primary-glow hover:underline"
+                          >
+                            {proc.id}
+                          </button>
+                        ) : veh ? (
                           <button
                             type="button"
                             onClick={() => navigate(`/bestand/${veh.id}`)}
@@ -469,14 +520,6 @@ const Todos = () => {
                           >
                             <Car className="size-3 shrink-0" />
                             <span className="truncate">{veh.make} {veh.model}</span>
-                          </button>
-                        ) : proc ? (
-                          <button
-                            type="button"
-                            onClick={() => navigate(`/vorgaenge/${proc.id}`)}
-                            className="font-mono text-primary-glow hover:underline"
-                          >
-                            {proc.id}
                           </button>
                         ) : (
                           <span className="text-muted-foreground">–</span>
@@ -533,24 +576,44 @@ const Todos = () => {
       {/* Edit Dialog */}
       <Dialog open={!!editTodo} onOpenChange={(o) => !o && setEditTodo(null)}>
         <DialogContent className="max-w-lg">
-          <DialogHeader><DialogTitle>To-Do bearbeiten</DialogTitle></DialogHeader>
+          <DialogHeader>
+            <DialogTitle>{section === "agreements" ? "Kundenvereinbarung bearbeiten" : "To-Do bearbeiten"}</DialogTitle>
+          </DialogHeader>
           {editTodo && (
-            <TodoForm
-              key={editTodo.id}
-              initial={editTodo}
-              submitLabel="Speichern"
-              onSubmit={(data) => {
-                updateTodo(editTodo.id, data);
-                toast.success("To-Do aktualisiert.");
-                setEditTodo(null);
-              }}
-              onCancel={() => setEditTodo(null)}
-              onDelete={() => {
-                removeTodo(editTodo.id);
-                toast.success("To-Do gelöscht.");
-                setEditTodo(null);
-              }}
-            />
+            section === "agreements" ? (
+              <AgreementForm
+                key={editTodo.id}
+                initial={editTodo}
+                onSubmit={(data) => {
+                  updateTodo(editTodo.id, data);
+                  toast.success("Kundenvereinbarung aktualisiert.");
+                  setEditTodo(null);
+                }}
+                onCancel={() => setEditTodo(null)}
+                onDelete={() => {
+                  removeTodo(editTodo.id);
+                  toast.success("Kundenvereinbarung gelöscht.");
+                  setEditTodo(null);
+                }}
+              />
+            ) : (
+              <TodoForm
+                key={editTodo.id}
+                initial={editTodo}
+                submitLabel="Speichern"
+                onSubmit={(data) => {
+                  updateTodo(editTodo.id, data);
+                  toast.success("To-Do aktualisiert.");
+                  setEditTodo(null);
+                }}
+                onCancel={() => setEditTodo(null)}
+                onDelete={() => {
+                  removeTodo(editTodo.id);
+                  toast.success("To-Do gelöscht.");
+                  setEditTodo(null);
+                }}
+              />
+            )
           )}
         </DialogContent>
       </Dialog>
@@ -563,6 +626,50 @@ export default Todos;
 // ---------------------------------------------------------------------------
 // Todo Form (Create + Edit)
 // ---------------------------------------------------------------------------
+
+const AgreementForm = ({
+  initial, onSubmit, onCancel, onDelete,
+}: {
+  initial: Todo;
+  onSubmit: (data: Pick<Todo, "title" | "dueDate">) => void;
+  onCancel: () => void;
+  onDelete: () => void;
+}) => {
+  const [title, setTitle] = useState(initial.title);
+  const [dueDate, setDueDate] = useState(initial.dueDate ?? "");
+
+  return (
+    <div className="space-y-4">
+      <div className="space-y-1.5">
+        <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">Vereinbarung *</Label>
+        <Input value={title} onChange={(event) => setTitle(event.target.value)} autoFocus />
+      </div>
+      <div className="space-y-1.5">
+        <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">Fällig am</Label>
+        <Input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} />
+      </div>
+      <DialogFooter className="gap-2 sm:justify-between">
+        <Button variant="ghost" className="text-destructive hover:text-destructive" onClick={onDelete}>
+          <Trash2 className="size-4 mr-1.5" /> Löschen
+        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={onCancel}>Abbrechen</Button>
+          <Button
+            onClick={() => {
+              if (!title.trim()) {
+                toast.error("Bitte eine Vereinbarung eingeben.");
+                return;
+              }
+              onSubmit({ title: title.trim(), dueDate: dueDate || undefined });
+            }}
+          >
+            Speichern
+          </Button>
+        </div>
+      </DialogFooter>
+    </div>
+  );
+};
 
 type TodoFormData = Omit<Todo, "id" | "createdAt" | "createdBy" | "done">;
 
