@@ -3,11 +3,14 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { useProcessStore } from "@/store/processStore";
 import {
-  DEFAULT_PROCESS_STEP_KEYS, PROCESS_STEPS, ProcessStepKey, normalizeProcessStepKeys,
+  DEFAULT_NUMBER_RANGES, DEFAULT_PROCESS_STEP_KEYS, PROCESS_STEPS, ProcessStepKey,
+  NumberRangeConfig, NumberRangeKey, formatDocumentNumber, normalizeNumberRanges, normalizeProcessStepKeys,
 } from "@/data/process";
-import { CheckCircle2, FileText, RotateCcw, Settings as SettingsIcon, Workflow } from "lucide-react";
+import { CheckCircle2, FileText, Hash, RotateCcw, Settings as SettingsIcon, Workflow } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -16,6 +19,21 @@ const Konfiguration = () => {
   const updateSettings = useProcessStore((s) => s.updateSettings);
   const selected = normalizeProcessStepKeys(settings.processStepKeys);
   const selectedSet = new Set<ProcessStepKey>(selected);
+  const numberRanges = normalizeNumberRanges(settings.numberRanges);
+
+  const updateNumberRange = (key: NumberRangeKey, patch: Partial<NumberRangeConfig>) => {
+    updateSettings({
+      numberRanges: {
+        ...numberRanges,
+        [key]: { ...numberRanges[key], ...patch },
+      },
+    });
+  };
+
+  const resetNumberRanges = () => {
+    updateSettings({ numberRanges: normalizeNumberRanges(DEFAULT_NUMBER_RANGES) });
+    toast.success("Nummernkreise wurden auf den Standard zurückgesetzt.");
+  };
 
   const toggleStep = (key: ProcessStepKey) => {
     if (selectedSet.has(key)) {
@@ -123,6 +141,94 @@ const Konfiguration = () => {
                       <p className="text-xs text-muted-foreground mt-1">
                         {step.label} · {step.description}
                       </p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+
+        <Card className="bg-card border-border overflow-hidden">
+          <div className="p-4 border-b border-border flex items-start justify-between gap-4 flex-wrap">
+            <div className="flex items-start gap-3 min-w-0">
+              <div className="size-10 rounded-lg bg-primary/15 text-primary-glow grid place-items-center shrink-0">
+                <Hash className="size-5" />
+              </div>
+              <div className="min-w-0">
+                <h2 className="font-display text-lg font-semibold">Nummernkreise</h2>
+                <p className="text-xs text-muted-foreground mt-1 max-w-2xl">
+                  Lege das Format für neue Rechnungen, Anzahlungsrechnungen und Kaufverträge fest. Bereits vergebene Nummern bleiben unverändert.
+                </p>
+              </div>
+            </div>
+            <Button variant="outline" size="sm" onClick={resetNumberRanges} className="gap-2">
+              <RotateCcw className="size-4" /> Standard
+            </Button>
+          </div>
+
+          <div className="grid gap-3 p-4">
+            {([
+              ["invoice", "Rechnungen", "Schlussrechnungen im Verkaufsvorgang"],
+              ["downPayment", "Anzahlungsrechnungen", "Belege für erhaltene Anzahlungen"],
+              ["purchaseContract", "Kaufverträge", "Vertragsnummern für Fahrzeugverkäufe"],
+            ] as const).map(([key, title, description]) => {
+              const config = numberRanges[key];
+              return (
+                <div key={key} className="rounded-lg border border-border bg-background/30 p-3">
+                  <div className="flex items-start justify-between gap-3 flex-wrap">
+                    <div>
+                      <p className="font-medium text-foreground">{title}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{description}</p>
+                    </div>
+                    <Badge variant="outline" className="font-mono text-xs border-primary/30 text-primary-glow">
+                      Vorschau: {formatDocumentNumber(config, config.startNumber)}
+                    </Badge>
+                  </div>
+
+                  <div className="grid gap-3 mt-3 sm:grid-cols-2 lg:grid-cols-4">
+                    <div className="space-y-1.5">
+                      <Label htmlFor={`${key}-prefix`} className="text-xs">Präfix</Label>
+                      <Input
+                        id={`${key}-prefix`}
+                        value={config.prefix}
+                        maxLength={12}
+                        onChange={(event) => updateNumberRange(key, { prefix: event.target.value.toUpperCase() })}
+                        className="bg-background/40 font-mono"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor={`${key}-start`} className="text-xs">Startnummer</Label>
+                      <Input
+                        id={`${key}-start`}
+                        type="number"
+                        min={1}
+                        value={config.startNumber}
+                        onChange={(event) => updateNumberRange(key, { startNumber: Math.max(1, Number(event.target.value) || 1) })}
+                        className="bg-background/40"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label htmlFor={`${key}-digits`} className="text-xs">Stellen</Label>
+                      <Input
+                        id={`${key}-digits`}
+                        type="number"
+                        min={1}
+                        max={8}
+                        value={config.digits}
+                        onChange={(event) => updateNumberRange(key, { digits: Math.min(8, Math.max(1, Number(event.target.value) || 1)) })}
+                        className="bg-background/40"
+                      />
+                    </div>
+                    <div className="flex items-end">
+                      <label className="h-10 w-full rounded-md border border-border bg-background/40 px-3 flex items-center gap-2 cursor-pointer">
+                        <Checkbox
+                          checked={config.includeYear}
+                          onCheckedChange={(checked) => updateNumberRange(key, { includeYear: checked === true })}
+                          aria-label={`Jahr bei ${title} einfügen`}
+                        />
+                        <span className="text-sm">Jahr einfügen</span>
+                      </label>
                     </div>
                   </div>
                 </div>

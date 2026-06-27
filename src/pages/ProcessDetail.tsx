@@ -77,7 +77,7 @@ const ProcessDetail = () => {
     if (selectedKey === "invoicing") {
       const patch: any = { ...process.fields.invoicing };
       let changed = false;
-      if (!patch.invoiceNumber) { patch.invoiceNumber = nextInvoiceNumber(allProcesses); changed = true; }
+      if (!patch.invoiceNumber) { patch.invoiceNumber = nextInvoiceNumber(allProcesses, settings.numberRanges?.invoice); changed = true; }
       if (!patch.invoiceDate) { patch.invoiceDate = today; changed = true; }
       // E-Rechnung automatisch aktivieren, wenn Kunde eine Firma ist und noch keine
       // bewusste Auswahl getroffen wurde.
@@ -90,14 +90,14 @@ const ProcessDetail = () => {
     if (selectedKey === "down_payment") {
       const patch: any = { ...process.fields.downPayment };
       let changed = false;
-      if (!patch.invoiceNumber) { patch.invoiceNumber = nextDownPaymentInvoiceNumber(allProcesses); changed = true; }
+      if (!patch.invoiceNumber) { patch.invoiceNumber = nextDownPaymentInvoiceNumber(allProcesses, settings.numberRanges?.downPayment); changed = true; }
       if (!patch.invoiceDate) { patch.invoiceDate = today; changed = true; }
       if (changed) updateFields(process.id, { downPayment: patch });
     }
     if (selectedKey === "purchase_contract") {
       const pc: any = { ...process.fields.purchaseContract };
       let changed = false;
-      if (!pc.contractNumber) { pc.contractNumber = nextContractNumber(allProcesses); changed = true; }
+      if (!pc.contractNumber) { pc.contractNumber = nextContractNumber(allProcesses, settings.numberRanges?.purchaseContract); changed = true; }
       // Firma → automatisch B2B vorbelegen (nur wenn noch nichts gewählt).
       if (customer?.salutation === "firma" && !pc.customerType) {
         pc.customerType = "b2b";

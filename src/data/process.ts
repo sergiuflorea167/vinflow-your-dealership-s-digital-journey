@@ -578,6 +578,17 @@ export interface Partner {
   createdAt: string;
 }
 
+export type NumberRangeKey = "invoice" | "downPayment" | "purchaseContract";
+
+export interface NumberRangeConfig {
+  prefix: string;
+  startNumber: number;
+  digits: number;
+  includeYear: boolean;
+}
+
+export type NumberRanges = Record<NumberRangeKey, NumberRangeConfig>;
+
 export interface Settings {
   userName: string;
   companyName: string;
@@ -602,6 +613,8 @@ export interface Settings {
   companyEmail?: string;     // Kontakt-E-Mail (BT-43, Seller electronic address)
   companyPhone?: string;     // Kontakt-Telefon (BT-42)
   companyRegistration?: string; // z. B. „HRB 12345, AG München"
+  // Nummernkreise – optional für bestehende Organisationsdaten
+  numberRanges?: NumberRanges;
 }
 
 // ---------- Helpers ----------
@@ -622,10 +635,48 @@ export const stepIndex = (key: ProcessStepKey) => PROCESS_STEPS.findIndex((s) =>
 
 // ---------- Auto-Nummern für Belege ----------
 
-const nextSeqForPrefix = (processes: Process[], prefix: string, getter: (p: Process) => string | undefined): string => {
+export const DEFAULT_NUMBER_RANGES: NumberRanges = {
+  invoice: { prefix: "RE", startNumber: 1, digits: 4, includeYear: true },
+  downPayment: { prefix: "AR", startNumber: 1, digits: 4, includeYear: true },
+  purchaseContract: { prefix: "KV", startNumber: 1, digits: 4, includeYear: true },
+};
+
+const normalizeNumberRange = (
+  config: Partial<NumberRangeConfig> | undefined,
+  fallback: NumberRangeConfig,
+): NumberRangeConfig => ({
+  prefix: config?.prefix?.trim() || fallback.prefix,
+  startNumber: Math.max(1, Math.floor(config?.startNumber ?? fallback.startNumber)),
+  digits: Math.min(8, Math.max(1, Math.floor(config?.digits ?? fallback.digits))),
+  includeYear: config?.includeYear ?? fallback.includeYear,
+});
+
+export const normalizeNumberRanges = (ranges?: Partial<NumberRanges>): NumberRanges => ({
+  invoice: normalizeNumberRange(ranges?.invoice, DEFAULT_NUMBER_RANGES.invoice),
+  downPayment: normalizeNumberRange(ranges?.downPayment, DEFAULT_NUMBER_RANGES.downPayment),
+  purchaseContract: normalizeNumberRange(ranges?.purchaseContract, DEFAULT_NUMBER_RANGES.purchaseContract),
+});
+
+export const formatDocumentNumber = (config: NumberRangeConfig, sequence: number, year = new Date().getFullYear()) => {
+  const normalized = normalizeNumberRange(config, config);
+  const parts = [normalized.prefix];
+  if (normalized.includeYear) parts.push(String(year));
+  parts.push(String(sequence).padStart(normalized.digits, "0"));
+  return parts.join("-");
+};
+
+const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const nextSeqForRange = (
+  processes: Process[],
+  config: NumberRangeConfig,
+  getter: (p: Process) => string | undefined,
+): string => {
+  const normalized = normalizeNumberRange(config, config);
   const year = new Date().getFullYear();
-  const re = new RegExp(`^${prefix}-${year}-(\\d{4})$`);
-  let max = 0;
+  const yearPart = normalized.includeYear ? `-${year}` : "";
+  const re = new RegExp(`^${escapeRegExp(normalized.prefix)}${yearPart}-(\\d+)$`);
+  let max = normalized.startNumber - 1;
   for (const p of processes) {
     const v = getter(p);
     if (!v) continue;
@@ -635,17 +686,17 @@ const nextSeqForPrefix = (processes: Process[], prefix: string, getter: (p: Proc
       if (n > max) max = n;
     }
   }
-  return `${prefix}-${year}-${String(max + 1).padStart(4, "0")}`;
+  return formatDocumentNumber(normalized, max + 1, year);
 };
 
-export const nextInvoiceNumber = (processes: Process[]) =>
-  nextSeqForPrefix(processes, "RE", (p) => p.fields.invoicing?.invoiceNumber);
+export const nextInvoiceNumber = (processes: Process[], config?: Partial<NumberRangeConfig>) =>
+  nextSeqForRange(processes, normalizeNumberRange(config, DEFAULT_NUMBER_RANGES.invoice), (p) => p.fields.invoicing?.invoiceNumber);
 
-export const nextDownPaymentInvoiceNumber = (processes: Process[]) =>
-  nextSeqForPrefix(processes, "AR", (p) => p.fields.downPayment?.invoiceNumber);
+export const nextDownPaymentInvoiceNumber = (processes: Process[], config?: Partial<NumberRangeConfig>) =>
+  nextSeqForRange(processes, normalizeNumberRange(config, DEFAULT_NUMBER_RANGES.downPayment), (p) => p.fields.downPayment?.invoiceNumber);
 
-export const nextContractNumber = (processes: Process[]) =>
-  nextSeqForPrefix(processes, "KV", (p) => p.fields.purchaseContract?.contractNumber);
+export const nextContractNumber = (processes: Process[], config?: Partial<NumberRangeConfig>) =>
+  nextSeqForRange(processes, normalizeNumberRange(config, DEFAULT_NUMBER_RANGES.purchaseContract), (p) => p.fields.purchaseContract?.contractNumber);
 
 export const grossFromNet = (net: number, vat: number) => net * (1 + vat / 100);
 export const netFromGross = (gross: number, vat: number) => gross / (1 + vat / 100);
@@ -1654,6 +1705,7 @@ export const DEFAULT_SETTINGS: Settings = {
   companyName: "VINflow Autohaus GmbH",
   pdfTheme: "indigo",
   processStepKeys: DEFAULT_PROCESS_STEP_KEYS,
+  numberRanges: DEFAULT_NUMBER_RANGES,
   locations: [
     "Hof A · Platz 01", "Hof A · Platz 02", "Hof A · Platz 03", "Hof A · Platz 04", "Hof A · Platz 05",
     "Hof A · Platz 06", "Hof A · Platz 07", "Hof A · Platz 08", "Hof A · Platz 09", "Hof A · Platz 10",
