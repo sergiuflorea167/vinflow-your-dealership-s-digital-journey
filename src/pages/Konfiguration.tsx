@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useProcessStore } from "@/store/processStore";
 import {
   DEFAULT_NUMBER_RANGES, DEFAULT_PROCESS_STEP_KEYS, PROCESS_STEPS, ProcessStepKey,
@@ -68,12 +69,25 @@ const Konfiguration = () => {
           <div>
             <h1 className="font-display text-2xl font-bold tracking-tight">Konfiguration</h1>
             <p className="text-xs text-muted-foreground">
-              Systemeinstellungen — Belege der Vorgangskette aktivieren oder deaktivieren.
+              Systemeinstellungen nach Bereichen geordnet verwalten.
             </p>
           </div>
         </div>
 
-        <Card className="bg-card border-border overflow-hidden">
+        <Tabs defaultValue="process" className="w-full">
+          <TabsList className="grid h-auto w-full grid-cols-2 p-1">
+            <TabsTrigger value="process" className="gap-2 py-2.5">
+              <Workflow className="size-4" />
+              <span>Vorgangskette</span>
+            </TabsTrigger>
+            <TabsTrigger value="number-ranges" className="gap-2 py-2.5">
+              <Hash className="size-4" />
+              <span>Nummernkreise</span>
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="process" className="mt-4">
+            <Card className="bg-card border-border overflow-hidden">
           <div className="p-4 border-b border-border flex items-start justify-between gap-4 flex-wrap">
             <div className="flex items-start gap-3 min-w-0">
               <div className="size-10 rounded-lg bg-primary/15 text-primary-glow grid place-items-center shrink-0">
@@ -147,9 +161,11 @@ const Konfiguration = () => {
               );
             })}
           </div>
-        </Card>
+            </Card>
+          </TabsContent>
 
-        <Card className="bg-card border-border overflow-hidden">
+          <TabsContent value="number-ranges" className="mt-4">
+            <Card className="bg-card border-border overflow-hidden">
           <div className="p-4 border-b border-border flex items-start justify-between gap-4 flex-wrap">
             <div className="flex items-start gap-3 min-w-0">
               <div className="size-10 rounded-lg bg-primary/15 text-primary-glow grid place-items-center shrink-0">
@@ -235,7 +251,9 @@ const Konfiguration = () => {
               );
             })}
           </div>
-        </Card>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </AppShell>
   );
