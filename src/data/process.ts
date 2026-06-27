@@ -33,6 +33,14 @@ export const PROCESS_STEPS: ProcessStep[] = [
   { key: "delivery_confirmation", label: "Abhol- / Lieferbestätigung", shortLabel: "Lieferung", description: "Übergabe mit Kundenunterschrift.", documentName: "Übergabeprotokoll" },
 ];
 
+/** Prozessschritte, in denen Kundenvereinbarungen gepflegt und dokumentiert werden. */
+export const CUSTOMER_AGREEMENT_STEP_KEYS: readonly ProcessStepKey[] = [
+  "offer",
+  "order_confirmation",
+  "outbound_check",
+  "purchase_contract",
+];
+
 export const DEFAULT_PROCESS_STEP_KEYS: ProcessStepKey[] = PROCESS_STEPS.map((step) => step.key);
 
 const PROCESS_STEP_KEY_SET = new Set<ProcessStepKey>(DEFAULT_PROCESS_STEP_KEYS);
@@ -337,6 +345,13 @@ export interface Customer {
 
 export type OfferStatus = "draft" | "sent" | "accepted" | "rejected" | "expired";
 
+export interface CustomerAgreement {
+  id: string;
+  title: string;
+  dueDate?: string;
+  done?: boolean;
+}
+
 export interface Offer {
   id: string;
   vehicleId: string;
@@ -347,7 +362,7 @@ export interface Offer {
   discount?: number;
   notes?: string;
   status: OfferStatus;
-  customerTodos: { id: string; title: string }[]; // werden auf den Beleg gedruckt
+  customerTodos: CustomerAgreement[];
 }
 
 // ---------- Einkaufsplanung ----------
@@ -488,8 +503,8 @@ export interface Process {
   currentStep: ProcessStepKey;
   steps: Record<ProcessStepKey, StepRecord>;
   fields: ProcessFields;
-  // Vorgangs-To-Dos – sichtbar auf jedem Beleg; `printOnStep` legt fest, auf welchem Beleg gedruckt wird.
-  customerTodosOC: { id: string; title: string; dueDate?: string; done?: boolean; printOnStep?: ProcessStepKey }[];
+  // Kundenvereinbarungen. Feldname bleibt für bestehende Organisationsdaten kompatibel.
+  customerTodosOC: CustomerAgreement[];
   // Interne Ausgangskontroll-Checkliste – mit optionalem Fälligkeitsdatum
   outboundChecklist: { id: string; label: string; done: boolean; dueDate?: string }[];
 }

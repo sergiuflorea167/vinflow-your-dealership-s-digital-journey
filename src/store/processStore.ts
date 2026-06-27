@@ -77,12 +77,11 @@ interface State {
   cancelStep: (processId: string, stepKey: ProcessStepKey) => void;
   updateProcessFields: (processId: string, patch: Partial<ProcessFields>) => void;
 
-  // Customer-To-Dos auf AB
-  addProcessCustomerTodo: (processId: string, title: string, printOnStep?: ProcessStepKey) => void;
+  // Fortlaufende Kundenvereinbarungen
+  addProcessCustomerTodo: (processId: string, title: string) => void;
   removeProcessCustomerTodo: (processId: string, todoId: string) => void;
   toggleProcessCustomerTodo: (processId: string, todoId: string) => void;
   setProcessCustomerTodoDueDate: (processId: string, todoId: string, dueDate?: string) => void;
-  setProcessCustomerTodoPrintOn: (processId: string, todoId: string, printOnStep: ProcessStepKey) => void;
 
   // Outbound checklist
   toggleOutboundChecklistItem: (processId: string, itemId: string) => void;
@@ -192,20 +191,20 @@ export const PERSISTED_KEYS = [
 ] as const;
 
 /**
- * Mirrored-Todo IDs sind virtuelle IDs für To-Dos, die aus Vorgängen abgeleitet sind.
- * Format: mir|<kind>|<processId>|<itemId>
- * kind: "ct" = customerTodosOC (AB-To-Do), "oc" = outboundChecklist (Ausgangskontrolle)
+ * Mirrored-Todo IDs sind virtuelle IDs für Kundenvereinbarungen und Ausgangskontrollen.
+ * Format: mir|<kind>|<parentId>|<itemId>
+ * kind: "of" = Angebotsvereinbarung, "ct" = Vorgangsvereinbarung, "oc" = Ausgangskontrolle
  */
-export const mirroredTodoId = (kind: "ct" | "oc", processId: string, itemId: string) =>
-  `mir|${kind}|${processId}|${itemId}`;
+export const mirroredTodoId = (kind: "of" | "ct" | "oc", parentId: string, itemId: string) =>
+  `mir|${kind}|${parentId}|${itemId}`;
 
-const parseMirroredId = (id: string): { kind: "ct" | "oc"; processId: string; itemId: string } | null => {
+const parseMirroredId = (id: string): { kind: "of" | "ct" | "oc"; parentId: string; itemId: string } | null => {
   if (!id.startsWith("mir|")) return null;
   const parts = id.split("|");
   if (parts.length !== 4) return null;
-  const kind = parts[1] as "ct" | "oc";
-  if (kind !== "ct" && kind !== "oc") return null;
-  return { kind, processId: parts[2], itemId: parts[3] };
+  const kind = parts[1] as "of" | "ct" | "oc";
+  if (kind !== "of" && kind !== "ct" && kind !== "oc") return null;
+  return { kind, parentId: parts[2], itemId: parts[3] };
 };
 
 export const useProcessStore = create<State>()(
@@ -425,12 +424,12 @@ export const useProcessStore = create<State>()(
             ),
           })),
 
-        addProcessCustomerTodo: (processId, title, printOnStep) =>
+        addProcessCustomerTodo: (processId, title) =>
           set((state) => ({
             processes: state.processes.map((p) =>
               p.id !== processId ? p : {
                 ...p,
-                customerTodosOC: [...p.customerTodosOC, { id: randomId("ct"), title, printOnStep: printOnStep ?? "order_confirmation" }],
+                customerTodosOC: [...p.customerTodosOC, { id: randomId("ct"), title }],
                 updatedAt: new Date().toISOString(),
               }
             ),
@@ -497,19 +496,6 @@ export const useProcessStore = create<State>()(
                 ...p,
                 outboundChecklist: p.outboundChecklist.map((c) =>
                   c.id === itemId ? { ...c, dueDate } : c
-                ),
-                updatedAt: new Date().toISOString(),
-              }
-            ),
-          })),
-
-        setProcessCustomerTodoPrintOn: (processId, todoId, printOnStep) =>
-          set((state) => ({
-            processes: state.processes.map((p) =>
-              p.id !== processId ? p : {
-                ...p,
-                customerTodosOC: p.customerTodosOC.map((t) =>
-                  t.id === todoId ? { ...t, printOnStep } : t
                 ),
                 updatedAt: new Date().toISOString(),
               }
@@ -775,8 +761,8 @@ export const useProcessStore = create<State>()(
             currentStep,
             steps: buildEmptySteps(currentStep, activeStepKeys),
             fields: { finalPrice: offer.price },
-            // Übernehme Kunden-To-Dos aus dem Angebot
-            customerTodosOC: offer.customerTodos.map((t) => ({ id: randomId("ct"), title: t.title, printOnStep: "order_confirmation" as ProcessStepKey })),
+            // Übernehme Kundenvereinbarungen samt Status und Fälligkeit aus dem Angebot.
+            customerTodosOC: offer.customerTodos.map((t) => ({ ...t, id: randomId("ct") })),
             outboundChecklist: DEFAULT_OUTBOUND_CHECKLIST(),
           };
           // Markiere das Angebot als abgeschlossen + setze "offer"-Step
@@ -989,11 +975,18 @@ export const useProcessStore = create<State>()(
         },
 
         toggleTodo: (id) => {
-          // Mirrored process todos: id like mir-ct-<processId>-<itemId> or mir-oc-<processId>-<itemId>
+          // Gespiegelte Kundenvereinbarungen und Ausgangskontroll-To-Dos.
           const mir = parseMirroredId(id);
           if (mir) {
-            if (mir.kind === "ct") get().toggleProcessCustomerTodo(mir.processId, mir.itemId);
-            else get().toggleOutboundChecklistItem(mir.processId, mir.itemId);
+            if (mir.kind === "of") {
+              set((state) => ({
+                offers: state.offers.map((offer) => offer.id !== mir.parentId ? offer : {
+                  ...offer,
+                  customerTodos: offer.customerTodos.map((agreement) => agreement.id === mir.itemId ? { ...agreement, done: !agreement.done } : agreement),
+                }),
+              }));
+            } else if (mir.kind === "ct") get().toggleProcessCustomerTodo(mir.parentId, mir.itemId);
+            else get().toggleOutboundChecklistItem(mir.parentId, mir.itemId);
             return;
           }
           return (
@@ -1066,13 +1059,40 @@ export const useProcessStore = create<State>()(
         updateTodo: (id, patch) => {
           const mir = parseMirroredId(id);
           if (mir) {
-            if (patch.dueDate !== undefined) {
-              if (mir.kind === "ct") get().setProcessCustomerTodoDueDate(mir.processId, mir.itemId, patch.dueDate || undefined);
-              else get().setOutboundChecklistItemDueDate(mir.processId, mir.itemId, patch.dueDate || undefined);
+            if (mir.kind === "of") {
+              set((state) => ({
+                offers: state.offers.map((offer) => offer.id !== mir.parentId ? offer : {
+                  ...offer,
+                  customerTodos: offer.customerTodos.map((agreement) => agreement.id !== mir.itemId ? agreement : {
+                    ...agreement,
+                    ...(patch.title !== undefined ? { title: patch.title } : {}),
+                    ...("dueDate" in patch ? { dueDate: patch.dueDate || undefined } : {}),
+                    ...(patch.done !== undefined ? { done: patch.done } : {}),
+                  }),
+                }),
+              }));
+              return;
+            }
+            if (mir.kind === "ct") {
+              set((state) => ({
+                processes: state.processes.map((process) => process.id !== mir.parentId ? process : {
+                  ...process,
+                  updatedAt: new Date().toISOString(),
+                  customerTodosOC: process.customerTodosOC.map((agreement) => agreement.id !== mir.itemId ? agreement : {
+                    ...agreement,
+                    ...(patch.title !== undefined ? { title: patch.title } : {}),
+                    ...("dueDate" in patch ? { dueDate: patch.dueDate || undefined } : {}),
+                    ...(patch.done !== undefined ? { done: patch.done } : {}),
+                  }),
+                }),
+              }));
+              return;
+            }
+            if ("dueDate" in patch) {
+              get().setOutboundChecklistItemDueDate(mir.parentId, mir.itemId, patch.dueDate || undefined);
             }
             if (patch.done !== undefined) {
-              if (mir.kind === "ct") get().toggleProcessCustomerTodo(mir.processId, mir.itemId);
-              else get().toggleOutboundChecklistItem(mir.processId, mir.itemId);
+              get().toggleOutboundChecklistItem(mir.parentId, mir.itemId);
             }
             return;
           }
@@ -1144,8 +1164,9 @@ export const useProcessStore = create<State>()(
         removeTodo: (id) => {
           const mir = parseMirroredId(id);
           if (mir) {
-            if (mir.kind === "ct") get().removeProcessCustomerTodo(mir.processId, mir.itemId);
-            else get().removeOutboundChecklistItem(mir.processId, mir.itemId);
+            if (mir.kind === "of") get().removeOfferCustomerTodo(mir.parentId, mir.itemId);
+            else if (mir.kind === "ct") get().removeProcessCustomerTodo(mir.parentId, mir.itemId);
+            else get().removeOutboundChecklistItem(mir.parentId, mir.itemId);
             return;
           }
           return (
