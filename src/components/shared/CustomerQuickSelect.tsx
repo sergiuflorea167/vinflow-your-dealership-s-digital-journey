@@ -73,9 +73,12 @@ const QuickCreateCustomerDialog = ({ open, onOpenChange, onCreated, addCustomer 
   const [zip, setZip] = useState("");
   const [city, setCity] = useState("");
   const [birthDate, setBirthDate] = useState("");
+  const [legalForm, setLegalForm] = useState("");
+  const [contactPerson, setContactPerson] = useState("");
+  const [vatId, setVatId] = useState("");
 
   const reset = () => {
-    setSalutation("herr"); setName(""); setEmail(""); setPhone(""); setStreet(""); setZip(""); setCity(""); setBirthDate("");
+    setSalutation("herr"); setName(""); setEmail(""); setPhone(""); setStreet(""); setZip(""); setCity(""); setBirthDate(""); setLegalForm(""); setContactPerson(""); setVatId("");
   };
 
   const valid = name.trim() && city.trim();
@@ -91,6 +94,9 @@ const QuickCreateCustomerDialog = ({ open, onOpenChange, onCreated, addCustomer 
       zip: zip.trim() || undefined,
       city: city.trim(),
       birthDate: birthDate || undefined,
+      legalForm: isFirma ? legalForm.trim() || undefined : undefined,
+      contactPerson: isFirma ? contactPerson.trim() || undefined : undefined,
+      vatId: isFirma ? vatId.trim() || undefined : undefined,
     });
     toast.success(`${salutation === "firma" ? "Firma" : "Kunde"} ${created.name} angelegt.`);
     reset();
@@ -153,10 +159,18 @@ const QuickCreateCustomerDialog = ({ open, onOpenChange, onCreated, addCustomer 
               <Input value={city} onChange={(e) => setCity(e.target.value)} />
             </div>
           </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">Geburtsdatum</Label>
-            <Input type="date" value={birthDate} onChange={(e) => setBirthDate(e.target.value)} />
-          </div>
+          {isFirma ? (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5"><Label className="text-xs text-muted-foreground">Rechtsform</Label><Input value={legalForm} onChange={(e) => setLegalForm(e.target.value)} placeholder="z. B. GmbH" /></div>
+              <div className="space-y-1.5"><Label className="text-xs text-muted-foreground">Ansprechpartner</Label><Input value={contactPerson} onChange={(e) => setContactPerson(e.target.value)} /></div>
+              <div className="space-y-1.5 col-span-2"><Label className="text-xs text-muted-foreground">USt-IdNr. (optional)</Label><Input value={vatId} onChange={(e) => setVatId(e.target.value)} placeholder="DE123456789" /></div>
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Geburtsdatum (optional)</Label>
+              <Input type="date" value={birthDate} onChange={(e) => setBirthDate(e.target.value)} />
+            </div>
+          )}
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Abbrechen</Button>

@@ -5,11 +5,13 @@ import {
   Customer,
   Offer,
   PROCESS_STEPS,
+  VEHICLE_TYPE_LABELS,
   CUSTOMER_AGREEMENT_STEP_KEYS,
   ProcessStepKey,
   formatCurrencyPrecise as formatCurrency,
   formatDate,
 } from "@/data/process";
+import { getContractClauses, type ContractClauseContext } from "@/lib/contractClauses";
 
 // VINflow PDF generator – clean, standard business document layout (DIN-5008 inspired).
 // White background, neutral grayscale, generous whitespace, consistent grid.
@@ -691,6 +693,8 @@ const drawKvSpecsTable = (doc: jsPDF, vehicle: Vehicle, y: number, kv?: any) => 
   const rows: Array<[string, string]> = [
     ["Marke / Modell", `${vehicle.make} ${vehicle.model}${vehicle.modelDetail ? " " + vehicle.modelDetail : ""}`],
     ["Fahrzeug-Ident.-Nr. (VIN)", vehicle.vin],
+    ["Fahrzeugart", VEHICLE_TYPE_LABELS[vehicle.type]],
+    ["Anzahl Schlüssel", kv?.keysCount != null ? String(kv.keysCount) : "—"],
     ["HSN / TSN", `${vehicle.hsn ?? "—"} / ${vehicle.tsn ?? "—"}`],
     ["Amtl. Kennzeichen", vehicle.licensePlate ?? "—"],
     ["Erstzulassung", vehicle.firstRegistration ? formatDate(vehicle.firstRegistration) : "—"],
@@ -704,7 +708,8 @@ const drawKvSpecsTable = (doc: jsPDF, vehicle: Vehicle, y: number, kv?: any) => 
     ["Farbe (außen)", `${vehicle.color}${vehicle.paintCode ? ` (${vehicle.paintCode})` : ""}`],
     ["Innenraum", `${vehicle.interiorColor ?? "—"}${vehicle.interiorMaterial ? `, ${vehicle.interiorMaterial}` : ""}`],
     ["HU/AU gültig bis", vehicle.hu ? formatDate(vehicle.hu) : "—"],
-    ["Scheckheft / Unfallfrei", `${(vehicle.serviceBookComplete || kv?.docServiceBook) ? "ja" : "nein"} / ${(kv?.accidentVehicle !== undefined ? !kv.accidentVehicle : vehicle.accidentFree) ? "ja" : "nein"}`],
+    ["Serviceheft", (vehicle.serviceBookComplete || kv?.docServiceBook) ? "vollständig / vorhanden" : "nicht angegeben"],
+    ["Unfallfreiheit", kv?.accidentVehicle ? "nein" : vehicle.accidentFree === true ? "ja" : "nicht zugesichert"],
   ];
 
   doc.setFont("helvetica", "normal");
@@ -732,14 +737,168 @@ const drawKvSpecsTable = (doc: jsPDF, vehicle: Vehicle, y: number, kv?: any) => 
   return cy + 2;
 };
 
+const CustomerSection = (
+  doc: jsPDF,
+  y: number,
+  args: { companyName: string; seller: SellerInfo; customer: Customer; customerType: "b2c" | "b2b" }
+) => {
+  const w = (PAGE.w - 2 * PAGE.margin - 6) / 2;
+  drawKvParty(doc, "Verkäufer", [
+    args.companyName,
+    args.seller.street || "—",
+    [args.seller.zip, args.seller.city].filter(Boolean).join(" ") || "—",
+    args.seller.representative ? `Ansprechpartner: ${args.seller.representative}` : "Ansprechpartner: —",
+    [args.seller.phone, args.seller.email, args.seller.vatId ? `USt-IdNr.: ${args.seller.vatId}` : null, args.seller.taxNumber ? `St.-Nr.: ${args.seller.taxNumber}` : null, args.seller.registration].filter(Boolean).join(" · ") || "—",
+  ], PAGE.margin, y, w);
+
+  const businessDetails = args.customerType === "b2b"
+    ? [args.customer.legalForm, args.customer.contactPerson ? `Ansprechpartner: ${args.customer.contactPerson}` : null, args.customer.vatId ? `USt-IdNr.: ${args.customer.vatId}` : null].filter(Boolean).join(" · ")
+    : args.customer.birthDate ? `Geburtsdatum: ${formatDate(args.customer.birthDate)}` : "";
+  drawKvParty(doc, args.customerType === "b2b" ? "Käufer · Gewerbekunde" : "Käufer · Privatkunde", [
+    args.customer.name,
+    args.customer.street ?? "—",
+    `${args.customer.zip ?? ""} ${args.customer.city}`.trim(),
+    [args.customer.phone, args.customer.email].filter(Boolean).join(" · "),
+    businessDetails,
+  ], PAGE.margin + w + 6, y, w);
+  return y + 36;
+};
+
+const VehicleSection = (doc: jsPDF, vehicle: Vehicle, y: number, kv?: Process["fields"]["purchaseContract"]) => {
+  let cursor = drawSectionTitle(doc, "1. Fahrzeug", y);
+  cursor = drawKvSpecsTable(doc, vehicle, cursor + 3, kv);
+  if (vehicle.features?.length) {
+    cursor = drawTextBlock(doc, `Sonderausstattung / Zubehör: ${vehicle.features.join(" · ")}`, cursor + 2, { fontSize: 8.5 });
+  }
+  return cursor + 4;
+};
+
+const PriceSection = (
+  doc: jsPDF,
+  y: number,
+  args: { vehicle: Vehicle; finalPrice: number; downPayment: number; paymentStatus: "paid" | "deposit" | "open"; paymentAmount: number; paymentDate?: string; paymentMethod?: string }
+) => {
+  let cursor = drawSectionTitle(doc, "2. Kaufpreis und Zahlung", y);
+  const net = isMarginTaxed(args.vehicle) ? undefined : args.finalPrice / 1.19;
+  const vat = net == null ? undefined : args.finalPrice - net;
+  const priceItems: LineItem[] = net == null
+    ? [{ description: "Kaufpreis (Differenzbesteuerung)", qty: "1", unitPrice: args.finalPrice, total: args.finalPrice }]
+    : [
+        { description: "Kaufpreis netto", qty: "1", unitPrice: net, total: net },
+        { description: "Umsatzsteuer 19 %", qty: "1", unitPrice: vat ?? 0, total: vat ?? 0 },
+      ];
+  cursor = drawTable(doc, priceItems, cursor, "Kaufpreis brutto", { showVat: false });
+  const paidAmount = args.paymentStatus === "paid" ? args.finalPrice : args.paymentStatus === "deposit" ? args.paymentAmount || args.downPayment : args.paymentAmount || 0;
+  const remaining = Math.max(0, args.finalPrice - paidAmount);
+  cursor = drawTextBlock(doc,
+    `Zahlungsstatus: ${args.paymentStatus === "paid" ? "bezahlt" : args.paymentStatus === "deposit" ? "Anzahlung geleistet" : "Restzahlung offen"}. ` +
+    `Gezahlter Betrag: ${formatCurrency(paidAmount)}. Offener Betrag: ${formatCurrency(remaining)}.` +
+    `${args.paymentDate ? ` Zahlungsdatum: ${formatDate(args.paymentDate)}.` : ""}${args.paymentMethod ? ` Zahlungsart: ${args.paymentMethod}.` : ""}\n` +
+    `${taxationLine(args.vehicle)}`,
+    cursor, { fontSize: 9 });
+  return cursor + 4;
+};
+
+const ConditionSection = (doc: jsPDF, y: number, vehicle: Vehicle, kv?: Process["fields"]["purchaseContract"]) => {
+  let cursor = drawSectionTitle(doc, "3. Fahrzeugzustand und bekannte Mängel", y);
+  const facts = [
+    ["Unfallfahrzeug", kv?.accidentVehicle ?? vehicle.accidentFree === false],
+    ["Bekannte Schäden", !!kv?.knownDamagePresent],
+    ["Nachlackierungen", !!kv?.repainted],
+    ["Wie besichtigt gekauft", !!kv?.purchasedAsInspected],
+  ] as const;
+  cursor = drawTextBlock(doc, facts.map(([label, value]) => `${value ? "[x]" : "[ ]"} ${label}`).join("    "), cursor, { fontSize: 9 });
+  const description = kv?.conditionDescription?.trim() || kv?.preDamage?.trim();
+  if (description) cursor = drawTextBlock(doc, `Beschreibung: ${description}`, cursor + 2, { fontSize: 9 });
+  const defects = kv?.defects?.filter((defect) => defect.title.trim()) ?? [];
+  if (defects.length) {
+    cursor = drawTextBlock(doc, `Bekannte Mängel:\n${defects.map((defect, index) => `${index + 1}. ${defect.title}${defect.description?.trim() ? ` – ${defect.description.trim()}` : ""}`).join("\n")}`, cursor + 2, { fontSize: 9 });
+  } else if (kv?.knownDefects?.trim()) {
+    cursor = drawTextBlock(doc, `Bekannte Mängel: ${kv.knownDefects.trim()}`, cursor + 2, { fontSize: 9 });
+  } else {
+    cursor = drawTextBlock(doc, "Keine über den dokumentierten alters- und laufleistungsüblichen Zustand hinausgehenden Mängel angegeben.", cursor + 2, { fontSize: 9, muted: true });
+  }
+  return cursor + 4;
+};
+
+const DeliverySection = (doc: jsPDF, y: number, process: Process, kv?: Process["fields"]["purchaseContract"]) => {
+  let cursor = drawSectionTitle(doc, "4. Übergabe", y);
+  const handoverDate = process.fields.delivery?.handoverDate ?? process.fields.orderConfirmation?.deliveryDate;
+  const handoverPlace = process.fields.delivery?.handoverLocation ?? kv?.place;
+  const handoverMileage = process.fields.delivery?.finalMileage;
+  cursor = drawTextBlock(doc,
+    `Übergabedatum: ${handoverDate ? formatDate(handoverDate) : "nach Vereinbarung"} · ` +
+    `Übergabeort: ${handoverPlace || "Sitz des Verkäufers"} · ` +
+    `Kilometerstand bei Übergabe: ${handoverMileage != null ? `${handoverMileage.toLocaleString("de-DE")} km` : "wird bei Übergabe dokumentiert"} · ` +
+    `Schlüssel: ${kv?.keysCount ?? "—"}`,
+    cursor, { fontSize: 9 });
+
+  if (kv?.handoverProtocol) {
+    const documents: Array<[string, boolean]> = [
+      ["Zulassungsbescheinigung Teil I", !!kv.docZB1],
+      ["Zulassungsbescheinigung Teil II", !!kv.docZB2],
+      ["HU/AU-Bericht", !!kv.docHuAu],
+      ["Serviceheft", !!kv.docServiceBook],
+      ["Bedienungsanleitung", !!kv.docOwnerManual],
+      ["COC-Papiere", !!kv.docCocPapers],
+    ];
+    cursor = drawTextBlock(doc, `Übergebene Dokumente: ${documents.filter(([, checked]) => checked).map(([label]) => label).join(" · ") || "keine Auswahl"}.`, cursor + 2, { fontSize: 9 });
+    cursor = drawTextBlock(doc, "Das gesonderte Übergabeprotokoll ist Bestandteil der Fahrzeugübergabe.", cursor + 2, { fontSize: 9, muted: true });
+  }
+  return cursor + 4;
+};
+
+const AdditionalSection = (doc: jsPDF, y: number, kv?: Process["fields"]["purchaseContract"]) => {
+  const entries = [
+    kv?.additionalAgreementEnabled && kv.additionalAgreement?.trim() ? `Zusatzvereinbarung: ${kv.additionalAgreement.trim()}` : null,
+    kv?.financing ? `Finanzierung: ${kv.financingDetails?.trim() || "gemäß gesonderter Finanzierungsvereinbarung"}` : null,
+    kv?.tradeIn ? `Inzahlungnahme: ${kv.tradeInDetails?.trim() || "gemäß gesonderter Inzahlungnahmevereinbarung"}` : null,
+  ].filter(Boolean) as string[];
+  if (!entries.length) return y;
+  let cursor = drawSectionTitle(doc, "Zusatzvereinbarungen", y);
+  cursor = drawTextBlock(doc, entries.join("\n"), cursor, { fontSize: 9 });
+  return cursor + 4;
+};
+
+const LegalSection = (doc: jsPDF, y: number, context: ContractClauseContext, ensureSpace: (cursor: number) => number) => {
+  let cursor = y;
+  for (const [index, clause] of getContractClauses(context).entries()) {
+    cursor = drawSectionTitle(doc, `${index + 5}. ${clause.title}`, cursor);
+    cursor = drawTextBlock(doc, clause.text(context), cursor, { fontSize: 9 });
+    cursor += 4;
+    cursor = ensureSpace(cursor);
+  }
+  return cursor;
+};
+
+const SignatureSection = (doc: jsPDF, y: number, args: { place: string; contractDate: string; customerName: string; companyName: string; representative?: string; separateB2CAgreement: boolean }) => {
+  let cursor = drawSectionTitle(doc, "Unterschriften", y);
+  if (args.separateB2CAgreement) {
+    cursor = drawTextBlock(doc, "Der Käufer bestätigt zusätzlich die vorstehende, gesondert hervorgehobene Vereinbarung zur Verkürzung der Verjährungsfrist auf ein Jahr.", cursor, { fontSize: 8.5 });
+    cursor += 10;
+    setColor(doc, BRAND.ink, "draw");
+    doc.setLineWidth(0.4);
+    doc.line(PAGE.margin, cursor, PAGE.margin + 78, cursor);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    setColor(doc, BRAND.muted);
+    doc.text("Gesonderte Zustimmung des Käufers zur Verkürzung auf ein Jahr", PAGE.margin, cursor + 4);
+    cursor += 10;
+  }
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  setColor(doc, BRAND.ink);
+  doc.text(`Ort, Datum: ${args.place}, ${args.contractDate}`, PAGE.margin, cursor + 2);
+  cursor += 18;
+  return drawSignatureRow(doc, cursor, `Käufer · ${args.customerName}`, `Verkäufer · ${args.companyName}${args.representative ? ` (${args.representative})` : ""}`);
+};
+
 const buildKaufvertrag = (
   doc: jsPDF,
   { process, vehicle, customer, companyName, seller, finalPrice }: { process: Process; vehicle: Vehicle; customer: Customer; companyName: string; seller?: SellerInfo; finalPrice: number }
 ): jsPDF => {
   const kv = process.fields.purchaseContract;
   const down = process.fields.downPayment?.amount ?? 0;
-  const remaining = finalPrice - down;
-  const margin = isMarginTaxed(vehicle);
   const place = kv?.place ?? customer.city ?? "—";
   const contractDate = kv?.contractDate ? formatDate(kv.contractDate) : formatDate(new Date().toISOString());
 
@@ -750,9 +909,19 @@ const buildKaufvertrag = (
   const sRep = kv?.sellerRepresentative || seller?.representative;
   const sVat = kv?.sellerVatId || seller?.vatId;
   const sReg = kv?.sellerRegistration || seller?.registration;
+  const resolvedSeller: SellerInfo = {
+    ...seller,
+    street: sStreet,
+    zip: sZip,
+    city: sCity,
+    representative: sRep,
+    vatId: sVat,
+    registration: sReg,
+  };
+  const customerType = kv?.customerType ?? (customer.salutation === "firma" ? "b2b" : "b2c");
 
-  drawHeader(doc, "Kaufvertrag", `Vertrags-Nr. ${kv?.contractNumber ?? process.id}`, companyName, seller);
-  drawDocumentHeading(doc, "Kaufvertrag", `Vertrags-Nr. ${kv?.contractNumber ?? process.id}`, 38);
+  drawHeader(doc, "Kaufvertrag", `Vertrags-Nr. ${kv?.contractNumber ?? process.id}`, companyName, resolvedSeller);
+  drawDocumentHeading(doc, "Verbindliche Bestellung / Kaufvertrag eines Fahrzeugs", `Vertrags-Nr. ${kv?.contractNumber ?? process.id}`, 38);
 
   // Meta line directly under header
   let cursor = 50;
@@ -763,25 +932,7 @@ const buildKaufvertrag = (
   doc.text(`Vertrags-Nr. ${kv?.contractNumber ?? process.id}`, PAGE.w - PAGE.margin, cursor, { align: "right" });
   cursor += 6;
 
-  // Parties
-  const w = (PAGE.w - 2 * PAGE.margin - 6) / 2;
-  const sellerLines = [
-    companyName,
-    sStreet || "—",
-    [sZip, sCity].filter(Boolean).join(" ") || "—",
-    sRep ? `vertreten durch ${sRep}` : "vertreten durch —",
-    [sVat ? `USt-IdNr.: ${sVat}` : null, sReg ?? null].filter(Boolean).join(" · ") || "USt-IdNr.: — · HRB —",
-  ];
-  drawKvParty(doc, "Verkäufer", sellerLines, PAGE.margin, cursor, w);
-  const isB2B = kv?.customerType === "b2b";
-  drawKvParty(doc, isB2B ? "Käufer (Unternehmer · B2B)" : "Käufer (Verbraucher · B2C)", [
-    customer.name,
-    customer.street ?? "—",
-    `${customer.zip ?? ""} ${customer.city}`.trim(),
-    customer.email ?? "",
-    customer.birthDate ? `geb. ${formatDate(customer.birthDate)}` : "",
-  ], PAGE.margin + w + 6, cursor, w);
-  cursor += 36;
+  cursor = CustomerSection(doc, cursor, { companyName, seller: resolvedSeller, customer, customerType });
 
   // Preamble
   cursor = drawTextBlock(doc,
@@ -789,52 +940,22 @@ const buildKaufvertrag = (
     cursor, { muted: true });
   cursor += 4;
 
-  // § 1 Kaufgegenstand
-  cursor = drawSectionTitle(doc, "§ 1  Kaufgegenstand", cursor);
-  cursor = drawTextBlock(doc, "Der Verkäufer verkauft an den Käufer das nachstehend bezeichnete Fahrzeug:", cursor, { muted: true });
-  cursor += 3;
-  cursor = drawKvSpecsTable(doc, vehicle, cursor, kv);
-
-  if (vehicle.features && vehicle.features.length) {
-    cursor += 2;
-    setColor(doc, BRAND.muted);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(7.5);
-    doc.text("AUSSTATTUNG", PAGE.margin, cursor);
-    cursor += 3;
-    cursor = drawTextBlock(doc, vehicle.features.join(" · "), cursor, { fontSize: 8.5 });
-  }
-  cursor += 4;
-
-  // § 2 Kaufpreis
-  cursor = drawSectionTitle(doc, "§ 2  Kaufpreis und Zahlung", cursor);
-  cursor = drawTable(doc, [
-    { description: `${vehicle.make} ${vehicle.model} (${vehicle.year})`, qty: "1", unitPrice: finalPrice, total: finalPrice },
-    ...(down > 0 ? [{ description: "geleistete Anzahlung", qty: "1", unitPrice: -down, total: -down }] : []),
-    ...(remaining > 0 ? [{ description: "geleistete Restzahlung", qty: "1", unitPrice: -remaining, total: -remaining }] : []),
-  ], cursor, "Offener Betrag");
-  const dpTerms = process.fields.downPayment?.paymentTerms
-    ?? (process.fields.downPayment?.dueDate ? `Fällig am ${formatDate(process.fields.downPayment.dueDate)}` : "Sofort fällig nach Vertragsabschluss");
-  const restTerms = process.fields.orderConfirmation?.paymentTerms
-    ?? process.fields.invoicing?.paymentTerms
-    ?? (process.fields.invoicing?.dueDate ? `Fällig am ${formatDate(process.fields.invoicing.dueDate)}` : "Restzahlung bei Fahrzeugübergabe");
-  const dpMethod = process.fields.downPayment?.method ?? "Überweisung";
-  cursor = drawTextBlock(doc,
-    `Der vereinbarte Kaufpreis in Höhe von ${formatCurrency(finalPrice)} setzt sich wie folgt zusammen:\n` +
-    `• Anzahlung: ${formatCurrency(down)} – Zahlungsbedingung: ${dpTerms}. Zahlungsweise: ${dpMethod}.\n` +
-    `• Restzahlung: ${formatCurrency(remaining)} – Zahlungsbedingung: ${restTerms}.\n` +
-    `${down + remaining >= finalPrice
-      ? `Der Verkäufer bestätigt hiermit den vollständigen Erhalt des Kaufpreises. Eine weitere Zahlungsverpflichtung des Käufers besteht nicht.`
-      : `Der offene Betrag ist gemäß der oben genannten Zahlungsbedingung für die Restzahlung zu entrichten.`} ` +
-    `${taxationLine(vehicle)}`,
-    cursor, { fontSize: 9 });
-  cursor += 4;
+  cursor = VehicleSection(doc, vehicle, cursor, kv);
+  cursor = PriceSection(doc, cursor, {
+    vehicle,
+    finalPrice,
+    downPayment: down,
+    paymentStatus: kv?.paymentStatus ?? (process.fields.invoicing?.paid ? "paid" : process.fields.downPayment?.received ? "deposit" : "open"),
+    paymentAmount: kv?.paymentAmount ?? 0,
+    paymentDate: kv?.paymentDate ?? process.fields.invoicing?.paidDate ?? process.fields.downPayment?.receivedDate,
+    paymentMethod: kv?.paymentMethod ?? process.fields.downPayment?.method,
+  });
 
   // Page 2 if needed
   if (cursor > 230) {
-    drawFooter(doc, companyName, seller);
+    drawFooter(doc, companyName, resolvedSeller);
     doc.addPage();
-    drawHeader(doc, "Kaufvertrag (Fortsetzung)", `Vertrags-Nr. ${kv?.contractNumber ?? process.id}`, companyName, seller);
+    drawHeader(doc, "Kaufvertrag (Fortsetzung)", `Vertrags-Nr. ${kv?.contractNumber ?? process.id}`, companyName, resolvedSeller);
     drawDocumentHeading(doc, "Kaufvertrag · Fortsetzung", `Vertrags-Nr. ${kv?.contractNumber ?? process.id}`, 38);
     cursor = 50;
   }
@@ -842,54 +963,15 @@ const buildKaufvertrag = (
   // Helper: page break if needed
   const ensureSpace = (minRemaining = 230) => {
     if (cursor > minRemaining) {
-      drawFooter(doc, companyName, seller);
+      drawFooter(doc, companyName, resolvedSeller);
       doc.addPage();
-      drawHeader(doc, "Kaufvertrag (Fortsetzung)", `Vertrags-Nr. ${kv?.contractNumber ?? process.id}`, companyName, seller);
+      drawHeader(doc, "Kaufvertrag (Fortsetzung)", `Vertrags-Nr. ${kv?.contractNumber ?? process.id}`, companyName, resolvedSeller);
       drawDocumentHeading(doc, "Kaufvertrag · Fortsetzung", `Vertrags-Nr. ${kv?.contractNumber ?? process.id}`, 38);
       cursor = 50;
     }
   };
 
-  // § 3 Übergabe und übergebene Unterlagen
-  cursor = drawSectionTitle(doc, "§ 3  Übergabe, Gefahrübergang und übergebene Unterlagen", cursor);
-  cursor = drawTextBlock(doc,
-    `Die Übergabe des Fahrzeugs erfolgt nach vollständiger Bezahlung des Kaufpreises ` +
-    `am ${process.fields.orderConfirmation?.deliveryDate ? formatDate(process.fields.orderConfirmation.deliveryDate) : "vereinbarten Termin"} ` +
-    `am Sitz des Verkäufers. Mit der Übergabe geht die Gefahr eines zufälligen Untergangs oder einer zufälligen Verschlechterung des Fahrzeugs auf den Käufer über. ` +
-    `Bis zur vollständigen Bezahlung des Kaufpreises bleibt das Fahrzeug Eigentum des Verkäufers (Eigentumsvorbehalt).`,
-    cursor, { fontSize: 9 });
-  cursor += 2;
-  const docsList: Array<[string, boolean]> = [
-    ["Zulassungsbescheinigung Teil I (ZB I / Fahrzeugschein)", !!kv?.docZB1],
-    ["Zulassungsbescheinigung Teil II (ZB II / Fahrzeugbrief)", !!kv?.docZB2],
-    ["HU/AU-Bericht", !!kv?.docHuAu],
-    ["Scheckheft / Serviceheft", !!kv?.docServiceBook],
-    ["Bedienungsanleitung", !!kv?.docOwnerManual],
-    ["COC-Papiere (EG-Übereinstimmungsbescheinigung)", !!kv?.docCocPapers],
-    [`Fahrzeugschlüssel (Anzahl: ${kv?.keysCount ?? "—"})`, (kv?.keysCount ?? 0) > 0],
-  ];
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(9);
-  setColor(doc, BRAND.ink);
-  doc.text("Übergebene Unterlagen / Gegenstände:", PAGE.margin, cursor);
-  cursor += 4;
-  docsList.forEach(([label, ok]) => {
-    setColor(doc, ok ? BRAND.ink : BRAND.border, "draw");
-    doc.setLineWidth(0.4);
-    doc.rect(PAGE.margin, cursor - 2.6, 2.6, 2.6);
-    if (ok) {
-      setColor(doc, BRAND.ink);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(8);
-      doc.text("✓", PAGE.margin + 0.5, cursor - 0.4);
-    }
-    setColor(doc, BRAND.ink);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    doc.text(label, PAGE.margin + 5, cursor);
-    cursor += 4.5;
-  });
-  cursor += 4;
+  cursor = DeliverySection(doc, cursor, process, kv);
 
   ensureSpace();
 
@@ -899,128 +981,39 @@ const buildKaufvertrag = (
     ensureSpace();
   }
 
-  // § 4 Zustand, bekannte Mängel und Vorschäden
-  cursor = drawSectionTitle(doc, "§ 4  Zustand, bekannte Mängel und Unfallschäden", cursor);
-  const isAccident = kv?.accidentVehicle ?? !vehicle.accidentFree;
-  cursor = drawTextBlock(doc,
-    `Unfallfahrzeug im Sinne dieses Vertrages: ${isAccident ? "JA" : "NEIN"}. ` +
-    (isAccident
-      ? `Der Verkäufer offenbart, dass das Fahrzeug Unfallschäden erlitten hat, die über bloße Bagatellschäden hinausgehen. Einzelheiten sind nachstehend dokumentiert.`
-      : `Nach Kenntnis des Verkäufers hat das Fahrzeug während seiner Besitzzeit keine Unfallschäden erlitten, die über bloße Bagatellschäden (kleine Lack-/Blechschäden) hinausgehen.`),
-    cursor, { fontSize: 9 });
-  cursor += 2;
-  if (kv?.knownDefects && kv.knownDefects.trim()) {
-    cursor = drawTextBlock(doc, `Bekannte Mängel zum Zeitpunkt des Vertragsschlusses: ${kv.knownDefects.trim()}`, cursor, { fontSize: 9 });
-  } else {
-    cursor = drawTextBlock(doc, `Bekannte Mängel zum Zeitpunkt des Vertragsschlusses: keine über den altersgemäßen Gebrauchszustand hinausgehenden Mängel bekannt.`, cursor, { fontSize: 9, muted: true });
-  }
-  if (kv?.preDamage && kv.preDamage.trim()) {
-    cursor = drawTextBlock(doc, `Vorschäden / Reparaturhistorie: ${kv.preDamage.trim()}`, cursor, { fontSize: 9 });
-  } else {
-    cursor = drawTextBlock(doc, `Vorschäden / Reparaturhistorie: keine Vorschäden bekannt.`, cursor, { fontSize: 9, muted: true });
-  }
-  cursor += 4;
+  cursor = ConditionSection(doc, cursor, vehicle, kv);
+  cursor = AdditionalSection(doc, cursor, kv);
 
   ensureSpace();
 
-  // § 5 Sachmängelhaftung (B2C vs. B2B differenziert)
-  cursor = drawSectionTitle(doc, "§ 5  Sachmängelhaftung", cursor);
-  if (isB2B && kv?.warrantyExcluded) {
-    cursor = drawTextBlock(doc,
-      `Da der Käufer Unternehmer im Sinne des § 14 BGB ist und das Fahrzeug im Rahmen seiner gewerblichen oder selbständigen beruflichen Tätigkeit erwirbt, wird die Sachmängelhaftung für das gebrauchte Fahrzeug hiermit vollständig ausgeschlossen. ` +
-      `Dieser Ausschluss gilt nicht für Schadensersatzansprüche aus der Verletzung des Lebens, des Körpers oder der Gesundheit, die auf einer fahrlässigen Pflichtverletzung des Verkäufers oder einer vorsätzlichen oder fahrlässigen Pflichtverletzung eines gesetzlichen Vertreters oder Erfüllungsgehilfen des Verkäufers beruhen, sowie für sonstige Schäden, die auf einer grob fahrlässigen Pflichtverletzung des Verkäufers oder auf einer vorsätzlichen oder grob fahrlässigen Pflichtverletzung eines gesetzlichen Vertreters oder Erfüllungsgehilfen des Verkäufers beruhen. ` +
-      `Ebenfalls unberührt bleibt die Haftung für arglistig verschwiegene Mängel sowie aus übernommenen Garantien (§ 444 BGB).`,
-      cursor, { fontSize: 9 });
-  } else if (isB2B) {
-    cursor = drawTextBlock(doc,
-      `Da der Käufer Unternehmer im Sinne des § 14 BGB ist, verjähren die Ansprüche wegen Sachmängeln in ${kv?.warrantyMonths ?? 12} Monaten ab Übergabe des Fahrzeugs. ` +
-      `Schadensersatzansprüche bei Verletzung von Leben, Körper oder Gesundheit sowie bei grob fahrlässiger oder vorsätzlicher Pflichtverletzung des Verkäufers, seiner gesetzlichen Vertreter oder Erfüllungsgehilfen bleiben hiervon unberührt; ebenso Ansprüche aus übernommenen Garantien und wegen arglistig verschwiegener Mängel.`,
-      cursor, { fontSize: 9 });
-  } else {
-    cursor = drawTextBlock(doc,
-      `Der Käufer ist Verbraucher im Sinne des § 13 BGB. Die Ansprüche des Käufers wegen Sachmängeln verjähren in ${kv?.warrantyMonths ?? 12} Monaten ab Übergabe des Fahrzeugs. Die Verkürzung auf weniger als 12 Monate ist nach § 476 Abs. 2 BGB unzulässig und gilt insoweit nicht. ` +
-      `Von dieser Haftungsbegrenzung ausgenommen sind Schadensersatzansprüche aus der Verletzung des Lebens, des Körpers oder der Gesundheit, die auf einer fahrlässigen Pflichtverletzung des Verkäufers oder einer vorsätzlichen oder fahrlässigen Pflichtverletzung eines gesetzlichen Vertreters oder Erfüllungsgehilfen des Verkäufers beruhen, sowie sonstige Schäden, die auf einer grob fahrlässigen Pflichtverletzung des Verkäufers oder auf einer vorsätzlichen oder grob fahrlässigen Pflichtverletzung eines gesetzlichen Vertreters oder Erfüllungsgehilfen des Verkäufers beruhen. ` +
-      `Ansprüche aus arglistig verschwiegenen Mängeln sowie aus übernommenen Garantien (§ 444 BGB) bleiben unberührt. Eine darüber hinausgehende Garantie für die Beschaffenheit oder Haltbarkeit des Fahrzeugs wird vom Verkäufer nicht übernommen.`,
-      cursor, { fontSize: 9 });
-  }
-  cursor += 4;
+  const ensureCursorSpace = (value: number) => {
+    cursor = value;
+    ensureSpace();
+    return cursor;
+  };
+  cursor = LegalSection(doc, cursor, {
+    customerType,
+    warrantyMonths: customerType === "b2c" && !kv?.consumerWarrantyLimitationAccepted ? 24 : kv?.warrantyMonths ?? 12,
+    warrantyExcluded: customerType === "b2b" && !!kv?.warrantyExcluded,
+    consumerWarrantyLimitationAccepted: customerType === "b2c" && !!kv?.consumerWarrantyLimitationAccepted,
+    guaranteeAgreed: !!kv?.guaranteeAgreed,
+    guaranteeDetails: kv?.guaranteeDetails,
+    showPrivacy: kv?.showPrivacy !== false,
+    exportSale: !!kv?.exportSale,
+  }, ensureCursorSpace);
 
-  ensureSpace();
+  ensureSpace(210);
 
-  // § 6 Erklärungen des Verkäufers
-  cursor = drawSectionTitle(doc, "§ 6  Erklärungen des Verkäufers", cursor);
-  const assurances = [
-    `Anzahl der Vorbesitzer laut Zulassungsbescheinigung Teil II: ${vehicle.previousOwners ?? "—"}.`,
-    `Das Scheckheft ist ${(vehicle.serviceBookComplete || kv?.docServiceBook) ? "lückenlos geführt und wird mit dem Fahrzeug übergeben" : "nicht lückenlos geführt bzw. nicht vorhanden"}.`,
-    `Der angegebene Kilometerstand von ${vehicle.mileage.toLocaleString("de-DE")} km entspricht nach Kenntnis des Verkäufers der tatsächlichen Gesamtfahrleistung; eine Garantie für die Richtigkeit wird nicht übernommen.`,
-    `Das Fahrzeug ist frei von Rechten Dritter, insbesondere von Pfandrechten und Sicherungseigentum.`,
-  ];
-  assurances.forEach((a) => {
-    setColor(doc, BRAND.ink, "fill");
-    doc.circle(PAGE.margin + 1.2, cursor - 1, 0.8, "F");
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    setColor(doc, BRAND.ink);
-    const lines = doc.splitTextToSize(a, PAGE.w - 2 * PAGE.margin - 5);
-    doc.text(lines, PAGE.margin + 5, cursor);
-    cursor += lines.length * 4 + 1.5;
+  SignatureSection(doc, cursor, {
+    place,
+    contractDate,
+    customerName: customer.name,
+    companyName,
+    representative: sRep,
+    separateB2CAgreement: customerType === "b2c" && !!kv?.consumerWarrantyLimitationAccepted,
   });
-  cursor += 4;
 
-  ensureSpace();
-
-  // § 7 Erklärungen des Käufers
-  cursor = drawSectionTitle(doc, "§ 7  Erklärungen des Käufers", cursor);
-  cursor = drawTextBlock(doc,
-    `Der Käufer hat das Fahrzeug vor Abschluss dieses Vertrages eingehend besichtigt und Probe gefahren. Der gegenwärtige Zustand des Fahrzeugs einschließlich aller offen erkennbaren Mängel sowie der unter § 4 dokumentierten bekannten Mängel und Vorschäden ist ihm bekannt. ` +
-    `Der Käufer verpflichtet sich, das Fahrzeug unverzüglich nach Übergabe auf seinen Namen umzumelden bzw. abzumelden und den Verkäufer von etwaigen Halterpflichten (Kfz-Steuer, Versicherung, Bußgelder) ab dem Tag der Übergabe freizustellen.`,
-    cursor, { fontSize: 9 });
-  cursor += 4;
-
-  // § 8 Umsatzsteuerliche Behandlung
-  cursor = drawSectionTitle(doc, "§ 8  Umsatzsteuerliche Behandlung", cursor);
-  cursor = drawTextBlock(doc,
-    margin
-      ? `Der Verkauf erfolgt nach der Differenzbesteuerung gemäß § 25a UStG. Die Umsatzsteuer wird nicht gesondert ausgewiesen und kann vom Käufer nicht als Vorsteuer geltend gemacht werden.`
-      : `Der Kaufpreis enthält die gesetzliche Umsatzsteuer in Höhe von 19 %. Diese wird in der separaten Rechnung gesondert ausgewiesen.`,
-    cursor, { fontSize: 9 });
-  cursor += 4;
-
-  ensureSpace();
-
-  // § 9 Datenschutz (DSGVO)
-  cursor = drawSectionTitle(doc, "§ 9  Datenschutz / DSGVO-Einwilligung", cursor);
-  cursor = drawTextBlock(doc,
-    `Der Käufer willigt ein, dass der Verkäufer die im Rahmen dieses Vertrages erhobenen personenbezogenen Daten (Name, Anschrift, Kontaktdaten, Geburtsdatum, Vertrags- und Fahrzeugdaten) zum Zweck der Vertragsdurchführung, der Erfüllung gesetzlicher Aufbewahrungs- und Nachweispflichten (insb. § 147 AO, § 257 HGB) sowie zur Abwicklung etwaiger Gewährleistungs-, Garantie- und Rückrufmaßnahmen verarbeitet und speichert. ` +
-    `Rechtsgrundlage ist Art. 6 Abs. 1 lit. b und lit. c DSGVO. Eine Weitergabe an Dritte erfolgt nur, soweit dies zur Vertragsabwicklung erforderlich ist oder eine gesetzliche Verpflichtung besteht. Dem Käufer stehen die Rechte auf Auskunft, Berichtigung, Löschung, Einschränkung der Verarbeitung, Datenübertragbarkeit und Widerspruch gemäß Art. 15–21 DSGVO zu. ` +
-    `Eine ausführliche Datenschutzerklärung ist beim Verkäufer erhältlich. Mit seiner Unterschrift bestätigt der Käufer die Kenntnisnahme dieser Datenschutzhinweise${kv?.dsgvoConsent ? " und willigt ausdrücklich in die Verarbeitung ein" : ""}.`,
-    cursor, { fontSize: 9 });
-  cursor += 4;
-
-  ensureSpace();
-
-  // § 10 Schlussbestimmungen
-  cursor = drawSectionTitle(doc, "§ 10  Schlussbestimmungen", cursor);
-  cursor = drawTextBlock(doc,
-    `Mündliche Nebenabreden bestehen nicht. Änderungen und Ergänzungen dieses Vertrages bedürfen der Schriftform; dies gilt auch für eine Änderung dieser Schriftformklausel. ` +
-    `Sollten einzelne Bestimmungen dieses Vertrages unwirksam sein oder werden, so wird die Wirksamkeit der übrigen Bestimmungen hiervon nicht berührt. ` +
-    `Erfüllungsort und – soweit gesetzlich zulässig – Gerichtsstand ist der Sitz des Verkäufers. Es gilt das Recht der Bundesrepublik Deutschland unter Ausschluss des UN-Kaufrechts.`,
-    cursor, { fontSize: 9 });
-  cursor += 6;
-
-  ensureSpace(245);
-
-  // § 11 Unterschriften
-  cursor = drawSectionTitle(doc, "§ 11  Unterschriften", cursor);
-  cursor += 2;
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(9);
-  setColor(doc, BRAND.ink);
-  doc.text(`Ort, Datum: ${place}, ${contractDate}`, PAGE.margin, cursor);
-  cursor += 16;
-  drawSignatureRow(doc, cursor, `Käufer · ${customer.name}`, `Verkäufer · ${companyName}${sRep ? ` (${sRep})` : ""}`);
-
-  drawFooter(doc, companyName, seller);
+  drawFooter(doc, companyName, resolvedSeller);
   return doc;
 };
 
