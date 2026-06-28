@@ -729,7 +729,6 @@ const drawKvSpecsTable = (doc: jsPDF, vehicle: Vehicle, y: number, kv?: any) => 
     ["Innenraum", `${vehicle.interiorColor ?? "—"}${vehicle.interiorMaterial ? `, ${vehicle.interiorMaterial}` : ""}`],
     ["HU/AU gültig bis", vehicle.hu ? formatDate(vehicle.hu) : "—"],
     ["Serviceheft", (vehicle.serviceBookComplete || kv?.docServiceBook) ? "vollständig / vorhanden" : "nicht angegeben"],
-    ["Unfallfreiheit", kv?.accidentVehicle ? "nein" : vehicle.accidentFree === true ? "ja" : "nicht zugesichert"],
   ];
 
   doc.setFont("helvetica", "normal");
