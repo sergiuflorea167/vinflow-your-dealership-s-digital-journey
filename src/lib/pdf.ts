@@ -800,7 +800,12 @@ const VehicleSection = (doc: jsPDF, vehicle: Vehicle, y: number, kv?: Process["f
 const PriceSection = (
   doc: jsPDF,
   y: number,
-  args: { vehicle: Vehicle; finalPrice: number; downPayment: number; paymentStatus: "paid" | "deposit" | "open"; paymentAmount: number; paymentDate?: string; paymentMethod?: string }
+  args: {
+    vehicle: Vehicle;
+    finalPrice: number;
+    downPayment?: Process["fields"]["downPayment"];
+    invoice?: Process["fields"]["invoicing"];
+  }
 ) => {
   let cursor = drawSectionTitle(doc, "2. Kaufpreis und Zahlung", y);
   const net = isMarginTaxed(args.vehicle) ? undefined : args.finalPrice / 1.19;
@@ -812,12 +817,25 @@ const PriceSection = (
         { description: "Umsatzsteuer 19 %", qty: "1", unitPrice: vat ?? 0, total: vat ?? 0 },
       ];
   cursor = drawTable(doc, priceItems, cursor, "Kaufpreis brutto", { showVat: false });
-  const paidAmount = args.paymentStatus === "paid" ? args.finalPrice : args.paymentStatus === "deposit" ? args.paymentAmount || args.downPayment : args.paymentAmount || 0;
+  const finalInvoicePaid = !!args.invoice?.paid;
+  const depositReceived = !!args.downPayment?.received && (args.downPayment.amount ?? 0) > 0;
+  const paidAmount = finalInvoicePaid ? args.finalPrice : depositReceived ? args.downPayment?.amount ?? 0 : 0;
   const remaining = Math.max(0, args.finalPrice - paidAmount);
+  const paymentStatus = finalInvoicePaid ? "bezahlt" : depositReceived ? "Anzahlung geleistet" : "Restzahlung offen";
+  const paymentDate = finalInvoicePaid ? args.invoice?.paidDate : depositReceived ? args.downPayment?.receivedDate : undefined;
+  const invoiceLines = [
+    args.downPayment?.invoiceNumber
+      ? `Anzahlungsrechnung ${args.downPayment.invoiceNumber}: ${formatCurrency(args.downPayment.amount ?? 0)} · ${args.downPayment.received ? "eingegangen" : "offen"}${args.downPayment.receivedDate ? ` am ${formatDate(args.downPayment.receivedDate)}` : ""}.`
+      : null,
+    args.invoice?.invoiceNumber
+      ? `Endrechnung ${args.invoice.invoiceNumber}: ${args.invoice.paid ? "bezahlt" : "offen"}${args.invoice.paidDate ? ` am ${formatDate(args.invoice.paidDate)}` : ""}.`
+      : null,
+  ].filter(Boolean).join("\n");
   cursor = drawTextBlock(doc,
-    `Zahlungsstatus: ${args.paymentStatus === "paid" ? "bezahlt" : args.paymentStatus === "deposit" ? "Anzahlung geleistet" : "Restzahlung offen"}. ` +
+    `Zahlungsstand laut Rechnungsdaten: ${paymentStatus}. ` +
     `Gezahlter Betrag: ${formatCurrency(paidAmount)}. Offener Betrag: ${formatCurrency(remaining)}.` +
-    `${args.paymentDate ? ` Zahlungsdatum: ${formatDate(args.paymentDate)}.` : ""}${args.paymentMethod ? ` Zahlungsart: ${args.paymentMethod}.` : ""}\n` +
+    `${paymentDate ? ` Zahlungsdatum: ${formatDate(paymentDate)}.` : ""}\n` +
+    `${invoiceLines ? `${invoiceLines}\n` : ""}` +
     `${taxationLine(args.vehicle)}`,
     cursor, { fontSize: 9 });
   return cursor + 4;
@@ -945,7 +963,6 @@ const buildKaufvertrag = (
   { process, vehicle, customer, companyName, seller, finalPrice }: { process: Process; vehicle: Vehicle; customer: Customer; companyName: string; seller?: SellerInfo; finalPrice: number }
 ): jsPDF => {
   const kv = process.fields.purchaseContract;
-  const down = process.fields.downPayment?.amount ?? 0;
   const place = kv?.place ?? customer.city ?? "—";
   const contractDate = kv?.contractDate ? formatDate(kv.contractDate) : formatDate(new Date().toISOString());
 
@@ -1012,11 +1029,8 @@ const buildKaufvertrag = (
   cursor = PriceSection(doc, cursor, {
     vehicle,
     finalPrice,
-    downPayment: down,
-    paymentStatus: kv?.paymentStatus ?? (process.fields.invoicing?.paid ? "paid" : process.fields.downPayment?.received ? "deposit" : "open"),
-    paymentAmount: kv?.paymentAmount ?? 0,
-    paymentDate: kv?.paymentDate ?? process.fields.invoicing?.paidDate ?? process.fields.downPayment?.receivedDate,
-    paymentMethod: kv?.paymentMethod ?? process.fields.downPayment?.method,
+    downPayment: process.fields.downPayment,
+    invoice: process.fields.invoicing,
   });
 
   doc.setFont("helvetica", "normal");

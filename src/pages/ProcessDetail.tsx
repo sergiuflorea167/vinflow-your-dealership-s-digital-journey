@@ -98,10 +98,6 @@ const ProcessDetail = () => {
       if (!pc.place) { pc.place = settings.companyCity || customer?.city || ""; changed = true; }
       if (!pc.customerType) { pc.customerType = customer?.salutation === "firma" ? "b2b" : "b2c"; changed = true; }
       if (pc.showPrivacy === undefined) { pc.showPrivacy = true; changed = true; }
-      if (!pc.paymentStatus) {
-        pc.paymentStatus = process.fields.invoicing?.paid ? "paid" : process.fields.downPayment?.received ? "deposit" : "open";
-        changed = true;
-      }
       if (changed) updateFields(process.id, { purchaseContract: pc });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -517,7 +513,6 @@ const StepFields = ({ stepKey, fields, onChange, disabled }: { stepKey: ProcessS
       onChange({ purchaseContract: { ...pc, ...patch } });
     const isB2B = pc.customerType === "b2b";
     const defects = pc.defects ?? (pc.knownDefects ? [{ id: "legacy", title: "Bekannter Mangel", description: pc.knownDefects }] : []);
-    const paymentStatus = pc.paymentStatus ?? (fields.invoicing?.paid ? "paid" : fields.downPayment?.received ? "deposit" : "open");
     const b2bWarranty = pc.warrantyExcluded || (isB2B && pc.exportSale) ? "excluded" : (pc.warrantyMonths ?? 12) >= 24 ? "24" : "12";
     const addDefect = () => set({ defects: [...defects, { id: `defect-${Date.now()}`, title: "", description: "" }] });
     const updateDefect = (id: string, patch: { title?: string; description?: string }) =>
@@ -559,16 +554,6 @@ const StepFields = ({ stepKey, fields, onChange, disabled }: { stepKey: ProcessS
 
         <div className="col-span-2 rounded-md border border-border bg-surface-elevated/40 px-3 py-2 text-[11px] text-muted-foreground">
           Verkäuferdaten kommen aus den <strong>Unternehmensdaten</strong>. Käufer- und Fahrzeugdaten werden automatisch aus dem Vorgang übernommen.
-        </div>
-
-        <div className="md:col-span-2 pt-2">
-          <p className="text-xs font-semibold text-foreground mb-2">Zahlung</p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <SelectField label="Zahlungsstatus" value={paymentStatus} options={[{ value: "paid", label: "Bezahlt" }, { value: "deposit", label: "Anzahlung geleistet" }, { value: "open", label: "Restzahlung offen" }]} onChange={(v) => set({ paymentStatus: v as "paid" | "deposit" | "open" })} disabled={disabled} />
-            <NumberField label="Gezahlter Betrag" value={pc.paymentAmount ?? (paymentStatus === "deposit" ? fields.downPayment?.amount : undefined)} onChange={(v) => set({ paymentAmount: v })} disabled={disabled} />
-            <DateField label="Zahlungsdatum" value={pc.paymentDate ?? fields.invoicing?.paidDate ?? fields.downPayment?.receivedDate} onChange={(v) => set({ paymentDate: v })} disabled={disabled} />
-            <TextField label="Zahlungsart" value={pc.paymentMethod ?? fields.downPayment?.method} onChange={(v) => set({ paymentMethod: v })} disabled={disabled} placeholder="z. B. Überweisung, Bar" />
-          </div>
         </div>
 
         <div className="md:col-span-2 pt-2">
@@ -687,7 +672,6 @@ const validateStep = (key: ProcessStepKey, f: ProcessFields, chkDone: number, ch
     if (c.customerType === "b2c" && c.warrantyMonths === 12 && !c.consumerWarrantyLimitationAccepted) {
       return { ok: false, message: "Die Verkürzung auf 12 Monate muss bei B2C ausdrücklich und gesondert bestätigt werden." };
     }
-    if (!c.paymentStatus) return { ok: false, message: "Zahlungsstatus erforderlich." };
     if (c.conditionEnabled && (c.accidentVehicle || c.knownDamagePresent || c.repainted) && !c.conditionDescription?.trim()) {
       return { ok: false, message: "Bitte Unfall, Schäden oder Nachlackierungen konkret beschreiben." };
     }
