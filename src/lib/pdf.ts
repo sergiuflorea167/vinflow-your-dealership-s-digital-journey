@@ -12,7 +12,7 @@ import {
 } from "@/data/process";
 
 // VINflow PDF generator – clean, standard business document layout (DIN-5008 inspired).
-// White background, minimal accent color, generous whitespace, consistent grid.
+// White background, neutral grayscale, generous whitespace, consistent grid.
 
 type RGB = [number, number, number];
 
@@ -82,11 +82,21 @@ export const PDF_THEMES: PdfTheme[] = [
 
 export type PdfThemeKey = string;
 
-let BRAND: Omit<PdfTheme, "key" | "label" | "description"> = PDF_THEMES[0];
+const PROFESSIONAL_DOCUMENT_THEME: Omit<PdfTheme, "key" | "label" | "description"> = {
+  primary: [45, 45, 45],
+  primaryDark: [20, 20, 20],
+  ink: [25, 25, 25],
+  muted: [105, 105, 105],
+  light: [248, 248, 248],
+  border: [210, 210, 210],
+  success: [45, 45, 45],
+};
 
-const applyPdfTheme = (key?: PdfThemeKey) => {
-  const t = PDF_THEMES.find((th) => th.key === key) ?? PDF_THEMES[0];
-  BRAND = t;
+let BRAND = PROFESSIONAL_DOCUMENT_THEME;
+
+const applyPdfTheme = (_key?: PdfThemeKey) => {
+  // Geschäftsdokumente bleiben bewusst neutral und unabhängig vom App-Farbthema.
+  BRAND = PROFESSIONAL_DOCUMENT_THEME;
 };
 
 const PAGE = { w: 210, h: 297, margin: 20 };
@@ -104,23 +114,16 @@ const companyAddress = (seller?: SellerInfo) => [seller?.street, [seller?.zip, s
 
 const drawHeader = (doc: jsPDF, _title: string, _docNumber: string, companyName: string, seller?: SellerInfo) => {
   // Reiner Briefkopf; Dokumenttitel und Belegnummer folgen weiter unten wie in der Referenz.
-  setColor(doc, BRAND.primaryDark, "fill");
-  doc.rect(PAGE.margin, 13, 8, 8, "F");
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(8.5);
-  setColor(doc, [255, 255, 255]);
-  doc.text("VF", PAGE.margin + 4, 18.5, { align: "center" });
-
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
   setColor(doc, BRAND.ink);
-  doc.text(companyName, PAGE.margin + 11, 16.5);
+  doc.text(companyName, PAGE.margin, 16.5);
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(7);
   setColor(doc, BRAND.muted);
   const address = companyAddress(seller);
-  doc.text(address || "Fahrzeughandel & Service", PAGE.margin + 11, 20.5);
+  doc.text(address || "Fahrzeughandel & Service", PAGE.margin, 20.5);
 
   doc.setFontSize(7.5);
   setColor(doc, BRAND.muted);
@@ -143,8 +146,8 @@ const drawDocumentHeading = (doc: jsPDF, title: string, docNumber: string, y: nu
   setColor(doc, BRAND.muted);
   doc.text(docNumber, PAGE.w - PAGE.margin, y, { align: "right" });
 
-  setColor(doc, BRAND.primary, "draw");
-  doc.setLineWidth(0.45);
+  setColor(doc, BRAND.border, "draw");
+  doc.setLineWidth(0.3);
   doc.line(PAGE.margin, y + 3, PAGE.w - PAGE.margin, y + 3);
   return y + 9;
 };
@@ -192,30 +195,22 @@ const drawFooter = (doc: jsPDF, companyName: string, seller?: SellerInfo) => {
 
 // ---------- Building blocks ----------
 
-const drawAddressBlock = (doc: jsPDF, customer: Customer, y: number, companyName: string, seller?: SellerInfo, label = "EMPFÄNGER") => {
+const drawAddressBlock = (doc: jsPDF, customer: Customer, y: number, companyName: string, seller?: SellerInfo, _label = "EMPFÄNGER") => {
   doc.setFont("helvetica", "normal");
   doc.setFontSize(6.5);
   setColor(doc, BRAND.muted);
   const senderLine = [companyName, seller?.street, [seller?.zip, seller?.city].filter(Boolean).join(" ")].filter(Boolean).join(" · ");
   doc.text(senderLine, PAGE.margin, y);
-  setColor(doc, BRAND.border, "draw");
-  doc.setLineWidth(0.2);
-  doc.line(PAGE.margin, y + 1.5, PAGE.margin + 78, y + 1.5);
-
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(7);
-  setColor(doc, BRAND.muted);
-  doc.text(label, PAGE.margin, y + 6);
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10.5);
   setColor(doc, BRAND.ink);
-  doc.text(customer.name, PAGE.margin, y + 11);
+  doc.text(customer.name, PAGE.margin, y + 8);
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9.5);
   setColor(doc, BRAND.ink);
-  let ay = y + 16;
+  let ay = y + 13;
   if (customer.street) { doc.text(customer.street, PAGE.margin, ay); ay += 5; }
   doc.text(`${customer.zip ?? ""} ${customer.city}`.trim(), PAGE.margin, ay); ay += 6;
 
@@ -249,10 +244,8 @@ const drawVehicleCard = (doc: jsPDF, vehicle: Vehicle, y: number) => {
   doc.setLineWidth(0.3);
   doc.rect(PAGE.margin, y, w, h, "FD");
 
-  setColor(doc, [238, 240, 243], "fill");
+  setColor(doc, [244, 244, 244], "fill");
   doc.rect(PAGE.margin, y, w, 7, "F");
-  setColor(doc, BRAND.primary, "fill");
-  doc.rect(PAGE.margin, y, 1.2, h, "F");
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(7.5);
@@ -295,7 +288,7 @@ const drawTable = (doc: jsPDF, items: LineItem[], y: number, totalLabel = "Gesam
   const rowH = 9;
 
   // Neutrale Sechs-Spalten-Tabelle wie in der Referenzvorlage.
-  setColor(doc, [232, 234, 238], "fill");
+  setColor(doc, [240, 240, 240], "fill");
   doc.rect(x, y, w, 8, "F");
   doc.setFont("helvetica", "bold");
   doc.setFontSize(7);
@@ -386,11 +379,9 @@ const drawDeliveryCallout = (doc: jsPDF, deliveryDate: string | undefined, y: nu
   const w = PAGE.w - 2 * PAGE.margin;
   const h = 14;
   setColor(doc, BRAND.light, "fill");
-  setColor(doc, BRAND.primary, "draw");
+  setColor(doc, BRAND.border, "draw");
   doc.setLineWidth(0.3);
   doc.rect(PAGE.margin, y, w, h, "FD");
-  setColor(doc, BRAND.primaryDark, "fill");
-  doc.rect(PAGE.margin, y, 2, h, "F");
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(7);
@@ -408,7 +399,7 @@ const drawTodos = (doc: jsPDF, todos: { title: string; done?: boolean; dueDate?:
   y = drawSectionTitle(doc, title, y);
   y += 2;
   todos.forEach((t) => {
-    setColor(doc, t.done ? BRAND.success : BRAND.primary, "fill");
+    setColor(doc, BRAND.ink, "fill");
     doc.circle(PAGE.margin + 1.2, y - 1, 0.8, "F");
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9.5);
@@ -417,7 +408,7 @@ const drawTodos = (doc: jsPDF, todos: { title: string; done?: boolean; dueDate?:
     doc.text(lines, PAGE.margin + 5, y);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(8.5);
-    setColor(doc, t.done ? BRAND.success : BRAND.muted);
+    setColor(doc, BRAND.muted);
     const status = t.done ? "Erledigt" : t.dueDate ? `Offen · fällig ${formatDate(t.dueDate)}` : "Offen";
     doc.text(status, PAGE.w - PAGE.margin, y, { align: "right" });
     y += Math.max(5.5, lines.length * 4);
@@ -599,7 +590,7 @@ export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, c
       cursor += 4;
       checklist.forEach((item) => {
         if (item.done) {
-          setColor(doc, BRAND.success, "fill");
+          setColor(doc, BRAND.ink, "fill");
           doc.circle(PAGE.margin + 2, cursor + 2, 1.5, "F");
         } else {
           setColor(doc, BRAND.muted, "draw");
@@ -612,7 +603,7 @@ export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, c
         doc.text(item.label, PAGE.margin + 7, cursor + 3);
         doc.setFont("helvetica", "bold");
         doc.setFontSize(8.5);
-        setColor(doc, item.done ? BRAND.success : BRAND.muted);
+        setColor(doc, BRAND.muted);
         doc.text(item.done ? "erledigt" : "offen", PAGE.w - PAGE.margin, cursor + 3, { align: "right" });
         cursor += 6;
       });
@@ -677,15 +668,12 @@ const drawSignatureRow = (doc: jsPDF, y: number, leftLabel: string, rightLabel: 
 // ---------- Kaufvertrag (ausführlich) ----------
 
 const drawKvParty = (doc: jsPDF, label: string, lines: string[], x: number, y: number, w: number) => {
-  setColor(doc, BRAND.light, "fill");
   setColor(doc, BRAND.border, "draw");
   doc.setLineWidth(0.3);
-  doc.roundedRect(x, y, w, 30, 2, 2, "FD");
-  setColor(doc, BRAND.primary, "fill");
-  doc.rect(x, y, 1.5, 30, "F");
+  doc.rect(x, y, w, 30);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(7);
-  setColor(doc, BRAND.primary);
+  setColor(doc, BRAND.muted);
   doc.text(label.toUpperCase(), x + 5, y + 5);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
@@ -886,11 +874,11 @@ const buildKaufvertrag = (
   doc.text("Übergebene Unterlagen / Gegenstände:", PAGE.margin, cursor);
   cursor += 4;
   docsList.forEach(([label, ok]) => {
-    setColor(doc, ok ? BRAND.primary : BRAND.border, "draw");
+    setColor(doc, ok ? BRAND.ink : BRAND.border, "draw");
     doc.setLineWidth(0.4);
     doc.rect(PAGE.margin, cursor - 2.6, 2.6, 2.6);
     if (ok) {
-      setColor(doc, BRAND.primary);
+      setColor(doc, BRAND.ink);
       doc.setFont("helvetica", "bold");
       doc.setFontSize(8);
       doc.text("✓", PAGE.margin + 0.5, cursor - 0.4);
@@ -968,7 +956,7 @@ const buildKaufvertrag = (
     `Das Fahrzeug ist frei von Rechten Dritter, insbesondere von Pfandrechten und Sicherungseigentum.`,
   ];
   assurances.forEach((a) => {
-    setColor(doc, BRAND.primary, "fill");
+    setColor(doc, BRAND.ink, "fill");
     doc.circle(PAGE.margin + 1.2, cursor - 1, 0.8, "F");
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9);
