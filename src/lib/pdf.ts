@@ -110,6 +110,13 @@ const setColor = (doc: jsPDF, c: RGB, type: "fill" | "draw" | "text" = "text") =
   if (type === "text") doc.setTextColor(c[0], c[1], c[2]);
 };
 
+const fitSingleLine = (doc: jsPDF, value: string, maxWidth: number) => {
+  if (doc.getTextWidth(value) <= maxWidth) return value;
+  let shortened = value;
+  while (shortened.length > 1 && doc.getTextWidth(`${shortened}...`) > maxWidth) shortened = shortened.slice(0, -1);
+  return `${shortened.trim()}...`;
+};
+
 // ---------- Header / Footer ----------
 
 const companyAddress = (seller?: SellerInfo) => [seller?.street, [seller?.zip, seller?.city].filter(Boolean).join(" ")].filter(Boolean).join(" · ");
@@ -119,18 +126,18 @@ const drawHeader = (doc: jsPDF, _title: string, _docNumber: string, companyName:
   doc.setFont("helvetica", "bold");
   doc.setFontSize(12);
   setColor(doc, BRAND.ink);
-  doc.text(companyName, PAGE.margin, 16.5);
+  doc.text(fitSingleLine(doc, companyName, 105), PAGE.margin, 16.5);
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(7);
   setColor(doc, BRAND.muted);
   const address = companyAddress(seller);
-  doc.text(address || "Fahrzeughandel & Service", PAGE.margin, 20.5);
+  doc.text(fitSingleLine(doc, address || "Fahrzeughandel & Service", 105), PAGE.margin, 20.5);
 
   doc.setFontSize(7.5);
   setColor(doc, BRAND.muted);
-  if (seller?.phone) doc.text(`Tel. ${seller.phone}`, PAGE.w - PAGE.margin, 16.5, { align: "right" });
-  if (seller?.email) doc.text(seller.email, PAGE.w - PAGE.margin, 20.5, { align: "right" });
+  if (seller?.phone) doc.text(fitSingleLine(doc, `Tel. ${seller.phone}`, 55), PAGE.w - PAGE.margin, 16.5, { align: "right" });
+  if (seller?.email) doc.text(fitSingleLine(doc, seller.email, 55), PAGE.w - PAGE.margin, 20.5, { align: "right" });
 
   setColor(doc, BRAND.border, "draw");
   doc.setLineWidth(0.3);
@@ -660,30 +667,43 @@ const drawSignatureRow = (doc: jsPDF, y: number, leftLabel: string, rightLabel: 
   doc.line(PAGE.margin, y, PAGE.margin + colW, y);
   doc.line(PAGE.margin + colW + 10, y, PAGE.w - PAGE.margin, y);
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(8);
+  doc.setFontSize(7.5);
   setColor(doc, BRAND.muted);
-  doc.text(leftLabel, PAGE.margin, y + 4);
-  doc.text(rightLabel, PAGE.margin + colW + 10, y + 4);
-  return y + 10;
+  const leftLines = doc.splitTextToSize(leftLabel, colW);
+  const rightLines = doc.splitTextToSize(rightLabel, colW);
+  doc.text(leftLines, PAGE.margin, y + 4);
+  doc.text(rightLines, PAGE.margin + colW + 10, y + 4);
+  return y + 7 + Math.max(leftLines.length, rightLines.length) * 3.5;
 };
 
 // ---------- Kaufvertrag (ausführlich) ----------
 
-const drawKvParty = (doc: jsPDF, label: string, lines: string[], x: number, y: number, w: number) => {
+const measureKvPartyHeight = (doc: jsPDF, lines: string[], w: number) => {
+  let bodyLines = 0;
+  lines.filter(Boolean).forEach((line, index) => {
+    doc.setFont("helvetica", index === 0 ? "bold" : "normal");
+    doc.setFontSize(index === 0 ? 9.5 : 8);
+    bodyLines += doc.splitTextToSize(line || "—", w - 10).length;
+  });
+  return Math.max(30, 13 + bodyLines * 3.8);
+};
+
+const drawKvParty = (doc: jsPDF, label: string, lines: string[], x: number, y: number, w: number, h: number) => {
   setColor(doc, BRAND.border, "draw");
   doc.setLineWidth(0.3);
-  doc.rect(x, y, w, 30);
+  doc.rect(x, y, w, h);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(7);
   setColor(doc, BRAND.muted);
   doc.text(label.toUpperCase(), x + 5, y + 5);
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(9);
-  setColor(doc, BRAND.ink);
-  lines.slice(0, 5).forEach((l, i) => {
-    doc.setFont("helvetica", i === 0 ? "bold" : "normal");
-    doc.setFontSize(i === 0 ? 10 : 8.5);
-    doc.text(l || "—", x + 5, y + 11 + i * 4.5);
+  let cursor = y + 11;
+  lines.filter(Boolean).forEach((line, index) => {
+    doc.setFont("helvetica", index === 0 ? "bold" : "normal");
+    doc.setFontSize(index === 0 ? 9.5 : 8);
+    setColor(doc, BRAND.ink);
+    const wrapped = doc.splitTextToSize(line || "—", w - 10);
+    doc.text(wrapped, x + 5, cursor);
+    cursor += wrapped.length * 3.8;
   });
 };
 
@@ -715,7 +735,6 @@ const drawKvSpecsTable = (doc: jsPDF, vehicle: Vehicle, y: number, kv?: any) => 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(8.5);
   let cy = y;
-  const rowH = 5.5;
   for (let i = 0; i < rows.length; i += 2) {
     const left = rows[i];
     const right = rows[i + 1];
@@ -726,13 +745,16 @@ const drawKvSpecsTable = (doc: jsPDF, vehicle: Vehicle, y: number, kv?: any) => 
     if (right) doc.text(right[0], PAGE.margin + colW, cy);
     setColor(doc, BRAND.ink);
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
-    doc.text(left[1], PAGE.margin, cy + 4);
-    if (right) doc.text(right[1], PAGE.margin + colW, cy + 4);
+    doc.setFontSize(8.5);
+    const leftValue = doc.splitTextToSize(left[1], colW - 6);
+    const rightValue = right ? doc.splitTextToSize(right[1], colW - 6) : [];
+    doc.text(leftValue, PAGE.margin, cy + 4);
+    if (right) doc.text(rightValue, PAGE.margin + colW, cy + 4);
+    const rowH = 7 + Math.max(leftValue.length, rightValue.length, 1) * 3.8;
     setColor(doc, BRAND.border, "draw");
     doc.setLineWidth(0.2);
-    doc.line(PAGE.margin, cy + 6, PAGE.w - PAGE.margin, cy + 6);
-    cy += rowH + 3;
+    doc.line(PAGE.margin, cy + rowH - 1, PAGE.w - PAGE.margin, cy + rowH - 1);
+    cy += rowH + 1.5;
   }
   return cy + 2;
 };
@@ -743,25 +765,28 @@ const CustomerSection = (
   args: { companyName: string; seller: SellerInfo; customer: Customer; customerType: "b2c" | "b2b" }
 ) => {
   const w = (PAGE.w - 2 * PAGE.margin - 6) / 2;
-  drawKvParty(doc, "Verkäufer", [
+  const sellerLines = [
     args.companyName,
     args.seller.street || "—",
     [args.seller.zip, args.seller.city].filter(Boolean).join(" ") || "—",
     args.seller.representative ? `Ansprechpartner: ${args.seller.representative}` : "Ansprechpartner: —",
     [args.seller.phone, args.seller.email, args.seller.vatId ? `USt-IdNr.: ${args.seller.vatId}` : null, args.seller.taxNumber ? `St.-Nr.: ${args.seller.taxNumber}` : null, args.seller.registration].filter(Boolean).join(" · ") || "—",
-  ], PAGE.margin, y, w);
+  ];
 
   const businessDetails = args.customerType === "b2b"
     ? [args.customer.legalForm, args.customer.contactPerson ? `Ansprechpartner: ${args.customer.contactPerson}` : null, args.customer.vatId ? `USt-IdNr.: ${args.customer.vatId}` : null].filter(Boolean).join(" · ")
     : args.customer.birthDate ? `Geburtsdatum: ${formatDate(args.customer.birthDate)}` : "";
-  drawKvParty(doc, args.customerType === "b2b" ? "Käufer · Gewerbekunde" : "Käufer · Privatkunde", [
+  const customerLines = [
     args.customer.name,
     args.customer.street ?? "—",
     `${args.customer.zip ?? ""} ${args.customer.city}`.trim(),
     [args.customer.phone, args.customer.email].filter(Boolean).join(" · "),
     businessDetails,
-  ], PAGE.margin + w + 6, y, w);
-  return y + 36;
+  ];
+  const h = Math.max(measureKvPartyHeight(doc, sellerLines, w), measureKvPartyHeight(doc, customerLines, w));
+  drawKvParty(doc, "Verkäufer", sellerLines, PAGE.margin, y, w, h);
+  drawKvParty(doc, args.customerType === "b2b" ? "Käufer · Gewerbekunde" : "Käufer · Privatkunde", customerLines, PAGE.margin + w + 6, y, w, h);
+  return y + h + 6;
 };
 
 const VehicleSection = (doc: jsPDF, vehicle: Vehicle, y: number, kv?: Process["fields"]["purchaseContract"]) => {
@@ -860,13 +885,17 @@ const AdditionalSection = (doc: jsPDF, y: number, kv?: Process["fields"]["purcha
   return cursor + 4;
 };
 
-const LegalSection = (doc: jsPDF, y: number, context: ContractClauseContext, ensureSpace: (cursor: number) => number) => {
+const LegalSection = (doc: jsPDF, y: number, context: ContractClauseContext, ensureSpace: (cursor: number, requiredHeight: number) => number) => {
   let cursor = y;
   for (const [index, clause] of getContractClauses(context).entries()) {
+    const text = clause.text(context);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    const requiredHeight = 11 + doc.splitTextToSize(text, PAGE.w - 2 * PAGE.margin).length * 4;
+    cursor = ensureSpace(cursor, requiredHeight);
     cursor = drawSectionTitle(doc, `${index + 5}. ${clause.title}`, cursor);
-    cursor = drawTextBlock(doc, clause.text(context), cursor, { fontSize: 9 });
+    cursor = drawTextBlock(doc, text, cursor, { fontSize: 9 });
     cursor += 4;
-    cursor = ensureSpace(cursor);
   }
   return cursor;
 };
@@ -891,6 +920,25 @@ const SignatureSection = (doc: jsPDF, y: number, args: { place: string; contract
   doc.text(`Ort, Datum: ${args.place}, ${args.contractDate}`, PAGE.margin, cursor + 2);
   cursor += 18;
   return drawSignatureRow(doc, cursor, `Käufer · ${args.customerName}`, `Verkäufer · ${args.companyName}${args.representative ? ` (${args.representative})` : ""}`);
+};
+
+const drawContractHeading = (doc: jsPDF, args: { title: string; contractNumber: string; contractDate: string; place: string; y: number }) => {
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(15);
+  setColor(doc, BRAND.ink);
+  const titleLines = doc.splitTextToSize(args.title, PAGE.w - 2 * PAGE.margin);
+  doc.text(titleLines, PAGE.margin, args.y);
+
+  const metaY = args.y + titleLines.length * 6 + 1;
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8.5);
+  setColor(doc, BRAND.muted);
+  doc.text(`${args.contractDate} · ${args.place}`, PAGE.margin, metaY);
+  doc.text(`Vertrags-Nr. ${args.contractNumber}`, PAGE.w - PAGE.margin, metaY, { align: "right" });
+  setColor(doc, BRAND.border, "draw");
+  doc.setLineWidth(0.3);
+  doc.line(PAGE.margin, metaY + 3, PAGE.w - PAGE.margin, metaY + 3);
+  return metaY + 9;
 };
 
 const buildKaufvertrag = (
@@ -919,18 +967,16 @@ const buildKaufvertrag = (
     registration: sReg,
   };
   const customerType = kv?.customerType ?? (customer.salutation === "firma" ? "b2b" : "b2c");
+  const contractNumber = kv?.contractNumber ?? process.id;
 
-  drawHeader(doc, "Kaufvertrag", `Vertrags-Nr. ${kv?.contractNumber ?? process.id}`, companyName, resolvedSeller);
-  drawDocumentHeading(doc, "Verbindliche Bestellung / Kaufvertrag eines Fahrzeugs", `Vertrags-Nr. ${kv?.contractNumber ?? process.id}`, 38);
-
-  // Meta line directly under header
-  let cursor = 50;
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(9);
-  setColor(doc, BRAND.muted);
-  doc.text(`Geschlossen am ${contractDate} in ${place}`, PAGE.margin, cursor);
-  doc.text(`Vertrags-Nr. ${kv?.contractNumber ?? process.id}`, PAGE.w - PAGE.margin, cursor, { align: "right" });
-  cursor += 6;
+  drawHeader(doc, "Kaufvertrag", `Vertrags-Nr. ${contractNumber}`, companyName, resolvedSeller);
+  let cursor = drawContractHeading(doc, {
+    title: "Verbindliche Bestellung / Kaufvertrag eines Fahrzeugs",
+    contractNumber,
+    contractDate,
+    place,
+    y: 38,
+  });
 
   cursor = CustomerSection(doc, cursor, { companyName, seller: resolvedSeller, customer, customerType });
 
@@ -940,7 +986,30 @@ const buildKaufvertrag = (
     cursor, { muted: true });
   cursor += 4;
 
+  const addContractPage = () => {
+    drawFooter(doc, companyName, resolvedSeller);
+    doc.addPage();
+    drawHeader(doc, "Kaufvertrag", `Vertrags-Nr. ${contractNumber}`, companyName, resolvedSeller);
+    cursor = drawContractHeading(doc, {
+      title: "Kaufvertrag – Fortsetzung",
+      contractNumber,
+      contractDate,
+      place,
+      y: 38,
+    });
+  };
+  const ensureSpace = (requiredHeight = 35) => {
+    if (cursor + requiredHeight > 258) addContractPage();
+  };
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(8.5);
+  const featureHeight = vehicle.features?.length
+    ? doc.splitTextToSize(vehicle.features.join(" · "), PAGE.w - 2 * PAGE.margin).length * 4
+    : 0;
+  ensureSpace(Math.min(135 + featureHeight, 180));
   cursor = VehicleSection(doc, vehicle, cursor, kv);
+  ensureSpace(55);
   cursor = PriceSection(doc, cursor, {
     vehicle,
     finalPrice,
@@ -951,44 +1020,48 @@ const buildKaufvertrag = (
     paymentMethod: kv?.paymentMethod ?? process.fields.downPayment?.method,
   });
 
-  // Page 2 if needed
-  if (cursor > 230) {
-    drawFooter(doc, companyName, resolvedSeller);
-    doc.addPage();
-    drawHeader(doc, "Kaufvertrag (Fortsetzung)", `Vertrags-Nr. ${kv?.contractNumber ?? process.id}`, companyName, resolvedSeller);
-    drawDocumentHeading(doc, "Kaufvertrag · Fortsetzung", `Vertrags-Nr. ${kv?.contractNumber ?? process.id}`, 38);
-    cursor = 50;
-  }
-
-  // Helper: page break if needed
-  const ensureSpace = (minRemaining = 230) => {
-    if (cursor > minRemaining) {
-      drawFooter(doc, companyName, resolvedSeller);
-      doc.addPage();
-      drawHeader(doc, "Kaufvertrag (Fortsetzung)", `Vertrags-Nr. ${kv?.contractNumber ?? process.id}`, companyName, resolvedSeller);
-      drawDocumentHeading(doc, "Kaufvertrag · Fortsetzung", `Vertrags-Nr. ${kv?.contractNumber ?? process.id}`, 38);
-      cursor = 50;
-    }
-  };
-
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  const conditionDetailText = [
+    kv?.conditionDescription,
+    kv?.preDamage,
+    kv?.knownDefects,
+    ...(kv?.defects?.map((defect) => `${defect.title} ${defect.description ?? ""}`) ?? []),
+  ].filter(Boolean).join("\n");
+  const conditionHeight = 30 + doc.splitTextToSize(conditionDetailText, PAGE.w - 2 * PAGE.margin).length * 4;
+  ensureSpace(Math.min(conditionHeight, 175));
+  cursor = ConditionSection(doc, cursor, vehicle, kv);
+  ensureSpace(45);
   cursor = DeliverySection(doc, cursor, process, kv);
 
-  ensureSpace();
-
   if (process.customerTodosOC.length) {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9.5);
+    const todoHeight = 14 + process.customerTodosOC.reduce((height, todo) => {
+      const lines = doc.splitTextToSize(todo.title, PAGE.w - 2 * PAGE.margin - 48).length;
+      return height + Math.max(5.5, lines * 4);
+    }, 0);
+    ensureSpace(Math.min(todoHeight, 175));
     cursor = drawTodos(doc, process.customerTodosOC, cursor, "Kundenvereinbarungen");
     cursor += 4;
-    ensureSpace();
   }
 
-  cursor = ConditionSection(doc, cursor, vehicle, kv);
-  cursor = AdditionalSection(doc, cursor, kv);
+  const hasAdditional = !!(
+    (kv?.additionalAgreementEnabled && kv.additionalAgreement?.trim()) ||
+    kv?.financing ||
+    kv?.tradeIn
+  );
+  if (hasAdditional) {
+    const additionalText = [kv?.additionalAgreement, kv?.financingDetails, kv?.tradeInDetails].filter(Boolean).join("\n");
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    ensureSpace(Math.min(18 + doc.splitTextToSize(additionalText, PAGE.w - 2 * PAGE.margin).length * 4, 175));
+    cursor = AdditionalSection(doc, cursor, kv);
+  }
 
-  ensureSpace();
-
-  const ensureCursorSpace = (value: number) => {
+  const ensureCursorSpace = (value: number, requiredHeight: number) => {
     cursor = value;
-    ensureSpace();
+    ensureSpace(requiredHeight);
     return cursor;
   };
   cursor = LegalSection(doc, cursor, {
@@ -1002,7 +1075,7 @@ const buildKaufvertrag = (
     exportSale: !!kv?.exportSale,
   }, ensureCursorSpace);
 
-  ensureSpace(210);
+  ensureSpace(customerType === "b2c" && !!kv?.consumerWarrantyLimitationAccepted ? 62 : 42);
 
   SignatureSection(doc, cursor, {
     place,
