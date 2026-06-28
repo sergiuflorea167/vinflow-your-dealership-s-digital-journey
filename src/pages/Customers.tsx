@@ -3,6 +3,7 @@ import { AppShell } from "@/components/layout/AppShell";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
@@ -312,6 +313,17 @@ const CustomerDetailDialog = ({ customerId, onClose }: { customerId: string | nu
             value={formatDate(birthDate)}
           />
         </div>
+
+        {customer.salutation === "firma" && (
+          <Card className="p-4 mt-2">
+            <p className="text-xs font-semibold mb-3">Firmendaten für B2B-Verträge</p>
+            <div className="grid sm:grid-cols-3 gap-3">
+              <Input value={customer.legalForm ?? ""} onChange={(e) => updateCustomer(customer.id, { legalForm: e.target.value || undefined })} placeholder="Rechtsform" />
+              <Input value={customer.contactPerson ?? ""} onChange={(e) => updateCustomer(customer.id, { contactPerson: e.target.value || undefined })} placeholder="Ansprechpartner" />
+              <Input value={customer.vatId ?? ""} onChange={(e) => updateCustomer(customer.id, { vatId: e.target.value || undefined })} placeholder="USt-IdNr. (optional)" />
+            </div>
+          </Card>
+        )}
 
         <Card className="p-4 mt-2 bg-primary/5 border-primary/20">
           <div className="flex items-center gap-2 text-xs uppercase tracking-widest text-primary-glow font-semibold mb-1">

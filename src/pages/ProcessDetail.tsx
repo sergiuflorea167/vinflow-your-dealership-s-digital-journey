@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useParams, Link, Navigate } from "react-router-dom";
-import { ArrowLeft, FileText, Lock, CheckCircle2, ArrowRight, Download, Archive, AlertCircle, SkipForward, RotateCcw } from "lucide-react";
+import { ArrowLeft, FileText, Lock, CheckCircle2, ArrowRight, Download, Archive, AlertCircle, SkipForward, RotateCcw, Plus, Trash2 } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { ProcessStepper } from "@/components/process/ProcessStepper";
 import { ActivityLog } from "@/components/process/ActivityLog";
@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
@@ -93,9 +94,12 @@ const ProcessDetail = () => {
       const pc: any = { ...process.fields.purchaseContract };
       let changed = false;
       if (!pc.contractNumber) { pc.contractNumber = nextContractNumber(allProcesses, settings.numberRanges?.purchaseContract); changed = true; }
-      // Firma → automatisch B2B vorbelegen (nur wenn noch nichts gewählt).
-      if (customer?.salutation === "firma" && !pc.customerType) {
-        pc.customerType = "b2b";
+      if (!pc.contractDate) { pc.contractDate = today; changed = true; }
+      if (!pc.place) { pc.place = settings.companyCity || customer?.city || ""; changed = true; }
+      if (!pc.customerType) { pc.customerType = customer?.salutation === "firma" ? "b2b" : "b2c"; changed = true; }
+      if (pc.showPrivacy === undefined) { pc.showPrivacy = true; changed = true; }
+      if (!pc.paymentStatus) {
+        pc.paymentStatus = process.fields.invoicing?.paid ? "paid" : process.fields.downPayment?.received ? "deposit" : "open";
         changed = true;
       }
       if (changed) updateFields(process.id, { purchaseContract: pc });
@@ -512,34 +516,115 @@ const StepFields = ({ stepKey, fields, onChange, disabled }: { stepKey: ProcessS
     const set = (patch: Partial<NonNullable<ProcessFields["purchaseContract"]>>) =>
       onChange({ purchaseContract: { ...pc, ...patch } });
     const isB2B = pc.customerType === "b2b";
+    const defects = pc.defects ?? (pc.knownDefects ? [{ id: "legacy", title: "Bekannter Mangel", description: pc.knownDefects }] : []);
+    const paymentStatus = pc.paymentStatus ?? (fields.invoicing?.paid ? "paid" : fields.downPayment?.received ? "deposit" : "open");
+    const b2bWarranty = pc.warrantyExcluded ? "excluded" : (pc.warrantyMonths ?? 12) >= 24 ? "24" : "12";
+    const addDefect = () => set({ defects: [...defects, { id: `defect-${Date.now()}`, title: "", description: "" }] });
+    const updateDefect = (id: string, patch: { title?: string; description?: string }) =>
+      set({ defects: defects.map((defect) => defect.id === id ? { ...defect, ...patch } : defect) });
+    const removeDefect = (id: string) => set({ defects: defects.filter((defect) => defect.id !== id) });
     return (
       <FieldGrid title="Kaufvertrag">
         <TextField label="Vertrags-Nr. (automatisch)" value={pc.contractNumber} onChange={() => {}} disabled placeholder="wird automatisch vergeben" />
         <DateField label="Vertragsdatum *" value={pc.contractDate} onChange={(v) => set({ contractDate: v })} disabled={disabled} />
         <TextField label="Vertragsort *" value={pc.place} onChange={(v) => set({ place: v })} disabled={disabled} placeholder="z. B. München" />
-        <SelectField label="Käufertyp *" value={pc.customerType ?? "b2c"} options={["b2c", "b2b"]} onChange={(v) => set({ customerType: v as "b2c" | "b2b", warrantyExcluded: v === "b2b" ? pc.warrantyExcluded : false })} disabled={disabled} />
-        <NumberField label={isB2B ? "Gewährleistung (Monate)" : "Gewährleistung (Monate, mind. 12) *"} value={pc.warrantyMonths ?? 12} onChange={(v) => set({ warrantyMonths: v })} disabled={disabled || (isB2B && !!pc.warrantyExcluded)} />
+        <SelectField
+          label="Käufertyp *"
+          value={pc.customerType ?? "b2c"}
+          options={[{ value: "b2c", label: "Privatkunde (B2C)" }, { value: "b2b", label: "Gewerbekunde (B2B)" }]}
+          onChange={(v) => set({ customerType: v as "b2c" | "b2b", warrantyExcluded: v === "b2b" ? pc.warrantyExcluded : false })}
+          disabled={disabled}
+        />
+        {!isB2B && (
+          <CheckboxField
+            label="B2C: Verjährungsfrist gesondert auf 12 Monate verkürzen"
+            checked={!!pc.consumerWarrantyLimitationAccepted}
+            onChange={(v) => set({ consumerWarrantyLimitationAccepted: v, warrantyMonths: v ? 12 : 24 })}
+            disabled={disabled}
+          />
+        )}
         {isB2B && (
-          <CheckboxField label="Sachmängelhaftung vollständig ausschließen (nur B2B)" checked={!!pc.warrantyExcluded} onChange={(v) => set({ warrantyExcluded: v })} disabled={disabled} />
+          <SelectField
+            label="B2B-Sachmängelhaftung"
+            value={b2bWarranty}
+            options={[{ value: "12", label: "12 Monate" }, { value: "24", label: "24 Monate" }, { value: "excluded", label: "Zulässig ausgeschlossen" }]}
+            onChange={(v) => set({ warrantyExcluded: v === "excluded", warrantyMonths: v === "24" ? 24 : 12 })}
+            disabled={disabled}
+          />
         )}
 
         <div className="col-span-2 rounded-md border border-border bg-surface-elevated/40 px-3 py-2 text-[11px] text-muted-foreground">
-          Verkäuferdaten (Firma, Anschrift, Vertretungsberechtigte/r, USt-IdNr., HRB) werden aus deinen <strong>Unternehmensdaten</strong> übernommen. Anpassen kannst du sie oben rechts über dein Profil.
+          Verkäuferdaten kommen aus den <strong>Unternehmensdaten</strong>. Käufer- und Fahrzeugdaten werden automatisch aus dem Vorgang übernommen.
         </div>
 
-        <CheckboxField label="Unfallfahrzeug (bekannte Vorschäden über Bagatelle hinaus)" checked={!!pc.accidentVehicle} onChange={(v) => set({ accidentVehicle: v })} disabled={disabled} />
-        <NumberField label="Anzahl Schlüssel" value={pc.keysCount ?? 2} onChange={(v) => set({ keysCount: v })} disabled={disabled} />
-        <TextField label="Bekannte Mängel (z. B. Steinschlag, Klima ohne Funktion)" value={pc.knownDefects} onChange={(v) => set({ knownDefects: v })} disabled={disabled} full />
-        <TextField label="Vorschäden / Reparaturhistorie" value={pc.preDamage} onChange={(v) => set({ preDamage: v })} disabled={disabled} full />
+        <div className="md:col-span-2 pt-2">
+          <p className="text-xs font-semibold text-foreground mb-2">Zahlung</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <SelectField label="Zahlungsstatus" value={paymentStatus} options={[{ value: "paid", label: "Bezahlt" }, { value: "deposit", label: "Anzahlung geleistet" }, { value: "open", label: "Restzahlung offen" }]} onChange={(v) => set({ paymentStatus: v as "paid" | "deposit" | "open" })} disabled={disabled} />
+            <NumberField label="Gezahlter Betrag" value={pc.paymentAmount ?? (paymentStatus === "deposit" ? fields.downPayment?.amount : undefined)} onChange={(v) => set({ paymentAmount: v })} disabled={disabled} />
+            <DateField label="Zahlungsdatum" value={pc.paymentDate ?? fields.invoicing?.paidDate ?? fields.downPayment?.receivedDate} onChange={(v) => set({ paymentDate: v })} disabled={disabled} />
+            <TextField label="Zahlungsart" value={pc.paymentMethod ?? fields.downPayment?.method} onChange={(v) => set({ paymentMethod: v })} disabled={disabled} placeholder="z. B. Überweisung, Bar" />
+          </div>
+        </div>
 
-        <CheckboxField label="Zulassungsbescheinigung Teil I (ZB I) übergeben" checked={!!pc.docZB1} onChange={(v) => set({ docZB1: v })} disabled={disabled} />
-        <CheckboxField label="Zulassungsbescheinigung Teil II (ZB II) übergeben" checked={!!pc.docZB2} onChange={(v) => set({ docZB2: v })} disabled={disabled} />
-        <CheckboxField label="HU/AU-Bericht übergeben" checked={!!pc.docHuAu} onChange={(v) => set({ docHuAu: v })} disabled={disabled} />
-        <CheckboxField label="Scheckheft / Serviceheft übergeben" checked={!!pc.docServiceBook} onChange={(v) => set({ docServiceBook: v })} disabled={disabled} />
-        <CheckboxField label="Bedienungsanleitung übergeben" checked={!!pc.docOwnerManual} onChange={(v) => set({ docOwnerManual: v })} disabled={disabled} />
-        <CheckboxField label="COC-Papiere übergeben" checked={!!pc.docCocPapers} onChange={(v) => set({ docCocPapers: v })} disabled={disabled} />
+        <div className="md:col-span-2 pt-2">
+          <p className="text-xs font-semibold text-foreground mb-2">Sonderfälle – nur bei Bedarf aktivieren</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <CheckboxField label="Unfall / Mängel hinzufügen" checked={!!pc.conditionEnabled} onChange={(v) => set({ conditionEnabled: v })} disabled={disabled} />
+            <CheckboxField label="Garantie vereinbart" checked={!!pc.guaranteeAgreed} onChange={(v) => set({ guaranteeAgreed: v })} disabled={disabled} />
+            <CheckboxField label="Zusatzvereinbarung hinzufügen" checked={!!pc.additionalAgreementEnabled} onChange={(v) => set({ additionalAgreementEnabled: v })} disabled={disabled} />
+            <CheckboxField label="Finanzierung" checked={!!pc.financing} onChange={(v) => set({ financing: v })} disabled={disabled} />
+            <CheckboxField label="Inzahlungnahme" checked={!!pc.tradeIn} onChange={(v) => set({ tradeIn: v })} disabled={disabled} />
+            <CheckboxField label="Übergabeprotokoll" checked={!!pc.handoverProtocol} onChange={(v) => set({ handoverProtocol: v })} disabled={disabled} />
+            <CheckboxField label="Datenschutzhinweis anzeigen" checked={pc.showPrivacy !== false} onChange={(v) => set({ showPrivacy: v })} disabled={disabled} />
+            <CheckboxField label="Exportverkauf" checked={!!pc.exportSale} onChange={(v) => set({ exportSale: v })} disabled={disabled} />
+          </div>
+        </div>
 
-        <CheckboxField label="DSGVO-Einwilligung des Käufers zur Datenverarbeitung *" checked={!!pc.dsgvoConsent} onChange={(v) => set({ dsgvoConsent: v })} disabled={disabled} />
+        {pc.conditionEnabled && (
+          <div className="md:col-span-2 rounded-lg border border-border p-4 space-y-4">
+            <p className="text-sm font-semibold">Fahrzeugzustand und bekannte Mängel</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <CheckboxField label="Unfallfahrzeug" checked={!!pc.accidentVehicle} onChange={(v) => set({ accidentVehicle: v })} disabled={disabled} />
+              <CheckboxField label="Bekannte Schäden vorhanden" checked={!!pc.knownDamagePresent} onChange={(v) => set({ knownDamagePresent: v })} disabled={disabled} />
+              <CheckboxField label="Nachlackierungen vorhanden" checked={!!pc.repainted} onChange={(v) => set({ repainted: v })} disabled={disabled} />
+              <CheckboxField label="Wie besichtigt gekauft" checked={!!pc.purchasedAsInspected} onChange={(v) => set({ purchasedAsInspected: v })} disabled={disabled} />
+            </div>
+            <TextareaField label="Beschreibung des Zustands" value={pc.conditionDescription ?? pc.preDamage} onChange={(v) => set({ conditionDescription: v })} disabled={disabled} placeholder="Unfallschäden, Nachlackierungen oder sonstige Abweichungen konkret beschreiben" />
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold">Bekannte Mängel</p>
+                <Button type="button" variant="outline" size="sm" onClick={addDefect} disabled={disabled}><Plus className="size-3.5 mr-1" /> Mangel</Button>
+              </div>
+              {defects.map((defect) => (
+                <div key={defect.id} className="grid grid-cols-1 md:grid-cols-[1fr_2fr_auto] gap-2 items-start">
+                  <Input value={defect.title} onChange={(e) => updateDefect(defect.id, { title: e.target.value })} disabled={disabled} placeholder="Mangel" />
+                  <Input value={defect.description ?? ""} onChange={(e) => updateDefect(defect.id, { description: e.target.value })} disabled={disabled} placeholder="Beschreibung" />
+                  <Button type="button" variant="ghost" size="icon" onClick={() => removeDefect(defect.id)} disabled={disabled} aria-label="Mangel entfernen"><Trash2 className="size-4" /></Button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {pc.guaranteeAgreed && <TextareaField label="Garantie (Anbieter, Dauer, Umfang)" value={pc.guaranteeDetails} onChange={(v) => set({ guaranteeDetails: v })} disabled={disabled} full />}
+        {pc.additionalAgreementEnabled && <TextareaField label="Zusatzvereinbarungen" value={pc.additionalAgreement} onChange={(v) => set({ additionalAgreement: v })} disabled={disabled} full placeholder="z. B. Reparaturversprechen, Zubehör oder besondere Absprachen" />}
+        {pc.financing && <TextareaField label="Finanzierung" value={pc.financingDetails} onChange={(v) => set({ financingDetails: v })} disabled={disabled} full placeholder="Finanzierungsgeber und wesentliche Vereinbarung" />}
+        {pc.tradeIn && <TextareaField label="Inzahlungnahme" value={pc.tradeInDetails} onChange={(v) => set({ tradeInDetails: v })} disabled={disabled} full placeholder="Fahrzeug, FIN/Kennzeichen und Anrechnungsbetrag" />}
+
+        {pc.handoverProtocol && (
+          <div className="md:col-span-2 rounded-lg border border-border p-4 space-y-3">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <NumberField label="Anzahl Schlüssel" value={pc.keysCount ?? 2} onChange={(v) => set({ keysCount: v })} disabled={disabled} />
+              <CheckboxField label="ZB I übergeben" checked={!!pc.docZB1} onChange={(v) => set({ docZB1: v })} disabled={disabled} />
+              <CheckboxField label="ZB II übergeben" checked={!!pc.docZB2} onChange={(v) => set({ docZB2: v })} disabled={disabled} />
+              <CheckboxField label="HU/AU-Bericht" checked={!!pc.docHuAu} onChange={(v) => set({ docHuAu: v })} disabled={disabled} />
+              <CheckboxField label="Serviceheft" checked={!!pc.docServiceBook} onChange={(v) => set({ docServiceBook: v })} disabled={disabled} />
+              <CheckboxField label="Bedienungsanleitung" checked={!!pc.docOwnerManual} onChange={(v) => set({ docOwnerManual: v })} disabled={disabled} />
+              <CheckboxField label="COC-Papiere" checked={!!pc.docCocPapers} onChange={(v) => set({ docCocPapers: v })} disabled={disabled} />
+            </div>
+          </div>
+        )}
       </FieldGrid>
     );
   }
@@ -585,10 +670,15 @@ const validateStep = (key: ProcessStepKey, f: ProcessFields, chkDone: number, ch
     if (!c?.contractNumber || !c.contractDate || !c.place) return { ok: false, message: "Vertrags-Nr., Datum & Ort erforderlich." };
     
     if (!c.customerType) return { ok: false, message: "Käufertyp (B2C/B2B) erforderlich." };
-    if (c.customerType === "b2c" && (!c.warrantyMonths || c.warrantyMonths < 12)) {
-      return { ok: false, message: "Bei Verkauf an Verbraucher (B2C) muss die Sachmängelhaftung mindestens 12 Monate betragen." };
+    if (c.customerType === "b2c" && c.warrantyMonths === 12 && !c.consumerWarrantyLimitationAccepted) {
+      return { ok: false, message: "Die Verkürzung auf 12 Monate muss bei B2C ausdrücklich und gesondert bestätigt werden." };
     }
-    if (!c.dsgvoConsent) return { ok: false, message: "DSGVO-Einwilligung des Käufers muss bestätigt werden." };
+    if (!c.paymentStatus) return { ok: false, message: "Zahlungsstatus erforderlich." };
+    if (c.conditionEnabled && (c.accidentVehicle || c.knownDamagePresent || c.repainted) && !c.conditionDescription?.trim()) {
+      return { ok: false, message: "Bitte Unfall, Schäden oder Nachlackierungen konkret beschreiben." };
+    }
+    if (c.defects?.some((defect) => !defect.title.trim())) return { ok: false, message: "Bitte jeden bekannten Mangel benennen." };
+    if (c.guaranteeAgreed && !c.guaranteeDetails?.trim()) return { ok: false, message: "Bitte die vereinbarte Garantie kurz beschreiben." };
     return { ok: true };
   }
   if (key === "delivery_confirmation") {
@@ -615,6 +705,13 @@ const TextField = ({ label, value, onChange, disabled, placeholder, full }: { la
   </div>
 );
 
+const TextareaField = ({ label, value, onChange, disabled, placeholder, full }: { label: string; value?: string; onChange: (v: string) => void; disabled?: boolean; placeholder?: string; full?: boolean }) => (
+  <div className={cn("space-y-1.5", full && "md:col-span-2")}>
+    <Label className="text-xs text-muted-foreground">{label}</Label>
+    <Textarea value={value ?? ""} onChange={(e) => onChange(e.target.value)} disabled={disabled} placeholder={placeholder} className="min-h-24 bg-background/40" />
+  </div>
+);
+
 const NumberField = ({ label, value, onChange, disabled }: { label: string; value?: number; onChange: (v: number | undefined) => void; disabled?: boolean }) => (
   <div className="space-y-1.5">
     <Label className="text-xs text-muted-foreground">{label}</Label>
@@ -629,18 +726,24 @@ const DateField = ({ label, value, onChange, disabled }: { label: string; value?
   </div>
 );
 
-const SelectField = ({ label, value, options, onChange, disabled }: { label: string; value: string; options: string[]; onChange: (v: string) => void; disabled?: boolean }) => (
+type SelectFieldOption = string | { value: string; label: string };
+
+const SelectField = ({ label, value, options, onChange, disabled }: { label: string; value: string; options: SelectFieldOption[]; onChange: (v: string) => void; disabled?: boolean }) => (
   <div className="space-y-1.5">
     <Label className="text-xs text-muted-foreground">{label}</Label>
     <select value={value} onChange={(e) => onChange(e.target.value)} disabled={disabled} className="w-full h-10 rounded-md border border-input bg-background/40 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50">
       <option value="">— wählen —</option>
-      {options.map((o) => <option key={o} value={o}>{o}</option>)}
+      {options.map((option) => {
+        const value = typeof option === "string" ? option : option.value;
+        const text = typeof option === "string" ? option : option.label;
+        return <option key={value} value={value}>{text}</option>;
+      })}
     </select>
   </div>
 );
 
 const CheckboxField = ({ label, checked, onChange, disabled }: { label: string; checked: boolean; onChange: (v: boolean) => void; disabled?: boolean }) => (
-  <label className="flex items-center gap-3 p-3 rounded-md border border-input bg-background/40 cursor-pointer hover:border-primary/40 transition-smooth h-10">
+  <label className="flex items-center gap-3 p-3 rounded-md border border-input bg-background/40 cursor-pointer hover:border-primary/40 transition-smooth min-h-10">
     <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} disabled={disabled} className="size-4 accent-primary" />
     <span className="text-sm">{label}</span>
   </label>

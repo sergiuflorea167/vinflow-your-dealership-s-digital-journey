@@ -339,6 +339,10 @@ export interface Customer {
   zip?: string;
   city: string;
   birthDate?: string; // YYYY-MM-DD
+  /** Optionale Firmendaten für B2B-Verträge. */
+  legalForm?: string;
+  contactPerson?: string;
+  vatId?: string;
 }
 
 // ---------- Angebot ----------
@@ -460,6 +464,8 @@ export interface ProcessFields {
     place?: string;
     /** B2C = Verbraucher (Sachmängelhaftung verkürzt, mind. 12 Monate). B2B = Unternehmer (Ausschluss möglich). */
     customerType?: "b2c" | "b2b";
+    /** Bei B2C muss die Verkürzung auf ein Jahr ausdrücklich und gesondert vereinbart werden. */
+    consumerWarrantyLimitationAccepted?: boolean;
     /** Verkäuferdaten (überschreibt Stammdaten im Vertrag) */
     sellerStreet?: string;
     sellerZip?: string;
@@ -477,12 +483,33 @@ export interface ProcessFields {
     keysCount?: number;
     /** Zustand */
     knownDefects?: string;
+    defects?: { id: string; title: string; description?: string }[];
     preDamage?: string;
     accidentVehicle?: boolean; // Ja = Unfallfahrzeug
+    conditionEnabled?: boolean;
+    knownDamagePresent?: boolean;
+    repainted?: boolean;
+    purchasedAsInspected?: boolean;
+    conditionDescription?: string;
     /** B2B-Sonderfall: vollständiger Gewährleistungsausschluss */
     warrantyExcluded?: boolean;
-    /** DSGVO-Einwilligung des Käufers zur Verarbeitung seiner Daten */
+    /** Bestandsschutz für ältere Vorgänge; Vertragsverarbeitung benötigt keine Einwilligung. */
     dsgvoConsent?: boolean;
+    guaranteeAgreed?: boolean;
+    guaranteeDetails?: string;
+    additionalAgreementEnabled?: boolean;
+    additionalAgreement?: string;
+    financing?: boolean;
+    financingDetails?: string;
+    tradeIn?: boolean;
+    tradeInDetails?: string;
+    handoverProtocol?: boolean;
+    showPrivacy?: boolean;
+    exportSale?: boolean;
+    paymentStatus?: "paid" | "deposit" | "open";
+    paymentAmount?: number;
+    paymentDate?: string;
+    paymentMethod?: string;
   };
   delivery?: {
     handoverDate?: string;
