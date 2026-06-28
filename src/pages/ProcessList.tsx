@@ -46,6 +46,17 @@ const ProcessList = () => {
   const companyName = useProcessStore((s) => s.settings.companyName);
   const pdfTheme = useProcessStore((s) => s.settings.pdfTheme);
   const settings = useProcessStore((s) => s.settings);
+  const seller = {
+    street: settings.companyStreet,
+    zip: settings.companyZip,
+    city: settings.companyCity,
+    representative: settings.companyRepresentative,
+    vatId: settings.companyVatId,
+    taxNumber: settings.companyTaxNumber,
+    email: settings.companyEmail ?? settings.email,
+    phone: settings.companyPhone ?? settings.phone,
+    registration: settings.companyRegistration,
+  };
   const processSteps = useMemo(() => getConfiguredProcessSteps(settings), [settings]);
   const lastStepKey = getLastProcessStepKey(settings.processStepKeys);
   const lastStep = processSteps[processSteps.length - 1];
@@ -325,7 +336,7 @@ const ProcessList = () => {
     const v = getVehicle(proc.vehicleId);
     const c = getCustomer(proc.customerId);
     if (!v || !c) return;
-    downloadBelegPdf({ process: proc, vehicle: v, customer: c, stepKey, companyName, pdfTheme });
+    downloadBelegPdf({ process: proc, vehicle: v, customer: c, stepKey, companyName, seller, pdfTheme });
   };
 
   return (
@@ -683,7 +694,7 @@ const ProcessList = () => {
                               title="PDF herunterladen"
                               onClick={(e) => {
                                 e.preventDefault();
-                                downloadOfferPdf({ offer: o, vehicle: vehicle!, customer: customer!, companyName, pdfTheme });
+                                downloadOfferPdf({ offer: o, vehicle: vehicle!, customer: customer!, companyName, seller, pdfTheme });
                               }}
                             >
                               <Download className="size-3.5" />

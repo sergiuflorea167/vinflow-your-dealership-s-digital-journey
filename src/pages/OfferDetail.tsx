@@ -38,6 +38,7 @@ const OfferDetail = () => {
   );
   const companyName = useProcessStore((s) => s.settings.companyName);
   const pdfTheme = useProcessStore((s) => s.settings.pdfTheme);
+  const settings = useProcessStore((s) => s.settings);
 
   const updateOffer = useProcessStore((s) => s.updateOffer);
   const updateOfferStatus = useProcessStore((s) => s.updateOfferStatus);
@@ -101,7 +102,24 @@ const OfferDetail = () => {
     // sicherstellen, dass die letzten Eingaben drin sind
     if (isDirty) persist();
     const fresh = useProcessStore.getState().offers.find((o) => o.id === offer.id) ?? offer;
-    downloadOfferPdf({ offer: fresh, vehicle, customer, companyName, pdfTheme });
+    downloadOfferPdf({
+      offer: fresh,
+      vehicle,
+      customer,
+      companyName,
+      pdfTheme,
+      seller: {
+        street: settings.companyStreet,
+        zip: settings.companyZip,
+        city: settings.companyCity,
+        representative: settings.companyRepresentative,
+        vatId: settings.companyVatId,
+        taxNumber: settings.companyTaxNumber,
+        email: settings.companyEmail ?? settings.email,
+        phone: settings.companyPhone ?? settings.phone,
+        registration: settings.companyRegistration,
+      },
+    });
     toast.success("Angebots-PDF heruntergeladen.");
   };
 
