@@ -102,40 +102,51 @@ const setColor = (doc: jsPDF, c: RGB, type: "fill" | "draw" | "text" = "text") =
 
 const companyAddress = (seller?: SellerInfo) => [seller?.street, [seller?.zip, seller?.city].filter(Boolean).join(" ")].filter(Boolean).join(" · ");
 
-const drawHeader = (doc: jsPDF, title: string, docNumber: string, companyName: string, seller?: SellerInfo) => {
-  // Ruhiger, formeller Briefkopf nach dem Muster klassischer Geschäftspost.
+const drawHeader = (doc: jsPDF, _title: string, _docNumber: string, companyName: string, seller?: SellerInfo) => {
+  // Reiner Briefkopf; Dokumenttitel und Belegnummer folgen weiter unten wie in der Referenz.
   setColor(doc, BRAND.primaryDark, "fill");
-  doc.rect(PAGE.margin, 15, 9, 9, "F");
+  doc.rect(PAGE.margin, 13, 8, 8, "F");
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(10);
+  doc.setFontSize(8.5);
   setColor(doc, [255, 255, 255]);
-  doc.text("VF", PAGE.margin + 4.5, 21.2, { align: "center" });
+  doc.text("VF", PAGE.margin + 4, 18.5, { align: "center" });
 
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(13);
+  doc.setFontSize(12);
   setColor(doc, BRAND.ink);
-  doc.text(companyName, PAGE.margin + 13, 19.5);
+  doc.text(companyName, PAGE.margin + 11, 16.5);
 
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(7.5);
+  doc.setFontSize(7);
   setColor(doc, BRAND.muted);
   const address = companyAddress(seller);
-  doc.text(address || "Fahrzeughandel & Service", PAGE.margin + 13, 24);
+  doc.text(address || "Fahrzeughandel & Service", PAGE.margin + 11, 20.5);
 
-  // Dokumenttitel wie in der Vorlage: groß, leicht und ohne dekorative Karte.
+  doc.setFontSize(7.5);
+  setColor(doc, BRAND.muted);
+  if (seller?.phone) doc.text(`Tel. ${seller.phone}`, PAGE.w - PAGE.margin, 16.5, { align: "right" });
+  if (seller?.email) doc.text(seller.email, PAGE.w - PAGE.margin, 20.5, { align: "right" });
+
+  setColor(doc, BRAND.border, "draw");
+  doc.setLineWidth(0.3);
+  doc.line(PAGE.margin, 27, PAGE.w - PAGE.margin, 27);
+};
+
+const drawDocumentHeading = (doc: jsPDF, title: string, docNumber: string, y: number) => {
   doc.setFont("helvetica", "normal");
   doc.setFontSize(18);
   setColor(doc, BRAND.ink);
-  doc.text(title, PAGE.w - PAGE.margin, 20, { align: "right" });
+  doc.text(title, PAGE.margin, y);
 
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(8);
+  doc.setFontSize(8.5);
   setColor(doc, BRAND.muted);
-  doc.text(docNumber, PAGE.w - PAGE.margin, 25, { align: "right" });
+  doc.text(docNumber, PAGE.w - PAGE.margin, y, { align: "right" });
 
-  setColor(doc, BRAND.primaryDark, "draw");
+  setColor(doc, BRAND.primary, "draw");
   doc.setLineWidth(0.45);
-  doc.line(PAGE.margin, 31, PAGE.w - PAGE.margin, 31);
+  doc.line(PAGE.margin, y + 3, PAGE.w - PAGE.margin, y + 3);
+  return y + 9;
 };
 
 const drawFooter = (doc: jsPDF, companyName: string, seller?: SellerInfo) => {
@@ -238,12 +249,14 @@ const drawVehicleCard = (doc: jsPDF, vehicle: Vehicle, y: number) => {
   doc.setLineWidth(0.3);
   doc.rect(PAGE.margin, y, w, h, "FD");
 
-  setColor(doc, BRAND.primaryDark, "fill");
+  setColor(doc, [238, 240, 243], "fill");
   doc.rect(PAGE.margin, y, w, 7, "F");
+  setColor(doc, BRAND.primary, "fill");
+  doc.rect(PAGE.margin, y, 1.2, h, "F");
 
   doc.setFont("helvetica", "bold");
   doc.setFontSize(7.5);
-  setColor(doc, [255, 255, 255]);
+  setColor(doc, BRAND.ink);
   doc.text("FAHRZEUGDATEN", PAGE.margin + 4, y + 4.8);
   doc.text(`ERSTZULASSUNG  ${vehicle.firstRegistration ? formatDate(vehicle.firstRegistration) : "—"}`, PAGE.w - PAGE.margin - 4, y + 4.8, { align: "right" });
 
@@ -281,17 +294,21 @@ const drawTable = (doc: jsPDF, items: LineItem[], y: number, totalLabel = "Gesam
   const w = PAGE.w - 2 * PAGE.margin;
   const rowH = 9;
 
-  // Klare Tabellenführung wie in der Referenzvorlage.
-  setColor(doc, BRAND.primaryDark, "fill");
+  // Neutrale Sechs-Spalten-Tabelle wie in der Referenzvorlage.
+  setColor(doc, [232, 234, 238], "fill");
   doc.rect(x, y, w, 8, "F");
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(7.5);
-  setColor(doc, [255, 255, 255]);
+  doc.setFontSize(7);
+  setColor(doc, BRAND.ink);
   doc.text("POS.", x + 3, y + 5.2);
-  doc.text("BEZEICHNUNG", x + 15, y + 5.2);
-  doc.text("MENGE", x + 108, y + 5.2);
-  doc.text("EINZELPREIS", x + 136, y + 5.2, { align: "right" });
+  doc.text("MENGE", x + 25, y + 5.2, { align: "center" });
+  doc.text("EINHEIT", x + 39, y + 5.2);
+  doc.text("BEZEICHNUNG", x + 58, y + 5.2);
+  doc.text("EINZELPREIS", x + 138, y + 5.2, { align: "right" });
   doc.text("GESAMTPREIS", x + w - 3, y + 5.2, { align: "right" });
+  setColor(doc, BRAND.ink, "draw");
+  doc.setLineWidth(0.35);
+  doc.line(x, y + 8, x + w, y + 8);
 
   let cy = y + 8;
   items.forEach((it, index) => {
@@ -304,9 +321,11 @@ const drawTable = (doc: jsPDF, items: LineItem[], y: number, totalLabel = "Gesam
     doc.setFontSize(9.5);
     setColor(doc, BRAND.ink);
     doc.text(`${index + 1}.`, x + 3, cy - 3);
-    doc.text(it.description, x + 15, cy - 3);
-    doc.text(it.qty, x + 108, cy - 3);
-    doc.text(formatCurrency(it.unitPrice), x + 136, cy - 3, { align: "right" });
+    doc.text(it.qty, x + 25, cy - 3, { align: "center" });
+    doc.text("Stk.", x + 39, cy - 3);
+    const description = doc.splitTextToSize(it.description, 74)[0];
+    doc.text(description, x + 58, cy - 3);
+    doc.text(formatCurrency(it.unitPrice), x + 138, cy - 3, { align: "right" });
     doc.text(formatCurrency(it.total), x + w - 3, cy - 3, { align: "right" });
     setColor(doc, BRAND.border, "draw");
     doc.setLineWidth(0.2);
@@ -335,7 +354,7 @@ const drawTable = (doc: jsPDF, items: LineItem[], y: number, totalLabel = "Gesam
     doc.text(row.label, x + 97, rowY);
     doc.text(formatCurrency(row.value), x + w - 3, rowY, { align: "right" });
   });
-  setColor(doc, BRAND.primaryDark, "draw");
+  setColor(doc, BRAND.ink, "draw");
   doc.setLineWidth(0.5);
   doc.line(x + 93, cy + summaryH, x + w, cy + summaryH);
 
@@ -446,16 +465,17 @@ export interface GeneratePdfArgs {
   pdfTheme?: PdfThemeKey;
 }
 
-const STANDARD_LAYOUT_START_Y = 110;
+const STANDARD_LAYOUT_START_Y = 124;
 
 const drawStandardChrome = (
   doc: jsPDF,
   args: { title: string; docNumber: string; companyName: string; seller?: SellerInfo; customer: Customer; vehicle: Vehicle; meta: Array<[string, string]>; addressLabel?: string }
 ) => {
   drawHeader(doc, args.title, args.docNumber, args.companyName, args.seller);
-  drawAddressBlock(doc, args.customer, 40, args.companyName, args.seller, args.addressLabel);
-  drawMetaBlock(doc, args.meta, 46);
-  const cursor = drawVehicleCard(doc, args.vehicle, 78);
+  drawAddressBlock(doc, args.customer, 36, args.companyName, args.seller, args.addressLabel);
+  drawMetaBlock(doc, args.meta, 42);
+  drawDocumentHeading(doc, args.title, args.docNumber, 76);
+  const cursor = drawVehicleCard(doc, args.vehicle, 86);
   return cursor;
 };
 
@@ -744,9 +764,10 @@ const buildKaufvertrag = (
   const sReg = kv?.sellerRegistration || seller?.registration;
 
   drawHeader(doc, "Kaufvertrag", `Vertrags-Nr. ${kv?.contractNumber ?? process.id}`, companyName, seller);
+  drawDocumentHeading(doc, "Kaufvertrag", `Vertrags-Nr. ${kv?.contractNumber ?? process.id}`, 38);
 
   // Meta line directly under header
-  let cursor = 42;
+  let cursor = 50;
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
   setColor(doc, BRAND.muted);
@@ -826,7 +847,8 @@ const buildKaufvertrag = (
     drawFooter(doc, companyName, seller);
     doc.addPage();
     drawHeader(doc, "Kaufvertrag (Fortsetzung)", `Vertrags-Nr. ${kv?.contractNumber ?? process.id}`, companyName, seller);
-    cursor = 44;
+    drawDocumentHeading(doc, "Kaufvertrag · Fortsetzung", `Vertrags-Nr. ${kv?.contractNumber ?? process.id}`, 38);
+    cursor = 50;
   }
 
   // Helper: page break if needed
@@ -835,7 +857,8 @@ const buildKaufvertrag = (
       drawFooter(doc, companyName, seller);
       doc.addPage();
       drawHeader(doc, "Kaufvertrag (Fortsetzung)", `Vertrags-Nr. ${kv?.contractNumber ?? process.id}`, companyName, seller);
-      cursor = 44;
+      drawDocumentHeading(doc, "Kaufvertrag · Fortsetzung", `Vertrags-Nr. ${kv?.contractNumber ?? process.id}`, 38);
+      cursor = 50;
     }
   };
 
@@ -1066,13 +1089,14 @@ export const generateOfferPdf = ({ offer, vehicle, customer, companyName = "VINf
   applyPdfTheme(pdfTheme);
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   drawHeader(doc, "Angebot", `Angebots-Nr. ${offer.id}`, companyName, seller);
-  drawAddressBlock(doc, customer, 40, companyName, seller, "ANGEBOTSEMPFÄNGER");
+  drawAddressBlock(doc, customer, 36, companyName, seller, "ANGEBOTSEMPFÄNGER");
   drawMetaBlock(doc, [
     ["Angebots-Nr.", offer.id],
     ["Erstellt am", formatDate(offer.createdAt)],
     ["Gültig bis", formatDate(offer.validUntil)],
-  ], 46);
-  let cursor = drawVehicleCard(doc, vehicle, 78);
+  ], 42);
+  drawDocumentHeading(doc, "Angebot", `Angebots-Nr. ${offer.id}`, 76);
+  let cursor = drawVehicleCard(doc, vehicle, 86);
   cursor = Math.max(cursor, STANDARD_LAYOUT_START_Y);
 
   cursor = drawTextBlock(doc,
