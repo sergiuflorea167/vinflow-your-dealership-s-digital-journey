@@ -5,6 +5,7 @@ import {
   Customer,
   Offer,
   PROCESS_STEPS,
+  CUSTOMER_AGREEMENT_STEP_KEYS,
   ProcessStepKey,
   formatCurrency,
   formatDate,
@@ -368,18 +369,24 @@ const drawDeliveryCallout = (doc: jsPDF, deliveryDate: string | undefined, y: nu
   return y + h + 6;
 };
 
-const drawTodos = (doc: jsPDF, todos: { title: string }[], y: number, title: string) => {
+const drawTodos = (doc: jsPDF, todos: { title: string; done?: boolean; dueDate?: string }[], y: number, title: string) => {
   if (!todos.length) return y;
   y = drawSectionTitle(doc, title, y);
   y += 2;
   todos.forEach((t) => {
-    setColor(doc, BRAND.primary, "fill");
+    setColor(doc, t.done ? BRAND.success : BRAND.primary, "fill");
     doc.circle(PAGE.margin + 1.2, y - 1, 0.8, "F");
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9.5);
     setColor(doc, BRAND.ink);
-    doc.text(t.title, PAGE.margin + 5, y);
-    y += 5.5;
+    const lines = doc.splitTextToSize(t.title, PAGE.w - 2 * PAGE.margin - 48);
+    doc.text(lines, PAGE.margin + 5, y);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8.5);
+    setColor(doc, t.done ? BRAND.success : BRAND.muted);
+    const status = t.done ? "Erledigt" : t.dueDate ? `Offen · fällig ${formatDate(t.dueDate)}` : "Offen";
+    doc.text(status, PAGE.w - PAGE.margin, y, { align: "right" });
+    y += Math.max(5.5, lines.length * 4);
   });
   return y + 2;
 };
@@ -463,13 +470,9 @@ export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, c
   });
   cursor = Math.max(cursor, STANDARD_LAYOUT_START_Y);
 
-  // To-Dos für genau diesen Beleg (jedes To-Do trägt sein Druckziel)
-  const todosForThisStep = process.customerTodosOC.filter(
-    (t) => (t.printOnStep ?? "order_confirmation") === stepKey,
-  );
-  const drawProcessTodos = (c: number) => {
-    if (!todosForThisStep.length) return c;
-    return drawTodos(doc, todosForThisStep, c + 6, "Vereinbarte Leistungen");
+  const drawCustomerAgreements = (c: number) => {
+    if (!CUSTOMER_AGREEMENT_STEP_KEYS.includes(stepKey) || !process.customerTodosOC.length) return c;
+    return drawTodos(doc, process.customerTodosOC, c + 6, "Kundenvereinbarungen");
   };
 
   switch (stepKey) {
@@ -485,11 +488,11 @@ export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, c
       cursor = drawTextBlock(doc,
         `Gültigkeit: bis ${offer ? formatDate(offer.validUntil) : "—"}\nLieferung: nach Vereinbarung\nGewährleistung: 12 Monate gemäß BGB\n${taxationLine(vehicle)}`,
         cursor);
-      if (offer?.customerTodos.length) {
+      const agreements = process.customerTodosOC.length ? process.customerTodosOC : offer?.customerTodos ?? [];
+      if (agreements.length) {
         cursor += 6;
-        cursor = drawTodos(doc, offer.customerTodos, cursor, "Vereinbarte Leistungen");
+        cursor = drawTodos(doc, agreements, cursor, "Kundenvereinbarungen");
       }
-      cursor = drawProcessTodos(cursor);
       break;
     }
     case "down_payment": {
@@ -508,7 +511,6 @@ export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, c
       cursor = drawTextBlock(doc,
         `Empfänger: ${companyName}\nIBAN: ${BANK.iban}\nBIC: ${BANK.bic}\nVerwendungszweck: ${dp?.invoiceNumber ?? process.id}\nRechnungsdatum: ${dp?.invoiceDate ? formatDate(dp.invoiceDate) : "—"}\nZahlungsbedingung: ${dp?.paymentTerms ?? (dp?.dueDate ? `Fällig am ${formatDate(dp.dueDate)}` : "Sofort fällig nach Erhalt der Rechnung")}${dp?.received ? `\nZahlung eingegangen am: ${dp.receivedDate ? formatDate(dp.receivedDate) : "—"}` : ""}\n${taxationLine(vehicle)}`,
         cursor);
-      cursor = drawProcessTodos(cursor);
       break;
     }
     case "order_confirmation": {
@@ -525,7 +527,7 @@ export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, c
       cursor = drawTextBlock(doc,
         `Auftragsdatum: ${oc?.orderDate ? formatDate(oc.orderDate) : "—"}\nZahlungsbedingungen: ${oc?.paymentTerms ?? "Restzahlung bei Übergabe"}\nBereits geleistete Anzahlung: ${formatCurrency(process.fields.downPayment?.amount ?? 0)}\n${taxationLine(vehicle)}`,
         cursor);
-      cursor = drawProcessTodos(cursor);
+      cursor = drawCustomerAgreements(cursor);
       break;
     }
     case "outbound_check": {
@@ -561,7 +563,7 @@ export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, c
       cursor = drawTextBlock(doc,
         allDone ? `Das Fahrzeug ist übergabebereit.` : `Hinweis: Es sind noch ${checklist.length - doneCount} Punkte offen. Das Fahrzeug ist noch nicht vollständig übergabebereit.`,
         cursor, { muted: true });
-      cursor = drawProcessTodos(cursor);
+      cursor = drawCustomerAgreements(cursor);
       break;
     }
     case "invoicing": {
@@ -582,7 +584,6 @@ export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, c
       cursor = drawTextBlock(doc,
         `Rechnungs-Nr.: ${inv?.invoiceNumber ?? "—"}\nRechnungsdatum: ${inv?.invoiceDate ? formatDate(inv.invoiceDate) : formatDate(new Date().toISOString())}\nZahlungsbedingung: ${inv?.paymentTerms ?? (inv?.dueDate ? `Fällig am ${formatDate(inv.dueDate)}` : "Sofort fällig nach Erhalt der Rechnung")}\nIBAN: ${BANK.iban} · BIC: ${BANK.bic}\nVerwendungszweck: ${process.id}${inv?.paid ? `\nZahlungsstatus: Bezahlt${inv.paidDate ? ` am ${formatDate(inv.paidDate)}` : ""} – Vielen Dank!` : `\nDer Restbetrag von ${formatCurrency(remaining)} ist bei Fahrzeugübergabe fällig.`}\n${taxationLine(vehicle)}`,
         cursor);
-      cursor = drawProcessTodos(cursor);
       break;
     }
     case "delivery_confirmation": {
@@ -593,7 +594,6 @@ export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, c
       cursor = drawTextBlock(doc,
         `Übergabedatum: ${del?.handoverDate ? formatDate(del.handoverDate) : formatDate(new Date().toISOString())}\nÜbergabeort: ${del?.handoverLocation ?? "Filiale"}\nKilometerstand bei Übergabe: ${del?.finalMileage?.toLocaleString("de-DE") ?? vehicle.mileage.toLocaleString("de-DE")} km\nTankfüllung: ${del?.fuelLevel ?? "voll"}\nMitgegeben: 2 Schlüssel, Zulassungsbescheinigung Teil I & II, Service-Heft`,
         cursor);
-      cursor = drawProcessTodos(cursor);
       cursor = drawSignatureRow(doc, cursor + 20, "Unterschrift Kunde", `Unterschrift ${companyName}`);
       break;
     }
@@ -845,6 +845,12 @@ const buildKaufvertrag = (
 
   ensureSpace();
 
+  if (process.customerTodosOC.length) {
+    cursor = drawTodos(doc, process.customerTodosOC, cursor, "Kundenvereinbarungen");
+    cursor += 4;
+    ensureSpace();
+  }
+
   // § 4 Zustand, bekannte Mängel und Vorschäden
   cursor = drawSectionTitle(doc, "§ 4  Zustand, bekannte Mängel und Unfallschäden", cursor);
   const isAccident = kv?.accidentVehicle ?? !vehicle.accidentFree;
@@ -1051,7 +1057,7 @@ export const generateOfferPdf = ({ offer, vehicle, customer, companyName = "VINf
 
   if (offer.customerTodos.length) {
     cursor += 6;
-    cursor = drawTodos(doc, offer.customerTodos, cursor, "Vereinbarte Leistungen");
+    cursor = drawTodos(doc, offer.customerTodos, cursor, "Kundenvereinbarungen");
   }
   if (offer.notes && offer.notes.trim()) {
     cursor += 4;

@@ -1,8 +1,8 @@
 import { useMemo, useState, useEffect } from "react";
 import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import {
-  ArrowLeft, ArrowRight, CheckCircle2, Download, FileText, Mail, Plus, Send,
-  Trash2, X, Save, Clock, AlertTriangle,
+  ArrowLeft, ArrowRight, CheckCircle2, Download, FileText, Mail, Send,
+  X, Save, Clock, AlertTriangle,
 } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { Card } from "@/components/ui/card";
@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { TodoList } from "@/components/shared/TodoList";
 import { useProcessStore } from "@/store/processStore";
 import { formatCurrency, formatDate, OfferStatus } from "@/data/process";
 import { downloadOfferPdf } from "@/lib/pdf";
@@ -48,7 +49,6 @@ const OfferDetail = () => {
   const [validUntil, setValidUntil] = useState(offer?.validUntil ?? "");
   const [notes, setNotes] = useState(offer?.notes ?? "");
   const [todos, setTodos] = useState(offer?.customerTodos ?? []);
-  const [todoDraft, setTodoDraft] = useState("");
 
   // Wenn der Offer wechselt (z.B. nach Reload), State angleichen
   useEffect(() => {
@@ -135,13 +135,6 @@ const OfferDetail = () => {
     setValidUntil(next);
     updateOffer(offer.id, { validUntil: next });
     toast.success(`Gültigkeit um ${days} Tage verlängert.`);
-  };
-
-  const addTodo = () => {
-    const v = todoDraft.trim();
-    if (!v) return;
-    setTodos((l) => [...l, { id: `ot-${Date.now()}`, title: v }]);
-    setTodoDraft("");
   };
 
   return (
@@ -272,50 +265,18 @@ const OfferDetail = () => {
 
             <Separator className="bg-border/60" />
 
-            {/* Vereinbarte Leistungen / Customer-To-Dos */}
-            <div className="space-y-3">
-              <div>
-                <h3 className="font-display font-semibold text-sm">Vereinbarte Leistungen</h3>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Werden auf dem Angebots-PDF als Liste gedruckt – sichtbar für den Kunden.
-                </p>
-              </div>
-              {editable && (
-                <div className="flex gap-2">
-                  <Input
-                    value={todoDraft}
-                    onChange={(e) => setTodoDraft(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addTodo(); } }}
-                    placeholder="z. B. Winterreifen-Set inkl., Service vor Übergabe…"
-                    className="bg-background/40"
-                  />
-                  <Button onClick={addTodo} variant="outline" className="gap-1.5">
-                    <Plus className="size-3.5" /> Hinzufügen
-                  </Button>
-                </div>
-              )}
-              {todos.length === 0 ? (
-                <p className="text-xs text-muted-foreground italic">Noch keine vereinbarten Leistungen.</p>
-              ) : (
-                <ul className="space-y-1.5">
-                  {todos.map((t) => (
-                    <li key={t.id} className="flex items-center justify-between gap-3 p-2 rounded-md border border-border bg-background/40 text-sm">
-                      <span className="flex-1">{t.title}</span>
-                      {editable && (
-                        <button
-                          type="button"
-                          onClick={() => setTodos((l) => l.filter((x) => x.id !== t.id))}
-                          className="text-muted-foreground hover:text-destructive transition-smooth"
-                          aria-label="Entfernen"
-                        >
-                          <Trash2 className="size-3.5" />
-                        </button>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
+            <TodoList
+              title="Kundenvereinbarungen"
+              description="Schriftliche Zusagen an den Kunden. Sie werden nach Annahme automatisch in Auftragsbestätigung, Ausgangskontrolle und Kaufvertrag fortgeführt."
+              items={todos}
+              onAdd={(title) => setTodos((items) => [...items, { id: `ot-${Date.now()}`, title }])}
+              onRemove={(todoId) => setTodos((items) => items.filter((item) => item.id !== todoId))}
+              onToggle={(todoId) => setTodos((items) => items.map((item) => item.id === todoId ? { ...item, done: !item.done } : item))}
+              onChangeDueDate={(todoId, dueDate) => setTodos((items) => items.map((item) => item.id === todoId ? { ...item, dueDate } : item))}
+              placeholder="z. B. Winterreifen-Set inklusive, Service vor Übergabe…"
+              showCheckbox
+              disabled={!editable}
+            />
 
             {/* PDF-Beleg-Box */}
             <div className="rounded-xl border border-dashed border-border bg-background/40 p-4">

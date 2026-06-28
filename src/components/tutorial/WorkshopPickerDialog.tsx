@@ -87,7 +87,7 @@ export const WorkshopPickerDialog = ({ open, onOpenChange }: Props) => {
       key: "todos",
       icon: ListTodo,
       title: "To-Dos-Workshop",
-      desc: "Aufgaben filtern, anlegen und Vorgangs-To-Dos automatisch verwalten.",
+      desc: "Aufgaben filtern, anlegen und interne Ausgangskontrollen verwalten.",
       onClick: startTodos,
     },
     {
