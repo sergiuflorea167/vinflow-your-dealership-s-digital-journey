@@ -518,7 +518,7 @@ const StepFields = ({ stepKey, fields, onChange, disabled }: { stepKey: ProcessS
     const isB2B = pc.customerType === "b2b";
     const defects = pc.defects ?? (pc.knownDefects ? [{ id: "legacy", title: "Bekannter Mangel", description: pc.knownDefects }] : []);
     const paymentStatus = pc.paymentStatus ?? (fields.invoicing?.paid ? "paid" : fields.downPayment?.received ? "deposit" : "open");
-    const b2bWarranty = pc.warrantyExcluded ? "excluded" : (pc.warrantyMonths ?? 12) >= 24 ? "24" : "12";
+    const b2bWarranty = pc.warrantyExcluded || (isB2B && pc.exportSale) ? "excluded" : (pc.warrantyMonths ?? 12) >= 24 ? "24" : "12";
     const addDefect = () => set({ defects: [...defects, { id: `defect-${Date.now()}`, title: "", description: "" }] });
     const updateDefect = (id: string, patch: { title?: string; description?: string }) =>
       set({ defects: defects.map((defect) => defect.id === id ? { ...defect, ...patch } : defect) });
@@ -532,7 +532,11 @@ const StepFields = ({ stepKey, fields, onChange, disabled }: { stepKey: ProcessS
           label="Käufertyp *"
           value={pc.customerType ?? "b2c"}
           options={[{ value: "b2c", label: "Privatkunde (B2C)" }, { value: "b2b", label: "Gewerbekunde (B2B)" }]}
-          onChange={(v) => set({ customerType: v as "b2c" | "b2b", warrantyExcluded: v === "b2b" ? pc.warrantyExcluded : false })}
+          onChange={(v) => set({
+            customerType: v as "b2c" | "b2b",
+            warrantyExcluded: v === "b2b" ? pc.warrantyExcluded : false,
+            ...(v === "b2b" && pc.exportSale ? { guaranteeAgreed: false, guaranteeDetails: "" } : {}),
+          })}
           disabled={disabled}
         />
         {!isB2B && (
@@ -545,11 +549,11 @@ const StepFields = ({ stepKey, fields, onChange, disabled }: { stepKey: ProcessS
         )}
         {isB2B && (
           <SelectField
-            label="B2B-Sachmängelhaftung"
+            label={pc.exportSale ? "B2B-Sachmängelhaftung (bei Export ausgeschlossen)" : "B2B-Sachmängelhaftung"}
             value={b2bWarranty}
             options={[{ value: "12", label: "12 Monate" }, { value: "24", label: "24 Monate" }, { value: "excluded", label: "Zulässig ausgeschlossen" }]}
             onChange={(v) => set({ warrantyExcluded: v === "excluded", warrantyMonths: v === "24" ? 24 : 12 })}
-            disabled={disabled}
+            disabled={disabled || !!pc.exportSale}
           />
         )}
 
@@ -571,14 +575,24 @@ const StepFields = ({ stepKey, fields, onChange, disabled }: { stepKey: ProcessS
           <p className="text-xs font-semibold text-foreground mb-2">Sonderfälle – nur bei Bedarf aktivieren</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <CheckboxField label="Unfall / Mängel hinzufügen" checked={!!pc.conditionEnabled} onChange={(v) => set({ conditionEnabled: v })} disabled={disabled} />
-            <CheckboxField label="Garantie vereinbart" checked={!!pc.guaranteeAgreed} onChange={(v) => set({ guaranteeAgreed: v })} disabled={disabled} />
+            <CheckboxField label="Garantie vereinbart" checked={!!pc.guaranteeAgreed && !(isB2B && !!pc.exportSale)} onChange={(v) => set({ guaranteeAgreed: v })} disabled={disabled || (isB2B && !!pc.exportSale)} />
             <CheckboxField label="Zusatzvereinbarung hinzufügen" checked={!!pc.additionalAgreementEnabled} onChange={(v) => set({ additionalAgreementEnabled: v })} disabled={disabled} />
             <CheckboxField label="Finanzierung" checked={!!pc.financing} onChange={(v) => set({ financing: v })} disabled={disabled} />
             <CheckboxField label="Inzahlungnahme" checked={!!pc.tradeIn} onChange={(v) => set({ tradeIn: v })} disabled={disabled} />
             <CheckboxField label="Übergabeprotokoll" checked={!!pc.handoverProtocol} onChange={(v) => set({ handoverProtocol: v })} disabled={disabled} />
             <CheckboxField label="Datenschutzhinweis anzeigen" checked={pc.showPrivacy !== false} onChange={(v) => set({ showPrivacy: v })} disabled={disabled} />
-            <CheckboxField label="Exportverkauf" checked={!!pc.exportSale} onChange={(v) => set({ exportSale: v })} disabled={disabled} />
+            <CheckboxField label="Exportverkauf" checked={!!pc.exportSale} onChange={(v) => set({ exportSale: v, ...(v && isB2B ? { guaranteeAgreed: false, guaranteeDetails: "" } : {}) })} disabled={disabled} />
           </div>
+          {pc.exportSale && !isB2B && (
+            <div className="mt-3 rounded-md border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-foreground">
+              Bei einem Export an Privatkunden bleiben die gesetzlichen B2C-Mängelrechte bestehen. Der Export allein erlaubt keinen vollständigen Ausschluss.
+            </div>
+          )}
+          {pc.exportSale && isB2B && (
+            <div className="mt-3 rounded-md border border-border bg-surface-elevated/40 px-3 py-2 text-xs text-muted-foreground">
+              Export an Gewerbekunden: Die Sachmängelhaftung wird im Vertrag automatisch ausgeschlossen; zwingende Haftungsfälle bleiben unberührt.
+            </div>
+          )}
         </div>
 
         {pc.conditionEnabled && (
@@ -678,7 +692,7 @@ const validateStep = (key: ProcessStepKey, f: ProcessFields, chkDone: number, ch
       return { ok: false, message: "Bitte Unfall, Schäden oder Nachlackierungen konkret beschreiben." };
     }
     if (c.defects?.some((defect) => !defect.title.trim())) return { ok: false, message: "Bitte jeden bekannten Mangel benennen." };
-    if (c.guaranteeAgreed && !c.guaranteeDetails?.trim()) return { ok: false, message: "Bitte die vereinbarte Garantie kurz beschreiben." };
+    if (c.guaranteeAgreed && !(c.customerType === "b2b" && c.exportSale) && !c.guaranteeDetails?.trim()) return { ok: false, message: "Bitte die vereinbarte Garantie kurz beschreiben." };
     return { ok: true };
   }
   if (key === "delivery_confirmation") {

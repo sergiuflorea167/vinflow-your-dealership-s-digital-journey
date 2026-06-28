@@ -53,8 +53,8 @@ export const CONTRACT_CLAUSES: ContractClause[] = [
     title: "Sachmängelhaftung im Unternehmergeschäft",
     audience: "b2b",
     isEnabled: forB2B,
-    text: (context) => context.warrantyExcluded
-      ? "Der Verkauf erfolgt an einen Unternehmer im Sinne des § 14 BGB. Die Sachmängelhaftung für das gebrauchte Fahrzeug wird ausgeschlossen. Der Ausschluss gilt nicht bei Arglist oder übernommener Garantie, bei Vorsatz und grober Fahrlässigkeit sowie bei Schäden aus der Verletzung des Lebens, des Körpers oder der Gesundheit und in sonstigen gesetzlich nicht abdingbaren Fällen."
+    text: (context) => context.warrantyExcluded || context.exportSale
+      ? `${context.exportSale ? "Das Fahrzeug wird im Rahmen eines Exportgeschäfts " : "Das Fahrzeug wird "}an einen Unternehmer im Sinne des § 14 BGB verkauft. Die Sachmängelhaftung für das gebrauchte Fahrzeug wird ausgeschlossen. Der Ausschluss gilt nicht bei Arglist oder übernommener Garantie, bei Vorsatz und grober Fahrlässigkeit sowie bei Schäden aus der Verletzung des Lebens, des Körpers oder der Gesundheit und in sonstigen gesetzlich nicht abdingbaren Fällen.`
       : `Der Verkauf erfolgt an einen Unternehmer im Sinne des § 14 BGB. Die Verjährungsfrist für Sachmängelansprüche beträgt ${context.warrantyMonths} Monate ab Ablieferung. Ansprüche wegen Arglist, übernommener Garantie sowie gesetzlich nicht beschränkbare Schadensersatzansprüche bleiben unberührt.`,
   },
   {

@@ -994,9 +994,9 @@ const buildKaufvertrag = (
   cursor = LegalSection(doc, cursor, {
     customerType,
     warrantyMonths: customerType === "b2c" && !kv?.consumerWarrantyLimitationAccepted ? 24 : kv?.warrantyMonths ?? 12,
-    warrantyExcluded: customerType === "b2b" && !!kv?.warrantyExcluded,
+    warrantyExcluded: customerType === "b2b" && (!!kv?.warrantyExcluded || !!kv?.exportSale),
     consumerWarrantyLimitationAccepted: customerType === "b2c" && !!kv?.consumerWarrantyLimitationAccepted,
-    guaranteeAgreed: !!kv?.guaranteeAgreed,
+    guaranteeAgreed: !!kv?.guaranteeAgreed && !(customerType === "b2b" && !!kv?.exportSale),
     guaranteeDetails: kv?.guaranteeDetails,
     showPrivacy: kv?.showPrivacy !== false,
     exportSale: !!kv?.exportSale,
