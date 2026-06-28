@@ -147,7 +147,26 @@ const CustomerTracking = () => {
     new Date(new Date(process.createdAt).getTime() + 14 * 86400000).toISOString().slice(0, 10);
 
   const handleDownload = (key: ProcessStepKey) => {
-    downloadBelegPdf({ process, vehicle, customer, offer: offer ?? undefined, stepKey: key, companyName, pdfTheme });
+    downloadBelegPdf({
+      process,
+      vehicle,
+      customer,
+      offer: offer ?? undefined,
+      stepKey: key,
+      companyName,
+      pdfTheme,
+      seller: {
+        street: storeSettings.companyStreet,
+        zip: storeSettings.companyZip,
+        city: storeSettings.companyCity,
+        representative: storeSettings.companyRepresentative ?? contact.name,
+        vatId: storeSettings.companyVatId,
+        taxNumber: storeSettings.companyTaxNumber,
+        email: storeSettings.companyEmail ?? contact.email,
+        phone: storeSettings.companyPhone ?? contact.phone,
+        registration: storeSettings.companyRegistration,
+      },
+    });
   };
 
   return (
