@@ -50,6 +50,10 @@ const OfferDetail = () => {
   const [validUntil, setValidUntil] = useState(offer?.validUntil ?? "");
   const [notes, setNotes] = useState(offer?.notes ?? "");
   const [todos, setTodos] = useState(offer?.customerTodos ?? []);
+  const [tradeInEnabled, setTradeInEnabled] = useState(!!offer?.tradeIn);
+  const [tradeInVehicle, setTradeInVehicle] = useState(offer?.tradeIn?.vehicleDescription ?? "");
+  const [tradeInValue, setTradeInValue] = useState<number | undefined>(offer?.tradeIn?.value);
+  const [tradeInDetails, setTradeInDetails] = useState(offer?.tradeIn?.details ?? "");
 
   // Wenn der Offer wechselt (z.B. nach Reload), State angleichen
   useEffect(() => {
@@ -59,6 +63,10 @@ const OfferDetail = () => {
     setValidUntil(offer.validUntil);
     setNotes(offer.notes ?? "");
     setTodos(offer.customerTodos);
+    setTradeInEnabled(!!offer.tradeIn);
+    setTradeInVehicle(offer.tradeIn?.vehicleDescription ?? "");
+    setTradeInValue(offer.tradeIn?.value);
+    setTradeInDetails(offer.tradeIn?.details ?? "");
   }, [offer?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const isDirty = useMemo(() => {
@@ -68,9 +76,13 @@ const OfferDetail = () => {
       (discount ?? undefined) !== (offer.discount ?? undefined) ||
       validUntil !== offer.validUntil ||
       (notes ?? "") !== (offer.notes ?? "") ||
+      tradeInEnabled !== !!offer.tradeIn ||
+      tradeInVehicle !== (offer.tradeIn?.vehicleDescription ?? "") ||
+      tradeInValue !== offer.tradeIn?.value ||
+      tradeInDetails !== (offer.tradeIn?.details ?? "") ||
       JSON.stringify(todos) !== JSON.stringify(offer.customerTodos)
     );
-  }, [offer, price, discount, validUntil, notes, todos]);
+  }, [offer, price, discount, validUntil, notes, todos, tradeInEnabled, tradeInVehicle, tradeInValue, tradeInDetails]);
 
   if (!offer || !vehicle || !customer) return <Navigate to="/vorgaenge" replace />;
 
@@ -82,6 +94,13 @@ const OfferDetail = () => {
   );
   const isExpired = daysToExpiry < 0 && offer.status === "sent";
   const expiringSoon = daysToExpiry >= 0 && daysToExpiry <= 3 && offer.status === "sent";
+  const tradeInValid = !tradeInEnabled || (!!tradeInVehicle.trim() && (tradeInValue ?? 0) > 0);
+
+  const validateTradeIn = () => {
+    if (tradeInValid) return true;
+    toast.error("Bitte Fahrzeug und Anrechnungswert der Inzahlungnahme angeben.");
+    return false;
+  };
 
   const persist = () => {
     updateOffer(offer.id, {
@@ -89,16 +108,23 @@ const OfferDetail = () => {
       discount: discount && discount > 0 ? discount : undefined,
       validUntil,
       notes: notes.trim() || undefined,
+      tradeIn: tradeInEnabled && tradeInValid ? {
+        vehicleDescription: tradeInVehicle.trim(),
+        value: tradeInValue ?? 0,
+        details: tradeInDetails.trim() || undefined,
+      } : undefined,
       customerTodos: todos,
     });
   };
 
   const handleSave = () => {
+    if (!validateTradeIn()) return;
     persist();
     toast.success("Angebot gespeichert.");
   };
 
   const handleDownload = () => {
+    if (!validateTradeIn()) return;
     // sicherstellen, dass die letzten Eingaben drin sind
     if (isDirty) persist();
     const fresh = useProcessStore.getState().offers.find((o) => o.id === offer.id) ?? offer;
@@ -124,6 +150,7 @@ const OfferDetail = () => {
   };
 
   const handleSend = () => {
+    if (!validateTradeIn()) return;
     if (isDirty) persist();
     updateOfferStatus(offer.id, "sent");
     toast.success("Angebot als gesendet markiert.");
@@ -135,6 +162,7 @@ const OfferDetail = () => {
   };
 
   const handleAccept = () => {
+    if (!validateTradeIn()) return;
     if (isDirty) persist();
     const proc = acceptOffer(offer.id);
     if (proc) {
@@ -192,7 +220,11 @@ const OfferDetail = () => {
             </div>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
               <Stat label="Kunde" value={customer.name} sub={customer.city} />
-              <Stat label="Angebotspreis" value={formatCurrency(price)} sub={discount ? `Rabatt ${formatCurrency(discount)}` : undefined} />
+              <Stat
+                label="Zahlbetrag"
+                value={formatCurrency(Math.max(0, price - (discount ?? 0) - (tradeInEnabled ? tradeInValue ?? 0 : 0)))}
+                sub={`Kaufpreis ${formatCurrency(price)}${discount ? ` · Rabatt −${formatCurrency(discount)}` : ""}${tradeInEnabled && tradeInValue ? ` · Inzahlungnahme −${formatCurrency(tradeInValue)}` : ""}`}
+              />
               <Stat label="Erstellt" value={formatDate(offer.createdAt)} />
               <Stat label="Gültig bis" value={formatDate(validUntil)} sub={!isExpired ? `noch ${Math.max(0, daysToExpiry)} Tag${daysToExpiry === 1 ? "" : "e"}` : "abgelaufen"} />
             </div>
@@ -248,6 +280,33 @@ const OfferDetail = () => {
                   placeholder="optional"
                 />
               </div>
+              <label className="md:col-span-2 flex min-h-10 items-center gap-3 rounded-md border border-input bg-background/40 p-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={tradeInEnabled}
+                  onChange={(e) => setTradeInEnabled(e.target.checked)}
+                  disabled={!editable}
+                  className="size-4 accent-primary"
+                />
+                <span className="text-sm">Kundenfahrzeug in Zahlung nehmen</span>
+              </label>
+              {tradeInEnabled && (
+                <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4 rounded-lg border border-border p-4">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">Fahrzeug / Kennzeichen *</Label>
+                    <Input value={tradeInVehicle} onChange={(e) => setTradeInVehicle(e.target.value)} disabled={!editable} placeholder="z. B. VW Golf VII · K-AB 1234" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs text-muted-foreground">Anrechnungswert (EUR) *</Label>
+                    <Input type="number" min="0" value={tradeInValue ?? ""} onChange={(e) => setTradeInValue(e.target.value === "" ? undefined : Number(e.target.value))} disabled={!editable} />
+                  </div>
+                  <div className="space-y-1.5 md:col-span-2">
+                    <Label className="text-xs text-muted-foreground">Details (optional)</Label>
+                    <Input value={tradeInDetails} onChange={(e) => setTradeInDetails(e.target.value)} disabled={!editable} placeholder="z. B. FIN, Kilometerstand oder offene Ablöse" />
+                  </div>
+                  {!tradeInValid && <p className="md:col-span-2 text-xs text-destructive">Fahrzeug und positiver Anrechnungswert sind erforderlich.</p>}
+                </div>
+              )}
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">Gültig bis *</Label>
                 <Input

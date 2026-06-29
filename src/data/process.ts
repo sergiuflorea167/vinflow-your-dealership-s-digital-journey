@@ -356,6 +356,12 @@ export interface CustomerAgreement {
   done?: boolean;
 }
 
+export interface TradeInData {
+  vehicleDescription: string;
+  value: number;
+  details?: string;
+}
+
 export interface Offer {
   id: string;
   vehicleId: string;
@@ -364,6 +370,8 @@ export interface Offer {
   validUntil: string;
   price: number;
   discount?: number;
+  /** Vom Kunden in Zahlung gegebenes Fahrzeug; mindert den zu zahlenden Betrag. */
+  tradeIn?: TradeInData;
   notes?: string;
   status: OfferStatus;
   customerTodos: CustomerAgreement[];
@@ -432,6 +440,8 @@ export interface PurchasePlan {
 
 export interface ProcessFields {
   finalPrice?: number;
+  /** Aus dem angenommenen Angebot übernommene Inzahlungnahme. */
+  tradeIn?: TradeInData;
   downPayment?: {
     invoiceNumber?: string;
     invoiceDate?: string;

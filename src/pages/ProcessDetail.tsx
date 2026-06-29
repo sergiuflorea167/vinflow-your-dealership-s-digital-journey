@@ -113,6 +113,10 @@ const ProcessDetail = () => {
 
   if (!process || !vehicle || !customer) return <Navigate to="/vorgaenge" replace />;
   const activeStepKeys = normalizeProcessStepKeys(settings.processStepKeys);
+  const purchasePrice = process.fields.finalPrice ?? vehicle.listPrice;
+  const tradeInValue = process.fields.tradeIn?.value ?? 0;
+  const receivedDownPayment = process.fields.downPayment?.received ? process.fields.downPayment.amount ?? 0 : 0;
+  const remainingAmount = Math.max(0, purchasePrice - tradeInValue - receivedDownPayment);
   const processSteps = getProcessStepsForDisplay(process.currentStep, settings);
   const selectedStep = PROCESS_STEPS.find((s) => s.key === selectedKey) ?? processSteps[0];
   const selectedIdx = Math.max(0, stepIndexIn(selectedStep.key, processSteps));
@@ -196,7 +200,11 @@ const ProcessDetail = () => {
             </div>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
               <Stat label="Kunde" value={customer.name} sub={customer.city} />
-              <Stat label="Preis" value={formatCurrency(process.fields.finalPrice ?? vehicle.listPrice)} sub={`${vehicle.year} · ${vehicle.mileage.toLocaleString("de-DE")} km`} />
+              <Stat
+                label="Restbetrag"
+                value={formatCurrency(remainingAmount)}
+                sub={`Kaufpreis ${formatCurrency(purchasePrice)}${tradeInValue > 0 ? ` · Inzahlungnahme −${formatCurrency(tradeInValue)}` : ""}${receivedDownPayment > 0 ? ` · Anzahlung −${formatCurrency(receivedDownPayment)}` : ""}`}
+              />
               <Stat label="Erstellt" value={formatDate(process.createdAt)} />
               <Stat label="Aktualisiert" value={formatDate(process.updatedAt)} />
             </div>
@@ -563,7 +571,6 @@ const StepFields = ({ stepKey, fields, onChange, disabled }: { stepKey: ProcessS
             <CheckboxField label="Garantie vereinbart" checked={!!pc.guaranteeAgreed && !(isB2B && !!pc.exportSale)} onChange={(v) => set({ guaranteeAgreed: v })} disabled={disabled || (isB2B && !!pc.exportSale)} />
             <CheckboxField label="Zusatzvereinbarung hinzufügen" checked={!!pc.additionalAgreementEnabled} onChange={(v) => set({ additionalAgreementEnabled: v })} disabled={disabled} />
             <CheckboxField label="Finanzierung" checked={!!pc.financing} onChange={(v) => set({ financing: v })} disabled={disabled} />
-            <CheckboxField label="Inzahlungnahme" checked={!!pc.tradeIn} onChange={(v) => set({ tradeIn: v })} disabled={disabled} />
             <CheckboxField label="Übergabeprotokoll" checked={!!pc.handoverProtocol} onChange={(v) => set({ handoverProtocol: v })} disabled={disabled} />
             <CheckboxField label="Datenschutzhinweis anzeigen" checked={pc.showPrivacy !== false} onChange={(v) => set({ showPrivacy: v })} disabled={disabled} />
             <CheckboxField label="Exportverkauf" checked={!!pc.exportSale} onChange={(v) => set({ exportSale: v, ...(v && isB2B ? { guaranteeAgreed: false, guaranteeDetails: "" } : {}) })} disabled={disabled} />
@@ -609,7 +616,6 @@ const StepFields = ({ stepKey, fields, onChange, disabled }: { stepKey: ProcessS
         {pc.guaranteeAgreed && <TextareaField label="Garantie (Anbieter, Dauer, Umfang)" value={pc.guaranteeDetails} onChange={(v) => set({ guaranteeDetails: v })} disabled={disabled} full />}
         {pc.additionalAgreementEnabled && <TextareaField label="Zusatzvereinbarungen" value={pc.additionalAgreement} onChange={(v) => set({ additionalAgreement: v })} disabled={disabled} full placeholder="z. B. Reparaturversprechen, Zubehör oder besondere Absprachen" />}
         {pc.financing && <TextareaField label="Finanzierung" value={pc.financingDetails} onChange={(v) => set({ financingDetails: v })} disabled={disabled} full placeholder="Finanzierungsgeber und wesentliche Vereinbarung" />}
-        {pc.tradeIn && <TextareaField label="Inzahlungnahme" value={pc.tradeInDetails} onChange={(v) => set({ tradeInDetails: v })} disabled={disabled} full placeholder="Fahrzeug, FIN/Kennzeichen und Anrechnungsbetrag" />}
 
         {pc.handoverProtocol && (
           <div className="md:col-span-2 rounded-lg border border-border p-4 space-y-3">

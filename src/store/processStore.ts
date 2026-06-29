@@ -760,7 +760,10 @@ export const useProcessStore = create<State>()(
             updatedAt: new Date().toISOString(),
             currentStep,
             steps: buildEmptySteps(currentStep, activeStepKeys),
-            fields: { finalPrice: offer.price },
+            fields: {
+              finalPrice: Math.max(0, offer.price - (offer.discount ?? 0)),
+              tradeIn: offer.tradeIn ? { ...offer.tradeIn } : undefined,
+            },
             // Übernehme Kundenvereinbarungen samt Status und Fälligkeit aus dem Angebot.
             customerTodosOC: offer.customerTodos.map((t) => ({ ...t, id: randomId("ct") })),
             outboundChecklist: DEFAULT_OUTBOUND_CHECKLIST(),
