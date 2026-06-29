@@ -87,4 +87,45 @@ describe("purchase contract payments", () => {
     expect(changedText).toContain("18.06.2025");
     expect(changedText).not.toContain("10.06.2025");
   });
+
+  it("documents a trade-in added during the down-payment step", () => {
+    const process = structuredClone(MOCK_PROCESSES[0]);
+    process.fields.tradeIn = {
+      vehicleDescription: "BMW 320d · K-AB 1234",
+      value: 8_500,
+      details: "FIN endet auf 9876",
+    };
+    const vehicle = MOCK_VEHICLES.find((entry) => entry.id === process.vehicleId)!;
+    const customer = MOCK_CUSTOMERS.find((entry) => entry.id === process.customerId)!;
+
+    const doc = generateBelegPdf({ process, vehicle, customer, stepKey: "down_payment" });
+    const text = readCompressedPdfText(doc.output("arraybuffer"));
+
+    expect(text).toContain("Vereinbarte Inzahlungnahme");
+    expect(text).toContain("BMW 320d");
+    expect(text).toContain("K-AB 1234");
+    expect(text).toContain("8.500,00");
+    expect(text).toContain("FIN endet auf 9876");
+  });
+
+  it("carries a trade-in from a direct sale without a down payment into the order confirmation", () => {
+    const process = structuredClone(MOCK_PROCESSES[0]);
+    process.acceptedOfferId = "";
+    process.fields.downPayment = undefined;
+    process.fields.tradeIn = {
+      vehicleDescription: "Audi A4 · B-VF 2026",
+      value: 12_500,
+    };
+    const vehicle = MOCK_VEHICLES.find((entry) => entry.id === process.vehicleId)!;
+    const customer = MOCK_CUSTOMERS.find((entry) => entry.id === process.customerId)!;
+
+    const doc = generateBelegPdf({ process, vehicle, customer, stepKey: "order_confirmation" });
+    const text = readCompressedPdfText(doc.output("arraybuffer"));
+
+    expect(text).toContain("Inzahlungnahme");
+    expect(text).toContain("Audi A4");
+    expect(text).toContain("B-VF 2026");
+    expect(text).toContain("12.500,00");
+    expect(text).not.toContain("geleistete Anzahlung");
+  });
 });

@@ -462,6 +462,44 @@ const DOWN_PAYMENT_TERMS_OPTIONS = [
 
 const PAYMENT_METHOD_OPTIONS: PaymentMethod[] = ["Überweisung", "Bar", "EC", "Finanzierung"];
 
+const TradeInFields = ({ fields, onChange, disabled }: { fields: ProcessFields; onChange: (patch: Partial<ProcessFields>) => void; disabled?: boolean }) => (
+  <div className="md:col-span-2 space-y-3 rounded-lg border border-border bg-surface-elevated/30 p-4">
+    <CheckboxField
+      label="Kundenfahrzeug in Zahlung nehmen"
+      checked={!!fields.tradeIn}
+      onChange={(checked) => onChange({
+        tradeIn: checked ? fields.tradeIn ?? { vehicleDescription: "", value: 0 } : undefined,
+      })}
+      disabled={disabled}
+    />
+    {fields.tradeIn && (
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <TextField
+          label="Fahrzeug / Kennzeichen *"
+          value={fields.tradeIn.vehicleDescription}
+          onChange={(vehicleDescription) => onChange({ tradeIn: { ...fields.tradeIn!, vehicleDescription } })}
+          disabled={disabled}
+          placeholder="z. B. VW Golf VII · K-AB 1234"
+        />
+        <NumberField
+          label="Anrechnungswert (EUR) *"
+          value={fields.tradeIn.value || undefined}
+          onChange={(value) => onChange({ tradeIn: { ...fields.tradeIn!, value: value ?? 0 } })}
+          disabled={disabled}
+        />
+        <TextareaField
+          label="Details (optional)"
+          value={fields.tradeIn.details}
+          onChange={(details) => onChange({ tradeIn: { ...fields.tradeIn!, details: details || undefined } })}
+          disabled={disabled}
+          placeholder="z. B. FIN, Kilometerstand oder offene Ablöse"
+          full
+        />
+      </div>
+    )}
+  </div>
+);
+
 const StepFields = ({ stepKey, fields, onChange, disabled }: { stepKey: ProcessStepKey; fields: ProcessFields; onChange: (patch: Partial<ProcessFields>) => void; disabled?: boolean }) => {
   if (stepKey === "offer") return null;
   if (stepKey === "down_payment") {
@@ -476,6 +514,7 @@ const StepFields = ({ stepKey, fields, onChange, disabled }: { stepKey: ProcessS
         {fields.downPayment?.received && (
           <DateField label="Zahlungseingang am" value={fields.downPayment?.receivedDate} onChange={(v) => onChange({ downPayment: { ...fields.downPayment, receivedDate: v } })} disabled={disabled} />
         )}
+        <TradeInFields fields={fields} onChange={onChange} disabled={disabled} />
       </FieldGrid>
     );
   }
@@ -485,6 +524,7 @@ const StepFields = ({ stepKey, fields, onChange, disabled }: { stepKey: ProcessS
         <DateField label="Auftragsdatum *" value={fields.orderConfirmation?.orderDate} onChange={(v) => onChange({ orderConfirmation: { ...fields.orderConfirmation, orderDate: v } })} disabled={disabled} />
         <DateField label="Liefertermin *" value={fields.orderConfirmation?.deliveryDate} onChange={(v) => onChange({ orderConfirmation: { ...fields.orderConfirmation, deliveryDate: v } })} disabled={disabled} />
         <TextField label="Zahlungsbedingungen" value={fields.orderConfirmation?.paymentTerms} onChange={(v) => onChange({ orderConfirmation: { ...fields.orderConfirmation, paymentTerms: v } })} disabled={disabled} placeholder="z. B. Restzahlung bei Übergabe" full />
+        <TradeInFields fields={fields} onChange={onChange} disabled={disabled} />
       </FieldGrid>
     );
   }
@@ -673,12 +713,14 @@ const validateStep = (key: ProcessStepKey, f: ProcessFields, chkDone: number, ch
   if (key === "down_payment") {
     const d = f.downPayment;
     if (!d?.invoiceNumber || !d.invoiceDate || !d.amount || !d.paymentTerms || !d.method) return { ok: false, message: "Rechnungsdatum, Anzahlungsbetrag, Zahlungsbedingung und Zahlungsart erforderlich." };
+    if (f.tradeIn && (!f.tradeIn.vehicleDescription.trim() || f.tradeIn.value <= 0)) return { ok: false, message: "Bitte Fahrzeug und positiven Anrechnungswert der Inzahlungnahme angeben." };
     if (!d.received) return { ok: false, message: "Anzahlungsrechnung muss als bezahlt markiert sein, bevor du weitergehst." };
     return { ok: true };
   }
   if (key === "order_confirmation") {
     const o = f.orderConfirmation;
     if (!o?.orderDate || !o.deliveryDate) return { ok: false, message: "Auftrags- und Liefertermin erforderlich." };
+    if (f.tradeIn && (!f.tradeIn.vehicleDescription.trim() || f.tradeIn.value <= 0)) return { ok: false, message: "Bitte Fahrzeug und positiven Anrechnungswert der Inzahlungnahme angeben." };
     return { ok: true };
   }
   if (key === "outbound_check") {
