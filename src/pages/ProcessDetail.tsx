@@ -545,6 +545,24 @@ const StepFields = ({ stepKey, fields, onChange, disabled }: { stepKey: ProcessS
           })}
           disabled={disabled}
         />
+        <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] items-end gap-3 rounded-lg border border-border bg-surface-elevated/30 p-4">
+          <DateField
+            label="Übergabedatum wie in der AB bestätigt"
+            value={fields.orderConfirmation?.deliveryDate}
+            onChange={() => {}}
+            disabled
+          />
+          <ArrowRight className="mx-auto mb-3 size-4 rotate-90 text-muted-foreground md:rotate-0" aria-hidden="true" />
+          <div>
+            <DateField
+              label="Neues Übergabedatum"
+              value={pc.handoverDateOverride}
+              onChange={(v) => set({ handoverDateOverride: v || undefined })}
+              disabled={disabled}
+            />
+            <p className="mt-1 text-[11px] text-muted-foreground">Leer lassen, um das bestätigte AB-Datum zu übernehmen.</p>
+          </div>
+        </div>
         {!isB2B && (
           <CheckboxField
             label="B2C: Verjährungsfrist gesondert auf 12 Monate verkürzen"
