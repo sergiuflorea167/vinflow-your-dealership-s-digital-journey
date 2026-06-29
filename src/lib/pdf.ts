@@ -291,7 +291,7 @@ interface LineItem {
   total: number;
 }
 
-const drawTable = (doc: jsPDF, items: LineItem[], y: number, totalLabel = "Gesamtsumme", options?: { showVat?: boolean }) => {
+const drawTable = (doc: jsPDF, items: LineItem[], y: number, totalLabel = "Gesamtsumme", options?: { showVat?: boolean; vatBase?: number }) => {
   const x = PAGE.margin;
   const w = PAGE.w - 2 * PAGE.margin;
   const rowH = 9;
@@ -336,8 +336,9 @@ const drawTable = (doc: jsPDF, items: LineItem[], y: number, totalLabel = "Gesam
 
   cy += 3;
   const total = items.reduce((s, i) => s + i.total, 0);
-  const net = options?.showVat ? total / 1.19 : total;
-  const vat = total - net;
+  const taxableGross = options?.vatBase ?? total;
+  const net = options?.showVat ? taxableGross / 1.19 : taxableGross;
+  const vat = taxableGross - net;
   const summaryRows: Array<{ label: string; value: number; total?: boolean }> = options?.showVat
     ? [
         { label: "Nettosumme", value: net },
@@ -484,6 +485,9 @@ export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, c
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const step = PROCESS_STEPS.find((s) => s.key === stepKey)!;
   const finalPrice = process.fields.finalPrice ?? vehicle.listPrice;
+  const tradeIn = process.fields.tradeIn ?? offer?.tradeIn;
+  const tradeInValue = tradeIn?.value ?? 0;
+  const receivedDownPayment = process.fields.downPayment?.received ? process.fields.downPayment.amount ?? 0 : 0;
 
   // Kaufvertrag: spezielles, längeres Layout
   if (stepKey === "purchase_contract") {
@@ -538,9 +542,14 @@ export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, c
         `Sehr geehrte/r ${customer.name}, vielen Dank für Ihr Interesse. Wir freuen uns, Ihnen für das oben genannte Fahrzeug folgendes verbindliches Angebot unterbreiten zu dürfen.`,
         cursor);
       cursor += 6;
+      const offerPrice = offer?.price ?? vehicle.listPrice;
+      const offerDiscount = offer?.discount ?? 0;
+      const offerTaxBase = Math.max(0, offerPrice - offerDiscount);
       cursor = drawTable(doc, [
-        { description: `${vehicle.make} ${vehicle.model} (${vehicle.year})`, qty: "1", unitPrice: offer?.price ?? vehicle.listPrice, total: offer?.price ?? vehicle.listPrice },
-      ], cursor, "Angebotspreis", { showVat: !isMarginTaxed(vehicle) });
+        { description: `${vehicle.make} ${vehicle.model} (${vehicle.year})`, qty: "1", unitPrice: offerPrice, total: offerPrice },
+        ...(offerDiscount > 0 ? [{ description: "Rabatt", qty: "1", unitPrice: -offerDiscount, total: -offerDiscount }] : []),
+        ...(tradeInValue > 0 ? [{ description: `Inzahlungnahme · ${tradeIn?.vehicleDescription ?? "Kundenfahrzeug"}`, qty: "1", unitPrice: -tradeInValue, total: -tradeInValue }] : []),
+      ], cursor, "Zahlbetrag", { showVat: !isMarginTaxed(vehicle), vatBase: offerTaxBase });
       cursor = drawSectionTitle(doc, "Konditionen", cursor);
       cursor = drawTextBlock(doc,
         `Gültigkeit: bis ${offer ? formatDate(offer.validUntil) : "—"}\nLieferung: nach Vereinbarung\nGewährleistung: 12 Monate gemäß BGB\n${taxationLine(vehicle)}`,
@@ -579,10 +588,12 @@ export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, c
       cursor = drawDeliveryCallout(doc, oc?.deliveryDate, cursor);
       cursor = drawTable(doc, [
         { description: `${vehicle.make} ${vehicle.model}`, qty: "1", unitPrice: finalPrice, total: finalPrice },
-      ], cursor, "Kaufpreis", { showVat: !isMarginTaxed(vehicle) });
+        ...(tradeInValue > 0 ? [{ description: `Inzahlungnahme · ${tradeIn?.vehicleDescription ?? "Kundenfahrzeug"}`, qty: "1", unitPrice: -tradeInValue, total: -tradeInValue }] : []),
+        ...(receivedDownPayment > 0 ? [{ description: "abzgl. geleistete Anzahlung", qty: "1", unitPrice: -receivedDownPayment, total: -receivedDownPayment }] : []),
+      ], cursor, "Verbleibender Restbetrag", { showVat: !isMarginTaxed(vehicle), vatBase: finalPrice });
       cursor = drawSectionTitle(doc, "Eckdaten", cursor);
       cursor = drawTextBlock(doc,
-        `Auftragsdatum: ${oc?.orderDate ? formatDate(oc.orderDate) : "—"}\nZahlungsbedingungen: ${oc?.paymentTerms ?? "Restzahlung bei Übergabe"}\nBereits geleistete Anzahlung: ${formatCurrency(process.fields.downPayment?.amount ?? 0)}\n${taxationLine(vehicle)}`,
+        `Auftragsdatum: ${oc?.orderDate ? formatDate(oc.orderDate) : "—"}\nZahlungsbedingungen: ${oc?.paymentTerms ?? "Restzahlung bei Übergabe"}\n${taxationLine(vehicle)}`,
         cursor);
       cursor = drawCustomerAgreements(cursor);
       break;
@@ -626,8 +637,8 @@ export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, c
     case "invoicing": {
       const inv = process.fields.invoicing;
       const ocInv = process.fields.orderConfirmation;
-      const down = process.fields.downPayment?.amount ?? 0;
-      const remaining = finalPrice - down;
+      const down = receivedDownPayment;
+      const remaining = Math.max(0, finalPrice - tradeInValue - down);
       cursor = drawTextBlock(doc,
         `Für das oben aufgeführte Fahrzeug stellen wir Ihnen hiermit den Kaufpreis in Rechnung. Eine bereits geleistete Anzahlung wird verrechnet.`,
         cursor);
@@ -635,8 +646,9 @@ export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, c
       cursor = drawDeliveryCallout(doc, ocInv?.deliveryDate, cursor);
       cursor = drawTable(doc, [
         { description: `${vehicle.make} ${vehicle.model} (${vehicle.year})`, qty: "1", unitPrice: finalPrice, total: finalPrice },
+        ...(tradeInValue > 0 ? [{ description: `Inzahlungnahme · ${tradeIn?.vehicleDescription ?? "Kundenfahrzeug"}`, qty: "1", unitPrice: -tradeInValue, total: -tradeInValue }] : []),
         ...(down > 0 ? [{ description: "abzgl. geleistete Anzahlung", qty: "1", unitPrice: -down, total: -down }] : []),
-      ], cursor, inv?.paid ? "Bezahlt" : "Restbetrag", { showVat: !isMarginTaxed(vehicle) });
+      ], cursor, inv?.paid ? "Bezahlt" : "Restbetrag", { showVat: !isMarginTaxed(vehicle), vatBase: finalPrice });
       cursor = drawSectionTitle(doc, "Zahlungsdaten", cursor);
       cursor = drawTextBlock(doc,
         `Rechnungs-Nr.: ${inv?.invoiceNumber ?? "—"}\nRechnungsdatum: ${inv?.invoiceDate ? formatDate(inv.invoiceDate) : formatDate(new Date().toISOString())}\nZahlungsbedingung: ${inv?.paymentTerms ?? (inv?.dueDate ? `Fällig am ${formatDate(inv.dueDate)}` : "Sofort fällig nach Erhalt der Rechnung")}\nIBAN: ${BANK.iban} · BIC: ${BANK.bic}\nVerwendungszweck: ${process.id}${inv?.paid ? `\nZahlungsstatus: Bezahlt${inv.paidDate ? ` am ${formatDate(inv.paidDate)}` : ""} – Vielen Dank!` : `\nDer Restbetrag von ${formatCurrency(remaining)} ist bei Fahrzeugübergabe fällig.`}\n${taxationLine(vehicle)}`,
@@ -803,6 +815,7 @@ const PriceSection = (
   args: {
     vehicle: Vehicle;
     finalPrice: number;
+    tradeIn?: Process["fields"]["tradeIn"];
     downPayment?: Process["fields"]["downPayment"];
     invoice?: Process["fields"]["invoicing"];
   }
@@ -810,17 +823,25 @@ const PriceSection = (
   let cursor = drawSectionTitle(doc, "2. Kaufpreis und Zahlung", y);
   const net = isMarginTaxed(args.vehicle) ? undefined : args.finalPrice / 1.19;
   const vat = net == null ? undefined : args.finalPrice - net;
+  const tradeInValue = args.tradeIn?.value ?? 0;
+  const depositReceived = !!args.downPayment?.received && (args.downPayment.amount ?? 0) > 0;
+  const downPaymentValue = depositReceived ? args.downPayment?.amount ?? 0 : 0;
   const priceItems: LineItem[] = net == null
     ? [{ description: "Kaufpreis (Differenzbesteuerung)", qty: "1", unitPrice: args.finalPrice, total: args.finalPrice }]
     : [
         { description: "Kaufpreis netto", qty: "1", unitPrice: net, total: net },
         { description: "Umsatzsteuer 19 %", qty: "1", unitPrice: vat ?? 0, total: vat ?? 0 },
       ];
-  cursor = drawTable(doc, priceItems, cursor, "Kaufpreis brutto", { showVat: false });
+  if (tradeInValue > 0) {
+    priceItems.push({ description: `Inzahlungnahme · ${args.tradeIn?.vehicleDescription ?? "Kundenfahrzeug"}`, qty: "1", unitPrice: -tradeInValue, total: -tradeInValue });
+  }
+  if (downPaymentValue > 0) {
+    priceItems.push({ description: "abzgl. geleistete Anzahlung", qty: "1", unitPrice: -downPaymentValue, total: -downPaymentValue });
+  }
+  cursor = drawTable(doc, priceItems, cursor, "Restkaufpreis", { showVat: false });
   const finalInvoicePaid = !!args.invoice?.paid;
-  const depositReceived = !!args.downPayment?.received && (args.downPayment.amount ?? 0) > 0;
-  const paidAmount = finalInvoicePaid ? args.finalPrice : depositReceived ? args.downPayment?.amount ?? 0 : 0;
-  const remaining = Math.max(0, args.finalPrice - paidAmount);
+  const paidAmount = finalInvoicePaid ? Math.max(0, args.finalPrice - tradeInValue) : downPaymentValue;
+  const remaining = Math.max(0, args.finalPrice - tradeInValue - paidAmount);
   const paymentStatus = finalInvoicePaid ? "bezahlt" : depositReceived ? "Anzahlung geleistet" : "Restzahlung offen";
   const paymentDate = finalInvoicePaid ? args.invoice?.paidDate : depositReceived ? args.downPayment?.receivedDate : undefined;
   const invoiceLines = [
@@ -894,7 +915,6 @@ const AdditionalSection = (doc: jsPDF, y: number, kv?: Process["fields"]["purcha
   const entries = [
     kv?.additionalAgreementEnabled && kv.additionalAgreement?.trim() ? `Zusatzvereinbarung: ${kv.additionalAgreement.trim()}` : null,
     kv?.financing ? `Finanzierung: ${kv.financingDetails?.trim() || "gemäß gesonderter Finanzierungsvereinbarung"}` : null,
-    kv?.tradeIn ? `Inzahlungnahme: ${kv.tradeInDetails?.trim() || "gemäß gesonderter Inzahlungnahmevereinbarung"}` : null,
   ].filter(Boolean) as string[];
   if (!entries.length) return y;
   let cursor = drawSectionTitle(doc, "Zusatzvereinbarungen", y);
@@ -1029,6 +1049,7 @@ const buildKaufvertrag = (
   cursor = PriceSection(doc, cursor, {
     vehicle,
     finalPrice,
+    tradeIn: process.fields.tradeIn,
     downPayment: process.fields.downPayment,
     invoice: process.fields.invoicing,
   });
@@ -1061,11 +1082,10 @@ const buildKaufvertrag = (
 
   const hasAdditional = !!(
     (kv?.additionalAgreementEnabled && kv.additionalAgreement?.trim()) ||
-    kv?.financing ||
-    kv?.tradeIn
+    kv?.financing
   );
   if (hasAdditional) {
-    const additionalText = [kv?.additionalAgreement, kv?.financingDetails, kv?.tradeInDetails].filter(Boolean).join("\n");
+    const additionalText = [kv?.additionalAgreement, kv?.financingDetails].filter(Boolean).join("\n");
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9);
     ensureSpace(Math.min(18 + doc.splitTextToSize(additionalText, PAGE.w - 2 * PAGE.margin).length * 4, 175));
@@ -1177,7 +1197,13 @@ export const generateOfferPdf = ({ offer, vehicle, customer, companyName = "VINf
   if (offer.discount && offer.discount > 0) {
     items.push({ description: "Rabatt", qty: "1", unitPrice: -offer.discount, total: -offer.discount });
   }
-  cursor = drawTable(doc, items, cursor, "Angebotspreis", { showVat: !isMarginTaxed(vehicle) });
+  if (offer.tradeIn && offer.tradeIn.value > 0) {
+    items.push({ description: `Inzahlungnahme · ${offer.tradeIn.vehicleDescription}`, qty: "1", unitPrice: -offer.tradeIn.value, total: -offer.tradeIn.value });
+  }
+  cursor = drawTable(doc, items, cursor, "Zahlbetrag", {
+    showVat: !isMarginTaxed(vehicle),
+    vatBase: Math.max(0, offer.price - (offer.discount ?? 0)),
+  });
 
   cursor = drawSectionTitle(doc, "Konditionen", cursor);
   cursor = drawTextBlock(doc,
