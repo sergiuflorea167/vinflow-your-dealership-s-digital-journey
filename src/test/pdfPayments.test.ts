@@ -100,6 +100,37 @@ describe("purchase contract payments", () => {
     expect(text).toContain("AB-2025-0042");
   });
 
+  it("documents deposit terms and the agreed remaining-payment details in the order confirmation", () => {
+    const process = structuredClone(MOCK_PROCESSES[0]);
+    process.fields.downPayment = {
+      invoiceNumber: "AR-2025-0042",
+      invoiceDate: "2025-04-10",
+      amount: 5_000,
+      paymentTerms: "Zahlbar innerhalb 7 Tagen ohne Abzug",
+      method: "Bar",
+      received: true,
+      receivedDate: "2025-04-14",
+    };
+    process.fields.orderConfirmation = {
+      ...process.fields.orderConfirmation,
+      paymentTerms: "Zahlbar sofort bei Übergabe",
+      paymentMethod: "Finanzierung",
+    };
+    const vehicle = MOCK_VEHICLES.find((entry) => entry.id === process.vehicleId)!;
+    const customer = MOCK_CUSTOMERS.find((entry) => entry.id === process.customerId)!;
+
+    const doc = generateBelegPdf({ process, vehicle, customer, stepKey: "order_confirmation" });
+    const text = readCompressedPdfText(doc.output("arraybuffer"));
+
+    expect(text).toContain("Zahlungsabwicklung");
+    expect(text).toContain("AR-2025-0042");
+    expect(text).toContain("Zahlbar innerhalb 7 Tagen ohne Abzug");
+    expect(text).toContain("Bar");
+    expect(text).toContain("14.04.2025");
+    expect(text).toContain("Zahlbar sofort bei Übergabe");
+    expect(text).toContain("Finanzierung");
+  });
+
   it("uses the confirmed order date unless the contract overrides it", () => {
     const process = structuredClone(MOCK_PROCESSES[0]);
     process.fields.orderConfirmation = {

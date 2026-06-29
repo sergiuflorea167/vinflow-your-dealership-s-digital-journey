@@ -602,10 +602,16 @@ export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, c
           `Fahrzeug: ${tradeIn?.vehicleDescription ?? "Kundenfahrzeug"}\nAnrechnungswert: ${formatCurrency(tradeInValue)}${tradeIn?.details ? `\nDetails: ${tradeIn.details}` : ""}`,
           cursor, { fontSize: 8.5 });
       }
-      cursor = drawSectionTitle(doc, "Zahlungsdaten", cursor);
+      cursor = drawSectionTitle(doc, "Zahlungsdaten Anzahlung", cursor);
       cursor = drawTextBlock(doc,
         `Empfänger: ${companyName}\nIBAN: ${BANK.iban}\nBIC: ${BANK.bic}\nVerwendungszweck: ${dp?.invoiceNumber ?? process.id}\nRechnungsdatum: ${dp?.invoiceDate ? formatDate(dp.invoiceDate) : "—"}\nZahlungsbedingung: ${dp?.paymentTerms ?? (dp?.dueDate ? `Fällig am ${formatDate(dp.dueDate)}` : "Sofort fällig nach Erhalt der Rechnung")}\nZahlungsart: ${dp?.method ?? "nicht angegeben"}${dp?.received ? `\nZahlung eingegangen am: ${dp.receivedDate ? formatDate(dp.receivedDate) : "—"}` : ""}\n${taxationLine(vehicle)}`,
         cursor);
+      if (ocDp?.paymentTerms || ocDp?.paymentMethod) {
+        cursor = drawSectionTitle(doc, "Vereinbarte Restzahlung", cursor);
+        cursor = drawTextBlock(doc,
+          `Zahlungsbedingung: ${ocDp?.paymentTerms ?? "nicht angegeben"}\nZahlungsart: ${ocDp?.paymentMethod ?? "nicht angegeben"}`,
+          cursor);
+      }
       break;
     }
     case "order_confirmation": {
@@ -622,7 +628,11 @@ export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, c
       ], cursor, "Verbleibender Restbetrag", { showVat: !isMarginTaxed(vehicle), vatBase: finalPrice });
       cursor = drawSectionTitle(doc, "Eckdaten", cursor);
       cursor = drawTextBlock(doc,
-        `Auftragsdatum: ${oc?.orderDate ? formatDate(oc.orderDate) : "—"}\nZahlungsbedingungen: ${oc?.paymentTerms ?? "Restzahlung bei Übergabe"}\n${taxationLine(vehicle)}`,
+        `Auftragsdatum: ${oc?.orderDate ? formatDate(oc.orderDate) : "—"}\n${taxationLine(vehicle)}`,
+        cursor);
+      cursor = drawSectionTitle(doc, "Zahlungsabwicklung", cursor);
+      cursor = drawTextBlock(doc,
+        `${process.fields.downPayment ? `Anzahlung${process.fields.downPayment.invoiceNumber ? ` (${process.fields.downPayment.invoiceNumber})` : ""}\nBetrag: ${formatCurrency(process.fields.downPayment.amount ?? 0)}\nZahlungsbedingung: ${process.fields.downPayment.paymentTerms ?? "nicht angegeben"}\nZahlungsart: ${process.fields.downPayment.method ?? "nicht angegeben"}\nGezahlt am: ${process.fields.downPayment.receivedDate ? formatDate(process.fields.downPayment.receivedDate) : "nicht dokumentiert"}\n\n` : ""}Restzahlung\nZahlungsbedingung: ${oc?.paymentTerms ?? "nicht angegeben"}\nZahlungsart: ${oc?.paymentMethod ?? "nicht angegeben"}`,
         cursor);
       cursor = drawCustomerAgreements(cursor);
       break;
