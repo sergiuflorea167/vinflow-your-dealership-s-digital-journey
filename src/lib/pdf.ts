@@ -13,6 +13,22 @@ import {
 } from "@/data/process";
 import { getContractClauses, type ContractClauseContext } from "@/lib/contractClauses";
 
+/**
+ * Keep every generated document lightweight for PDF viewers.
+ *
+ * jsPDF otherwise embeds all 14 standard fonts and writes drawing coordinates
+ * with up to 16 decimal places. Contracts contain many text and line commands,
+ * so the unoptimized content streams can become needlessly expensive to parse.
+ */
+const createPdfDocument = () => new jsPDF({
+  unit: "mm",
+  format: "a4",
+  compress: true,
+  putOnlyUsedFonts: true,
+  precision: 2,
+  floatPrecision: "smart",
+});
+
 // VINflow PDF generator – clean, standard business document layout (DIN-5008 inspired).
 // White background, neutral grayscale, generous whitespace, consistent grid.
 
@@ -482,7 +498,7 @@ const drawStandardChrome = (
 
 export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, companyName = "VINflow Autohaus GmbH", seller, pdfTheme }: GeneratePdfArgs): jsPDF => {
   applyPdfTheme(pdfTheme);
-  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  const doc = createPdfDocument();
   const step = PROCESS_STEPS.find((s) => s.key === stepKey)!;
   const finalPrice = process.fields.finalPrice ?? vehicle.listPrice;
   const tradeIn = process.fields.tradeIn ?? offer?.tradeIn;
@@ -719,7 +735,7 @@ const drawKvParty = (doc: jsPDF, label: string, lines: string[], x: number, y: n
   });
 };
 
-const drawKvSpecsTable = (doc: jsPDF, vehicle: Vehicle, y: number, kv?: any) => {
+const drawKvSpecsTable = (doc: jsPDF, vehicle: Vehicle, y: number, kv?: Process["fields"]["purchaseContract"]) => {
   const w = PAGE.w - 2 * PAGE.margin;
   const colW = w / 2;
   const rows: Array<[string, string]> = [
@@ -1174,7 +1190,7 @@ export interface GenerateOfferPdfArgs {
 
 export const generateOfferPdf = ({ offer, vehicle, customer, companyName = "VINflow Autohaus GmbH", seller, pdfTheme }: GenerateOfferPdfArgs): jsPDF => {
   applyPdfTheme(pdfTheme);
-  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  const doc = createPdfDocument();
   drawHeader(doc, "Angebot", `Angebots-Nr. ${offer.id}`, companyName, seller);
   drawAddressBlock(doc, customer, 36, companyName, seller, "ANGEBOTSEMPFÄNGER");
   drawMetaBlock(doc, [
