@@ -968,7 +968,7 @@ const ConditionSection = (doc: jsPDF, y: number, vehicle: Vehicle, kv?: Process[
 
 const DeliverySection = (doc: jsPDF, y: number, process: Process, kv?: Process["fields"]["purchaseContract"]) => {
   let cursor = drawSectionTitle(doc, "4. Übergabe", y);
-  const handoverDate = process.fields.delivery?.handoverDate ?? process.fields.orderConfirmation?.deliveryDate;
+  const handoverDate = kv?.handoverDateOverride || process.fields.orderConfirmation?.deliveryDate;
   const handoverPlace = process.fields.delivery?.handoverLocation ?? kv?.place;
   const handoverMileage = process.fields.delivery?.finalMileage;
   cursor = drawTextBlock(doc,

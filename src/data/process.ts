@@ -473,6 +473,8 @@ export interface ProcessFields {
   purchaseContract?: {
     contractNumber?: string;
     contractDate?: string;
+    /** Optionaler Ersatz für den in der Auftragsbestätigung bestätigten Liefertermin. */
+    handoverDateOverride?: string;
     warrantyMonths?: number;
     place?: string;
     /** B2C = Verbraucher (Sachmängelhaftung verkürzt, mind. 12 Monate). B2B = Unternehmer (Ausschluss möglich). */

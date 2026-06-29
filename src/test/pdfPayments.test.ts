@@ -63,4 +63,28 @@ describe("purchase contract payments", () => {
     expect(text).toContain("05.05.2025");
     expect(text).toContain("Finanzierung");
   });
+
+  it("uses the confirmed order date unless the contract overrides it", () => {
+    const process = structuredClone(MOCK_PROCESSES[0]);
+    process.fields.orderConfirmation = {
+      ...process.fields.orderConfirmation,
+      deliveryDate: "2025-06-10",
+    };
+    process.fields.purchaseContract = {
+      ...process.fields.purchaseContract,
+      handoverDateOverride: undefined,
+    };
+    const vehicle = MOCK_VEHICLES.find((entry) => entry.id === process.vehicleId)!;
+    const customer = MOCK_CUSTOMERS.find((entry) => entry.id === process.customerId)!;
+
+    const confirmedDoc = generateBelegPdf({ process, vehicle, customer, stepKey: "purchase_contract" });
+    const confirmedText = readCompressedPdfText(confirmedDoc.output("arraybuffer"));
+    expect(confirmedText).toContain("10.06.2025");
+
+    process.fields.purchaseContract.handoverDateOverride = "2025-06-18";
+    const changedDoc = generateBelegPdf({ process, vehicle, customer, stepKey: "purchase_contract" });
+    const changedText = readCompressedPdfText(changedDoc.output("arraybuffer"));
+    expect(changedText).toContain("18.06.2025");
+    expect(changedText).not.toContain("10.06.2025");
+  });
 });
