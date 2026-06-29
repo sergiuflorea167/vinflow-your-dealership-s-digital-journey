@@ -686,6 +686,9 @@ export const formatCurrency = (n: number) =>
 export const formatCurrencyPrecise = (n: number) =>
   new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR", minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
 
+export const calculateRemainingPayment = (totalAmount: number, downPayment = 0, tradeInValue = 0) =>
+  Math.max(0, totalAmount - downPayment - tradeInValue);
+
 export const formatDate = (iso: string) =>
   new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date(iso));
 

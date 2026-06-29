@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useProcessStore } from "@/store/processStore";
 import {
-  PROCESS_STEPS, ProcessStepKey, ProcessFields, PaymentMethod, formatCurrency, formatDate,
+  PROCESS_STEPS, ProcessStepKey, ProcessFields, PaymentMethod, calculateRemainingPayment, formatCurrency, formatCurrencyPrecise, formatDate,
   getNextProcessStepKey, getProcessStepsForDisplay, normalizeProcessStepKeys, stepIndexIn,
   nextInvoiceNumber, nextContractNumber, nextDownPaymentInvoiceNumber, nextOrderConfirmationNumber, CUSTOMER_AGREEMENT_STEP_KEYS,
 } from "@/data/process";
@@ -247,6 +247,7 @@ const ProcessDetail = () => {
               <StepFields
                 stepKey={selectedKey}
                 fields={process.fields}
+                purchasePrice={purchasePrice}
                 disabled={!isCurrent || isSkipped || isBooked}
                 onChange={(patch) => updateFields(process.id, patch)}
               />
@@ -511,9 +512,12 @@ const TradeInFields = ({ fields, onChange, disabled }: { fields: ProcessFields; 
   </div>
 );
 
-const StepFields = ({ stepKey, fields, onChange, disabled }: { stepKey: ProcessStepKey; fields: ProcessFields; onChange: (patch: Partial<ProcessFields>) => void; disabled?: boolean }) => {
+const StepFields = ({ stepKey, fields, purchasePrice, onChange, disabled }: { stepKey: ProcessStepKey; fields: ProcessFields; purchasePrice: number; onChange: (patch: Partial<ProcessFields>) => void; disabled?: boolean }) => {
   if (stepKey === "offer") return null;
   if (stepKey === "down_payment") {
+    const downPaymentAmount = fields.downPayment?.amount ?? 0;
+    const tradeInValue = fields.tradeIn?.value ?? 0;
+    const remainingPayment = calculateRemainingPayment(purchasePrice, downPaymentAmount, tradeInValue);
     return (
       <FieldGrid title="Anzahlungsrechnung">
         <TextField label="Anzahlungs-Rechn.-Nr. (automatisch)" value={fields.downPayment?.invoiceNumber} onChange={() => {}} disabled placeholder="wird automatisch vergeben" />
@@ -529,6 +533,20 @@ const StepFields = ({ stepKey, fields, onChange, disabled }: { stepKey: ProcessS
           <div>
             <p className="text-sm font-semibold text-foreground">Restzahlung vorab festlegen</p>
             <p className="mt-1 text-xs text-muted-foreground">Diese Angaben werden in die Auftragsbestätigung und später in die Rechnung übernommen.</p>
+          </div>
+          <div className="rounded-lg border-2 border-primary/30 bg-primary/10 p-4">
+            <Label className="flex items-center gap-2 text-xs font-semibold text-foreground">
+              <Lock className="size-3.5 text-primary" /> Voraussichtliche Restzahlung (automatisch berechnet)
+            </Label>
+            <Input
+              value={formatCurrencyPrecise(remainingPayment)}
+              readOnly
+              aria-readonly="true"
+              className="mt-2 h-12 border-primary/30 bg-background/70 text-lg font-bold text-foreground"
+            />
+            <p className="mt-2 text-xs text-muted-foreground">
+              Gesamtbetrag {formatCurrencyPrecise(purchasePrice)} − Anzahlung {formatCurrencyPrecise(downPaymentAmount)} − Inzahlungnahme {formatCurrencyPrecise(tradeInValue)}
+            </p>
           </div>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <SelectField
