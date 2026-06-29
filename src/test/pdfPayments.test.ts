@@ -64,6 +64,26 @@ describe("purchase contract payments", () => {
     expect(text).toContain("Finanzierung");
   });
 
+  it("includes the payment date directly in the down-payment line item", () => {
+    const process = structuredClone(MOCK_PROCESSES[0]);
+    process.fields.downPayment = {
+      invoiceNumber: "AR-2025-0042",
+      invoiceDate: "2025-04-10",
+      amount: 5_000,
+      paymentTerms: "Sofort fällig",
+      method: "Überweisung",
+      received: true,
+      receivedDate: "2025-04-14",
+    };
+    const vehicle = MOCK_VEHICLES.find((entry) => entry.id === process.vehicleId)!;
+    const customer = MOCK_CUSTOMERS.find((entry) => entry.id === process.customerId)!;
+
+    const doc = generateBelegPdf({ process, vehicle, customer, stepKey: "order_confirmation" });
+    const text = readCompressedPdfText(doc.output("arraybuffer"));
+
+    expect(text).toContain("abzgl. geleistete Anzahlung vom 14.04.2025");
+  });
+
   it("uses the confirmed order date unless the contract overrides it", () => {
     const process = structuredClone(MOCK_PROCESSES[0]);
     process.fields.orderConfirmation = {

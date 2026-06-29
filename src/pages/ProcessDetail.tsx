@@ -715,6 +715,7 @@ const validateStep = (key: ProcessStepKey, f: ProcessFields, chkDone: number, ch
     if (!d?.invoiceNumber || !d.invoiceDate || !d.amount || !d.paymentTerms || !d.method) return { ok: false, message: "Rechnungsdatum, Anzahlungsbetrag, Zahlungsbedingung und Zahlungsart erforderlich." };
     if (f.tradeIn && (!f.tradeIn.vehicleDescription.trim() || f.tradeIn.value <= 0)) return { ok: false, message: "Bitte Fahrzeug und positiven Anrechnungswert der Inzahlungnahme angeben." };
     if (!d.received) return { ok: false, message: "Anzahlungsrechnung muss als bezahlt markiert sein, bevor du weitergehst." };
+    if (!d.receivedDate) return { ok: false, message: "Bitte das Datum des Zahlungseingangs angeben." };
     return { ok: true };
   }
   if (key === "order_confirmation") {
