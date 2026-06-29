@@ -1,7 +1,7 @@
 import { inflateSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
 
-import { MOCK_CUSTOMERS, MOCK_PROCESSES, MOCK_VEHICLES } from "@/data/process";
+import { calculateRemainingPayment, MOCK_CUSTOMERS, MOCK_PROCESSES, MOCK_VEHICLES } from "@/data/process";
 import { generateBelegPdf } from "@/lib/pdf";
 
 const readCompressedPdfText = (bytes: ArrayBuffer) => {
@@ -29,6 +29,11 @@ const readCompressedPdfText = (bytes: ArrayBuffer) => {
 };
 
 describe("purchase contract payments", () => {
+  it("calculates the remaining payment after deposit and trade-in", () => {
+    expect(calculateRemainingPayment(32_900, 4_500, 8_500)).toBe(19_900);
+    expect(calculateRemainingPayment(10_000, 7_000, 5_000)).toBe(0);
+  });
+
   it("documents deposit and final payment with date and method", () => {
     const process = structuredClone(MOCK_PROCESSES[0]);
     process.fields.downPayment = {
