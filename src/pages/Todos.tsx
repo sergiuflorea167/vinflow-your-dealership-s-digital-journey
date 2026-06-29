@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -21,17 +22,20 @@ import {
 import { Calendar as CalendarPicker } from "@/components/ui/calendar";
 import {
   AlertTriangle, Calendar, Car, CheckCircle2, Flag, Inbox,
-  Plus, Trash2, X, CalendarDays,
+  Plus, Trash2, X, CalendarDays, Target, Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useProcessStore, mirroredTodoId } from "@/store/processStore";
 import {
-  Todo, TodoPriority, TodoScope, formatDate,
+  Todo, TodoPriority, TodoProgressPeriod, TodoScope, formatDate,
 } from "@/data/process";
 import { useTopbarSearch } from "@/context/TopbarSearchContext";
 import { DataTableShell } from "@/components/shared/DataTableShell";
 import { SortableTh, SortState } from "@/components/shared/SortableTh";
+import {
+  calculateTodoProgress, TODO_PROGRESS_PERIODS, todoProgressPeriodLabel,
+} from "@/lib/todoProgress";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -77,6 +81,8 @@ const Todos = () => {
   const toggleTodo = useProcessStore((s) => s.toggleTodo);
   const removeTodo = useProcessStore((s) => s.removeTodo);
   const updateTodo = useProcessStore((s) => s.updateTodo);
+  const settings = useProcessStore((s) => s.settings);
+  const updateSettings = useProcessStore((s) => s.updateSettings);
   const [section, setSection] = useState<"todos" | "agreements">("todos");
 
   const todoGroups = useMemo(() => {
@@ -265,6 +271,20 @@ const Todos = () => {
     done:    todos.filter((t) => t.done).length,
     all:     todos.length,
   }), [todos, todayISO]);
+  const progressPeriod = settings.todoProgressPeriod ?? "week";
+  const progressStats = useMemo(
+    () => calculateTodoProgress(todos, progressPeriod),
+    [todos, progressPeriod],
+  );
+  const progressMessage = progressStats.total === 0
+    ? "In diesem Zeitraum stehen keine To-Dos an."
+    : progressStats.percent === 100
+      ? "Alles erledigt – sauber abgeschlossen."
+      : progressStats.percent >= 75
+        ? "Fast geschafft – der Rest ist überschaubar."
+        : progressStats.percent >= 40
+          ? "Guter Lauf – weiter im Fokus bleiben."
+          : "Der nächste Haken bringt sofort Bewegung rein.";
 
   // ---- Render -------------------------------------------------------------
   return (
@@ -305,6 +325,54 @@ const Todos = () => {
             </TabsTrigger>
           </TabsList>
         </Tabs>
+
+        <Card data-tour="tt-progress" className="relative overflow-hidden p-4">
+          <div className="pointer-events-none absolute -right-8 -top-10 size-32 rounded-full bg-primary/5" />
+          <div className="relative flex flex-col gap-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="flex items-start gap-3">
+                <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
+                  <Target className="size-4" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="font-display text-sm font-semibold">Erledigungsfokus</h2>
+                    {progressStats.percent === 100 && progressStats.total > 0 && <Sparkles className="size-3.5 text-warning" />}
+                  </div>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    Fortschritt für {todoProgressPeriodLabel(progressPeriod).toLowerCase()} · nach Fälligkeit, ersatzweise Erledigungs- oder Erstelltag
+                  </p>
+                </div>
+              </div>
+              <Select
+                value={progressPeriod}
+                onValueChange={(value) => updateSettings({ todoProgressPeriod: value as TodoProgressPeriod })}
+              >
+                <SelectTrigger className="h-8 w-full text-xs sm:w-[160px]">
+                  <CalendarDays className="size-3.5 text-muted-foreground" />
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {TODO_PROGRESS_PERIODS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid items-center gap-3 sm:grid-cols-[72px_1fr_auto]">
+              <div className="font-display text-3xl font-bold tracking-tight text-foreground">{progressStats.percent}%</div>
+              <div className="space-y-1.5">
+                <Progress value={progressStats.percent} className="h-2.5 bg-muted" />
+                <p className="text-[11px] text-muted-foreground">{progressMessage}</p>
+              </div>
+              <div className="text-left sm:text-right">
+                <p className="text-sm font-semibold">{progressStats.done} von {progressStats.total} erledigt</p>
+                <p className="text-[11px] text-muted-foreground">{progressStats.open} noch offen</p>
+              </div>
+            </div>
+          </div>
+        </Card>
 
         {/* KPI-Strip kompakt */}
         <div data-tour="tt-kpis" className="grid grid-cols-2 md:grid-cols-4 gap-2 shrink-0">
