@@ -362,6 +362,8 @@ export interface TradeInData {
   details?: string;
 }
 
+export type PaymentMethod = "Überweisung" | "Bar" | "EC" | "Finanzierung";
+
 export interface Offer {
   id: string;
   vehicleId: string;
@@ -448,7 +450,7 @@ export interface ProcessFields {
     amount?: number;
     dueDate?: string;
     paymentTerms?: string;
-    method?: "Überweisung" | "Bar" | "EC";
+    method?: PaymentMethod;
     received?: boolean;
     receivedDate?: string;
   };
@@ -462,6 +464,7 @@ export interface ProcessFields {
     invoiceDate?: string;
     dueDate?: string;
     paymentTerms?: string;
+    method?: PaymentMethod;
     paid?: boolean;
     paidDate?: string;
     /** E-Rechnung gem. § 14 UStG (XRechnung/ZUGFeRD) – nur bei B2B sinnvoll */
