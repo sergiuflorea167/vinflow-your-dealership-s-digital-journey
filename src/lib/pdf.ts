@@ -501,7 +501,7 @@ export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, c
   const doc = createPdfDocument();
   const step = PROCESS_STEPS.find((s) => s.key === stepKey)!;
   const finalPrice = process.fields.finalPrice ?? vehicle.listPrice;
-  const tradeIn = process.fields.tradeIn ?? offer?.tradeIn;
+  const tradeIn = stepKey === "offer" ? offer?.tradeIn ?? process.fields.tradeIn : process.fields.tradeIn;
   const tradeInValue = tradeIn?.value ?? 0;
   const receivedDownPayment = process.fields.downPayment?.received ? process.fields.downPayment.amount ?? 0 : 0;
 
@@ -589,6 +589,12 @@ export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, c
       cursor = drawTable(doc, [
         { description: "Anzahlung Fahrzeugkauf", qty: "1", unitPrice: down, total: down },
       ], cursor, "Zu zahlender Betrag", { showVat: !isMarginTaxed(vehicle) });
+      if (tradeInValue > 0) {
+        cursor = drawSectionTitle(doc, "Vereinbarte Inzahlungnahme", cursor);
+        cursor = drawTextBlock(doc,
+          `Fahrzeug: ${tradeIn?.vehicleDescription ?? "Kundenfahrzeug"}\nAnrechnungswert: ${formatCurrency(tradeInValue)}${tradeIn?.details ? `\nDetails: ${tradeIn.details}` : ""}`,
+          cursor, { fontSize: 8.5 });
+      }
       cursor = drawSectionTitle(doc, "Zahlungsdaten", cursor);
       cursor = drawTextBlock(doc,
         `Empfänger: ${companyName}\nIBAN: ${BANK.iban}\nBIC: ${BANK.bic}\nVerwendungszweck: ${dp?.invoiceNumber ?? process.id}\nRechnungsdatum: ${dp?.invoiceDate ? formatDate(dp.invoiceDate) : "—"}\nZahlungsbedingung: ${dp?.paymentTerms ?? (dp?.dueDate ? `Fällig am ${formatDate(dp.dueDate)}` : "Sofort fällig nach Erhalt der Rechnung")}\nZahlungsart: ${dp?.method ?? "nicht angegeben"}${dp?.received ? `\nZahlung eingegangen am: ${dp.receivedDate ? formatDate(dp.receivedDate) : "—"}` : ""}\n${taxationLine(vehicle)}`,
