@@ -458,7 +458,10 @@ export interface ProcessFields {
     confirmationNumber?: string;
     orderDate?: string;
     deliveryDate?: string;
+    /** Bereits bei der Anzahlung vereinbarte Bedingung für die spätere Restzahlung. */
     paymentTerms?: string;
+    /** Bereits bei der Anzahlung vereinbarte Zahlungsart für die spätere Restzahlung. */
+    paymentMethod?: PaymentMethod;
   };
   invoicing?: {
     invoiceNumber?: string;

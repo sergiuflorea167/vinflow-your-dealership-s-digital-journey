@@ -75,6 +75,8 @@ const ProcessDetail = () => {
       let changed = false;
       if (!patch.invoiceNumber) { patch.invoiceNumber = nextInvoiceNumber(allProcesses, settings.numberRanges?.invoice); changed = true; }
       if (!patch.invoiceDate) { patch.invoiceDate = today; changed = true; }
+      if (!patch.paymentTerms && process.fields.orderConfirmation?.paymentTerms) { patch.paymentTerms = process.fields.orderConfirmation.paymentTerms; changed = true; }
+      if (!patch.method && process.fields.orderConfirmation?.paymentMethod) { patch.method = process.fields.orderConfirmation.paymentMethod; changed = true; }
       // E-Rechnung automatisch aktivieren, wenn Kunde eine Firma ist und noch keine
       // bewusste Auswahl getroffen wurde.
       if (customer?.salutation === "firma" && patch.eInvoice === undefined) {
@@ -455,6 +457,8 @@ const ProcessDetail = () => {
 
 const PAYMENT_TERMS_OPTIONS = [
   "Sofort fällig (Barzahlung bei Übergabe)",
+  "Restzahlung bei Übergabe",
+  "Sofort bei Übergabe",
   "Zahlbar sofort nach Erhalt der Rechnung",
   "Zahlbar innerhalb 7 Tagen ohne Abzug",
   "Zahlbar innerhalb 14 Tagen ohne Abzug",
@@ -521,6 +525,28 @@ const StepFields = ({ stepKey, fields, onChange, disabled }: { stepKey: ProcessS
         {fields.downPayment?.received && (
           <DateField label="Zahlungseingang am" value={fields.downPayment?.receivedDate} onChange={(v) => onChange({ downPayment: { ...fields.downPayment, receivedDate: v } })} disabled={disabled} />
         )}
+        <div className="md:col-span-2 space-y-3 rounded-lg border border-border bg-surface-elevated/30 p-4">
+          <div>
+            <p className="text-sm font-semibold text-foreground">Restzahlung vorab festlegen</p>
+            <p className="mt-1 text-xs text-muted-foreground">Diese Angaben werden in die Auftragsbestätigung und später in die Rechnung übernommen.</p>
+          </div>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <SelectField
+              label="Zahlungsbedingung Restzahlung *"
+              value={fields.orderConfirmation?.paymentTerms ?? ""}
+              options={PAYMENT_TERMS_OPTIONS}
+              onChange={(paymentTerms) => onChange({ orderConfirmation: { ...fields.orderConfirmation, paymentTerms } })}
+              disabled={disabled}
+            />
+            <SelectField
+              label="Zahlungsart Restzahlung *"
+              value={fields.orderConfirmation?.paymentMethod ?? ""}
+              options={PAYMENT_METHOD_OPTIONS}
+              onChange={(paymentMethod) => onChange({ orderConfirmation: { ...fields.orderConfirmation, paymentMethod: paymentMethod as PaymentMethod } })}
+              disabled={disabled}
+            />
+          </div>
+        </div>
         <TradeInFields fields={fields} onChange={onChange} disabled={disabled} />
       </FieldGrid>
     );
@@ -531,7 +557,30 @@ const StepFields = ({ stepKey, fields, onChange, disabled }: { stepKey: ProcessS
         <TextField label="AB-Nr. (automatisch)" value={fields.orderConfirmation?.confirmationNumber} onChange={() => {}} disabled placeholder="wird automatisch vergeben" />
         <DateField label="Auftragsdatum *" value={fields.orderConfirmation?.orderDate} onChange={(v) => onChange({ orderConfirmation: { ...fields.orderConfirmation, orderDate: v } })} disabled={disabled} />
         <DateField label="Liefertermin *" value={fields.orderConfirmation?.deliveryDate} onChange={(v) => onChange({ orderConfirmation: { ...fields.orderConfirmation, deliveryDate: v } })} disabled={disabled} />
-        <TextField label="Zahlungsbedingungen" value={fields.orderConfirmation?.paymentTerms} onChange={(v) => onChange({ orderConfirmation: { ...fields.orderConfirmation, paymentTerms: v } })} disabled={disabled} placeholder="z. B. Restzahlung bei Übergabe" full />
+        {fields.downPayment && (
+          <div className="md:col-span-2 space-y-3 rounded-lg border border-border bg-surface-elevated/30 p-4">
+            <p className="text-sm font-semibold text-foreground">Dokumentierte Anzahlung</p>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              <TextField label="Zahlungsbedingung Anzahlung" value={fields.downPayment.paymentTerms} onChange={() => {}} disabled />
+              <TextField label="Zahlungsart Anzahlung" value={fields.downPayment.method} onChange={() => {}} disabled />
+              <DateField label="Gezahlt am" value={fields.downPayment.receivedDate} onChange={() => {}} disabled />
+            </div>
+          </div>
+        )}
+        <SelectField
+          label="Zahlungsbedingung Restzahlung *"
+          value={fields.orderConfirmation?.paymentTerms ?? ""}
+          options={PAYMENT_TERMS_OPTIONS}
+          onChange={(paymentTerms) => onChange({ orderConfirmation: { ...fields.orderConfirmation, paymentTerms } })}
+          disabled={disabled}
+        />
+        <SelectField
+          label="Zahlungsart Restzahlung *"
+          value={fields.orderConfirmation?.paymentMethod ?? ""}
+          options={PAYMENT_METHOD_OPTIONS}
+          onChange={(paymentMethod) => onChange({ orderConfirmation: { ...fields.orderConfirmation, paymentMethod: paymentMethod as PaymentMethod } })}
+          disabled={disabled}
+        />
         <TradeInFields fields={fields} onChange={onChange} disabled={disabled} />
       </FieldGrid>
     );
@@ -724,11 +773,13 @@ const validateStep = (key: ProcessStepKey, f: ProcessFields, chkDone: number, ch
     if (f.tradeIn && (!f.tradeIn.vehicleDescription.trim() || f.tradeIn.value <= 0)) return { ok: false, message: "Bitte Fahrzeug und positiven Anrechnungswert der Inzahlungnahme angeben." };
     if (!d.received) return { ok: false, message: "Anzahlungsrechnung muss als bezahlt markiert sein, bevor du weitergehst." };
     if (!d.receivedDate) return { ok: false, message: "Bitte das Datum des Zahlungseingangs angeben." };
+    if (!f.orderConfirmation?.paymentTerms || !f.orderConfirmation.paymentMethod) return { ok: false, message: "Bitte Zahlungsbedingung und Zahlungsart der Restzahlung festlegen." };
     return { ok: true };
   }
   if (key === "order_confirmation") {
     const o = f.orderConfirmation;
     if (!o?.confirmationNumber || !o.orderDate || !o.deliveryDate) return { ok: false, message: "AB-Nummer, Auftrags- und Liefertermin erforderlich." };
+    if (!o.paymentTerms || !o.paymentMethod) return { ok: false, message: "Bitte Zahlungsbedingung und Zahlungsart der Restzahlung festlegen." };
     if (f.tradeIn && (!f.tradeIn.vehicleDescription.trim() || f.tradeIn.value <= 0)) return { ok: false, message: "Bitte Fahrzeug und positiven Anrechnungswert der Inzahlungnahme angeben." };
     return { ok: true };
   }
