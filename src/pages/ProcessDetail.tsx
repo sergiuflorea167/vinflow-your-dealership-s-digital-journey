@@ -529,24 +529,11 @@ const StepFields = ({ stepKey, fields, purchasePrice, onChange, disabled }: { st
         {fields.downPayment?.received && (
           <DateField label="Zahlungseingang am" value={fields.downPayment?.receivedDate} onChange={(v) => onChange({ downPayment: { ...fields.downPayment, receivedDate: v } })} disabled={disabled} />
         )}
+        <TradeInFields fields={fields} onChange={onChange} disabled={disabled} />
         <div className="md:col-span-2 space-y-3 rounded-lg border border-border bg-surface-elevated/30 p-4">
           <div>
             <p className="text-sm font-semibold text-foreground">Restzahlung vorab festlegen</p>
             <p className="mt-1 text-xs text-muted-foreground">Diese Angaben werden in die Auftragsbestätigung und später in die Rechnung übernommen.</p>
-          </div>
-          <div className="rounded-lg border-2 border-primary/30 bg-primary/10 p-4">
-            <Label className="flex items-center gap-2 text-xs font-semibold text-foreground">
-              <Lock className="size-3.5 text-primary" /> Voraussichtliche Restzahlung (automatisch berechnet)
-            </Label>
-            <Input
-              value={formatCurrencyPrecise(remainingPayment)}
-              readOnly
-              aria-readonly="true"
-              className="mt-2 h-12 border-primary/30 bg-background/70 text-lg font-bold text-foreground"
-            />
-            <p className="mt-2 text-xs text-muted-foreground">
-              Gesamtbetrag {formatCurrencyPrecise(purchasePrice)} − Anzahlung {formatCurrencyPrecise(downPaymentAmount)} − Inzahlungnahme {formatCurrencyPrecise(tradeInValue)}
-            </p>
           </div>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <SelectField
@@ -564,8 +551,21 @@ const StepFields = ({ stepKey, fields, purchasePrice, onChange, disabled }: { st
               disabled={disabled}
             />
           </div>
+          <div className="border-t border-border pt-3">
+            <Label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Lock className="size-3" /> Restzahlungsbetrag (automatisch berechnet)
+            </Label>
+            <Input
+              value={formatCurrencyPrecise(remainingPayment)}
+              readOnly
+              aria-readonly="true"
+              className="mt-1.5 bg-background/40 font-semibold text-foreground"
+            />
+            <p className="mt-1.5 text-[11px] text-muted-foreground">
+              {formatCurrencyPrecise(purchasePrice)} Gesamtbetrag − {formatCurrencyPrecise(downPaymentAmount)} Anzahlung − {formatCurrencyPrecise(tradeInValue)} Inzahlungnahme
+            </p>
+          </div>
         </div>
-        <TradeInFields fields={fields} onChange={onChange} disabled={disabled} />
       </FieldGrid>
     );
   }
