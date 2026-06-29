@@ -174,7 +174,7 @@ const Konfiguration = () => {
               <div className="min-w-0">
                 <h2 className="font-display text-lg font-semibold">Nummernkreise</h2>
                 <p className="text-xs text-muted-foreground mt-1 max-w-2xl">
-                  Lege das Format für neue Rechnungen, Anzahlungsrechnungen und Kaufverträge fest. Bereits vergebene Nummern bleiben unverändert.
+                  Lege das Format für neue Rechnungen, Anzahlungsrechnungen, Auftragsbestätigungen und Kaufverträge fest. Bereits vergebene Nummern bleiben unverändert.
                 </p>
               </div>
             </div>
@@ -187,6 +187,7 @@ const Konfiguration = () => {
             {([
               ["invoice", "Rechnungen", "Schlussrechnungen im Verkaufsvorgang"],
               ["downPayment", "Anzahlungsrechnungen", "Belege für erhaltene Anzahlungen"],
+              ["orderConfirmation", "Auftragsbestätigungen", "AB-Nummern für bestätigte Aufträge"],
               ["purchaseContract", "Kaufverträge", "Vertragsnummern für Fahrzeugverkäufe"],
             ] as const).map(([key, title, description]) => {
               const config = numberRanges[key];

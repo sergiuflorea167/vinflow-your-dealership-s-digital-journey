@@ -517,11 +517,15 @@ export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, c
     ? process.fields.invoicing?.invoiceNumber ?? process.id
     : stepKey === "down_payment"
       ? process.fields.downPayment?.invoiceNumber ?? process.id
+      : stepKey === "order_confirmation"
+        ? process.fields.orderConfirmation?.confirmationNumber ?? process.id
       : stepKey === "offer"
         ? offer?.id ?? process.id
         : process.id;
   const numberLabel = stepKey === "invoicing" || stepKey === "down_payment"
     ? "Rechnungs-Nr."
+    : stepKey === "order_confirmation"
+      ? "AB-Nr."
     : stepKey === "offer"
       ? "Angebots-Nr."
       : "Vorgangs-Nr.";

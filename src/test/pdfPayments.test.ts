@@ -84,6 +84,22 @@ describe("purchase contract payments", () => {
     expect(text).toContain("abzgl. geleistete Anzahlung vom 14.04.2025");
   });
 
+  it("uses the dedicated AB number in the order-confirmation document", () => {
+    const process = structuredClone(MOCK_PROCESSES[0]);
+    process.fields.orderConfirmation = {
+      ...process.fields.orderConfirmation,
+      confirmationNumber: "AB-2025-0042",
+    };
+    const vehicle = MOCK_VEHICLES.find((entry) => entry.id === process.vehicleId)!;
+    const customer = MOCK_CUSTOMERS.find((entry) => entry.id === process.customerId)!;
+
+    const doc = generateBelegPdf({ process, vehicle, customer, stepKey: "order_confirmation" });
+    const text = readCompressedPdfText(doc.output("arraybuffer"));
+
+    expect(text).toContain("AB-Nr.");
+    expect(text).toContain("AB-2025-0042");
+  });
+
   it("uses the confirmed order date unless the contract overrides it", () => {
     const process = structuredClone(MOCK_PROCESSES[0]);
     process.fields.orderConfirmation = {

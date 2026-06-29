@@ -455,6 +455,7 @@ export interface ProcessFields {
     receivedDate?: string;
   };
   orderConfirmation?: {
+    confirmationNumber?: string;
     orderDate?: string;
     deliveryDate?: string;
     paymentTerms?: string;
@@ -635,7 +636,7 @@ export interface Partner {
   createdAt: string;
 }
 
-export type NumberRangeKey = "invoice" | "downPayment" | "purchaseContract";
+export type NumberRangeKey = "invoice" | "downPayment" | "orderConfirmation" | "purchaseContract";
 
 export interface NumberRangeConfig {
   prefix: string;
@@ -695,6 +696,7 @@ export const stepIndex = (key: ProcessStepKey) => PROCESS_STEPS.findIndex((s) =>
 export const DEFAULT_NUMBER_RANGES: NumberRanges = {
   invoice: { prefix: "RE", startNumber: 1, digits: 4, includeYear: true },
   downPayment: { prefix: "AR", startNumber: 1, digits: 4, includeYear: true },
+  orderConfirmation: { prefix: "AB", startNumber: 1, digits: 4, includeYear: true },
   purchaseContract: { prefix: "KV", startNumber: 1, digits: 4, includeYear: true },
 };
 
@@ -711,6 +713,7 @@ const normalizeNumberRange = (
 export const normalizeNumberRanges = (ranges?: Partial<NumberRanges>): NumberRanges => ({
   invoice: normalizeNumberRange(ranges?.invoice, DEFAULT_NUMBER_RANGES.invoice),
   downPayment: normalizeNumberRange(ranges?.downPayment, DEFAULT_NUMBER_RANGES.downPayment),
+  orderConfirmation: normalizeNumberRange(ranges?.orderConfirmation, DEFAULT_NUMBER_RANGES.orderConfirmation),
   purchaseContract: normalizeNumberRange(ranges?.purchaseContract, DEFAULT_NUMBER_RANGES.purchaseContract),
 });
 
@@ -751,6 +754,9 @@ export const nextInvoiceNumber = (processes: Process[], config?: Partial<NumberR
 
 export const nextDownPaymentInvoiceNumber = (processes: Process[], config?: Partial<NumberRangeConfig>) =>
   nextSeqForRange(processes, normalizeNumberRange(config, DEFAULT_NUMBER_RANGES.downPayment), (p) => p.fields.downPayment?.invoiceNumber);
+
+export const nextOrderConfirmationNumber = (processes: Process[], config?: Partial<NumberRangeConfig>) =>
+  nextSeqForRange(processes, normalizeNumberRange(config, DEFAULT_NUMBER_RANGES.orderConfirmation), (p) => p.fields.orderConfirmation?.confirmationNumber);
 
 export const nextContractNumber = (processes: Process[], config?: Partial<NumberRangeConfig>) =>
   nextSeqForRange(processes, normalizeNumberRange(config, DEFAULT_NUMBER_RANGES.purchaseContract), (p) => p.fields.purchaseContract?.contractNumber);
