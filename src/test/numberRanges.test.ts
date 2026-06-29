@@ -3,6 +3,7 @@ import {
   DEFAULT_NUMBER_RANGES,
   formatDocumentNumber,
   nextInvoiceNumber,
+  nextOrderConfirmationNumber,
   normalizeNumberRanges,
   type Process,
 } from "@/data/process";
@@ -30,5 +31,14 @@ describe("number ranges", () => {
     ] as unknown as Process[];
 
     expect(nextInvoiceNumber(processes)).toBe(`RE-${year}-0013`);
+  });
+
+  it("assigns a separate sequential number to order confirmations", () => {
+    const year = new Date().getFullYear();
+    const processes = [
+      { fields: { orderConfirmation: { confirmationNumber: `AB-${year}-0021` } } },
+    ] as unknown as Process[];
+
+    expect(nextOrderConfirmationNumber(processes)).toBe(`AB-${year}-0022`);
   });
 });

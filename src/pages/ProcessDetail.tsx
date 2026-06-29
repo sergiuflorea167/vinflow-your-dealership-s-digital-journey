@@ -23,7 +23,7 @@ import { useProcessStore } from "@/store/processStore";
 import {
   PROCESS_STEPS, ProcessStepKey, ProcessFields, PaymentMethod, formatCurrency, formatDate,
   getNextProcessStepKey, getProcessStepsForDisplay, normalizeProcessStepKeys, stepIndexIn,
-  nextInvoiceNumber, nextContractNumber, nextDownPaymentInvoiceNumber, CUSTOMER_AGREEMENT_STEP_KEYS,
+  nextInvoiceNumber, nextContractNumber, nextDownPaymentInvoiceNumber, nextOrderConfirmationNumber, CUSTOMER_AGREEMENT_STEP_KEYS,
 } from "@/data/process";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -90,6 +90,13 @@ const ProcessDetail = () => {
       if (!patch.invoiceDate) { patch.invoiceDate = today; changed = true; }
       if (changed) updateFields(process.id, { downPayment: patch });
     }
+    if (selectedKey === "order_confirmation") {
+      const patch: any = { ...process.fields.orderConfirmation };
+      let changed = false;
+      if (!patch.confirmationNumber) { patch.confirmationNumber = nextOrderConfirmationNumber(allProcesses, settings.numberRanges?.orderConfirmation); changed = true; }
+      if (!patch.orderDate) { patch.orderDate = today; changed = true; }
+      if (changed) updateFields(process.id, { orderConfirmation: patch });
+    }
     if (selectedKey === "purchase_contract") {
       const pc: any = { ...process.fields.purchaseContract };
       let changed = false;
@@ -101,7 +108,7 @@ const ProcessDetail = () => {
       if (changed) updateFields(process.id, { purchaseContract: pc });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedKey, process?.id, process?.fields.invoicing?.invoiceNumber, process?.fields.downPayment?.invoiceNumber, process?.fields.purchaseContract?.contractNumber, customer?.salutation]);
+  }, [selectedKey, process?.id, process?.fields.invoicing?.invoiceNumber, process?.fields.downPayment?.invoiceNumber, process?.fields.orderConfirmation?.confirmationNumber, process?.fields.purchaseContract?.contractNumber, customer?.salutation]);
 
   const checklistDone = process?.outboundChecklist.filter((c) => c.done).length ?? 0;
   const checklistTotal = process?.outboundChecklist.length ?? 0;
@@ -521,6 +528,7 @@ const StepFields = ({ stepKey, fields, onChange, disabled }: { stepKey: ProcessS
   if (stepKey === "order_confirmation") {
     return (
       <FieldGrid title="Auftragsbestätigung">
+        <TextField label="AB-Nr. (automatisch)" value={fields.orderConfirmation?.confirmationNumber} onChange={() => {}} disabled placeholder="wird automatisch vergeben" />
         <DateField label="Auftragsdatum *" value={fields.orderConfirmation?.orderDate} onChange={(v) => onChange({ orderConfirmation: { ...fields.orderConfirmation, orderDate: v } })} disabled={disabled} />
         <DateField label="Liefertermin *" value={fields.orderConfirmation?.deliveryDate} onChange={(v) => onChange({ orderConfirmation: { ...fields.orderConfirmation, deliveryDate: v } })} disabled={disabled} />
         <TextField label="Zahlungsbedingungen" value={fields.orderConfirmation?.paymentTerms} onChange={(v) => onChange({ orderConfirmation: { ...fields.orderConfirmation, paymentTerms: v } })} disabled={disabled} placeholder="z. B. Restzahlung bei Übergabe" full />
@@ -720,7 +728,7 @@ const validateStep = (key: ProcessStepKey, f: ProcessFields, chkDone: number, ch
   }
   if (key === "order_confirmation") {
     const o = f.orderConfirmation;
-    if (!o?.orderDate || !o.deliveryDate) return { ok: false, message: "Auftrags- und Liefertermin erforderlich." };
+    if (!o?.confirmationNumber || !o.orderDate || !o.deliveryDate) return { ok: false, message: "AB-Nummer, Auftrags- und Liefertermin erforderlich." };
     if (f.tradeIn && (!f.tradeIn.vehicleDescription.trim() || f.tradeIn.value <= 0)) return { ok: false, message: "Bitte Fahrzeug und positiven Anrechnungswert der Inzahlungnahme angeben." };
     return { ok: true };
   }
