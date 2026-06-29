@@ -650,6 +650,8 @@ export interface NumberRangeConfig {
 
 export type NumberRanges = Record<NumberRangeKey, NumberRangeConfig>;
 
+export type TodoProgressPeriod = "today" | "week" | "month" | "all";
+
 export interface Settings {
   userName: string;
   companyName: string;
@@ -664,6 +666,8 @@ export interface Settings {
   role?: string;
   avatarUrl?: string;
   pdfTheme?: string;
+  /** Persönlicher Standardzeitraum für die To-Do-Fortschrittsanzeige. */
+  todoProgressPeriod?: TodoProgressPeriod;
   // Unternehmensdaten – werden u.a. im Kaufvertrag als Verkäuferdaten genutzt
   companyStreet?: string;
   companyZip?: string;
@@ -1773,6 +1777,7 @@ export const DEFAULT_SETTINGS: Settings = {
   avatarUrl: "",
   companyName: "VINflow Autohaus GmbH",
   pdfTheme: "indigo",
+  todoProgressPeriod: "week",
   processStepKeys: DEFAULT_PROCESS_STEP_KEYS,
   numberRanges: DEFAULT_NUMBER_RANGES,
   locations: [

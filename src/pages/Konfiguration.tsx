@@ -9,11 +9,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useProcessStore } from "@/store/processStore";
 import {
   DEFAULT_NUMBER_RANGES, DEFAULT_PROCESS_STEP_KEYS, PROCESS_STEPS, ProcessStepKey,
-  NumberRangeConfig, NumberRangeKey, formatDocumentNumber, normalizeNumberRanges, normalizeProcessStepKeys,
+  NumberRangeConfig, NumberRangeKey, TodoProgressPeriod, formatDocumentNumber, normalizeNumberRanges, normalizeProcessStepKeys,
 } from "@/data/process";
-import { CheckCircle2, FileText, Hash, RotateCcw, Settings as SettingsIcon, Workflow } from "lucide-react";
+import { CheckCircle2, FileText, Gauge, Hash, RotateCcw, Settings as SettingsIcon, Workflow } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { TODO_PROGRESS_PERIODS } from "@/lib/todoProgress";
 
 const Konfiguration = () => {
   const settings = useProcessStore((s) => s.settings);
@@ -75,7 +76,7 @@ const Konfiguration = () => {
         </div>
 
         <Tabs defaultValue="process" className="w-full">
-          <TabsList className="grid h-auto w-full grid-cols-2 p-1">
+          <TabsList className="grid h-auto w-full grid-cols-3 p-1">
             <TabsTrigger value="process" className="gap-2 py-2.5">
               <Workflow className="size-4" />
               <span>Vorgangskette</span>
@@ -83,6 +84,10 @@ const Konfiguration = () => {
             <TabsTrigger value="number-ranges" className="gap-2 py-2.5">
               <Hash className="size-4" />
               <span>Nummernkreise</span>
+            </TabsTrigger>
+            <TabsTrigger value="todo-focus" className="gap-2 py-2.5">
+              <Gauge className="size-4" />
+              <span>To-Do-Fokus</span>
             </TabsTrigger>
           </TabsList>
 
@@ -161,6 +166,47 @@ const Konfiguration = () => {
               );
             })}
           </div>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="todo-focus" className="mt-4">
+            <Card className="overflow-hidden border-border bg-card">
+              <div className="flex items-start gap-3 border-b border-border p-4">
+                <div className="grid size-10 shrink-0 place-items-center rounded-lg bg-primary/15 text-primary-glow">
+                  <Gauge className="size-5" />
+                </div>
+                <div>
+                  <h2 className="font-display text-lg font-semibold">Persönlicher Erledigungsfokus</h2>
+                  <p className="mt-1 max-w-2xl text-xs text-muted-foreground">
+                    Lege fest, welcher Zeitraum beim Öffnen der To-Dos standardmäßig für deinen Fortschritt verwendet wird. Auf der To-Do-Seite kannst du jederzeit spontan umschalten.
+                  </p>
+                </div>
+              </div>
+              <div className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-4">
+                {TODO_PROGRESS_PERIODS.map((option) => {
+                  const active = (settings.todoProgressPeriod ?? "week") === option.value;
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => {
+                        updateSettings({ todoProgressPeriod: option.value as TodoProgressPeriod });
+                        toast.success(`To-Do-Fokus: ${option.label}`);
+                      }}
+                      className={cn(
+                        "rounded-lg border p-3 text-left transition-smooth hover:border-primary/40 hover:bg-surface-elevated/40",
+                        active ? "border-primary/40 bg-primary/5" : "border-border bg-background/30",
+                      )}
+                    >
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-sm font-semibold text-foreground">{option.label}</p>
+                        {active && <CheckCircle2 className="size-4 text-success" />}
+                      </div>
+                      <p className="mt-1.5 text-xs leading-relaxed text-muted-foreground">{option.description}</p>
+                    </button>
+                  );
+                })}
+              </div>
             </Card>
           </TabsContent>
 
