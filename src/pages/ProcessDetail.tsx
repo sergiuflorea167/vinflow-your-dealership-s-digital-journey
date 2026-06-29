@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useProcessStore } from "@/store/processStore";
 import {
-  PROCESS_STEPS, ProcessStepKey, ProcessFields, formatCurrency, formatDate,
+  PROCESS_STEPS, ProcessStepKey, ProcessFields, PaymentMethod, formatCurrency, formatDate,
   getNextProcessStepKey, getProcessStepsForDisplay, normalizeProcessStepKeys, stepIndexIn,
   nextInvoiceNumber, nextContractNumber, nextDownPaymentInvoiceNumber, CUSTOMER_AGREEMENT_STEP_KEYS,
 } from "@/data/process";
@@ -460,6 +460,8 @@ const DOWN_PAYMENT_TERMS_OPTIONS = [
   "Zahlbar innerhalb 14 Tagen ohne Abzug",
 ];
 
+const PAYMENT_METHOD_OPTIONS: PaymentMethod[] = ["Überweisung", "Bar", "EC", "Finanzierung"];
+
 const StepFields = ({ stepKey, fields, onChange, disabled }: { stepKey: ProcessStepKey; fields: ProcessFields; onChange: (patch: Partial<ProcessFields>) => void; disabled?: boolean }) => {
   if (stepKey === "offer") return null;
   if (stepKey === "down_payment") {
@@ -469,7 +471,7 @@ const StepFields = ({ stepKey, fields, onChange, disabled }: { stepKey: ProcessS
         <DateField label="Rechnungsdatum (automatisch)" value={fields.downPayment?.invoiceDate} onChange={(v) => onChange({ downPayment: { ...fields.downPayment, invoiceDate: v } })} disabled={disabled} />
         <NumberField label="Anzahlungsbetrag (EUR) *" value={fields.downPayment?.amount} onChange={(v) => onChange({ downPayment: { ...fields.downPayment, amount: v } })} disabled={disabled} />
         <SelectField label="Zahlungsbedingung *" value={fields.downPayment?.paymentTerms ?? ""} options={DOWN_PAYMENT_TERMS_OPTIONS} onChange={(v) => onChange({ downPayment: { ...fields.downPayment, paymentTerms: v } })} disabled={disabled} />
-        <SelectField label="Zahlungsart *" value={fields.downPayment?.method ?? ""} options={["Überweisung", "Bar", "EC"]} onChange={(v) => onChange({ downPayment: { ...fields.downPayment, method: v as any } })} disabled={disabled} />
+        <SelectField label="Zahlungsart *" value={fields.downPayment?.method ?? ""} options={PAYMENT_METHOD_OPTIONS} onChange={(v) => onChange({ downPayment: { ...fields.downPayment, method: v as PaymentMethod } })} disabled={disabled} />
         <CheckboxField label="Zahlung eingegangen *" checked={!!fields.downPayment?.received} onChange={(v) => onChange({ downPayment: { ...fields.downPayment, received: v, receivedDate: v ? new Date().toISOString().slice(0, 10) : undefined } })} disabled={disabled} />
         {fields.downPayment?.received && (
           <DateField label="Zahlungseingang am" value={fields.downPayment?.receivedDate} onChange={(v) => onChange({ downPayment: { ...fields.downPayment, receivedDate: v } })} disabled={disabled} />
@@ -493,6 +495,7 @@ const StepFields = ({ stepKey, fields, onChange, disabled }: { stepKey: ProcessS
         <TextField label="Rechnungs-Nr. (automatisch)" value={fields.invoicing?.invoiceNumber} onChange={() => {}} disabled placeholder="wird automatisch vergeben" />
         <DateField label="Rechnungsdatum (automatisch)" value={fields.invoicing?.invoiceDate} onChange={(v) => onChange({ invoicing: { ...fields.invoicing, invoiceDate: v } })} disabled={disabled} />
         <SelectField label="Zahlungsbedingung *" value={fields.invoicing?.paymentTerms ?? ""} options={PAYMENT_TERMS_OPTIONS} onChange={(v) => onChange({ invoicing: { ...fields.invoicing, paymentTerms: v } })} disabled={disabled} />
+        <SelectField label="Zahlungsart *" value={fields.invoicing?.method ?? ""} options={PAYMENT_METHOD_OPTIONS} onChange={(v) => onChange({ invoicing: { ...fields.invoicing, method: v as PaymentMethod } })} disabled={disabled} />
         <CheckboxField label="Zahlung eingegangen *" checked={!!fields.invoicing?.paid} onChange={(v) => onChange({ invoicing: { ...fields.invoicing, paid: v, paidDate: v ? new Date().toISOString().slice(0, 10) : undefined } })} disabled={disabled} />
         {fields.invoicing?.paid && (
           <DateField label="Zahlungseingang am" value={fields.invoicing?.paidDate} onChange={(v) => onChange({ invoicing: { ...fields.invoicing, paidDate: v } })} disabled={disabled} />
@@ -666,7 +669,7 @@ const validateStep = (key: ProcessStepKey, f: ProcessFields, chkDone: number, ch
   }
   if (key === "invoicing") {
     const i = f.invoicing;
-    if (!i?.invoiceNumber || !i.invoiceDate || !i.paymentTerms) return { ok: false, message: "Rechnungs-Nr., Datum & Zahlungsbedingung erforderlich." };
+    if (!i?.invoiceNumber || !i.invoiceDate || !i.paymentTerms || !i.method) return { ok: false, message: "Rechnungs-Nr., Datum, Zahlungsbedingung und Zahlungsart erforderlich." };
     if (!i.paid) return { ok: false, message: "Rechnung muss als bezahlt markiert sein, bevor du weitergehst." };
     return { ok: true };
   }

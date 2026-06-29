@@ -591,7 +591,7 @@ export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, c
       ], cursor, "Zu zahlender Betrag", { showVat: !isMarginTaxed(vehicle) });
       cursor = drawSectionTitle(doc, "Zahlungsdaten", cursor);
       cursor = drawTextBlock(doc,
-        `Empfänger: ${companyName}\nIBAN: ${BANK.iban}\nBIC: ${BANK.bic}\nVerwendungszweck: ${dp?.invoiceNumber ?? process.id}\nRechnungsdatum: ${dp?.invoiceDate ? formatDate(dp.invoiceDate) : "—"}\nZahlungsbedingung: ${dp?.paymentTerms ?? (dp?.dueDate ? `Fällig am ${formatDate(dp.dueDate)}` : "Sofort fällig nach Erhalt der Rechnung")}${dp?.received ? `\nZahlung eingegangen am: ${dp.receivedDate ? formatDate(dp.receivedDate) : "—"}` : ""}\n${taxationLine(vehicle)}`,
+        `Empfänger: ${companyName}\nIBAN: ${BANK.iban}\nBIC: ${BANK.bic}\nVerwendungszweck: ${dp?.invoiceNumber ?? process.id}\nRechnungsdatum: ${dp?.invoiceDate ? formatDate(dp.invoiceDate) : "—"}\nZahlungsbedingung: ${dp?.paymentTerms ?? (dp?.dueDate ? `Fällig am ${formatDate(dp.dueDate)}` : "Sofort fällig nach Erhalt der Rechnung")}\nZahlungsart: ${dp?.method ?? "nicht angegeben"}${dp?.received ? `\nZahlung eingegangen am: ${dp.receivedDate ? formatDate(dp.receivedDate) : "—"}` : ""}\n${taxationLine(vehicle)}`,
         cursor);
       break;
     }
@@ -667,7 +667,7 @@ export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, c
       ], cursor, inv?.paid ? "Bezahlt" : "Restbetrag", { showVat: !isMarginTaxed(vehicle), vatBase: finalPrice });
       cursor = drawSectionTitle(doc, "Zahlungsdaten", cursor);
       cursor = drawTextBlock(doc,
-        `Rechnungs-Nr.: ${inv?.invoiceNumber ?? "—"}\nRechnungsdatum: ${inv?.invoiceDate ? formatDate(inv.invoiceDate) : formatDate(new Date().toISOString())}\nZahlungsbedingung: ${inv?.paymentTerms ?? (inv?.dueDate ? `Fällig am ${formatDate(inv.dueDate)}` : "Sofort fällig nach Erhalt der Rechnung")}\nIBAN: ${BANK.iban} · BIC: ${BANK.bic}\nVerwendungszweck: ${process.id}${inv?.paid ? `\nZahlungsstatus: Bezahlt${inv.paidDate ? ` am ${formatDate(inv.paidDate)}` : ""} – Vielen Dank!` : `\nDer Restbetrag von ${formatCurrency(remaining)} ist bei Fahrzeugübergabe fällig.`}\n${taxationLine(vehicle)}`,
+        `Rechnungs-Nr.: ${inv?.invoiceNumber ?? "—"}\nRechnungsdatum: ${inv?.invoiceDate ? formatDate(inv.invoiceDate) : formatDate(new Date().toISOString())}\nZahlungsbedingung: ${inv?.paymentTerms ?? (inv?.dueDate ? `Fällig am ${formatDate(inv.dueDate)}` : "Sofort fällig nach Erhalt der Rechnung")}\nZahlungsart: ${inv?.method ?? "nicht angegeben"}\nIBAN: ${BANK.iban} · BIC: ${BANK.bic}\nVerwendungszweck: ${process.id}${inv?.paid ? `\nZahlungsstatus: Bezahlt${inv.paidDate ? ` am ${formatDate(inv.paidDate)}` : ""} – Vielen Dank!` : `\nDer Restbetrag von ${formatCurrency(remaining)} ist bei Fahrzeugübergabe fällig.`}\n${taxationLine(vehicle)}`,
         cursor);
       break;
     }
@@ -825,6 +825,61 @@ const VehicleSection = (doc: jsPDF, vehicle: Vehicle, y: number, kv?: Process["f
   return cursor + 4;
 };
 
+interface PaymentOverviewRow {
+  label: string;
+  reference?: string;
+  amount: number;
+  date?: string;
+  method?: string;
+  paid: boolean;
+}
+
+const drawPaymentOverview = (doc: jsPDF, rows: PaymentOverviewRow[], y: number) => {
+  let cursor = drawSectionTitle(doc, "Zahlungsübersicht", y);
+  const x = PAGE.margin;
+  const width = PAGE.w - 2 * PAGE.margin;
+  const columns = [0, 38, 72, 104, 145, width];
+  const headerHeight = 7;
+  const rowHeight = 11;
+  const headers = ["Zahlung", "Betrag", "Zahlungsdatum", "Zahlungsart", "Status"];
+
+  setColor(doc, BRAND.light, "fill");
+  doc.rect(x, cursor, width, headerHeight, "F");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(7);
+  setColor(doc, BRAND.muted);
+  headers.forEach((header, index) => doc.text(header, x + columns[index] + 2, cursor + 4.5));
+  cursor += headerHeight;
+
+  rows.forEach((row) => {
+    setColor(doc, BRAND.border, "draw");
+    doc.setLineWidth(0.2);
+    doc.line(x, cursor + rowHeight, x + width, cursor + rowHeight);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(8.3);
+    setColor(doc, BRAND.ink);
+    doc.text(row.label, x + 2, cursor + 4.2);
+    if (row.reference) {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(6.5);
+      setColor(doc, BRAND.muted);
+      doc.text(row.reference, x + 2, cursor + 8.1);
+    }
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8.3);
+    setColor(doc, BRAND.ink);
+    doc.text(formatCurrency(row.amount), x + columns[2] - 2, cursor + 6.2, { align: "right" });
+    doc.text(row.date ? formatDate(row.date) : "—", x + columns[2] + 2, cursor + 6.2);
+    doc.text(row.method || "nicht angegeben", x + columns[3] + 2, cursor + 6.2);
+    doc.setFont("helvetica", "bold");
+    setColor(doc, row.paid ? BRAND.success : BRAND.muted);
+    doc.text(row.paid ? "Eingegangen" : "Offen", x + columns[4] + 2, cursor + 6.2);
+    cursor += rowHeight;
+  });
+
+  return cursor + 5;
+};
+
 const PriceSection = (
   doc: jsPDF,
   y: number,
@@ -840,8 +895,9 @@ const PriceSection = (
   const net = isMarginTaxed(args.vehicle) ? undefined : args.finalPrice / 1.19;
   const vat = net == null ? undefined : args.finalPrice - net;
   const tradeInValue = args.tradeIn?.value ?? 0;
+  const downPaymentAmount = args.downPayment?.amount ?? 0;
   const depositReceived = !!args.downPayment?.received && (args.downPayment.amount ?? 0) > 0;
-  const downPaymentValue = depositReceived ? args.downPayment?.amount ?? 0 : 0;
+  const downPaymentValue = depositReceived ? downPaymentAmount : 0;
   const priceItems: LineItem[] = net == null
     ? [{ description: "Kaufpreis (Differenzbesteuerung)", qty: "1", unitPrice: args.finalPrice, total: args.finalPrice }]
     : [
@@ -856,24 +912,34 @@ const PriceSection = (
   }
   cursor = drawTable(doc, priceItems, cursor, "Restkaufpreis", { showVat: false });
   const finalInvoicePaid = !!args.invoice?.paid;
-  const paidAmount = finalInvoicePaid ? Math.max(0, args.finalPrice - tradeInValue) : downPaymentValue;
-  const remaining = Math.max(0, args.finalPrice - tradeInValue - paidAmount);
-  const paymentStatus = finalInvoicePaid ? "bezahlt" : depositReceived ? "Anzahlung geleistet" : "Restzahlung offen";
-  const paymentDate = finalInvoicePaid ? args.invoice?.paidDate : depositReceived ? args.downPayment?.receivedDate : undefined;
-  const invoiceLines = [
-    args.downPayment?.invoiceNumber
-      ? `Anzahlungsrechnung ${args.downPayment.invoiceNumber}: ${formatCurrency(args.downPayment.amount ?? 0)} · ${args.downPayment.received ? "eingegangen" : "offen"}${args.downPayment.receivedDate ? ` am ${formatDate(args.downPayment.receivedDate)}` : ""}.`
-      : null,
-    args.invoice?.invoiceNumber
-      ? `Endrechnung ${args.invoice.invoiceNumber}: ${args.invoice.paid ? "bezahlt" : "offen"}${args.invoice.paidDate ? ` am ${formatDate(args.invoice.paidDate)}` : ""}.`
-      : null,
-  ].filter(Boolean).join("\n");
+  const cashPurchasePrice = Math.max(0, args.finalPrice - tradeInValue);
+  const restPaymentAmount = Math.max(0, cashPurchasePrice - downPaymentAmount);
+  const paidAmount = downPaymentValue + (finalInvoicePaid ? restPaymentAmount : 0);
+  const remaining = Math.max(0, cashPurchasePrice - paidAmount);
+  const paymentStatus = remaining === 0 ? "bezahlt" : paidAmount > 0 ? "teilbezahlt" : "offen";
+  const paymentRows: PaymentOverviewRow[] = [
+    ...(downPaymentAmount > 0 ? [{
+      label: "Anzahlung",
+      reference: args.downPayment?.invoiceNumber,
+      amount: downPaymentAmount,
+      date: depositReceived ? args.downPayment?.receivedDate : undefined,
+      method: args.downPayment?.method,
+      paid: depositReceived,
+    }] : []),
+    {
+      label: "Restzahlung",
+      reference: args.invoice?.invoiceNumber,
+      amount: restPaymentAmount,
+      date: finalInvoicePaid ? args.invoice?.paidDate : undefined,
+      method: args.invoice?.method,
+      paid: finalInvoicePaid,
+    },
+  ];
+  cursor = drawPaymentOverview(doc, paymentRows, cursor);
   cursor = drawTextBlock(doc,
     `Zahlungsstand laut Rechnungsdaten: ${paymentStatus}. ` +
-    `Gezahlter Betrag: ${formatCurrency(paidAmount)}. Offener Betrag: ${formatCurrency(remaining)}.` +
-    `${paymentDate ? ` Zahlungsdatum: ${formatDate(paymentDate)}.` : ""}\n` +
-    `${invoiceLines ? `${invoiceLines}\n` : ""}` +
-    `${taxationLine(args.vehicle)}`,
+    `Gezahlter Betrag: ${formatCurrency(paidAmount)}. Offener Betrag: ${formatCurrency(remaining)}.\n` +
+    taxationLine(args.vehicle),
     cursor, { fontSize: 9 });
   return cursor + 4;
 };
@@ -1061,7 +1127,7 @@ const buildKaufvertrag = (
     : 0;
   ensureSpace(Math.min(135 + featureHeight, 180));
   cursor = VehicleSection(doc, vehicle, cursor, kv);
-  ensureSpace(55);
+  ensureSpace(125);
   cursor = PriceSection(doc, cursor, {
     vehicle,
     finalPrice,
