@@ -104,6 +104,20 @@ export type TodoScope =
   | "order_confirmation"      // sichtbar für Kunden auf AB
   | "outbound_check";         // interne Ausgangskontroll-Checkliste
 
+export interface StoredDocument {
+  id: string;
+  name: string;
+  mimeType: string;
+  size: number;
+  storagePath: string;
+  uploadedAt: string;
+  uploadedBy: string;
+  /** Nur bei vorgangsbezogenen Dokumenten: nach Code-Prüfung im Kundenportal sichtbar. */
+  portalVisible?: boolean;
+  /** Kurzlebige, vom Backend erzeugte URL; wird nicht dauerhaft gespeichert. */
+  portalUrl?: string;
+}
+
 export interface Todo {
   id: string;
   title: string;
@@ -124,6 +138,7 @@ export interface Todo {
   createdBy: string;
   /** Auto-erzeugte Verknüpfung zu einem Calendar-Event (1:1) */
   calendarEventId?: string;
+  documents?: StoredDocument[];
 }
 
 // ---------- Kalender ----------
@@ -445,6 +460,8 @@ export interface PurchasePlan {
 
 export interface ProcessFields {
   finalPrice?: number;
+  /** Frei hochgeladene Dokumente zum Vorgang. */
+  documents?: StoredDocument[];
   /** Kryptografisch zufälliger Token für den freigegebenen Kundenportal-Link. */
   customerPortalToken?: string;
   /** Aus dem angenommenen Angebot übernommene Inzahlungnahme. */

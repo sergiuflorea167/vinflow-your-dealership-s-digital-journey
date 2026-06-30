@@ -22,13 +22,13 @@ import {
 import { Calendar as CalendarPicker } from "@/components/ui/calendar";
 import {
   AlertTriangle, Calendar, Car, CheckCircle2, Flag, Inbox,
-  Plus, Trash2, X, CalendarDays, Target, Sparkles,
+  Plus, Trash2, X, CalendarDays, Target, Sparkles, Paperclip,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useProcessStore, mirroredTodoId } from "@/store/processStore";
 import {
-  Todo, TodoPriority, TodoProgressPeriod, TodoScope, formatDate,
+  StoredDocument, Todo, TodoPriority, TodoProgressPeriod, TodoScope, formatDate,
 } from "@/data/process";
 import { useTopbarSearch } from "@/context/TopbarSearchContext";
 import { DataTableShell } from "@/components/shared/DataTableShell";
@@ -36,6 +36,7 @@ import { SortableTh, SortState } from "@/components/shared/SortableTh";
 import {
   calculateTodoProgress, TODO_PROGRESS_PERIODS, todoProgressPeriodLabel,
 } from "@/lib/todoProgress";
+import { DocumentManager } from "@/components/shared/DocumentManager";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -537,6 +538,11 @@ const Todos = () => {
                               {t.tags.map((x) => `#${x}`).join(" ")}
                             </p>
                           )}
+                          {!!t.documents?.length && (
+                            <span className="mt-0.5 inline-flex items-center gap-1 text-[10px] text-primary-glow">
+                              <Paperclip className="size-3" /> {t.documents.length} {t.documents.length === 1 ? "Dokument" : "Dokumente"}
+                            </span>
+                          )}
                         </button>
                       </td>
                       <td>
@@ -643,7 +649,7 @@ const Todos = () => {
 
       {/* Edit Dialog */}
       <Dialog open={!!editTodo} onOpenChange={(o) => !o && setEditTodo(null)}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{section === "agreements" ? "Kundenvereinbarung bearbeiten" : "To-Do bearbeiten"}</DialogTitle>
           </DialogHeader>
@@ -669,6 +675,10 @@ const Todos = () => {
                 key={editTodo.id}
                 initial={editTodo}
                 submitLabel="Speichern"
+                onDocumentsChange={(documents) => {
+                  updateTodo(editTodo.id, { documents });
+                  setEditTodo((current) => current ? { ...current, documents } : current);
+                }}
                 onSubmit={(data) => {
                   updateTodo(editTodo.id, data);
                   toast.success("To-Do aktualisiert.");
@@ -742,13 +752,14 @@ const AgreementForm = ({
 type TodoFormData = Omit<Todo, "id" | "createdAt" | "createdBy" | "done">;
 
 const TodoForm = ({
-  initial, submitLabel = "Anlegen", onSubmit, onCancel, onDelete,
+  initial, submitLabel = "Anlegen", onSubmit, onCancel, onDelete, onDocumentsChange,
 }: {
   initial?: Todo;
   submitLabel?: string;
   onSubmit: (data: TodoFormData) => void;
   onCancel: () => void;
   onDelete?: () => void;
+  onDocumentsChange?: (documents: StoredDocument[]) => void;
 }) => {
   const [title, setTitle] = useState(initial?.title ?? "");
   const [description, setDescription] = useState(initial?.description ?? "");
@@ -759,6 +770,7 @@ const TodoForm = ({
   const [endTime, setEndTime] = useState(initial?.endTime ?? "");
   const [assignee, setAssignee] = useState(initial?.assignee ?? "");
   const [tagsRaw, setTagsRaw] = useState((initial?.tags ?? []).join(", "));
+  const [documents, setDocuments] = useState<StoredDocument[]>(initial?.documents ?? []);
 
   const submit = () => {
     if (!title.trim()) {
@@ -785,6 +797,7 @@ const TodoForm = ({
       tags: tagsRaw.split(",").map((t) => t.trim()).filter(Boolean),
       vehicleId: initial?.vehicleId,
       processId: initial?.processId,
+      documents,
     });
   };
 
@@ -855,6 +868,27 @@ const TodoForm = ({
       <div className="space-y-1.5">
         <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">Tags (Komma-getrennt)</Label>
         <Input value={tagsRaw} onChange={(e) => setTagsRaw(e.target.value)} placeholder="büro, dringend, telefon" />
+      </div>
+
+      <div className="space-y-2 rounded-xl border border-border bg-background/30 p-4">
+        <div>
+          <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">Dokumentenablage</Label>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {initial ? "Unterlagen zu diesem To-do hochladen oder hineinziehen." : "Dokumente können direkt nach dem Anlegen im To-do ergänzt werden."}
+          </p>
+        </div>
+        {initial && (
+          <DocumentManager
+            documents={documents}
+            entityType="todo"
+            entityId={initial.id}
+            onChange={(next) => {
+              setDocuments(next);
+              onDocumentsChange?.(next);
+            }}
+            compact
+          />
+        )}
       </div>
 
       <DialogFooter className="gap-2 sm:justify-between">

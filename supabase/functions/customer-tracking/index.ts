@@ -70,7 +70,23 @@ Deno.serve(async (req) => {
       if (!isStoredSnapshot(data?.snapshot)) return jsonResponse({ error: "Link ist abgelaufen und muss neu erstellt werden" }, 410);
       const providedHash = await hashAccessCode(token, accessCode);
       if (providedHash !== data.snapshot.accessCodeHash) return jsonResponse({ error: "Link oder Sicherheits-Code ungültig" }, 403);
-      return jsonResponse({ snapshot: data.snapshot.payload });
+      const payload = data.snapshot.payload;
+      const process = payload.process && typeof payload.process === "object"
+        ? payload.process as Record<string, unknown>
+        : null;
+      const fields = process?.fields && typeof process.fields === "object"
+        ? process.fields as Record<string, unknown>
+        : null;
+      const documents = Array.isArray(fields?.documents) ? fields.documents : [];
+      const documentUrls: Record<string, string> = {};
+      for (const value of documents) {
+        if (!value || typeof value !== "object") continue;
+        const document = value as Record<string, unknown>;
+        if (document.portalVisible !== true || typeof document.id !== "string" || typeof document.storagePath !== "string") continue;
+        const { data: signed } = await supabase.storage.from("vinflow-documents").createSignedUrl(document.storagePath, 15 * 60);
+        if (signed?.signedUrl) documentUrls[document.id] = signed.signedUrl;
+      }
+      return jsonResponse({ snapshot: payload, documentUrls });
     }
 
     if (action === "save") {
