@@ -23,6 +23,8 @@ interface Props {
 export const CustomerPortalCard = ({ processId, customerName, customerEmail, vehicleLabel, companyName, process, vehicle, customer, offer }: Props) => {
   const [url, setUrl] = useState(() => process.fields.customerPortalToken ? buildCustomerTrackingUrl(process.fields.customerPortalToken) : "");
   const [copied, setCopied] = useState(false);
+  const [isPreparing, setIsPreparing] = useState(false);
+  const [linkError, setLinkError] = useState<string | null>(null);
   const lastSavedRef = useRef("");
   const saveInFlightRef = useRef<Promise<string> | null>(null);
   const settings = useProcessStore((s) => s.settings);
@@ -41,6 +43,8 @@ export const CustomerPortalCard = ({ processId, customerName, customerEmail, veh
     if (saveInFlightRef.current) return saveInFlightRef.current;
 
     const savePromise = (async () => {
+      setIsPreparing(true);
+      setLinkError(null);
       const token = await saveCustomerTrackingSnapshot(
         { process, vehicle, customer, offer: offer ?? null, companyName, contact },
         process.fields.customerPortalToken,
@@ -50,14 +54,19 @@ export const CustomerPortalCard = ({ processId, customerName, customerEmail, veh
       }
       const nextUrl = buildCustomerTrackingUrl(token);
       setUrl(nextUrl);
+      setLinkError(null);
       lastSavedRef.current = signature;
       return nextUrl;
     })();
     saveInFlightRef.current = savePromise;
     try {
       return await savePromise;
+    } catch (error) {
+      setLinkError(error instanceof Error ? error.message : "Kundenlink konnte nicht erstellt werden");
+      throw error;
     } finally {
       saveInFlightRef.current = null;
+      setIsPreparing(false);
     }
   }, [process, vehicle, customer, offer, companyName, contact, processId, updateProcessFields, url]);
 
@@ -120,15 +129,31 @@ export const CustomerPortalCard = ({ processId, customerName, customerEmail, veh
       </div>
 
       <div className="flex gap-2 mb-3">
-        <Input value={url} placeholder="Sicherer Link wird vorbereitet …" readOnly className="bg-background/60 font-mono text-xs" onFocus={(e) => e.currentTarget.select()} />
-        <Button size="icon" variant="outline" onClick={handleCopy} className="shrink-0">
+        <Input
+          value={url}
+          placeholder={linkError ? "Link konnte nicht erstellt werden" : "Sicherer Link wird vorbereitet …"}
+          readOnly
+          aria-invalid={!!linkError}
+          className="bg-background/60 font-mono text-xs"
+          onFocus={(e) => e.currentTarget.select()}
+        />
+        <Button size="icon" variant="outline" onClick={handleCopy} disabled={isPreparing} className="shrink-0">
           {copied ? <Check className="size-4 text-success" /> : <Copy className="size-4" />}
         </Button>
       </div>
 
+      {linkError && (
+        <div className="flex items-center justify-between gap-3 mb-3 text-xs text-destructive">
+          <span>Kundenlink konnte nicht synchronisiert werden.</span>
+          <Button size="sm" variant="outline" disabled={isPreparing} onClick={() => ensureSnapshot().catch(() => undefined)}>
+            Erneut versuchen
+          </Button>
+        </div>
+      )}
+
       <div className="flex flex-wrap gap-2">
         <Button asChild size="sm" className="gap-2 bg-gradient-brand hover:opacity-90 flex-1 min-w-[140px]">
-          <a href={url ? buildMailto(url) : "#"} onClick={handleEmail}><Mail className="size-3.5" /> Per E-Mail senden</a>
+          <a href={url ? buildMailto(url) : "#"} aria-disabled={isPreparing} onClick={handleEmail}><Mail className="size-3.5" /> Per E-Mail senden</a>
         </Button>
         <Button asChild size="sm" variant="outline" className="gap-2">
           <a href={url || "#"} target="_blank" rel="noreferrer" onClick={handlePreview}><ExternalLink className="size-3.5" /> Vorschau</a>
