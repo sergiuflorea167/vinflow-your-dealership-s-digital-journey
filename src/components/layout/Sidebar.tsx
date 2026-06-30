@@ -5,6 +5,7 @@ import {
   BarChart3, Settings as SettingsIcon, ChevronLeft, ChevronRight,
   Database, Sparkles, CalendarDays, BotMessageSquare,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,7 +13,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useT } from "@/lib/i18n";
 
-type NavItem = { to: string; labelKey: string; icon: any };
+type NavItem = { to: string; labelKey: string; icon: LucideIcon };
 type NavGroup = { labelKey: string; items: NavItem[] };
 
 const overview: NavItem[] = [

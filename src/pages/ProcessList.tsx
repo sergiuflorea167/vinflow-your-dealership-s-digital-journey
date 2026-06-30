@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { AppShell } from "@/components/layout/AppShell";
 import { Card } from "@/components/ui/card";
@@ -60,8 +60,10 @@ const ProcessList = () => {
   const processSteps = useMemo(() => getConfiguredProcessSteps(settings), [settings]);
   const lastStepKey = getLastProcessStepKey(settings.processStepKeys);
   const lastStep = processSteps[processSteps.length - 1];
-  const isProcessArchived = (p: { steps: Record<string, { status?: string } | undefined> }) =>
-    p.steps?.[lastStepKey]?.status === "completed";
+  const isProcessArchived = useCallback(
+    (p: { steps: Record<string, { status?: string } | undefined> }) => p.steps?.[lastStepKey]?.status === "completed",
+    [lastStepKey],
+  );
 
   // ---- Tabs ----
   const [tab, setTab] = useState<"list" | "archived" | "offers" | "documents">("list");
@@ -87,8 +89,8 @@ const ProcessList = () => {
     [processes, getVehicle, getCustomer]
   );
 
-  const activeEnriched = useMemo(() => enriched.filter((e) => !isProcessArchived(e.p)), [enriched, lastStepKey]);
-  const archivedEnriched = useMemo(() => enriched.filter((e) => isProcessArchived(e.p)), [enriched, lastStepKey]);
+  const activeEnriched = useMemo(() => enriched.filter((e) => !isProcessArchived(e.p)), [enriched, isProcessArchived]);
+  const archivedEnriched = useMemo(() => enriched.filter((e) => isProcessArchived(e.p)), [enriched, isProcessArchived]);
 
   const filtered = useMemo(() => {
     const list = activeEnriched.filter(({ p, vehicle, customer }) => {

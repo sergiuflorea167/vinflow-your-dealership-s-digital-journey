@@ -5,7 +5,7 @@ import { getKpi, KpiContext } from "@/lib/kpis";
 const range = { from: new Date("2026-06-01T00:00:00"), to: new Date("2026-06-30T23:59:59.999"), label: "Juni" };
 
 const vehicle = (id: string, purchasePrice: number): Vehicle => ({
-  id, vin: `VIN-${id}`, type: "Pkw", make: "Test", model: id, year: 2024,
+  id, vin: `VIN-${id}`, type: "limousine", make: "Test", model: id, year: 2024,
   fuel: "Benzin", transmission: "Automatik", power_kw: 100, power_hp: 136,
   color: "Schwarz", mileage: 10_000, listPrice: 30_000, purchasePrice,
   status: "sold", location: { name: "Hof", kind: "lot", since: "2026-01-01" },

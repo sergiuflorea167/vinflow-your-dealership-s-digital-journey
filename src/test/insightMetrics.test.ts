@@ -3,7 +3,7 @@ import { buildEmptySteps, Process, Vehicle } from "@/data/process";
 import { computeInsight, Measurement, previousRange, resolveRange } from "@/components/insights/InsightPlusBuilder";
 
 const vehicle = (id: string, purchasePrice: number, firstRegistration?: string): Vehicle => ({
-  id, vin: `VIN-${id}`, type: "Pkw", make: "Test", model: id, year: 2020,
+  id, vin: `VIN-${id}`, type: "limousine", make: "Test", model: id, year: 2020,
   fuel: "Benzin", transmission: "Automatik", power_kw: 100, power_hp: 136,
   color: "Schwarz", mileage: 10_000, firstRegistration, listPrice: 1_000, purchasePrice,
   status: "sold", location: { name: "Hof", kind: "lot", since: "2026-01-01" },

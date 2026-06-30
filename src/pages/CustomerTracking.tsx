@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import {
   CheckCircle2, Clock, Download, FileText, Lock, MapPin, Package, Phone, Mail, Car, Calendar as CalendarIcon, ShieldCheck,
@@ -6,7 +6,7 @@ import {
 import { useProcessStore } from "@/store/processStore";
 import { ProcessStepKey, formatCurrency, formatDate, getProcessStepsForDisplay, stepIndexIn } from "@/data/process";
 import { findProcessIdForToken, loadCustomerTrackingSnapshot, type CustomerTrackingSnapshot } from "@/lib/customerLink";
-import { buildCustomerAccessCode, matchesCustomerAccessCode, normalizeAccessCode } from "@/lib/customerCode";
+import { matchesCustomerAccessCode } from "@/lib/customerCode";
 import { downloadBelegPdf } from "@/lib/pdf";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -16,24 +16,10 @@ import logo from "@/assets/logo.png";
 const CustomerTracking = () => {
   const { token } = useParams<{ token: string }>();
   const [remoteSnapshot, setRemoteSnapshot] = useState<CustomerTrackingSnapshot | null>(null);
-  const [loadingRemote, setLoadingRemote] = useState(true);
+  const [loadingRemote, setLoadingRemote] = useState(false);
   const processes = useProcessStore((s) => s.processes);
   const storeCompanyName = useProcessStore((s) => s.settings.companyName);
   const pdfTheme = useProcessStore((s) => s.settings.pdfTheme);
-
-  useEffect(() => {
-    let active = true;
-    if (!token) {
-      setLoadingRemote(false);
-      return;
-    }
-    setLoadingRemote(true);
-    loadCustomerTrackingSnapshot(token)
-      .then((snapshot) => { if (active) setRemoteSnapshot(snapshot); })
-      .catch(() => { if (active) setRemoteSnapshot(null); })
-      .finally(() => { if (active) setLoadingRemote(false); });
-    return () => { active = false; };
-  }, [token]);
 
   const localProcessId = useMemo(
     () => (token ? findProcessIdForToken(token, processes.map((p) => p.id)) : undefined),
@@ -59,25 +45,10 @@ const CustomerTracking = () => {
   };
 
   // Sicherheits-Code Gate – bei jedem Seiten-Reload neu anfordern (kein Persistieren).
-  const [codeInput, setCodeInput] = useState("");
   const [codeError, setCodeError] = useState<string | null>(null);
   const [unlocked, setUnlocked] = useState(false);
 
-  if (loadingRemote && (!localProcess || !localVehicle || !localCustomer)) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/10 grid place-items-center p-6">
-        <div className="max-w-md text-center space-y-4">
-          <div className="size-16 rounded-2xl bg-card border border-border grid place-items-center mx-auto">
-            <Clock className="size-7 text-primary-glow animate-pulse" />
-          </div>
-          <h1 className="font-display text-2xl font-bold">Vorgang wird geladen</h1>
-          <p className="text-sm text-muted-foreground">Einen Moment bitte, der Kundenlink wird synchronisiert.</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!process || !vehicle || !customer) {
+  if (!token) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/10 grid place-items-center p-6">
         <div className="max-w-md text-center space-y-4">
@@ -112,12 +83,24 @@ const CustomerTracking = () => {
           </p>
 
           <SegmentedCodeInput
-            onSubmit={(value) => {
-              if (matchesCustomerAccessCode(value, customer)) {
+            loading={loadingRemote}
+            onSubmit={async (value) => {
+              if (localCustomer && matchesCustomerAccessCode(value, localCustomer)) {
                 setCodeError(null);
                 setUnlocked(true);
-              } else {
+                return;
+              }
+              setLoadingRemote(true);
+              try {
+                const snapshot = await loadCustomerTrackingSnapshot(token, value);
+                if (!snapshot) throw new Error("Snapshot fehlt");
+                setRemoteSnapshot(snapshot);
+                setCodeError(null);
+                setUnlocked(true);
+              } catch {
                 setCodeError("Code ist nicht korrekt. Bitte prüfen Sie Ihre Angaben.");
+              } finally {
+                setLoadingRemote(false);
               }
             }}
             error={codeError}
@@ -125,6 +108,22 @@ const CustomerTracking = () => {
 
           <p className="text-xs text-muted-foreground text-center">
             Aus Sicherheitsgründen geschützt. Bei Problemen wenden Sie sich bitte an Ihren Händler.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!process || !vehicle || !customer) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/10 grid place-items-center p-6">
+        <div className="max-w-md text-center space-y-4">
+          <div className="size-16 rounded-2xl bg-card border border-border grid place-items-center mx-auto">
+            <Lock className="size-7 text-muted-foreground" />
+          </div>
+          <h1 className="font-display text-2xl font-bold">Link nicht gültig</h1>
+          <p className="text-sm text-muted-foreground">
+            Dieser Vorgangs-Link existiert nicht oder ist abgelaufen. Bitte wenden Sie sich an Ihren Händler.
           </p>
         </div>
       </div>
@@ -409,9 +408,11 @@ const sanitizeSegment = (raw: string, mode: Segment["mode"]) => {
 const SegmentedCodeInput = ({
   onSubmit,
   error,
+  loading,
 }: {
-  onSubmit: (value: string) => void;
+  onSubmit: (value: string) => void | Promise<void>;
   error: string | null;
+  loading: boolean;
 }) => {
   const [values, setValues] = useState<string[]>(() => SEGMENTS.map(() => ""));
   const refs = useRef<Array<HTMLInputElement | null>>([]);
@@ -515,10 +516,10 @@ const SegmentedCodeInput = ({
 
       <Button
         type="submit"
-        disabled={!allFilled}
+        disabled={!allFilled || loading}
         className="w-full bg-gradient-brand hover:opacity-90"
       >
-        Vorgang öffnen
+        {loading ? "Wird sicher geprüft …" : "Vorgang öffnen"}
       </Button>
     </form>
   );

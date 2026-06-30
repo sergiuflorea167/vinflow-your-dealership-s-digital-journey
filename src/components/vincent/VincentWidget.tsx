@@ -116,14 +116,14 @@ export const VincentWidget = () => {
           } catch { /* ignore parse errors on non-data chunks */ }
         }
       }
-    } catch (e: any) {
+    } catch (error: unknown) {
       setMessages((m) => {
         const copy = [...m];
         copy[copy.length - 1] = {
           role: "assistant",
           content:
             (lang === "en" ? "⚠️ Error: " : "⚠️ Fehler: ") +
-            (e?.message ?? "unknown"),
+            (error instanceof Error ? error.message : "unknown"),
         };
         return copy;
       });

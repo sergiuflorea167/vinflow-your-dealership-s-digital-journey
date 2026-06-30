@@ -10,7 +10,7 @@ import { GoalsPanel } from "@/components/dashboard/GoalsPanel";
 import { DashboardHero } from "@/components/dashboard/DashboardHero";
 import { PinnedKpiGrid } from "@/components/dashboard/PinnedKpiGrid";
 import { useProcessStore } from "@/store/processStore";
-import { PROCESS_STEPS, TodoPriority, CALENDAR_EVENT_TYPE_LABELS, CalendarEventType, getConfiguredProcessSteps, getLastProcessStepKey } from "@/data/process";
+import { PROCESS_STEPS, TodoPriority, CALENDAR_EVENT_TYPE_LABELS, CalendarEventType, Vehicle, getConfiguredProcessSteps, getLastProcessStepKey } from "@/data/process";
 import { ArrowUpRight, Settings2, CalendarCheck2, Car, CalendarDays, Clock, MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useT } from "@/lib/i18n";
@@ -84,9 +84,9 @@ const Dashboard = () => {
   }, [realEvents, todayISO, workshopActive]);
 
   const vehicleMap = useMemo(() => {
-    if (workshopActive) return DEMO_VEHICLE_MAP as any;
+    if (workshopActive) return DEMO_VEHICLE_MAP;
     return Object.fromEntries(realVehicles.map((v) => [v.id, v]));
-  }, [realVehicles, workshopActive]);
+  }, [realVehicles, workshopActive]) as Record<string, Pick<Vehicle, "id" | "make" | "model">>;
 
   return (
     <AppShell>

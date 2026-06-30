@@ -116,7 +116,9 @@ export const WorkshopPilot = ({ active, step, steps, rootRoute, labelPrefix, nex
     if (!active) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") stop();
-      if (e.key === "ArrowRight" || e.key === "Enter") isLast ? stop() : next();
+      if (e.key === "ArrowRight" || e.key === "Enter") {
+        if (isLast) stop(); else next();
+      }
       if (e.key === "ArrowLeft") prev();
     };
     window.addEventListener("keydown", onKey);

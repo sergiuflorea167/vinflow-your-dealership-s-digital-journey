@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, ReactNode } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { startOrgStateSync, stopOrgStateSync } from "@/lib/orgStateSync";
@@ -41,34 +41,54 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [organization, setOrganization] = useState<Organization | null>(null);
   const [roles, setRoles] = useState<AppRole[]>([]);
   const [loading, setLoading] = useState(true);
+  const profileRequestRef = useRef(0);
 
   const loadProfile = async (uid: string) => {
-    const { data: prof } = await supabase
+    const requestId = ++profileRequestRef.current;
+    const { data: prof, error: profileError } = await supabase
       .from("profiles")
       .select("*")
       .eq("id", uid)
       .maybeSingle();
+    if (requestId !== profileRequestRef.current) return;
+    if (profileError) {
+      setProfile(null);
+      setOrganization(null);
+      setRoles([]);
+      stopOrgStateSync();
+      throw profileError;
+    }
     setProfile(prof as Profile | null);
 
     if (prof?.organization_id) {
-      const { data: org } = await supabase
+      const [{ data: org, error: orgError }, { data: rs, error: rolesError }] = await Promise.all([
+        supabase
         .from("organizations")
         .select("*")
         .eq("id", prof.organization_id)
-        .maybeSingle();
+        .maybeSingle(),
+        supabase
+          .from("user_roles")
+          .select("role")
+          .eq("user_id", uid)
+          .eq("organization_id", prof.organization_id),
+      ]);
+      if (requestId !== profileRequestRef.current) return;
+      if (orgError || rolesError) {
+        setOrganization(null);
+        setRoles([]);
+        stopOrgStateSync();
+        throw orgError ?? rolesError;
+      }
       setOrganization(org as Organization | null);
-      // Daten aus Supabase laden + Live-Sync starten
-      void startOrgStateSync(prof.organization_id, uid);
+      setRoles(((rs ?? []) as { role: AppRole }[]).map((r) => r.role));
+      await startOrgStateSync(prof.organization_id, uid);
+      if (requestId !== profileRequestRef.current) stopOrgStateSync();
     } else {
       setOrganization(null);
+      setRoles([]);
       stopOrgStateSync();
     }
-
-    const { data: rs } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", uid);
-    setRoles(((rs ?? []) as { role: AppRole }[]).map((r) => r.role));
   };
 
   useEffect(() => {
@@ -76,8 +96,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setSession(sess);
       setUser(sess?.user ?? null);
       if (sess?.user) {
-        setTimeout(() => loadProfile(sess.user.id), 0);
+        setTimeout(() => {
+          void loadProfile(sess.user.id).catch((error) => console.error("[auth] profile load failed", error));
+        }, 0);
       } else {
+        profileRequestRef.current++;
         setProfile(null);
         setOrganization(null);
         setRoles([]);
@@ -88,7 +111,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     supabase.auth.getSession().then(({ data: { session: sess } }) => {
       setSession(sess);
       setUser(sess?.user ?? null);
-      if (sess?.user) loadProfile(sess.user.id).finally(() => setLoading(false));
+      if (sess?.user) {
+        loadProfile(sess.user.id)
+          .catch((error) => console.error("[auth] initial profile load failed", error))
+          .finally(() => setLoading(false));
+      }
       else setLoading(false);
     });
 
@@ -96,6 +123,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const signOut = async () => {
+    profileRequestRef.current++;
     stopOrgStateSync();
     await supabase.auth.signOut();
   };

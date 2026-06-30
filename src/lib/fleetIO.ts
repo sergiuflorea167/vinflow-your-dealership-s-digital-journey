@@ -191,7 +191,7 @@ export interface FieldDef {
   /** Wert aus Vehicle für Export ableiten. */
   get: (v: Vehicle, ctx?: ExportContext) => string | number | undefined;
   /** Wert beim Import in das Payload schreiben (optional → Spalte nur Export). */
-  set?: (acc: ImportAccumulator, raw: any) => void;
+  set?: (acc: ImportAccumulator, raw: unknown) => void;
   /** Zusätzliche akzeptierte Header-Schreibweisen beim Import. */
   aliases?: string[];
 }
@@ -219,13 +219,14 @@ interface ImportAccumulator {
   locationName?: string;
   status?: VehicleStatus;
   sold?: boolean;
+  listed?: boolean;
   arrivedAt?: string;     // Kaufdatum
   listedAt?: string;
   soldAt?: string;
   notes?: string;
 }
 
-const num = (raw: any): number => {
+const num = (raw: unknown): number => {
   if (raw == null || raw === "") return 0;
   if (typeof raw === "number") return raw;
   const s = String(raw).replace(/[€\s]/g, "").replace(/\./g, "").replace(",", ".");
@@ -233,13 +234,13 @@ const num = (raw: any): number => {
   return Number.isFinite(n) ? n : 0;
 };
 
-const parseBool = (raw: any): boolean => {
+const parseBool = (raw: unknown): boolean => {
   if (typeof raw === "boolean") return raw;
   const s = String(raw ?? "").trim().toLowerCase();
   return ["wahr", "true", "ja", "y", "x", "1"].includes(s);
 };
 
-const parseDate = (raw: any): string | undefined => {
+const parseDate = (raw: unknown): string | undefined => {
   if (!raw) return undefined;
   // Excel serial number?
   if (typeof raw === "number" && raw > 25000 && raw < 80000) {
@@ -255,7 +256,9 @@ const parseDate = (raw: any): string | undefined => {
     const [, d, m, y] = de;
     const year = y.length === 2 ? 2000 + Number(y) : Number(y);
     const iso = new Date(Date.UTC(year, Number(m) - 1, Number(d)));
-    if (!isNaN(iso.getTime())) return iso.toISOString();
+    if (iso.getUTCFullYear() === year && iso.getUTCMonth() === Number(m) - 1 && iso.getUTCDate() === Number(d)) {
+      return iso.toISOString();
+    }
   }
   // ISO / yyyy-mm-dd
   const d = new Date(s);
@@ -323,8 +326,8 @@ export const FIELD_DEFS: FieldDef[] = [
     set: (a, raw) => {
       const s = String(raw ?? "").trim();
       // Nur Jahr (z.B. "2010") → 01.01.2010
-      if (/^\d{4}$/.test(s)) a.firstRegistration = `01.01.${s}`;
-      else a.firstRegistration = s;
+      if (/^\d{4}$/.test(s)) a.firstRegistration = `${s}-01-01`;
+      else a.firstRegistration = parseDate(s)?.slice(0, 10);
       // Baujahr aus EZ ableiten, falls separat fehlend
       const y = s.match(/(\d{4})/);
       if (y && !a.year) a.year = Number(y[1]);
@@ -379,9 +382,7 @@ export const FIELD_DEFS: FieldDef[] = [
   { key: "listed", header: "Inseriert", group: "status", defaultEnabled: true,
     get: (v) => (v.listed?.active ? "WAHR" : "FALSCH"),
     set: (a, raw) => {
-      const b = parseBool(raw);
-      a.listedAt = a.listedAt; // keep
-      (a as any).__listedFlag = b;
+      a.listed = parseBool(raw);
     } },
 
   // --- Daten (Datumsfelder) ---
@@ -509,7 +510,7 @@ export interface ImportResult {
 /** Liest nur die Header-Zeile aus und liefert die roh enthaltenen Zeilen zurück. */
 export interface ParsedFile {
   headers: string[];
-  rawRows: Record<string, any>[];
+  rawRows: Record<string, unknown>[];
 }
 
 export const readFile = async (file: File): Promise<ParsedFile> => {
@@ -560,7 +561,7 @@ export const buildImportResult = (
 };
 
 const parseRow = (
-  raw: Record<string, any>,
+  raw: Record<string, unknown>,
   rowNumber: number,
   mapping: Record<string, string | null>,
   defaultLocation: string,
@@ -609,7 +610,7 @@ const parseRow = (
 
   const hp = acc.power_hp ?? 0;
   const arrivedAt = acc.arrivedAt ?? new Date().toISOString();
-  const listedFlag = (acc as any).__listedFlag === true || !!acc.listedAt;
+  const listedFlag = acc.listed ?? !!acc.listedAt;
 
   const payload: VehicleIntakePayload = {
     vin: acc.vin!,
@@ -637,7 +638,7 @@ const parseRow = (
       since: arrivedAt,
     },
     status,
-    soldAt: status === "sold" ? (acc.soldAt ?? new Date().toISOString()) : undefined,
+    soldAt: status === "sold" ? acc.soldAt : undefined,
     listed: listedFlag ? { active: true, listedAt: acc.listedAt } : undefined,
     notes: acc.notes,
   };
