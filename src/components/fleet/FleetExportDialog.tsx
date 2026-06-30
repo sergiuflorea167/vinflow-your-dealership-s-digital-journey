@@ -34,7 +34,7 @@ const loadInitial = (): string[] => {
       const valid = parsed.filter((k) => FIELD_DEFS.some((f) => f.key === k));
       if (valid.length > 0) return valid;
     }
-  } catch {}
+  } catch { /* localStorage may be unavailable */ }
   return DEFAULT_EXPORT_KEYS;
 };
 
@@ -47,7 +47,7 @@ export const FleetExportDialog = ({ open, onOpenChange, totalCount, onExport, on
 
   const save = (next: string[]) => {
     setSelected(next);
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); } catch {}
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(next)); } catch { /* localStorage may be unavailable */ }
   };
 
   const toggle = (key: string) => {

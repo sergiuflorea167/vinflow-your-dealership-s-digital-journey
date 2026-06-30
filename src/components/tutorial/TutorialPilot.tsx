@@ -197,7 +197,9 @@ export const TutorialPilot = () => {
     if (!active) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") skip();
-      if (e.key === "ArrowRight" || e.key === "Enter") isLast ? finish() : next();
+      if (e.key === "ArrowRight" || e.key === "Enter") {
+        if (isLast) finish(); else next();
+      }
       if (e.key === "ArrowLeft") prev();
     };
     window.addEventListener("keydown", onKey);

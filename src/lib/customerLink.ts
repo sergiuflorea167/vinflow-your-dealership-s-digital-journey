@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Customer, Offer, Process, Vehicle } from "@/data/process";
+import { buildCustomerAccessCode } from "@/lib/customerCode";
 
 // Erzeugt einen Token, der die Process-ID enthält, damit der Kunde den Link
 // auch auf einem anderen Gerät / Browser öffnen kann.
@@ -32,10 +33,6 @@ const hash = (input: string): string => {
   return h.toString(16).padStart(8, "0");
 };
 
-// URL-safe base64
-const b64encode = (s: string): string =>
-  btoa(unescape(encodeURIComponent(s))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-
 const b64decode = (s: string): string => {
   try {
     const pad = s.length % 4 === 0 ? "" : "=".repeat(4 - (s.length % 4));
@@ -45,33 +42,35 @@ const b64decode = (s: string): string => {
   }
 };
 
-export const tokenForProcess = (processId: string): string => {
-  const sig = hash(`${SALT}:${processId}`);
-  // Format: <base64(processId)>.<sig>
-  return `${b64encode(processId)}.${sig}`;
-};
-
-export const buildCustomerTrackingUrl = (processId: string): string => {
-  const token = tokenForProcess(processId);
+export const buildCustomerTrackingUrl = (token: string): string => {
   return `${window.location.origin}/track/${token}`;
 };
 
-export const saveCustomerTrackingSnapshot = async (snapshot: Omit<CustomerTrackingSnapshot, "savedAt">) => {
-  const token = tokenForProcess(snapshot.process.id);
-  const { error } = await supabase.functions.invoke("customer-tracking", {
+export const saveCustomerTrackingSnapshot = async (
+  snapshot: Omit<CustomerTrackingSnapshot, "savedAt">,
+  existingToken?: string,
+): Promise<string> => {
+  const safeProcess: Process = {
+    ...snapshot.process,
+    fields: { ...snapshot.process.fields, customerPortalToken: undefined },
+  };
+  const { data, error } = await supabase.functions.invoke("customer-tracking", {
     body: {
       action: "save",
-      token,
+      token: existingToken,
       processId: snapshot.process.id,
-      snapshot: { ...snapshot, savedAt: new Date().toISOString() },
+      accessCode: buildCustomerAccessCode(snapshot.customer),
+      snapshot: { ...snapshot, process: safeProcess, savedAt: new Date().toISOString() },
     },
   });
   if (error) throw error;
+  if (typeof data?.token !== "string") throw new Error("Kundenportal-Token fehlt");
+  return data.token;
 };
 
-export const loadCustomerTrackingSnapshot = async (token: string): Promise<CustomerTrackingSnapshot | null> => {
+export const loadCustomerTrackingSnapshot = async (token: string, accessCode: string): Promise<CustomerTrackingSnapshot | null> => {
   const { data, error } = await supabase.functions.invoke("customer-tracking", {
-    body: { action: "load", token },
+    body: { action: "load", token, accessCode },
   });
   if (error) throw error;
   return (data?.snapshot ?? null) as CustomerTrackingSnapshot | null;

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Copy, Check, ExternalLink, Mail, Link2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -21,24 +21,45 @@ interface Props {
 }
 
 export const CustomerPortalCard = ({ processId, customerName, customerEmail, vehicleLabel, companyName, process, vehicle, customer, offer }: Props) => {
-  const url = buildCustomerTrackingUrl(processId);
+  const [url, setUrl] = useState(() => process.fields.customerPortalToken ? buildCustomerTrackingUrl(process.fields.customerPortalToken) : "");
   const [copied, setCopied] = useState(false);
   const lastSavedRef = useRef("");
+  const saveInFlightRef = useRef<Promise<string> | null>(null);
   const settings = useProcessStore((s) => s.settings);
+  const updateProcessFields = useProcessStore((s) => s.updateProcessFields);
 
-  const contact: ContactPerson = {
+  const contact: ContactPerson = useMemo(() => ({
     name: settings.userName || [settings.firstName, settings.lastName].filter(Boolean).join(" ") || "Ihr Ansprechpartner",
     email: settings.email || "",
     phone: settings.phone || "",
     role: settings.role,
-  };
+  }), [settings.email, settings.firstName, settings.lastName, settings.phone, settings.role, settings.userName]);
 
   const ensureSnapshot = useCallback(async () => {
     const signature = JSON.stringify({ process, vehicle, customer, offer, companyName, contact });
-    if (lastSavedRef.current === signature) return;
-    await saveCustomerTrackingSnapshot({ process, vehicle, customer, offer: offer ?? null, companyName, contact });
-    lastSavedRef.current = signature;
-  }, [process, vehicle, customer, offer, companyName, contact]);
+    if (lastSavedRef.current === signature && url) return url;
+    if (saveInFlightRef.current) return saveInFlightRef.current;
+
+    const savePromise = (async () => {
+      const token = await saveCustomerTrackingSnapshot(
+        { process, vehicle, customer, offer: offer ?? null, companyName, contact },
+        process.fields.customerPortalToken,
+      );
+      if (token !== process.fields.customerPortalToken) {
+        updateProcessFields(processId, { customerPortalToken: token });
+      }
+      const nextUrl = buildCustomerTrackingUrl(token);
+      setUrl(nextUrl);
+      lastSavedRef.current = signature;
+      return nextUrl;
+    })();
+    saveInFlightRef.current = savePromise;
+    try {
+      return await savePromise;
+    } finally {
+      saveInFlightRef.current = null;
+    }
+  }, [process, vehicle, customer, offer, companyName, contact, processId, updateProcessFields, url]);
 
   useEffect(() => {
     ensureSnapshot().catch(() => undefined);
@@ -46,8 +67,8 @@ export const CustomerPortalCard = ({ processId, customerName, customerEmail, veh
 
   const handleCopy = async () => {
     try {
-      await ensureSnapshot();
-      await navigator.clipboard.writeText(url);
+      const currentUrl = await ensureSnapshot();
+      await navigator.clipboard.writeText(currentUrl);
       setCopied(true);
       toast.success("Link kopiert");
       setTimeout(() => setCopied(false), 2000);
@@ -59,24 +80,26 @@ export const CustomerPortalCard = ({ processId, customerName, customerEmail, veh
   const handlePreview = async (event: React.MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault();
     try {
-      await ensureSnapshot();
-      window.open(url, "_blank", "noopener,noreferrer");
+      const currentUrl = await ensureSnapshot();
+      window.open(currentUrl, "_blank", "noopener,noreferrer");
     } catch {
       toast.error("Konnte Kundenlink nicht synchronisieren");
     }
   };
 
-  const subject = encodeURIComponent(`Ihre Unterlagen & Status zu ${vehicleLabel}`);
-  const body = encodeURIComponent(
-    `Hallo ${customerName},\n\nüber den folgenden persönlichen Link können Sie jederzeit den Status Ihres Auftrags verfolgen und alle Belege einsehen:\n\n${url}\n\nViele Grüße\n${companyName}`
-  );
-  const mailto = `mailto:${customerEmail}?subject=${subject}&body=${body}`;
+  const buildMailto = (currentUrl: string) => {
+    const subject = encodeURIComponent(`Ihre Unterlagen & Status zu ${vehicleLabel}`);
+    const body = encodeURIComponent(
+      `Hallo ${customerName},\n\nüber den folgenden persönlichen Link können Sie jederzeit den Status Ihres Auftrags verfolgen und alle Belege einsehen:\n\n${currentUrl}\n\nViele Grüße\n${companyName}`
+    );
+    return `mailto:${customerEmail}?subject=${subject}&body=${body}`;
+  };
 
   const handleEmail = async (event: React.MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault();
     try {
-      await ensureSnapshot();
-      window.location.href = mailto;
+      const currentUrl = await ensureSnapshot();
+      window.location.href = buildMailto(currentUrl);
     } catch {
       toast.error("Konnte Kundenlink nicht synchronisieren");
     }
@@ -97,7 +120,7 @@ export const CustomerPortalCard = ({ processId, customerName, customerEmail, veh
       </div>
 
       <div className="flex gap-2 mb-3">
-        <Input value={url} readOnly className="bg-background/60 font-mono text-xs" onFocus={(e) => e.currentTarget.select()} />
+        <Input value={url} placeholder="Sicherer Link wird vorbereitet …" readOnly className="bg-background/60 font-mono text-xs" onFocus={(e) => e.currentTarget.select()} />
         <Button size="icon" variant="outline" onClick={handleCopy} className="shrink-0">
           {copied ? <Check className="size-4 text-success" /> : <Copy className="size-4" />}
         </Button>
@@ -105,10 +128,10 @@ export const CustomerPortalCard = ({ processId, customerName, customerEmail, veh
 
       <div className="flex flex-wrap gap-2">
         <Button asChild size="sm" className="gap-2 bg-gradient-brand hover:opacity-90 flex-1 min-w-[140px]">
-          <a href={mailto} onClick={handleEmail}><Mail className="size-3.5" /> Per E-Mail senden</a>
+          <a href={url ? buildMailto(url) : "#"} onClick={handleEmail}><Mail className="size-3.5" /> Per E-Mail senden</a>
         </Button>
         <Button asChild size="sm" variant="outline" className="gap-2">
-          <a href={url} target="_blank" rel="noreferrer" onClick={handlePreview}><ExternalLink className="size-3.5" /> Vorschau</a>
+          <a href={url || "#"} target="_blank" rel="noreferrer" onClick={handlePreview}><ExternalLink className="size-3.5" /> Vorschau</a>
         </Button>
       </div>
     </Card>

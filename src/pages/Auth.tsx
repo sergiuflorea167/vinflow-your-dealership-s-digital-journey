@@ -281,7 +281,7 @@ const Auth = () => {
                     ) : (
                       <div>
                         <Label className="text-xs flex items-center gap-1"><KeyRound className="size-3" /> Einladungs-Code</Label>
-                        <Input value={inviteCode} onChange={(e) => setInviteCode(e.target.value.toUpperCase())} placeholder="z.B. A1B2C3D4" required className="uppercase tracking-wider" />
+                        <Input value={inviteCode} onChange={(e) => setInviteCode(e.target.value.toUpperCase())} placeholder="z. B. A1B2C3D4E5F6" required className="uppercase tracking-wider" />
                         <p className="text-[10px] text-muted-foreground mt-1">Frage deinen Geschäftsführer nach dem Code.</p>
                       </div>
                     )}

@@ -2,10 +2,13 @@
 // Einzige Quelle: freevindecoder.eu. Es wird KEINE KI-Anreicherung mehr
 // verwendet, damit die Ergebnisse deterministisch und nachvollziehbar sind.
 
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
 type Decoded = {
@@ -44,9 +47,9 @@ const TYPE_MAP: Record<string, string> = {
   convertible: "cabrio",
   cabriolet: "cabrio",
   roadster: "cabrio",
-  van: "van",
-  minivan: "van",
-  pickup: "pickup",
+  van: "transporter",
+  minivan: "transporter",
+  pickup: "transporter",
   truck: "transporter",
 };
 const FUEL_MAP: Record<string, string> = {
@@ -135,6 +138,7 @@ async function decodeViaFreeVinDecoder(vin: string): Promise<Decoded | null> {
       "Accept-Language": "en-US,en;q=0.9",
     },
     redirect: "follow",
+    signal: AbortSignal.timeout(12_000),
   });
   if (!res.ok) return null;
   const html = await res.text();
@@ -180,12 +184,18 @@ async function decodeViaFreeVinDecoder(vin: string): Promise<Decoded | null> {
   const hpMatch = hpRaw?.match(/\d+(?:[.,]\d+)?/);
   const kwMatch = kwRaw?.match(/\d+(?:[.,]\d+)?/);
   let power_hp: number | undefined;
-  if (hpMatch) power_hp = Math.round(Number(hpMatch[0].replace(",", ".")));
+  if (hpMatch) {
+    const parsed = Number(hpMatch[0].replace(",", "."));
+    power_hp = Math.round(/\bkw\b/i.test(hpRaw ?? "") && !/\b(hp|ps)\b/i.test(hpRaw ?? "") ? parsed * 1.35962 : parsed);
+  }
   else if (kwMatch) power_hp = Math.round(Number(kwMatch[0].replace(",", ".")) * 1.35962);
 
   let displacement_l: number | undefined;
   const displMatch = displRaw?.match(/\d+(?:[.,]\d+)?/);
-  if (displMatch) displacement_l = Number(displMatch[0].replace(",", "."));
+  if (displMatch) {
+    const parsed = Number(displMatch[0].replace(",", "."));
+    displacement_l = parsed > 20 ? Math.round(parsed / 100) / 10 : parsed;
+  }
   else if (displSi) {
     const m = displSi.match(/\d+/);
     if (m) displacement_l = Math.round(Number(m[0]) / 100) / 10;
@@ -206,7 +216,7 @@ async function decodeViaFreeVinDecoder(vin: string): Promise<Decoded | null> {
     doors: rows["number of doors"] || undefined,
     seats: rows["number of seats"] || undefined,
     source: "freevindecoder.eu",
-    source_url: `${SOURCE_URL}/${vin}`,
+    source_url: `${SOURCE_URL}/en/${vin}`,
     raw: rows,
   };
 }
@@ -214,9 +224,25 @@ async function decodeViaFreeVinDecoder(vin: string): Promise<Decoded | null> {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
+    const authorization = req.headers.get("Authorization") ?? "";
+    if (!supabaseUrl || !anonKey) throw new Error("Backend nicht konfiguriert");
+    const authClient = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: authorization } },
+      auth: { persistSession: false },
+    });
+    const { data: authData, error: authError } = await authClient.auth.getUser();
+    if (authError || !authData.user) {
+      return new Response(JSON.stringify({ error: "Anmeldung erforderlich" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const { vin } = await req.json();
     const v = String(vin ?? "").trim().toUpperCase();
-    if (v.length < 11 || v.length > 17) {
+    if (!/^[A-HJ-NPR-Z0-9]{11,17}$/.test(v)) {
       return new Response(JSON.stringify({ error: "VIN ungültig" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -229,7 +255,7 @@ Deno.serve(async (req) => {
       return new Response(
         JSON.stringify({
           error: "VIN konnte über freevindecoder.eu nicht dekodiert werden",
-          source_url: `${SOURCE_URL}/${v}`,
+        source_url: `${SOURCE_URL}/en/${v}`,
         }),
         { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );

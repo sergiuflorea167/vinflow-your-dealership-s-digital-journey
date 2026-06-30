@@ -91,7 +91,7 @@ interface State {
 
   // ------- Vehicle -------
   addVehicle: (v: Omit<Vehicle, "id" | "status" | "locationHistory" | "costs"> & { status?: Vehicle["status"]; locationHistory?: VehicleLocation[]; costs?: CostEntry[] }) => Vehicle;
-  updateVehicle: (vehicleId: string, patch: Partial<Vehicle>) => void;
+  updateVehicle: (vehicleId: string, patch: Partial<Omit<Vehicle, "id">>) => void;
   changeVehicleLocation: (vehicleId: string, location: VehicleLocation) => void;
   addVehicleCost: (vehicleId: string, cost: Omit<CostEntry, "id" | "createdAt" | "createdBy">) => void;
   removeVehicleCost: (vehicleId: string, costId: string) => void;
@@ -158,7 +158,21 @@ const nextNumericId = (prefix: string, list: { id: string }[]) => {
   return `${prefix}-${String(max + 1).padStart(4, "0")}`;
 };
 
-const randomId = (prefix: string) => `${prefix}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+const nextYearId = (prefix: string, list: { id: string }[], width: number, minimum = 1) => {
+  const year = new Date().getFullYear();
+  const pattern = new RegExp(`^${prefix}-${year}-(\\d+)$`);
+  const sequences = list.flatMap(({ id }) => {
+    const match = id.match(pattern);
+    return match ? [Number(match[1])] : [];
+  });
+  const next = Math.max(minimum - 1, ...sequences) + 1;
+  return `${prefix}-${year}-${String(next).padStart(width, "0")}`;
+};
+
+const randomId = (prefix: string) => {
+  const uuid = globalThis.crypto?.randomUUID?.();
+  return `${prefix}-${uuid ? uuid.replace(/-/g, "").slice(0, 12).toUpperCase() : Math.random().toString(36).slice(2, 14).toUpperCase()}`;
+};
 
 export const DATA_VERSION = "2026-05-30-supabase-v1";
 
@@ -301,28 +315,31 @@ export const useProcessStore = create<State>()(
           set((state) => {
             const process = state.processes.find((p) => p.id === processId);
             if (!process) return state;
+            const record = process.steps[stepKey];
+            if (process.currentStep !== stepKey || record?.status !== "active") return state;
             const idx = stepIndex(stepKey);
             const activeStepKeys = normalizeProcessStepKeys(state.settings.processStepKeys);
             const nextStepKey = getNextProcessStepKey(stepKey, activeStepKeys);
             const nextStep = nextStepKey ? PROCESS_STEPS.find((s) => s.key === nextStepKey) : undefined;
             const isLastStep = !nextStepKey;
 
+            const completedAt = new Date().toISOString();
             const updatedProcesses = state.processes.map((p) => {
               if (p.id !== processId) return p;
               return {
                 ...p,
                 currentStep: nextStepKey ?? p.currentStep,
-                updatedAt: new Date().toISOString(),
+                updatedAt: completedAt,
                 steps: {
                   ...p.steps,
-                  [stepKey]: { ...p.steps[stepKey], status: "completed" as const, completedAt: new Date().toISOString(), documentArchived: true },
+                  [stepKey]: { ...p.steps[stepKey], status: "completed" as const, completedAt, documentArchived: true },
                   ...(nextStepKey ? { [nextStepKey]: { ...p.steps[nextStepKey], status: "active" as const } } : {}),
                 },
               };
             });
 
             const updatedVehicles = isLastStep
-              ? state.vehicles.map((v) => (v.id === process.vehicleId ? { ...v, status: "sold" as const } : v))
+              ? state.vehicles.map((v) => (v.id === process.vehicleId ? { ...v, status: "sold" as const, soldAt: completedAt } : v))
               : state.vehicles;
 
             return {
@@ -338,6 +355,8 @@ export const useProcessStore = create<State>()(
             const process = state.processes.find((p) => p.id === processId);
             if (!process) return state;
             const idx = stepIndex(stepKey);
+            const definition = PROCESS_STEPS[idx];
+            if (process.currentStep !== stepKey || process.steps[stepKey]?.status !== "active" || !definition?.skippable) return state;
             const activeStepKeys = normalizeProcessStepKeys(state.settings.processStepKeys);
             const nextStepKey = getNextProcessStepKey(stepKey, activeStepKeys);
             if (!nextStepKey) return state;
@@ -401,7 +420,7 @@ export const useProcessStore = create<State>()(
             // If the final step had been completed, the vehicle was marked sold.
             // Reverting any step → vehicle should go back to "reserved".
             const updatedVehicles = state.vehicles.map((v) =>
-              v.id === process.vehicleId && v.status === "sold" ? { ...v, status: "reserved" as const } : v
+              v.id === process.vehicleId && v.status === "sold" ? { ...v, status: "reserved" as const, soldAt: undefined } : v
             );
 
             return {
@@ -506,16 +525,16 @@ export const useProcessStore = create<State>()(
         addVehicle: (v) => {
           const id = nextNumericId("V", get().vehicles);
           const vehicle: Vehicle = {
+            ...v,
             id,
             status: v.status ?? "in_stock",
             locationHistory: v.locationHistory ?? [],
             costs: v.costs ?? [],
-            ...v,
           };
           // Wenn das Fahrzeug noch nicht inseriert ist UND nicht verkauft, auto-To-Do erzeugen.
-          const needsListingTodo = !vehicle.listed?.active && vehicle.status !== "sold";
+          const needsListingTodo = !vehicle.listed?.active && (vehicle.status === "in_stock" || vehicle.status === "reserved");
           set((state) => {
-            const todoId = `TD-${String(state.todos.length + 1).padStart(3, "0")}`;
+            const todoId = nextNumericId("TD", state.todos);
             const nowIso = new Date().toISOString();
             const due = new Date();
             due.setDate(due.getDate() + 3);
@@ -632,12 +651,12 @@ export const useProcessStore = create<State>()(
                   t.id === open.id ? { ...t, done: true, completedAt: nowIso } : t
                 );
               }
-            } else {
+            } else if (vehicle.status === "in_stock" || vehicle.status === "reserved") {
               if (!findAutoTodo(state.todos)) {
                 const due = new Date();
                 due.setDate(due.getDate() + 3);
                 const newTodo: Todo = {
-                  id: `TD-${String(state.todos.length + 1).padStart(3, "0")}`,
+                  id: nextNumericId("TD", state.todos),
                   title: "Inserat erstellen",
                   description: `Online-Inserat für ${vehicle.make} ${vehicle.model} (${vehicle.id}) anlegen.`,
                   priority: "medium",
@@ -687,13 +706,13 @@ export const useProcessStore = create<State>()(
 
         // ------- Offer -------
         addOffer: (o) => {
-          const id = `OFR-${new Date().getFullYear()}-${String(get().offers.length + 1).padStart(4, "0")}`;
+          const id = nextYearId("OFR", get().offers, 4);
           const offer: Offer = {
+            ...o,
             id,
             createdAt: new Date().toISOString(),
             status: o.status ?? "sent",
             customerTodos: o.customerTodos ?? [],
-            ...o,
           };
           set((state) => ({
             offers: [offer, ...state.offers],
@@ -742,6 +761,10 @@ export const useProcessStore = create<State>()(
           const state = get();
           const offer = state.offers.find((o) => o.id === offerId);
           if (!offer) return undefined;
+          const vehicle = state.vehicles.find((v) => v.id === offer.vehicleId);
+          const customer = state.customers.find((c) => c.id === offer.customerId);
+          const finalPrice = offer.price - (offer.discount ?? 0);
+          if (!vehicle || !customer || vehicle.status === "sold" || finalPrice <= 0) return undefined;
 
           const existing = state.processes.find((p) => p.vehicleId === offer.vehicleId);
           if (existing) return existing;
@@ -750,18 +773,20 @@ export const useProcessStore = create<State>()(
           const currentStep = activeStepKeys.includes("offer")
             ? getNextProcessStepKey("offer", activeStepKeys) ?? "offer"
             : getFirstProcessStepKey(activeStepKeys);
-          const processId = `VF-${new Date().getFullYear()}-${String(state.processes.length + 142).padStart(4, "0")}`;
+          const completesImmediately = currentStep === "offer" && getLastProcessStepKey(activeStepKeys) === "offer";
+          const completedAt = new Date().toISOString();
+          const processId = nextYearId("VF", state.processes, 4, 142);
           const newProcess: Process = {
             id: processId,
             vehicleId: offer.vehicleId,
             customerId: offer.customerId,
             acceptedOfferId: offer.id,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
+            createdAt: completedAt,
+            updatedAt: completedAt,
             currentStep,
             steps: buildEmptySteps(currentStep, activeStepKeys),
             fields: {
-              finalPrice: Math.max(0, offer.price - (offer.discount ?? 0)),
+              finalPrice,
               tradeIn: offer.tradeIn ? { ...offer.tradeIn } : undefined,
             },
             // Übernehme Kundenvereinbarungen samt Status und Fälligkeit aus dem Angebot.
@@ -770,8 +795,8 @@ export const useProcessStore = create<State>()(
           };
           // Markiere das Angebot als abgeschlossen + setze "offer"-Step
           newProcess.steps.offer = activeStepKeys.includes("offer")
-            ? { status: "completed", completedAt: new Date().toISOString(), documentArchived: true }
-            : { status: "skipped", completedAt: new Date().toISOString() };
+            ? { status: "completed", completedAt, documentArchived: true }
+            : { status: "skipped", completedAt };
 
           set((s) => ({
             processes: [newProcess, ...s.processes],
@@ -780,7 +805,9 @@ export const useProcessStore = create<State>()(
               if (o.vehicleId === offer.vehicleId && o.status === "sent") return { ...o, status: "rejected" };
               return o;
             }),
-            vehicles: s.vehicles.map((v) => (v.id === offer.vehicleId ? { ...v, status: "reserved" } : v)),
+            vehicles: s.vehicles.map((v) => (v.id === offer.vehicleId
+              ? completesImmediately ? { ...v, status: "sold", soldAt: completedAt } : { ...v, status: "reserved" }
+              : v)),
             activities: [
               {
                 id: randomId("A"),
@@ -812,7 +839,7 @@ export const useProcessStore = create<State>()(
           const state = get();
           const vehicle = state.vehicles.find((v) => v.id === vehicleId);
           const customer = state.customers.find((c) => c.id === customerId);
-          if (!vehicle || !customer) return undefined;
+          if (!vehicle || !customer || vehicle.status === "sold" || price <= 0) return undefined;
 
           const existing = state.processes.find((p) => p.vehicleId === vehicleId);
           if (existing) return existing;
@@ -821,14 +848,16 @@ export const useProcessStore = create<State>()(
           const currentStep = activeStepKeys.includes("offer")
             ? getNextProcessStepKey("offer", activeStepKeys) ?? getLastProcessStepKey(activeStepKeys)
             : getFirstProcessStepKey(activeStepKeys);
-          const processId = `VF-${new Date().getFullYear()}-${String(state.processes.length + 142).padStart(4, "0")}`;
+          const completesImmediately = currentStep === "offer" && getLastProcessStepKey(activeStepKeys) === "offer";
+          const createdAt = new Date().toISOString();
+          const processId = nextYearId("VF", state.processes, 4, 142);
           const newProcess: Process = {
             id: processId,
             vehicleId,
             customerId,
             acceptedOfferId: "",
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
+            createdAt,
+            updatedAt: createdAt,
             // Angebot wird übersprungen, wir starten direkt bei Anzahlung
             currentStep,
             steps: buildEmptySteps(currentStep, activeStepKeys),
@@ -837,12 +866,14 @@ export const useProcessStore = create<State>()(
             outboundChecklist: DEFAULT_OUTBOUND_CHECKLIST(),
           };
           newProcess.steps.offer = activeStepKeys.length === 1 && activeStepKeys[0] === "offer"
-            ? { status: "completed", completedAt: new Date().toISOString(), documentArchived: false }
-            : { status: "skipped", completedAt: new Date().toISOString() };
+            ? { status: "completed", completedAt: createdAt, documentArchived: false }
+            : { status: "skipped", completedAt: createdAt };
 
           set((s) => ({
             processes: [newProcess, ...s.processes],
-            vehicles: s.vehicles.map((v) => (v.id === vehicleId ? { ...v, status: "reserved" } : v)),
+            vehicles: s.vehicles.map((v) => (v.id === vehicleId
+              ? completesImmediately ? { ...v, status: "sold", soldAt: createdAt } : { ...v, status: "reserved" }
+              : v)),
             activities: [
               {
                 id: randomId("A"),
@@ -862,7 +893,7 @@ export const useProcessStore = create<State>()(
 
         // ------- Purchase plan -------
         addPurchasePlan: (p) => {
-          const id = `PP-${new Date().getFullYear()}-${String(get().purchasePlans.length + 1).padStart(3, "0")}`;
+          const id = nextYearId("PP", get().purchasePlans, 3);
           const nowIso = new Date().toISOString();
           const userName = get().settings.userName || "Admin";
           const { initialNote, ...rest } = p;
@@ -870,11 +901,11 @@ export const useProcessStore = create<State>()(
             ? [{ id: randomId("pn"), text: initialNote.trim(), createdAt: nowIso, createdBy: userName }]
             : [];
           const plan: PurchasePlan = {
+            ...rest,
             id,
             createdAt: nowIso,
             status: rest.status ?? "tracking",
             noteEntries,
-            ...rest,
           };
           set((state) => ({
             purchasePlans: [plan, ...state.purchasePlans],
@@ -935,7 +966,7 @@ export const useProcessStore = create<State>()(
 
         // ------- Todos -------
         addTodo: (t) => {
-          const id = `TD-${String(get().todos.length + 1).padStart(3, "0")}`;
+          const id = nextNumericId("TD", get().todos);
           const nowIso = new Date().toISOString();
           const createdBy = get().settings.userName || "Admin";
 
@@ -1095,7 +1126,11 @@ export const useProcessStore = create<State>()(
               get().setOutboundChecklistItemDueDate(mir.parentId, mir.itemId, patch.dueDate || undefined);
             }
             if (patch.done !== undefined) {
-              get().toggleOutboundChecklistItem(mir.parentId, mir.itemId);
+              const process = get().processes.find((item) => item.id === mir.parentId);
+              const checklistItem = process?.outboundChecklist.find((item) => item.id === mir.itemId);
+              if (checklistItem && checklistItem.done !== patch.done) {
+                get().toggleOutboundChecklistItem(mir.parentId, mir.itemId);
+              }
             }
             return;
           }
@@ -1103,8 +1138,13 @@ export const useProcessStore = create<State>()(
           set((state) => {
             const prev = state.todos.find((t) => t.id === id);
             if (!prev) return state;
-            const next: Todo = { ...prev, ...patch };
             const nowIso = new Date().toISOString();
+            const nextDone = patch.done ?? prev.done;
+            const next: Todo = {
+              ...prev,
+              ...patch,
+              completedAt: nextDone ? (prev.completedAt ?? nowIso) : undefined,
+            };
             const createdBy = state.settings.userName || "Admin";
 
             // Kalender-Event synchronisieren / erzeugen / entfernen
@@ -1239,14 +1279,25 @@ export const useProcessStore = create<State>()(
             const ev = state.calendarEvents.find((e) => e.id === id);
             if (!ev) return state;
             const willBeDone = !ev.done;
+            const linkedTodo = ev.todoId ? state.todos.find((todo) => todo.id === ev.todoId) : undefined;
+            const isListingTodo = !!linkedTodo?.vehicleId && linkedTodo.title === "Inserat erstellen" && (linkedTodo.tags ?? []).includes("auto");
+            const completedAt = new Date().toISOString();
             return {
               ...state,
               calendarEvents: state.calendarEvents.map((e) => (e.id === id ? { ...e, done: willBeDone } : e)),
               todos: ev.todoId
                 ? state.todos.map((t) =>
-                    t.id === ev.todoId ? { ...t, done: willBeDone, completedAt: willBeDone ? new Date().toISOString() : undefined } : t,
+                    t.id === ev.todoId ? { ...t, done: willBeDone, completedAt: willBeDone ? completedAt : undefined } : t,
                   )
                 : state.todos,
+              vehicles: isListingTodo
+                ? state.vehicles.map((vehicle) => vehicle.id !== linkedTodo.vehicleId ? vehicle : {
+                    ...vehicle,
+                    listed: willBeDone
+                      ? { active: true, listedAt: completedAt, portals: vehicle.listed?.portals }
+                      : { active: false, listedAt: vehicle.listed?.listedAt, portals: vehicle.listed?.portals },
+                  })
+                : state.vehicles,
             };
           }),
 

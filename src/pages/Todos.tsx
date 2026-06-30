@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppShell } from "@/components/layout/AppShell";
 import { Card } from "@/components/ui/card";
@@ -174,8 +174,8 @@ const Todos = () => {
   const processMap = useMemo(() => Object.fromEntries(processes.map((p) => [p.id, p])), [processes]);
 
   const todayISO = toISO(new Date());
-  const isOverdue = (t: Todo) => !t.done && !!t.dueDate && t.dueDate < todayISO;
-  const isToday   = (t: Todo) => !t.done && t.dueDate === todayISO;
+  const isOverdue = useCallback((t: Todo) => !t.done && !!t.dueDate && t.dueDate < todayISO, [todayISO]);
+  const isToday = useCallback((t: Todo) => !t.done && t.dueDate === todayISO, [todayISO]);
 
   // Fälligkeits-Range basierend auf dueFilter
   const dueRange = useMemo(() => {
@@ -234,7 +234,7 @@ const Todos = () => {
       }
       return true;
     });
-  }, [todos, statusFilter, scopeFilter, priorityFilter, dueFilter, dueRange, query, searchField, todayISO]);
+  }, [todos, statusFilter, scopeFilter, priorityFilter, dueFilter, dueRange, query, searchField, isToday, isOverdue]);
 
   // ---- Sortierung ---------------------------------------------------------
   const sorted = useMemo(() => {
@@ -261,7 +261,7 @@ const Todos = () => {
         default: return 0;
       }
     });
-  }, [filtered, sort, todayISO]);
+  }, [filtered, sort, isOverdue, isToday]);
 
   // ---- Stats --------------------------------------------------------------
   const stats = useMemo(() => ({
@@ -270,7 +270,7 @@ const Todos = () => {
     overdue: todos.filter((t) => isOverdue(t)).length,
     done:    todos.filter((t) => t.done).length,
     all:     todos.length,
-  }), [todos, todayISO]);
+  }), [todos, isToday, isOverdue]);
   const progressPeriod = settings.todoProgressPeriod ?? "week";
   const progressStats = useMemo(
     () => calculateTodoProgress(todos, progressPeriod),

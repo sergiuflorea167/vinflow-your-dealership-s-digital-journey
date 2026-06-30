@@ -213,7 +213,7 @@ const drawFooter = (doc: jsPDF, companyName: string, seller?: SellerInfo) => {
   setColor(doc, BRAND.muted);
   doc.setFontSize(6.5);
   doc.text(
-    `Erstellt am ${formatDate(new Date().toISOString())} · Seite ${doc.internal.getNumberOfPages()}`,
+    `Erstellt am ${formatDate(new Date().toISOString())} · Seite ${doc.getNumberOfPages()}`,
     PAGE.w - PAGE.margin, PAGE.h - 7, { align: "right" }
   );
 };

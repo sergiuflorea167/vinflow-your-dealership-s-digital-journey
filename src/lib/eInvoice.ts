@@ -17,7 +17,8 @@ const esc = (s: string | number | undefined | null) =>
 const n2 = (n: number) => (Math.round(n * 100) / 100).toFixed(2);
 
 const dateBasic = (iso?: string) => {
-  const d = iso ? new Date(iso) : new Date();
+  const parsed = iso ? new Date(iso) : new Date();
+  const d = Number.isFinite(parsed.getTime()) ? parsed : new Date();
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
@@ -57,7 +58,8 @@ export const buildZugferdXml = ({
   finalPrice,
 }: ZugferdArgs): string => {
   const inv = process.fields.invoicing;
-  const down = process.fields.downPayment?.amount ?? 0;
+  const down = process.fields.downPayment?.received ? (process.fields.downPayment.amount ?? 0) : 0;
+  const tradeIn = process.fields.tradeIn?.value ?? 0;
   const invoiceNo = inv?.invoiceNumber ?? process.id;
   const invoiceDate = dateBasic(inv?.invoiceDate);
   const margin = isMarginTaxed(vehicle);
@@ -66,7 +68,8 @@ export const buildZugferdXml = ({
   const taxRate = margin ? 0 : 19;
   const netLine = margin ? grossTotal : grossTotal / 1.19;
   const taxAmount = margin ? 0 : grossTotal - netLine;
-  const payable = grossTotal - down;
+  const prepaidTotal = Math.min(grossTotal, Math.max(0, down) + Math.max(0, tradeIn));
+  const payable = Math.max(0, grossTotal - prepaidTotal);
 
   // Bei §25a Differenzbesteuerung: Kategorie "E" + Begründung.
   const taxCategory = margin ? "E" : "S";
@@ -106,7 +109,7 @@ export const buildZugferdXml = ({
   const itemName = `${vehicle.make} ${vehicle.model} (${vehicle.year}) · FIN ${vehicle.vin}`;
 
   // BT-10 BuyerReference – Pflicht. Fallback: Rechnungsnummer.
-  const buyerReference = (customer as any).code ?? (customer as any).leitwegId ?? invoiceNo;
+  const buyerReference = customer.buyerReference ?? customer.leitwegId ?? invoiceNo;
 
   // Dokumenten-Note (BG-1) für Margenbesteuerung
   const documentNote = margin
@@ -156,7 +159,7 @@ export const buildZugferdXml = ({
 
   const paymentTerms = `<ram:SpecifiedTradePaymentTerms><ram:Description>${esc(inv?.paymentTerms ?? "Zahlung bei Fahrzeugübergabe")}</ram:Description><ram:DueDateDateTime><udt:DateTimeString format="102">${dueDate}</udt:DateTimeString></ram:DueDateDateTime></ram:SpecifiedTradePaymentTerms>`;
 
-  const summation = `<ram:SpecifiedTradeSettlementHeaderMonetarySummation><ram:LineTotalAmount>${n2(netLine)}</ram:LineTotalAmount><ram:TaxBasisTotalAmount>${n2(netLine)}</ram:TaxBasisTotalAmount><ram:TaxTotalAmount currencyID="EUR">${n2(taxAmount)}</ram:TaxTotalAmount><ram:GrandTotalAmount>${n2(grossTotal)}</ram:GrandTotalAmount><ram:TotalPrepaidAmount>${n2(down)}</ram:TotalPrepaidAmount><ram:DuePayableAmount>${n2(payable)}</ram:DuePayableAmount></ram:SpecifiedTradeSettlementHeaderMonetarySummation>`;
+  const summation = `<ram:SpecifiedTradeSettlementHeaderMonetarySummation><ram:LineTotalAmount>${n2(netLine)}</ram:LineTotalAmount><ram:TaxBasisTotalAmount>${n2(netLine)}</ram:TaxBasisTotalAmount><ram:TaxTotalAmount currencyID="EUR">${n2(taxAmount)}</ram:TaxTotalAmount><ram:GrandTotalAmount>${n2(grossTotal)}</ram:GrandTotalAmount><ram:TotalPrepaidAmount>${n2(prepaidTotal)}</ram:TotalPrepaidAmount><ram:DuePayableAmount>${n2(payable)}</ram:DuePayableAmount></ram:SpecifiedTradeSettlementHeaderMonetarySummation>`;
 
   const lineItem = `<ram:IncludedSupplyChainTradeLineItem><ram:AssociatedDocumentLineDocument><ram:LineID>1</ram:LineID></ram:AssociatedDocumentLineDocument><ram:SpecifiedTradeProduct><ram:Name>${esc(itemName)}</ram:Name></ram:SpecifiedTradeProduct><ram:SpecifiedLineTradeAgreement><ram:NetPriceProductTradePrice><ram:ChargeAmount>${n2(netLine)}</ram:ChargeAmount></ram:NetPriceProductTradePrice></ram:SpecifiedLineTradeAgreement><ram:SpecifiedLineTradeDelivery><ram:BilledQuantity unitCode="C62">1</ram:BilledQuantity></ram:SpecifiedLineTradeDelivery><ram:SpecifiedLineTradeSettlement><ram:ApplicableTradeTax><ram:TypeCode>VAT</ram:TypeCode><ram:CategoryCode>${taxCategory}</ram:CategoryCode><ram:RateApplicablePercent>${n2(taxRate)}</ram:RateApplicablePercent></ram:ApplicableTradeTax><ram:SpecifiedTradeSettlementLineMonetarySummation><ram:LineTotalAmount>${n2(netLine)}</ram:LineTotalAmount></ram:SpecifiedTradeSettlementLineMonetarySummation></ram:SpecifiedLineTradeSettlement></ram:IncludedSupplyChainTradeLineItem>`;
 

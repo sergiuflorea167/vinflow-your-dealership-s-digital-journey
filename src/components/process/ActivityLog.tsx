@@ -3,8 +3,9 @@ import { Card } from "@/components/ui/card";
 import {
   CheckCircle2, Plus, Edit, FileText, ShoppingCart, MapPin, Receipt, X, User, Settings as SettingsIcon, Target, Trash2, Workflow, SkipForward, RotateCcw,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
-const ICONS: Record<Activity["type"], any> = {
+const ICONS: Record<Activity["type"], LucideIcon> = {
   vehicle_added: Plus,
   vehicle_updated: Edit,
   vehicle_location_changed: MapPin,

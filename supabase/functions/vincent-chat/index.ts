@@ -3,10 +3,13 @@
 // kompakten Snapshot der aktuellen Daten (KPIs, Bestand, Vorgänge, To-Dos)
 // und beantwortet Fragen / bewertet KPIs / gibt Verbesserungsvorschläge.
 
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
 const SYSTEM_PROMPT = (lang: "de" | "en") =>
@@ -38,6 +41,22 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const supabaseUrl = Deno.env.get("SUPABASE_URL");
+    const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
+    const authorization = req.headers.get("Authorization") ?? "";
+    if (!supabaseUrl || !anonKey) throw new Error("Backend nicht konfiguriert");
+    const authClient = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: authorization } },
+      auth: { persistSession: false },
+    });
+    const { data: authData, error: authError } = await authClient.auth.getUser();
+    if (authError || !authData.user) {
+      return new Response(JSON.stringify({ error: "Anmeldung erforderlich" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
       return new Response(
@@ -47,7 +66,20 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
-    const messages = Array.isArray(body?.messages) ? body.messages : [];
+    const messages = (Array.isArray(body?.messages) ? body.messages : [])
+      .filter((message: unknown): message is { role: "user" | "assistant"; content: string } => {
+        if (!message || typeof message !== "object") return false;
+        const item = message as { role?: unknown; content?: unknown };
+        return (item.role === "user" || item.role === "assistant") && typeof item.content === "string";
+      })
+      .slice(-20)
+      .map((message) => ({ ...message, content: message.content.slice(0, 8_000) }));
+    if (!messages.some((message) => message.role === "user" && message.content.trim())) {
+      return new Response(JSON.stringify({ error: "Eine Frage ist erforderlich" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     const context = body?.context ?? {};
     const lang: "de" | "en" = body?.lang === "en" ? "en" : "de";
 

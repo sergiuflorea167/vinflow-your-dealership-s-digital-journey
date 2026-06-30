@@ -28,6 +28,7 @@ import {
   Plus, Eye, CheckCircle2, Clock, Package, Ban, Trophy, XCircle,
   ExternalLink, MessageSquarePlus, MoreHorizontal, Trash2, Gavel, Tag, Store, Lightbulb, Circle,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { VehicleIntakeDialog } from "@/components/fleet/VehicleIntakeDialog";
@@ -36,7 +37,7 @@ import { DataTableShell } from "@/components/shared/DataTableShell";
 
 type PlanSortKey = "created_desc" | "created_asc" | "expected_asc" | "price_asc" | "price_desc" | "supplier";
 
-const STATUS_META: Record<PurchasePlanStatus, { label: string; className: string; icon: any; hint: string }> = {
+const STATUS_META: Record<PurchasePlanStatus, { label: string; className: string; icon: LucideIcon; hint: string }> = {
   tracking: { label: "Verfolgen", className: "bg-info/15 text-info border-info/30", icon: Clock, hint: "Aktive Verhandlung / Auktion läuft" },
   won:      { label: "Deal abgeschlossen", className: "bg-warning/15 text-warning border-warning/30", icon: Trophy, hint: "Zuschlag erhalten – noch nicht im Bestand" },
   received: { label: "Im Bestand", className: "bg-success/15 text-success border-success/30", icon: CheckCircle2, hint: "In den Bestand übernommen" },
@@ -44,7 +45,7 @@ const STATUS_META: Record<PurchasePlanStatus, { label: string; className: string
   cancelled:{ label: "Verworfen", className: "bg-muted text-muted-foreground border-border", icon: Ban, hint: "Manuell verworfen" },
 };
 
-const SOURCE_ICONS: Record<PurchasePlanSource, any> = {
+const SOURCE_ICONS: Record<PurchasePlanSource, LucideIcon> = {
   auction: Gavel,
   private_listing: Tag,
   dealer: Store,
@@ -561,7 +562,7 @@ const PlanDetailSheet = ({
   );
 };
 
-const InfoRow = ({ icon: Icon, label, value, bold }: { icon?: any; label: string; value: string; bold?: boolean }) => (
+const InfoRow = ({ icon: Icon, label, value, bold }: { icon?: LucideIcon; label: string; value: string; bold?: boolean }) => (
   <div>
     <p className="text-[10px] text-muted-foreground uppercase tracking-wider flex items-center gap-1">
       {Icon && <Icon className="size-3" />} {label}

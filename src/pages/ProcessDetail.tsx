@@ -25,10 +25,16 @@ import {
   getNextProcessStepKey, getProcessStepsForDisplay, normalizeProcessStepKeys, stepIndexIn,
   nextInvoiceNumber, nextContractNumber, nextDownPaymentInvoiceNumber, nextOrderConfirmationNumber, CUSTOMER_AGREEMENT_STEP_KEYS,
 } from "@/data/process";
+
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { downloadBelegPdf } from "@/lib/pdf";
 import { CustomerPortalCard } from "@/components/process/CustomerPortalCard";
+
+type InvoicingFields = NonNullable<ProcessFields["invoicing"]>;
+type DownPaymentFields = NonNullable<ProcessFields["downPayment"]>;
+type OrderConfirmationFields = NonNullable<ProcessFields["orderConfirmation"]>;
+type PurchaseContractFields = NonNullable<ProcessFields["purchaseContract"]>;
 
 const ProcessDetail = () => {
   const { id } = useParams<{ id: string }>();
@@ -71,7 +77,7 @@ const ProcessDetail = () => {
     if (!editable) return;
     const today = new Date().toISOString().slice(0, 10);
     if (selectedKey === "invoicing") {
-      const patch: any = { ...process.fields.invoicing };
+      const patch: InvoicingFields = { ...process.fields.invoicing };
       let changed = false;
       if (!patch.invoiceNumber) { patch.invoiceNumber = nextInvoiceNumber(allProcesses, settings.numberRanges?.invoice); changed = true; }
       if (!patch.invoiceDate) { patch.invoiceDate = today; changed = true; }
@@ -86,21 +92,21 @@ const ProcessDetail = () => {
       if (changed) updateFields(process.id, { invoicing: patch });
     }
     if (selectedKey === "down_payment") {
-      const patch: any = { ...process.fields.downPayment };
+      const patch: DownPaymentFields = { ...process.fields.downPayment };
       let changed = false;
       if (!patch.invoiceNumber) { patch.invoiceNumber = nextDownPaymentInvoiceNumber(allProcesses, settings.numberRanges?.downPayment); changed = true; }
       if (!patch.invoiceDate) { patch.invoiceDate = today; changed = true; }
       if (changed) updateFields(process.id, { downPayment: patch });
     }
     if (selectedKey === "order_confirmation") {
-      const patch: any = { ...process.fields.orderConfirmation };
+      const patch: OrderConfirmationFields = { ...process.fields.orderConfirmation };
       let changed = false;
       if (!patch.confirmationNumber) { patch.confirmationNumber = nextOrderConfirmationNumber(allProcesses, settings.numberRanges?.orderConfirmation); changed = true; }
       if (!patch.orderDate) { patch.orderDate = today; changed = true; }
       if (changed) updateFields(process.id, { orderConfirmation: patch });
     }
     if (selectedKey === "purchase_contract") {
-      const pc: any = { ...process.fields.purchaseContract };
+      const pc: PurchaseContractFields = { ...process.fields.purchaseContract };
       let changed = false;
       if (!pc.contractNumber) { pc.contractNumber = nextContractNumber(allProcesses, settings.numberRanges?.purchaseContract); changed = true; }
       if (!pc.contractDate) { pc.contractDate = today; changed = true; }

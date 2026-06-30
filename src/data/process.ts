@@ -343,6 +343,9 @@ export interface Customer {
   legalForm?: string;
   contactPerson?: string;
   vatId?: string;
+  /** Optionale elektronische Leitweg-/Käuferreferenz für E-Rechnungen. */
+  buyerReference?: string;
+  leitwegId?: string;
 }
 
 // ---------- Angebot ----------
@@ -442,6 +445,8 @@ export interface PurchasePlan {
 
 export interface ProcessFields {
   finalPrice?: number;
+  /** Kryptografisch zufälliger Token für den freigegebenen Kundenportal-Link. */
+  customerPortalToken?: string;
   /** Aus dem angenommenen Angebot übernommene Inzahlungnahme. */
   tradeIn?: TradeInData;
   downPayment?: {

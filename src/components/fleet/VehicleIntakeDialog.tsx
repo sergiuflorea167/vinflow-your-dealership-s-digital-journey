@@ -39,6 +39,23 @@ export interface VehicleIntakePayload {
   notes?: string;
 }
 
+interface VinDecodeResponse {
+  error?: string;
+  make?: string;
+  model?: string;
+  year?: number;
+  type?: VehicleType;
+  fuel?: FuelType;
+  transmission?: Transmission;
+  power_hp?: number;
+  color?: string;
+  hsn?: string;
+  tsn?: string;
+  displacement_l?: number;
+  features?: string[];
+  confidence?: number;
+}
+
 interface Props {
   open: boolean;
   onOpenChange: (o: boolean) => void;
@@ -88,8 +105,8 @@ export const VehicleIntakeDialog = ({ open, onOpenChange, locations, preset, tit
     try {
       const { data, error } = await supabase.functions.invoke("vin-decode", { body: { vin: v } });
       if (error) throw error;
-      if ((data as any)?.error) throw new Error((data as any).error);
-      const d = data as any;
+      const d = (data ?? {}) as VinDecodeResponse;
+      if (d.error) throw new Error(d.error);
       if (d.make) setMake(d.make);
       if (d.model) setModel(d.model);
       if (d.year) setYear(Number(d.year));
@@ -107,8 +124,8 @@ export const VehicleIntakeDialog = ({ open, onOpenChange, locations, preset, tit
       toast.success(
         `VIN gescannt via ${src}${conf !== null ? ` · ${conf}% Sicherheit` : ""}. Bitte prüfen.`,
       );
-    } catch (e: any) {
-      toast.error("VIN-Scan fehlgeschlagen: " + (e?.message ?? "unbekannt"));
+    } catch (error: unknown) {
+      toast.error("VIN-Scan fehlgeschlagen: " + (error instanceof Error ? error.message : "unbekannt"));
     } finally {
       setScanning(false);
     }

@@ -54,8 +54,8 @@ export const FleetImportDialog = ({ open, onOpenChange, defaultLocation, onImpor
       setParsed(res.parsed);
       setMapping(res.mapping);
       setResult({ rows: res.rows, validCount: res.validCount, errorCount: res.errorCount });
-    } catch (e: any) {
-      toast.error("Datei konnte nicht gelesen werden: " + (e?.message ?? "unbekannt"));
+    } catch (error: unknown) {
+      toast.error("Datei konnte nicht gelesen werden: " + (error instanceof Error ? error.message : "unbekannt"));
       reset();
     } finally {
       setParsing(false);
