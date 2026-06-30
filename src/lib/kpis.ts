@@ -60,12 +60,16 @@ const fmt = (value: number, format: KpiFormat) => {
   }
 };
 
+const dateInRange = (value: string | undefined, from: Date, to: Date) => {
+  if (!value) return false;
+  const timestamp = new Date(value).getTime();
+  return Number.isFinite(timestamp) && timestamp >= from.getTime() && timestamp <= to.getTime();
+};
+
 // Verkauf zählt am Ende der konfigurierten Vorgangskette.
 const saleInRange = (p: Process, from: Date, to: Date, saleStepKey: ProcessStepKey) => {
   const rec = p.steps[saleStepKey];
-  if (!rec || rec.status !== "completed" || !rec.completedAt) return false;
-  const t = new Date(rec.completedAt);
-  return t >= from && t <= to;
+  return !!rec && rec.status === "completed" && dateInRange(rec.completedAt, from, to);
 };
 
 const isSaleCompleted = (p: Process, saleStepKey: ProcessStepKey) =>
@@ -74,16 +78,21 @@ const isSaleCompleted = (p: Process, saleStepKey: ProcessStepKey) =>
 // Rechnung gestellt im Zeitraum
 const invoicedInRange = (p: Process, from: Date, to: Date) => {
   const rec = p.steps.invoicing;
-  if (!rec || rec.status !== "completed" || !rec.completedAt) return false;
-  const t = new Date(rec.completedAt);
-  return t >= from && t <= to;
+  if (!rec || rec.status !== "completed") return false;
+  return dateInRange(p.fields.invoicing?.invoiceDate ?? rec.completedAt, from, to);
+};
+
+const downPaymentReceivedInRange = (p: Process, from: Date, to: Date) => {
+  const downPayment = p.fields.downPayment;
+  if (!downPayment?.received) return false;
+  return dateInRange(downPayment.receivedDate ?? p.steps.down_payment?.completedAt, from, to);
 };
 
 const profitOf = (p: Process, vehicles: Vehicle[]) => {
   const v = vehicles.find((x) => x.id === p.vehicleId);
-  if (!v) return 0;
+  if (!v || (p.fields.finalPrice ?? 0) <= 0) return undefined;
   const ek = v.purchasePrice + vehicleTotalCostsGross(v);
-  return (p.fields.finalPrice ?? 0) - ek;
+  return p.fields.finalPrice! - ek;
 };
 
 // ---- KPI-Katalog ----
@@ -122,27 +131,29 @@ export const KPI_CATALOG: KpiDef[] = [
   },
   {
     id: "revenue_booked",
-    label: "Umsatz (gebucht)",
+    label: "Zahlungsvolumen (gebucht)",
     category: "Umsatz",
-    description: "Anzahlungen + Schlussrechnungen im Zeitraum, ohne Doppelzählung.",
+    description: "Eingegangene Anzahlungen plus zahlbarer Restbetrag neuer Schlussrechnungen im Zeitraum, nach Inzahlungnahme und ohne Doppelzählung.",
     interpretation:
       "Bereits buchhalterisch gesichertes Volumen — relevanter Wert für Liquiditätsplanung.",
     format: "currency",
     timeMode: "range",
     compute: ({ processes, range }) => {
       const invoiced = processes.filter((p) => invoicedInRange(p, range.from, range.to));
-      const invoicedRevenue = invoiced.reduce((s, p) => s + (p.fields.finalPrice ?? 0), 0);
-      // Anzahlungen werden ohne explizite Datums-Info erfasst — hier alle erhaltenen
-      // einbeziehen und Doppelzählung mit Rechnungen vermeiden.
-      const dpReceived = processes.reduce(
+      const invoicedRemainder = invoiced.reduce(
+        (s, p) => s + Math.max(0, (p.fields.finalPrice ?? 0) -
+          (p.fields.downPayment?.received ? (p.fields.downPayment.amount ?? 0) : 0) -
+          (p.fields.tradeIn?.value ?? 0)),
+        0
+      );
+      // Nur im Zeitraum tatsächlich eingegangene Anzahlungen einbeziehen.
+      const dpReceived = processes
+        .filter((p) => downPaymentReceivedInRange(p, range.from, range.to))
+        .reduce(
         (s, p) => s + (p.fields.downPayment?.received ? (p.fields.downPayment.amount ?? 0) : 0),
         0
       );
-      const dpInInvoiced = invoiced.reduce(
-        (s, p) => s + (p.fields.downPayment?.received ? (p.fields.downPayment.amount ?? 0) : 0),
-        0
-      );
-      const value = invoicedRevenue + (dpReceived - dpInInvoiced);
+      const value = invoicedRemainder + dpReceived;
       return { value, display: fmt(value, "currency"), sub: `Anzahlungen + Rechnungen · ${range.label}` };
     },
   },
@@ -155,8 +166,9 @@ export const KPI_CATALOG: KpiDef[] = [
       "Bereits zugeflossene Liquidität, vertraglich an einen noch laufenden Vorgang gebunden.",
     format: "currency",
     timeMode: "static",
-    compute: ({ processes }) => {
-      const value = processes.reduce(
+    compute: ({ processes, processStepKeys }) => {
+      const saleStepKey = getLastProcessStepKey(processStepKeys);
+      const value = processes.filter((p) => !isSaleCompleted(p, saleStepKey)).reduce(
         (s, p) => s + (p.fields.downPayment?.received ? (p.fields.downPayment.amount ?? 0) : 0),
         0
       );
@@ -172,8 +184,9 @@ export const KPI_CATALOG: KpiDef[] = [
       "Risiko-Wert: Geld, mit dem gerechnet wird, das aber noch nicht da ist. Hoher Wert → nachfassen.",
     format: "currency",
     timeMode: "static",
-    compute: ({ processes }) => {
-      const value = processes.reduce((s, p) => {
+    compute: ({ processes, processStepKeys }) => {
+      const saleStepKey = getLastProcessStepKey(processStepKeys);
+      const value = processes.filter((p) => !isSaleCompleted(p, saleStepKey)).reduce((s, p) => {
         const dp = p.fields.downPayment;
         return s + (dp && !dp.received ? (dp.amount ?? 0) : 0);
       }, 0);
@@ -184,19 +197,19 @@ export const KPI_CATALOG: KpiDef[] = [
     id: "open_receivables",
     label: "Offene Forderungen",
     category: "Umsatz",
-    description: "Rechnung gestellt, Übergabe noch ausstehend (abzüglich Anzahlung). Stichtag.",
+    description: "Unbezahlte Schlussrechnungen abzüglich erhaltener Anzahlung und Inzahlungnahme (Stichtag).",
     interpretation:
       "Klassisches Debitorenrisiko. Sollte zeitnah Richtung Null gehen — sonst Mahnwesen aktivieren.",
     format: "currency",
     timeMode: "static",
-    compute: ({ processes, processStepKeys }) => {
-      const saleStepKey = getLastProcessStepKey(processStepKeys);
+    compute: ({ processes }) => {
       const value = processes
-        .filter((p) => p.steps.invoicing?.status === "completed" && !isSaleCompleted(p, saleStepKey))
+        .filter((p) => p.steps.invoicing?.status === "completed" && !p.fields.invoicing?.paid)
         .reduce((s, p) => {
           const total = p.fields.finalPrice ?? 0;
           const dp = p.fields.downPayment?.received ? (p.fields.downPayment.amount ?? 0) : 0;
-          return s + Math.max(0, total - dp);
+          const tradeIn = p.fields.tradeIn?.value ?? 0;
+          return s + Math.max(0, total - dp - tradeIn);
         }, 0);
       return { value, display: fmt(value, "currency"), sub: "Rechnung offen" };
     },
@@ -215,8 +228,12 @@ export const KPI_CATALOG: KpiDef[] = [
     compute: ({ processes, vehicles, range, processStepKeys }) => {
       const saleStepKey = getLastProcessStepKey(processStepKeys);
       const sold = processes.filter((p) => saleInRange(p, range.from, range.to, saleStepKey));
-      const value = sold.reduce((s, p) => s + profitOf(p, vehicles), 0);
-      return { value, display: fmt(value, "currency"), sub: `${sold.length} Übergaben · ${range.label}` };
+      const profits = sold.flatMap((p) => {
+        const profit = profitOf(p, vehicles);
+        return profit == null ? [] : [profit];
+      });
+      const value = profits.reduce((sum, profit) => sum + profit, 0);
+      return { value, display: fmt(value, "currency"), sub: `${profits.length} Übergaben · ${range.label}` };
     },
   },
   {
@@ -231,14 +248,18 @@ export const KPI_CATALOG: KpiDef[] = [
     compute: ({ processes, vehicles, range, processStepKeys }) => {
       const saleStepKey = getLastProcessStepKey(processStepKeys);
       const sold = processes.filter((p) => saleInRange(p, range.from, range.to, saleStepKey));
-      const total = sold.reduce((s, p) => s + profitOf(p, vehicles), 0);
-      const value = sold.length ? total / sold.length : 0;
-      return { value, display: fmt(value, "currency"), sub: `${sold.length} Verkäufe · ${range.label}` };
+      const profits = sold.flatMap((p) => {
+        const profit = profitOf(p, vehicles);
+        return profit == null ? [] : [profit];
+      });
+      const total = profits.reduce((sum, profit) => sum + profit, 0);
+      const value = profits.length ? total / profits.length : 0;
+      return { value, display: fmt(value, "currency"), sub: `${profits.length} Verkäufe · ${range.label}` };
     },
   },
   {
     id: "margin_avg",
-    label: "Ø Marge",
+    label: "Marge (GP %)",
     category: "Verkauf & Marge",
     description: "Durchschnittliche Bruttomarge der Verkäufe im Zeitraum.",
     interpretation:
@@ -248,32 +269,34 @@ export const KPI_CATALOG: KpiDef[] = [
     compute: ({ processes, vehicles, range, processStepKeys }) => {
       const saleStepKey = getLastProcessStepKey(processStepKeys);
       const sold = processes.filter((p) => saleInRange(p, range.from, range.to, saleStepKey));
-      const value = sold.length
-        ? sold.reduce((acc, p) => {
-            const v = vehicles.find((x) => x.id === p.vehicleId);
-            if (!v) return acc;
-            const ek = v.purchasePrice + vehicleTotalCostsGross(v);
-            const sale = p.fields.finalPrice ?? 0;
-            return acc + (sale > 0 ? ((sale - ek) / sale) * 100 : 0);
-          }, 0) / sold.length
-        : 0;
-      return { value, display: fmt(value, "percent"), sub: `${sold.length} Verkäufe · ${range.label}` };
+      const validSales = sold.flatMap((p) => {
+        const vehicle = vehicles.find((v) => v.id === p.vehicleId);
+        const revenue = p.fields.finalPrice ?? 0;
+        return vehicle && revenue > 0 ? [{ vehicle, revenue }] : [];
+      });
+      const revenue = validSales.reduce((sum, sale) => sum + sale.revenue, 0);
+      const profit = validSales.reduce(
+        (sum, sale) => sum + sale.revenue - sale.vehicle.purchasePrice - vehicleTotalCostsGross(sale.vehicle),
+        0,
+      );
+      const value = revenue > 0 ? (profit / revenue) * 100 : 0;
+      return { value, display: fmt(value, "percent"), sub: `${validSales.length} Verkäufe · ${range.label}` };
     },
   },
   {
     id: "conversion_rate",
     label: "Conversion",
     category: "Verkauf & Marge",
-    description: "Angenommene Angebote ÷ alle entschiedenen Angebote (gesamt).",
+    description: "Angenommene Angebote ÷ alle abgeschlossenen Entscheidungen (angenommen, abgelehnt oder abgelaufen).",
     interpretation:
       "Vertriebs-Effizienz. Werte unter 20% deuten auf Preis-, Qualifikations- oder Nachfass-Probleme.",
     format: "percent",
     timeMode: "static",
     compute: ({ offers }) => {
-      const sent = offers.filter((o) => o.status === "sent" || o.status === "accepted" || o.status === "rejected");
+      const decided = offers.filter((o) => o.status === "accepted" || o.status === "rejected" || o.status === "expired");
       const accepted = offers.filter((o) => o.status === "accepted").length;
-      const value = sent.length ? (accepted / sent.length) * 100 : 0;
-      return { value, display: fmt(value, "percent"), sub: `${accepted}/${sent.length}` };
+      const value = decided.length ? (accepted / decided.length) * 100 : 0;
+      return { value, display: fmt(value, "percent"), sub: `${accepted}/${decided.length} entschieden` };
     },
   },
 
@@ -322,7 +345,8 @@ export const KPI_CATALOG: KpiDef[] = [
       const now = Date.now();
       const ages = vehicles
         .filter((v) => (v.status === "in_stock" || v.status === "reserved") && v.arrivedAt)
-        .map((v) => (now - new Date(v.arrivedAt!).getTime()) / 86400000);
+        .map((v) => (now - new Date(v.arrivedAt!).getTime()) / 86400000)
+        .filter((age) => Number.isFinite(age) && age >= 0);
       const value = ages.length ? ages.reduce((s, n) => s + n, 0) / ages.length : 0;
       return { value, display: fmt(value, "days"), sub: "Im Hof" };
     },
@@ -340,8 +364,8 @@ export const KPI_CATALOG: KpiDef[] = [
       const saleStepKey = getLastProcessStepKey(processStepKeys);
       const sold = processes.filter((p) => saleInRange(p, range.from, range.to, saleStepKey));
       const times = sold.map((p) =>
-        Math.max(0, (new Date(p.steps[saleStepKey]!.completedAt!).getTime() - new Date(p.createdAt).getTime()) / 86400000)
-      );
+        (new Date(p.steps[saleStepKey]!.completedAt!).getTime() - new Date(p.createdAt).getTime()) / 86400000
+      ).filter((days) => Number.isFinite(days) && days >= 0);
       const value = times.length ? times.reduce((s, n) => s + n, 0) / times.length : 0;
       return { value, display: fmt(value, "days"), sub: `${sold.length} Verkäufe · ${range.label}` };
     },

@@ -160,7 +160,7 @@ type RangePreset = "week" | "month" | "quarter" | "year" | "ytd" | "last_30" | "
 
 type Breakdown = "none" | "make" | "type" | "status" | "fuel" | "month";
 
-interface Measurement {
+export interface Measurement {
   id: string;
   title?: string;
   metric: MetricKey;
@@ -214,46 +214,58 @@ const VEHICLE_STATUS_LABELS: Record<VehicleStatus, string> = {
 
 const FUEL_TYPES: FuelType[] = ["Benzin", "Diesel", "Hybrid", "Elektro", "Plug-in-Hybrid", "Gas"];
 
-const startOfWeek = () => {
-  const now = new Date();
+const startOfWeek = (now: Date) => {
   const day = (now.getDay() + 6) % 7;
   const d = new Date(now);
   d.setDate(now.getDate() - day);
   d.setHours(0, 0, 0, 0);
   return d;
 };
-const startOfMonth = () => new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-const startOfQuarter = () => {
-  const now = new Date();
+const startOfMonth = (now: Date) => new Date(now.getFullYear(), now.getMonth(), 1);
+const startOfQuarter = (now: Date) => {
   const q = Math.floor(now.getMonth() / 3) * 3;
   return new Date(now.getFullYear(), q, 1);
 };
-const startOfYear = () => new Date(new Date().getFullYear(), 0, 1);
+const startOfYear = (now: Date) => new Date(now.getFullYear(), 0, 1);
 
-const resolveRange = (m: Measurement): { from: Date; to: Date } => {
-  const to = new Date();
+const customBoundary = (value: string | undefined, fallback: Date, endOfDate: boolean) => {
+  if (!value) return fallback;
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return fallback;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    date.setHours(endOfDate ? 23 : 0, endOfDate ? 59 : 0, endOfDate ? 59 : 0, endOfDate ? 999 : 0);
+  }
+  return date;
+};
+
+// Exportiert für fachliche Formeltests; kein React-State.
+// eslint-disable-next-line react-refresh/only-export-components
+export const resolveRange = (m: Measurement, now = new Date()): { from: Date; to: Date } => {
+  const to = new Date(now);
   switch (m.rangePreset) {
-    case "week":     return { from: startOfWeek(),    to };
-    case "month":    return { from: startOfMonth(),   to };
-    case "quarter":  return { from: startOfQuarter(), to };
-    case "year":     return { from: startOfYear(),    to };
-    case "ytd":      return { from: startOfYear(),    to };
+    case "week":     return { from: startOfWeek(now),    to };
+    case "month":    return { from: startOfMonth(now),   to };
+    case "quarter":  return { from: startOfQuarter(now), to };
+    case "year":     return { from: startOfYear(now),    to };
+    case "ytd":      return { from: startOfYear(now),    to };
     case "last_30":  return { from: subDays(to, 30),  to };
     case "last_90":  return { from: subDays(to, 90),  to };
     case "last_365": return { from: subDays(to, 365), to };
     case "all":      return { from: new Date(0),      to };
     case "custom":
       return {
-        from: m.customFrom ? new Date(m.customFrom) : new Date(0),
-        to:   m.customTo   ? new Date(m.customTo)   : to,
+        from: customBoundary(m.customFrom, new Date(0), false),
+        to: customBoundary(m.customTo, to, true),
       };
   }
 };
 
 // Vorperiode (gleiche Länge davor)
-const previousRange = (r: { from: Date; to: Date }): { from: Date; to: Date } => {
+// eslint-disable-next-line react-refresh/only-export-components
+export const previousRange = (r: { from: Date; to: Date }): { from: Date; to: Date } => {
   const len = r.to.getTime() - r.from.getTime();
-  return { from: new Date(r.from.getTime() - len), to: new Date(r.from.getTime()) };
+  const to = new Date(r.from.getTime() - 1);
+  return { from: new Date(to.getTime() - len), to };
 };
 
 // ---------------------------------------------------------------------------
@@ -267,9 +279,11 @@ interface ItemRow {
   value: number;       // Wert für Sortierung/Top-Liste
   label: string;       // Anzeige (Marke Modell)
   groupKey?: string;   // Breakdown-Key
+  numerator?: number;  // Zähler für gewichtete Quoten
+  denominator?: number;// Nenner für gewichtete Quoten
 }
 
-interface Result {
+export interface Result {
   primary: number;
   unit: MetricDef["unit"];
   count: number;
@@ -306,25 +320,28 @@ const breakdownKey = (v: Vehicle, b: Breakdown, refDate?: Date): string => {
   }
 };
 
-const ageInYears = (v: Vehicle): number | undefined => {
+const ageInYears = (v: Vehicle, at: Date): number | undefined => {
   if (!v.firstRegistration) return undefined;
   const d = new Date(v.firstRegistration);
-  return (Date.now() - d.getTime()) / (365.25 * 86400000);
+  const years = (at.getTime() - d.getTime()) / (365.25 * 86400000);
+  return Number.isFinite(years) && years >= 0 ? years : undefined;
 };
 
-const compute = (
-  vehicles: Vehicle[], processes: Process[], purchasePlans: PurchasePlan[], m: Measurement,
+// Exportiert für fachliche Formeltests; kein React-State.
+// eslint-disable-next-line react-refresh/only-export-components
+export const computeInsight = (
+  vehicles: Vehicle[], processes: Process[], purchasePlans: PurchasePlan[], m: Measurement, now = new Date(),
 ): Result => {
-  const { from, to } = resolveRange(m);
+  const { from, to } = resolveRange(m, now);
   const def = metricDef(m.metric);
 
   // ---- Aging (Standzeit) — Sonderfall: zählt aktuell im Bestand befindliche Fahrzeuge ----
   if (def.key === "aging_days") {
-    const now = new Date();
     const matched = vehicles
       .filter((v) => matchesFilters(v, m))
       .filter((v) => v.status === "in_stock" || v.status === "reserved")
       .filter((v) => v.arrivedAt)
+      .filter((v) => new Date(v.arrivedAt!).getTime() <= now.getTime())
       .map((v) => ({
         vehicle: v,
         value: differenceInDays(now, new Date(v.arrivedAt!)),
@@ -350,7 +367,7 @@ const compute = (
       if (a < from || a > to) return;
       baseCount++;
       const b = stationDate(m.toStation, v, proc, plan);
-      const converted = !!b && b >= a;
+      const converted = !!b && b >= a && b <= to;
       if (converted) convertedCount++;
       rows.push({
         vehicle: v, process: proc, plan,
@@ -410,34 +427,91 @@ const compute = (
     if (d < from || d > to) return;
 
     let value = 0;
+    let numerator: number | undefined;
+    let denominator: number | undefined;
     switch (def.key) {
       case "count_reached":   value = 1; break;
-      case "revenue":         value = proc?.fields.finalPrice ?? 0; break;
-      case "margin":          value = (proc?.fields.finalPrice ?? 0) - vehicleTotalCostsGross(v) - v.purchasePrice; break;
+      case "revenue": {
+        const finalPrice = proc?.fields.finalPrice;
+        if (finalPrice == null || finalPrice <= 0) return;
+        value = finalPrice;
+        break;
+      }
+      case "margin": {
+        const finalPrice = proc?.fields.finalPrice;
+        if (finalPrice == null || finalPrice <= 0) return;
+        value = finalPrice - vehicleTotalCostsGross(v) - v.purchasePrice;
+        break;
+      }
       case "margin_percent": {
-        const fp = proc?.fields.finalPrice ?? 0;
+        const fp = proc?.fields.finalPrice;
+        if (fp == null || fp <= 0) return;
         const margin = fp - vehicleTotalCostsGross(v) - v.purchasePrice;
-        value = fp > 0 ? (margin / fp) * 100 : 0;
+        numerator = margin;
+        denominator = fp;
+        value = (margin / fp) * 100;
         break;
       }
       case "costs":           value = vehicleTotalCostsGross(v); break;
       case "purchase_volume": value = v.purchasePrice; break;
-      case "discount":        value = v.listPrice - (proc?.fields.finalPrice ?? v.listPrice); break;
+      case "discount": {
+        const finalPrice = proc?.fields.finalPrice;
+        if (finalPrice == null || finalPrice <= 0) return;
+        value = v.listPrice - finalPrice;
+        break;
+      }
       case "discount_percent": {
-        const fp = proc?.fields.finalPrice ?? v.listPrice;
-        value = v.listPrice > 0 ? ((v.listPrice - fp) / v.listPrice) * 100 : 0;
+        const fp = proc?.fields.finalPrice;
+        if (fp == null || fp <= 0 || v.listPrice <= 0) return;
+        numerator = v.listPrice - fp;
+        denominator = v.listPrice;
+        value = (numerator / denominator) * 100;
         break;
       }
       case "avg_list_price":  value = v.listPrice; break;
       case "avg_purchase":    value = v.purchasePrice; break;
       case "avg_mileage":     value = v.mileage; break;
-      case "avg_age":         value = ageInYears(v) ?? 0; break;
+      case "avg_age": {
+        const age = ageInYears(v, d);
+        if (age == null) return;
+        value = age;
+        break;
+      }
     }
-    matched.push({ vehicle: v, process: proc, plan, value, label: `${v.make} ${v.model}`, groupKey: breakdownKey(v, m.breakdown, d) });
+    matched.push({ vehicle: v, process: proc, plan, value, numerator, denominator, label: `${v.make} ${v.model}`, groupKey: breakdownKey(v, m.breakdown, d) });
   });
 
-  const isAvg = ["margin_percent", "discount_percent", "avg_list_price", "avg_purchase", "avg_mileage", "avg_age"].includes(def.key);
+  if (def.key === "margin_percent" || def.key === "discount_percent") {
+    return summarizeRatio(matched, def.unit, m.breakdown);
+  }
+  const isAvg = ["avg_list_price", "avg_purchase", "avg_mileage", "avg_age"].includes(def.key);
   return summarize(matched, def.unit, m.breakdown, isAvg ? "avg" : def.key === "count_reached" ? "count" : "sum");
+};
+
+const summarizeRatio = (rows: ItemRow[], unit: MetricDef["unit"], breakdown: Breakdown): Result => {
+  if (!rows.length) return { primary: 0, unit, count: 0, rows: [] };
+  const numerator = rows.reduce((sum, row) => sum + (row.numerator ?? 0), 0);
+  const denominator = rows.reduce((sum, row) => sum + (row.denominator ?? 0), 0);
+  const result = summarize(rows, unit, "none", "avg");
+  result.primary = denominator > 0 ? (numerator / denominator) * 100 : 0;
+  if (breakdown !== "none") {
+    const groups = new Map<string, { numerator: number; denominator: number; count: number }>();
+    rows.forEach((row) => {
+      const group = groups.get(row.groupKey!) ?? { numerator: 0, denominator: 0, count: 0 };
+      group.numerator += row.numerator ?? 0;
+      group.denominator += row.denominator ?? 0;
+      group.count++;
+      groups.set(row.groupKey!, group);
+    });
+    result.breakdown = Array.from(groups.entries())
+      .map(([key, group]) => ({
+        key,
+        value: group.denominator > 0 ? (group.numerator / group.denominator) * 100 : 0,
+        count: group.count,
+      }))
+      .sort((a, b) => b.value - a.value);
+  }
+  return result;
 };
 
 const summarize = (
@@ -985,7 +1059,7 @@ const MeasurementCard = ({
   processes: Process[]; vehicles: Vehicle[]; purchasePlans: PurchasePlan[];
   onRemove: () => void; onDuplicate: () => void;
 }) => {
-  const result = useMemo(() => compute(vehicles, processes, purchasePlans, measurement), [vehicles, processes, purchasePlans, measurement]);
+  const result = useMemo(() => computeInsight(vehicles, processes, purchasePlans, measurement), [vehicles, processes, purchasePlans, measurement]);
   const def = metricDef(measurement.metric);
   const Icon = def.icon;
 
@@ -995,7 +1069,7 @@ const MeasurementCard = ({
     const r = resolveRange(measurement);
     const p = previousRange(r);
     const prevM: Measurement = { ...measurement, rangePreset: "custom", customFrom: p.from.toISOString(), customTo: p.to.toISOString() };
-    return compute(vehicles, processes, purchasePlans, prevM);
+    return computeInsight(vehicles, processes, purchasePlans, prevM);
   }, [measurement, vehicles, processes, purchasePlans]);
 
   const delta = prev && prev.primary !== 0 ? ((result.primary - prev.primary) / Math.abs(prev.primary)) * 100 : null;
