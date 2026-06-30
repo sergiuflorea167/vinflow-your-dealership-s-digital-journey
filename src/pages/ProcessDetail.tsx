@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useParams, Link, Navigate } from "react-router-dom";
-import { ArrowLeft, FileText, Lock, CheckCircle2, ArrowRight, Download, Archive, AlertCircle, SkipForward, RotateCcw, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, FileText, Lock, CheckCircle2, ArrowRight, Download, Archive, AlertCircle, SkipForward, RotateCcw, Plus, Trash2, FolderArchive } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { ProcessStepper } from "@/components/process/ProcessStepper";
 import { ActivityLog } from "@/components/process/ActivityLog";
@@ -30,6 +30,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { downloadBelegPdf } from "@/lib/pdf";
 import { CustomerPortalCard } from "@/components/process/CustomerPortalCard";
+import { DocumentManager } from "@/components/shared/DocumentManager";
 
 type InvoicingFields = NonNullable<ProcessFields["invoicing"]>;
 type DownPaymentFields = NonNullable<ProcessFields["downPayment"]>;
@@ -396,6 +397,28 @@ const ProcessDetail = () => {
 
           {/* Right column */}
           <div className="space-y-6">
+            <Card className="p-6 bg-card border-border shadow-card">
+              <div className="mb-4 flex items-start gap-3">
+                <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary-glow">
+                  <FolderArchive className="size-4" />
+                </div>
+                <div>
+                  <h3 className="font-display font-semibold text-sm">Dokumentenablage</h3>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    Vorgangsbezogene Unterlagen ablegen und gezielt für das Kundenportal freigeben.
+                  </p>
+                </div>
+              </div>
+              <DocumentManager
+                documents={process.fields.documents ?? []}
+                entityType="process"
+                entityId={process.id}
+                onChange={(documents) => updateFields(process.id, { documents })}
+                allowPortalVisibility
+                compact
+              />
+            </Card>
+
             <CustomerPortalCard
               processId={process.id}
               customerName={customer.name}

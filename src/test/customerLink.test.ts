@@ -7,7 +7,7 @@ vi.mock("@/integrations/supabase/client", () => ({
   supabase: { functions: { invoke: mocks.invoke } },
 }));
 
-import { saveCustomerTrackingSnapshot } from "@/lib/customerLink";
+import { loadCustomerTrackingSnapshot, saveCustomerTrackingSnapshot } from "@/lib/customerLink";
 
 const snapshot = {
   process: { id: "VF-2026-0001", fields: {} } as Process,
@@ -35,5 +35,24 @@ describe("customer portal link compatibility", () => {
     mocks.invoke.mockResolvedValue({ data: { ok: true, token: serverToken }, error: null });
 
     await expect(saveCustomerTrackingSnapshot(snapshot)).resolves.toBe(serverToken);
+  });
+
+  it("adds only backend-signed document URLs to the loaded portal snapshot", async () => {
+    const document = {
+      id: "doc-1", name: "Zulassung.pdf", mimeType: "application/pdf", size: 123,
+      storagePath: "org/process/id/doc.pdf", uploadedAt: "2026-07-01T00:00:00Z", uploadedBy: "Test",
+      portalVisible: true,
+    };
+    mocks.invoke.mockResolvedValue({
+      data: {
+        snapshot: { ...snapshot, process: { ...snapshot.process, fields: { documents: [document] } } },
+        documentUrls: { "doc-1": "https://signed.example/document" },
+      },
+      error: null,
+    });
+
+    const loaded = await loadCustomerTrackingSnapshot("secure-token", "CODE");
+
+    expect(loaded?.process.fields.documents?.[0].portalUrl).toBe("https://signed.example/document");
   });
 });

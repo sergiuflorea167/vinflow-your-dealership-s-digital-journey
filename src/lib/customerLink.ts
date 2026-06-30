@@ -88,7 +88,22 @@ export const loadCustomerTrackingSnapshot = async (token: string, accessCode: st
     body: { action: "load", token, accessCode },
   });
   if (error) throw error;
-  return (data?.snapshot ?? null) as CustomerTrackingSnapshot | null;
+  const snapshot = (data?.snapshot ?? null) as CustomerTrackingSnapshot | null;
+  if (!snapshot) return null;
+  const documentUrls = data?.documentUrls && typeof data.documentUrls === "object"
+    ? data.documentUrls as Record<string, string>
+    : {};
+  const documents = snapshot.process?.fields?.documents;
+  if (documents?.length) {
+    snapshot.process = {
+      ...snapshot.process,
+      fields: {
+        ...snapshot.process.fields,
+        documents: documents.map((document) => ({ ...document, portalUrl: documentUrls[document.id] })),
+      },
+    };
+  }
+  return snapshot;
 };
 
 // Versucht zuerst, den Token zu dekodieren (geräteübergreifend).

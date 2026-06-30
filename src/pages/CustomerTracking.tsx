@@ -1,7 +1,7 @@
 import React, { useMemo, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import {
-  CheckCircle2, Clock, Download, FileText, Lock, MapPin, Package, Phone, Mail, Car, Calendar as CalendarIcon, ShieldCheck,
+  CheckCircle2, Clock, Download, FileText, Lock, MapPin, Package, Phone, Mail, Car, Calendar as CalendarIcon, ShieldCheck, Paperclip,
 } from "lucide-react";
 import { useProcessStore } from "@/store/processStore";
 import { ProcessStepKey, formatCurrency, formatDate, getProcessStepsForDisplay, stepIndexIn } from "@/data/process";
@@ -138,6 +138,7 @@ const CustomerTracking = () => {
   const progressPct = Math.round((completedCount / processSteps.length) * 100);
   const currentIdx = Math.max(0, stepIndexIn(process.currentStep, processSteps));
   const isFinished = completedCount === processSteps.length;
+  const sharedDocuments = (process.fields.documents ?? []).filter((document) => document.portalVisible && document.portalUrl);
 
   // Voraussichtlicher Abholtermin: Liefertermin aus AB > Übergabedatum > +14 Tage ab Erstellung.
   const pickupDate =
@@ -341,6 +342,34 @@ const CustomerTracking = () => {
               );
             })}
           </div>
+
+          {sharedDocuments.length > 0 && (
+            <div className="mt-6 border-t border-border pt-5">
+              <h3 className="flex items-center gap-2 text-sm font-semibold">
+                <Paperclip className="size-4 text-primary-glow" /> Weitere freigegebene Dokumente
+              </h3>
+              <div className="mt-3 grid sm:grid-cols-2 gap-3">
+                {sharedDocuments.map((document) => (
+                  <a
+                    key={document.id}
+                    href={document.portalUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-3 rounded-xl border border-primary/20 bg-primary/5 p-4 transition-colors hover:border-primary/40"
+                  >
+                    <div className="grid size-10 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary-glow">
+                      <FileText className="size-5" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">{document.name}</p>
+                      <p className="text-xs text-muted-foreground">Vom Händler freigegeben</p>
+                    </div>
+                    <Download className="size-4 shrink-0 text-primary-glow" />
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
         </section>
 
         {/* Contact */}
