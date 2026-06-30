@@ -42,6 +42,17 @@ const b64decode = (s: string): string => {
   }
 };
 
+const randomBase64Url = (byteLength: number): string => {
+  const bytes = crypto.getRandomValues(new Uint8Array(byteLength));
+  let binary = "";
+  bytes.forEach((byte) => { binary += String.fromCharCode(byte); });
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+};
+
+// Übergangsformat für bereits veröffentlichte ältere Edge Functions. Es bleibt
+// kryptografisch zufällig; der Punkt erfüllt lediglich deren Formatprüfung.
+const createCompatibleToken = (): string => `${randomBase64Url(16)}.${randomBase64Url(16)}`;
+
 export const buildCustomerTrackingUrl = (token: string): string => {
   return `${window.location.origin}/track/${token}`;
 };
@@ -50,6 +61,7 @@ export const saveCustomerTrackingSnapshot = async (
   snapshot: Omit<CustomerTrackingSnapshot, "savedAt">,
   existingToken?: string,
 ): Promise<string> => {
+  const proposedToken = existingToken || createCompatibleToken();
   const safeProcess: Process = {
     ...snapshot.process,
     fields: { ...snapshot.process.fields, customerPortalToken: undefined },
@@ -57,15 +69,18 @@ export const saveCustomerTrackingSnapshot = async (
   const { data, error } = await supabase.functions.invoke("customer-tracking", {
     body: {
       action: "save",
-      token: existingToken,
+      token: proposedToken,
       processId: snapshot.process.id,
       accessCode: buildCustomerAccessCode(snapshot.customer),
       snapshot: { ...snapshot, process: safeProcess, savedAt: new Date().toISOString() },
     },
   });
   if (error) throw error;
-  if (typeof data?.token !== "string") throw new Error("Kundenportal-Token fehlt");
-  return data.token;
+  if (typeof data?.token === "string") return data.token;
+  // Alte Function-Versionen bestätigen nur mit { ok: true } und geben den
+  // vom Client gelieferten Token nicht noch einmal zurück.
+  if (data?.ok === true) return proposedToken;
+  throw new Error("Kundenportal-Token fehlt");
 };
 
 export const loadCustomerTrackingSnapshot = async (token: string, accessCode: string): Promise<CustomerTrackingSnapshot | null> => {
