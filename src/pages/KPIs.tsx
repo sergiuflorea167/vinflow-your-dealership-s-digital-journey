@@ -104,13 +104,14 @@ const KPIs = () => {
 
   const typeBreakdown = useMemo(() => {
     const map = new Map<VehicleType, { count: number; value: number }>();
-    vehicles.forEach((v) => {
+    const stock = vehicles.filter((v) => v.status === "in_stock" || v.status === "reserved");
+    stock.forEach((v) => {
       const cur = map.get(v.type) ?? { count: 0, value: 0 };
       cur.count += 1;
       cur.value += v.listPrice;
       map.set(v.type, cur);
     });
-    const total = vehicles.length || 1;
+    const total = stock.length || 1;
     return Array.from(map.entries())
       .map(([type, x]) => ({ type, ...x, pct: (x.count / total) * 100 }))
       .sort((a, b) => b.count - a.count);
