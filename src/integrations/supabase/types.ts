@@ -14,6 +14,90 @@ export type Database = {
   }
   public: {
     Tables: {
+      vincent_conversations: {
+        Row: {
+          created_at: string
+          expires_at: string
+          id: string
+          organization_id: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at: string
+          id?: string
+          organization_id: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          expires_at?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      vincent_messages: {
+        Row: {
+          content: string
+          conversation_id: string
+          created_at: string
+          id: string
+          role: string
+        }
+        Insert: {
+          content: string
+          conversation_id: string
+          created_at?: string
+          id: string
+          role: string
+        }
+        Update: {
+          content?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vincent_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "vincent_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vincent_preferences: {
+        Row: {
+          acknowledged_at: string
+          created_at: string
+          history_enabled: boolean
+          notice_version: string
+          organization_id: string
+          retention_days: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          acknowledged_at?: string
+          created_at?: string
+          history_enabled?: boolean
+          notice_version: string
+          organization_id: string
+          retention_days?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          acknowledged_at?: string
+          history_enabled?: boolean
+          notice_version?: string
+          retention_days?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       customer_tracking_snapshots: {
         Row: {
           created_at: string
@@ -181,6 +265,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      check_vincent_rate_limit: { Args: Record<PropertyKey, never>; Returns: boolean }
       get_user_org: { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {

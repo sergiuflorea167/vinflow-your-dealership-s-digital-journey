@@ -1,0 +1,158 @@
+-- Datenschutzfreundliche, benutzergebundene Chat-Historie für Vincent.
+
+CREATE TABLE public.vincent_preferences (
+  user_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  organization_id uuid NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
+  notice_version text NOT NULL,
+  acknowledged_at timestamptz NOT NULL DEFAULT now(),
+  history_enabled boolean NOT NULL DEFAULT false,
+  retention_days integer NOT NULL DEFAULT 30 CHECK (retention_days BETWEEN 1 AND 90),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE public.vincent_conversations (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  organization_id uuid NOT NULL REFERENCES public.organizations(id) ON DELETE CASCADE,
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  title text NOT NULL CHECK (char_length(title) BETWEEN 1 AND 120),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  expires_at timestamptz NOT NULL
+);
+
+CREATE TABLE public.vincent_messages (
+  id uuid PRIMARY KEY,
+  conversation_id uuid NOT NULL REFERENCES public.vincent_conversations(id) ON DELETE CASCADE,
+  role text NOT NULL CHECK (role IN ('user', 'assistant')),
+  content text NOT NULL CHECK (char_length(content) BETWEEN 1 AND 12000),
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX vincent_conversations_user_updated_idx
+  ON public.vincent_conversations (user_id, updated_at DESC);
+CREATE INDEX vincent_conversations_expiry_idx
+  ON public.vincent_conversations (expires_at);
+CREATE INDEX vincent_messages_conversation_created_idx
+  ON public.vincent_messages (conversation_id, created_at);
+
+ALTER TABLE public.vincent_preferences ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.vincent_conversations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.vincent_messages ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Vincent-Einstellungen: eigene lesen"
+ON public.vincent_preferences FOR SELECT TO authenticated
+USING (user_id = auth.uid() AND organization_id = public.get_user_org(auth.uid()));
+
+CREATE POLICY "Vincent-Einstellungen: eigene anlegen"
+ON public.vincent_preferences FOR INSERT TO authenticated
+WITH CHECK (user_id = auth.uid() AND organization_id = public.get_user_org(auth.uid()));
+
+CREATE POLICY "Vincent-Einstellungen: eigene aktualisieren"
+ON public.vincent_preferences FOR UPDATE TO authenticated
+USING (user_id = auth.uid() AND organization_id = public.get_user_org(auth.uid()))
+WITH CHECK (user_id = auth.uid() AND organization_id = public.get_user_org(auth.uid()));
+
+CREATE POLICY "Vincent-Einstellungen: eigene löschen"
+ON public.vincent_preferences FOR DELETE TO authenticated
+USING (user_id = auth.uid() AND organization_id = public.get_user_org(auth.uid()));
+
+CREATE POLICY "Vincent-Chats: eigene lesen"
+ON public.vincent_conversations FOR SELECT TO authenticated
+USING (user_id = auth.uid() AND organization_id = public.get_user_org(auth.uid()));
+
+CREATE POLICY "Vincent-Chats: eigene anlegen"
+ON public.vincent_conversations FOR INSERT TO authenticated
+WITH CHECK (user_id = auth.uid() AND organization_id = public.get_user_org(auth.uid()));
+
+CREATE POLICY "Vincent-Chats: eigene aktualisieren"
+ON public.vincent_conversations FOR UPDATE TO authenticated
+USING (user_id = auth.uid() AND organization_id = public.get_user_org(auth.uid()))
+WITH CHECK (user_id = auth.uid() AND organization_id = public.get_user_org(auth.uid()));
+
+CREATE POLICY "Vincent-Chats: eigene löschen"
+ON public.vincent_conversations FOR DELETE TO authenticated
+USING (user_id = auth.uid() AND organization_id = public.get_user_org(auth.uid()));
+
+CREATE OR REPLACE FUNCTION public.can_access_vincent_conversation(_conversation_id uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.vincent_conversations AS conversation
+    WHERE conversation.id = _conversation_id
+      AND conversation.user_id = auth.uid()
+      AND conversation.organization_id = public.get_user_org(auth.uid())
+  )
+$$;
+
+CREATE POLICY "Vincent-Nachrichten: eigene lesen"
+ON public.vincent_messages FOR SELECT TO authenticated
+USING (public.can_access_vincent_conversation(conversation_id));
+
+CREATE POLICY "Vincent-Nachrichten: eigene anlegen"
+ON public.vincent_messages FOR INSERT TO authenticated
+WITH CHECK (public.can_access_vincent_conversation(conversation_id));
+
+CREATE POLICY "Vincent-Nachrichten: eigene löschen"
+ON public.vincent_messages FOR DELETE TO authenticated
+USING (public.can_access_vincent_conversation(conversation_id));
+
+CREATE POLICY "Vincent-Nachrichten: eigene aktualisieren"
+ON public.vincent_messages FOR UPDATE TO authenticated
+USING (public.can_access_vincent_conversation(conversation_id))
+WITH CHECK (public.can_access_vincent_conversation(conversation_id));
+
+CREATE TABLE public.vincent_rate_events (
+  id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+  user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX vincent_rate_events_user_created_idx ON public.vincent_rate_events (user_id, created_at DESC);
+ALTER TABLE public.vincent_rate_events ENABLE ROW LEVEL SECURITY;
+
+CREATE OR REPLACE FUNCTION public.check_vincent_rate_limit()
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  recent_count integer;
+BEGIN
+  IF auth.uid() IS NULL THEN RETURN false; END IF;
+  -- Serialisiert parallele Anfragen desselben Benutzers und verhindert ein
+  -- Umgehen des Limits durch zeitgleiche Requests.
+  PERFORM pg_advisory_xact_lock(hashtextextended(auth.uid()::text, 0));
+  DELETE FROM public.vincent_rate_events
+  WHERE user_id = auth.uid() AND created_at < now() - interval '10 minutes';
+  SELECT count(*) INTO recent_count
+  FROM public.vincent_rate_events
+  WHERE user_id = auth.uid() AND created_at >= now() - interval '1 minute';
+  IF recent_count >= 12 THEN RETURN false; END IF;
+  INSERT INTO public.vincent_rate_events (user_id) VALUES (auth.uid());
+  RETURN true;
+END;
+$$;
+
+CREATE TRIGGER vincent_preferences_updated_at
+BEFORE UPDATE ON public.vincent_preferences
+FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+CREATE TRIGGER vincent_conversations_updated_at
+BEFORE UPDATE ON public.vincent_conversations
+FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+REVOKE ALL ON public.vincent_rate_events FROM anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.can_access_vincent_conversation(uuid) FROM public, anon;
+GRANT EXECUTE ON FUNCTION public.can_access_vincent_conversation(uuid) TO authenticated;
+REVOKE EXECUTE ON FUNCTION public.check_vincent_rate_limit() FROM public, anon;
+GRANT EXECUTE ON FUNCTION public.check_vincent_rate_limit() TO authenticated;
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.vincent_preferences TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.vincent_conversations TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.vincent_messages TO authenticated;
