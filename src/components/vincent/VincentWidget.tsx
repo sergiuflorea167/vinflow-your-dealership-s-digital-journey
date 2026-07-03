@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Download, History, Loader2, Maximize2, MessageSquarePlus, Minimize2, Minus,
-  PanelLeftClose, PanelLeftOpen, Save, Send, ShieldCheck, Sparkles, Trash2, X,
+  MoreHorizontal, PanelLeftClose, Save, Send, ShieldCheck, Sparkles, Trash2, X,
 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/context/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -22,7 +23,7 @@ import {
 } from "@/lib/vincentHistory";
 import {
   containsSpecialCategoryHint, conversationTitle, redactSensitiveText,
-  VINCENT_MAX_INPUT_LENGTH, VINCENT_RETENTION_DAYS,
+  VINCENT_MAX_INPUT_LENGTH, VINCENT_NOTICE_VERSION, VINCENT_RETENTION_DAYS,
 } from "@/lib/vincentPrivacy";
 import { useLang } from "@/lib/i18n";
 import { useProcessStore } from "@/store/processStore";
@@ -46,6 +47,8 @@ const newMessage = (role: VincentMessage["role"], content: string): VincentMessa
   id: crypto.randomUUID(), role, content, createdAt: new Date().toISOString(),
 });
 
+const noticeStorageKey = (userId: string) => `vincent-notice:${userId}`;
+
 export const VincentWidget = () => {
   const lang = useLang();
   const { user, profile, organization } = useAuth();
@@ -61,6 +64,7 @@ export const VincentWidget = () => {
   const [saved, setSaved] = useState(false);
   const [privacyLoading, setPrivacyLoading] = useState(true);
   const [privacyReady, setPrivacyReady] = useState(false);
+  const [historyReady, setHistoryReady] = useState(false);
   const [acknowledged, setAcknowledged] = useState(false);
   const [noticeChecked, setNoticeChecked] = useState(false);
   const [retentionDays, setRetentionDays] = useState(VINCENT_RETENTION_DAYS);
@@ -77,29 +81,44 @@ export const VincentWidget = () => {
 
   const refreshHistory = useCallback(async () => {
     if (!user) return;
-    setConversations(await listVincentConversations());
+    try {
+      setConversations(await listVincentConversations());
+      setHistoryReady(true);
+    } catch {
+      setHistoryReady(false);
+      setConversations([]);
+    }
   }, [user]);
 
   useEffect(() => {
     let active = true;
     setPrivacyLoading(true);
     setPrivacyReady(false);
+    setHistoryReady(false);
     if (!user || !profile?.organization_id) {
       setPrivacyLoading(false);
       return;
     }
+    const locallyAcknowledged = localStorage.getItem(noticeStorageKey(user.id)) === VINCENT_NOTICE_VERSION;
     Promise.all([loadVincentPreference(user.id), listVincentConversations()])
       .then(([preference, history]) => {
         if (!active) return;
-        setAcknowledged(preference.acknowledged);
+        setAcknowledged(preference.acknowledged || locallyAcknowledged);
         setRetentionDays(preference.retentionDays);
         setConversations(history);
-        setPrivacyReady(true);
+        setHistoryReady(true);
       })
       .catch(() => {
-        if (active) setPrivacyReady(false);
+        if (!active) return;
+        setAcknowledged(locallyAcknowledged);
+        setConversations([]);
+        setHistoryReady(false);
       })
-      .finally(() => { if (active) setPrivacyLoading(false); });
+      .finally(() => {
+        if (!active) return;
+        setPrivacyReady(true);
+        setPrivacyLoading(false);
+      });
     return () => { active = false; };
   }, [user, profile?.organization_id]);
 
@@ -133,7 +152,7 @@ export const VincentWidget = () => {
   }, [conversationId, profile?.organization_id, refreshHistory, retentionDays, user]);
 
   const saveCurrent = async () => {
-    if (!messagesRef.current.length || !user) return;
+    if (!messagesRef.current.length || !user || !historyReady) return;
     const id = conversationId ?? crypto.randomUUID();
     try {
       await setVincentHistoryEnabled(user.id, true);
@@ -248,12 +267,15 @@ export const VincentWidget = () => {
 
   const acceptNotice = async () => {
     if (!noticeChecked || !user || !profile?.organization_id) return;
+    localStorage.setItem(noticeStorageKey(user.id), VINCENT_NOTICE_VERSION);
+    setAcknowledged(true);
+    setNoticeChecked(false);
+    if (!historyReady) return;
     try {
       await acknowledgeVincentNotice(user.id, profile.organization_id);
-      setAcknowledged(true);
-      setNoticeChecked(false);
     } catch {
-      toast({ variant: "destructive", title: "Datenschutzbestätigung nicht speicherbar", description: "Vincent bleibt zum Schutz deiner Daten deaktiviert." });
+      setHistoryReady(false);
+      toast({ title: "Hinweis lokal gespeichert", description: "Der Chat bleibt nutzbar; Speichern und Verlauf sind vorübergehend nicht verfügbar." });
     }
   };
 
@@ -308,14 +330,14 @@ export const VincentWidget = () => {
   const company = settings.companyName || organization?.name || "dein Unternehmen";
   const contact = settings.companyEmail || profile?.email || "deine Administration";
   const panelClass = mode === "maximized"
-    ? "fixed inset-4 z-40"
-    : "fixed bottom-6 right-6 z-40 h-[min(78vh,680px)] w-[min(94vw,460px)]";
+    ? "fixed inset-2 z-40 sm:inset-4"
+    : "fixed bottom-3 right-3 z-40 h-[min(82dvh,720px)] w-[min(calc(100vw-1.5rem),500px)] sm:bottom-6 sm:right-6";
 
   return (
     <>
-      <div className={cn(panelClass, "flex overflow-hidden rounded-2xl border bg-card shadow-elegant animate-fade-in")}>
+      <div className={cn(panelClass, "relative flex overflow-hidden rounded-2xl border bg-card shadow-elegant animate-fade-in")}>
         {showHistory && (
-          <aside className="flex w-64 shrink-0 flex-col border-r bg-muted/20">
+          <aside className="absolute inset-y-0 left-0 z-20 flex w-72 max-w-[85%] flex-col border-r bg-card shadow-xl">
             <div className="flex items-center justify-between border-b p-3">
               <span className="text-sm font-semibold">Gespeicherte Chats</span>
               <Button variant="ghost" size="icon" onClick={() => setShowHistory(false)}><PanelLeftClose className="size-4" /></Button>
@@ -337,29 +359,44 @@ export const VincentWidget = () => {
         )}
 
         <section className="flex min-w-0 flex-1 flex-col">
-          <header className="flex h-14 shrink-0 items-center gap-2 border-b bg-gradient-to-r from-primary/10 to-transparent px-3">
-            <Button variant="ghost" size="icon" onClick={() => setShowHistory((value) => !value)} aria-label="Chatverlauf">
-              {showHistory ? <PanelLeftClose className="size-4" /> : <PanelLeftOpen className="size-4" />}
-            </Button>
-            <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary-glow text-primary-foreground"><Sparkles className="size-4" /></div>
-            <div className="min-w-0 flex-1"><p className="font-display font-semibold leading-tight">Vincent</p><p className="text-[11px] text-muted-foreground">KI-Copilot · Antworten prüfen</p></div>
-            <Button variant="ghost" size="icon" onClick={startNew} aria-label="Neuer Chat"><MessageSquarePlus className="size-4" /></Button>
-            <Button variant="ghost" size="icon" onClick={saveCurrent} disabled={!messages.length || saved} aria-label="Chat speichern"><Save className="size-4" /></Button>
-            <Button variant="ghost" size="icon" onClick={exportCurrent} disabled={!messages.length} aria-label="Chat exportieren"><Download className="size-4" /></Button>
-            {saved && <Button variant="ghost" size="icon" onClick={removeCurrent} aria-label="Chat löschen"><Trash2 className="size-4" /></Button>}
-            <Button variant="ghost" size="icon" onClick={() => setMode("minimized")} aria-label="Minimieren"><Minus className="size-4" /></Button>
-            <Button variant="ghost" size="icon" onClick={() => setMode(mode === "maximized" ? "normal" : "maximized")} aria-label="Größe ändern">
+          <header className="flex h-16 shrink-0 items-center gap-3 border-b bg-gradient-to-r from-primary/10 to-transparent px-4">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary-glow text-primary-foreground shadow-sm"><Sparkles className="size-5" /></div>
+            <div className="min-w-0 flex-1"><p className="truncate font-display font-semibold leading-tight">Vincent</p><p className="truncate text-[11px] text-muted-foreground">KI-Copilot · Antworten prüfen</p></div>
+            <Button variant="ghost" size="icon" className="size-8 shrink-0" onClick={() => setMode("minimized")} aria-label="Minimieren"><Minus className="size-4" /></Button>
+            <Button variant="ghost" size="icon" className="size-8 shrink-0" onClick={() => setMode(mode === "maximized" ? "normal" : "maximized")} aria-label="Größe ändern">
               {mode === "maximized" ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}
             </Button>
-            <Button variant="ghost" size="icon" onClick={close} aria-label="Schließen"><X className="size-4" /></Button>
+            <Button variant="ghost" size="icon" className="size-8 shrink-0" onClick={close} aria-label="Schließen"><X className="size-4" /></Button>
           </header>
+
+          <div className="flex h-11 shrink-0 items-center gap-1 border-b bg-muted/20 px-2">
+            <Button variant="ghost" size="sm" className="gap-2" onClick={() => setShowHistory((value) => !value)} disabled={!historyReady}>
+              {showHistory ? <PanelLeftClose className="size-4" /> : <History className="size-4" />}<span>Verlauf</span>
+            </Button>
+            <Button variant="ghost" size="sm" className="gap-2" onClick={startNew}><MessageSquarePlus className="size-4" /><span>Neuer Chat</span></Button>
+            <div className="flex-1" />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="size-8" aria-label="Weitere Aktionen"><MoreHorizontal className="size-4" /></Button></DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onSelect={saveCurrent} disabled={!historyReady || !messages.length || saved}><Save className="mr-2 size-4" />Chat speichern</DropdownMenuItem>
+                <DropdownMenuItem onSelect={exportCurrent} disabled={!messages.length}><Download className="mr-2 size-4" />Chat exportieren</DropdownMenuItem>
+                {saved && <><DropdownMenuSeparator /><DropdownMenuItem onSelect={removeCurrent} className="text-destructive"><Trash2 className="mr-2 size-4" />Chat löschen</DropdownMenuItem></>}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
 
           <div ref={scrollRef} className="flex-1 space-y-4 overflow-y-auto p-4">
             {privacyLoading && <div className="flex h-full items-center justify-center text-sm text-muted-foreground"><Loader2 className="mr-2 size-4 animate-spin" />Sicherheitskonfiguration wird geprüft…</div>}
             {!privacyLoading && !privacyReady && (
               <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm">
                 <p className="font-semibold">Vincent ist sicherheitshalber deaktiviert</p>
-                <p className="mt-1 text-muted-foreground">Die geschützte Benutzerablage oder Zugriffskontrolle ist noch nicht vollständig bereit. Es werden keine Daten an die KI übertragen.</p>
+                <p className="mt-1 text-muted-foreground">Bitte melde dich erneut an, um Vincent zu verwenden.</p>
+              </div>
+            )}
+            {!privacyLoading && privacyReady && !historyReady && (
+              <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-muted-foreground">
+                <p className="font-medium text-foreground">Chat ohne Speicherung</p>
+                <p className="mt-0.5">Verlauf und Speichern sind vorübergehend nicht verfügbar. Nachrichten bleiben nur in diesem geöffneten Fenster.</p>
               </div>
             )}
             {privacyReady && messages.length === 0 && (
@@ -391,7 +428,7 @@ export const VincentWidget = () => {
               }} placeholder="Keine Namen, Kontaktdaten oder sensiblen Daten eingeben" rows={1} className="min-h-[40px] max-h-32 resize-none" disabled={streaming || !privacyReady || !acknowledged} />
               <Button type="submit" size="icon" disabled={streaming || !input.trim() || !privacyReady || !acknowledged}>{streaming ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}</Button>
             </form>
-            <p className="mt-1.5 text-center text-[10px] text-muted-foreground">KI-generiert · Antworten fachlich prüfen · Keine sensiblen Daten · Chats nur nach aktivem Speichern</p>
+            <p className="mt-1.5 truncate text-center text-[10px] text-muted-foreground">KI kann Fehler machen · Keine sensiblen Daten eingeben</p>
           </footer>
         </section>
       </div>
