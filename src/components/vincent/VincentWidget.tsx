@@ -342,7 +342,7 @@ export const VincentWidget = () => {
   };
 
   const removeAll = async () => {
-    if (!window.confirm("Alle deine gespeicherten Vincent-Chats endgültig löschen?")) return;
+    if (!window.confirm("Alle deine gespeicherten VINcent-Chats endgültig löschen?")) return;
     await deleteAllVincentConversations();
     startNew();
     await refreshHistory();
@@ -350,7 +350,7 @@ export const VincentWidget = () => {
 
   const exportCurrent = () => {
     if (!messages.length) return;
-    const markdown = messages.map((message) => `## ${message.role === "user" ? "Du" : "Vincent"}\n\n${message.content}`).join("\n\n");
+    const markdown = messages.map((message) => `## ${message.role === "user" ? "Du" : "VINcent"}\n\n${message.content}`).join("\n\n");
     const url = URL.createObjectURL(new Blob([markdown], { type: "text/markdown;charset=utf-8" }));
     const link = document.createElement("a");
     link.href = url;
@@ -371,7 +371,7 @@ export const VincentWidget = () => {
   if (mode === "minimized") {
     return (
       <div className="fixed bottom-5 right-5 z-40 flex items-center gap-2 rounded-xl border bg-card p-2 shadow-elegant">
-        <Button variant="ghost" className="gap-2" onClick={() => setMode("normal")}><Sparkles className="size-4 text-primary" />Vincent</Button>
+        <Button variant="ghost" className="gap-2" onClick={() => setMode("normal")}><Sparkles className="size-4 text-primary" />VINcent</Button>
         <Button variant="ghost" size="icon" onClick={close} aria-label="Chat schließen"><X className="size-4" /></Button>
       </div>
     );
@@ -394,7 +394,7 @@ export const VincentWidget = () => {
         )}>
           <div className="flex h-16 items-center gap-2 px-3">
             <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary-glow text-primary-foreground shadow-sm"><Sparkles className="size-4" /></div>
-            <div className="min-w-0 flex-1"><p className="font-display text-sm font-semibold">Vincent</p><p className="text-[10px] text-muted-foreground">Dein KI-Copilot</p></div>
+            <div className="min-w-0 flex-1"><p className="font-display text-sm font-semibold">VINcent</p><p className="text-[10px] text-muted-foreground">Dein KI-Copilot</p></div>
             <Button variant="ghost" size="icon" className="size-8" onClick={() => setShowHistory(false)} aria-label="Seitenleiste einklappen"><PanelLeftClose className="size-4" /></Button>
           </div>
           <div className="px-3 pb-3">
@@ -466,7 +466,7 @@ export const VincentWidget = () => {
           <div ref={scrollRef} className="flex-1 overflow-y-auto">
             <div className="mx-auto flex min-h-full w-full max-w-3xl flex-col px-4 py-6 sm:px-8">
               {privacyLoading && <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground"><Loader2 className="mr-2 size-4 animate-spin" />Sicherheitskonfiguration wird geprüft …</div>}
-              {!privacyLoading && !privacyReady && <div className="m-auto rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm"><p className="font-semibold">Vincent ist nicht verfügbar</p><p className="mt-1 text-muted-foreground">Bitte melde dich erneut an.</p></div>}
+              {!privacyLoading && !privacyReady && <div className="m-auto rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm"><p className="font-semibold">VINcent ist nicht verfügbar</p><p className="mt-1 text-muted-foreground">Bitte melde dich erneut an.</p></div>}
               {!privacyLoading && privacyReady && messages.length === 0 && (
                 <div className="my-auto py-8">
                   <div className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-primary-glow text-primary-foreground shadow-lg"><Sparkles className="size-5" /></div>
@@ -481,7 +481,7 @@ export const VincentWidget = () => {
               {messages.length > 0 && <div className="space-y-6 pb-4">
                 {messages.map((message) => (
                   <div key={message.id} className={cn("flex", message.role === "user" ? "justify-end" : "justify-start")}>
-                    {message.role === "user" ? <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-muted px-4 py-2.5 text-sm">{message.content}</div> : <div className="prose prose-sm w-full max-w-none text-sm prose-p:my-2 prose-ul:my-2">{!message.content && streaming ? <span className="inline-flex items-center gap-2 text-muted-foreground"><Loader2 className="size-3.5 animate-spin" />Vincent denkt nach …</span> : <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>}</div>}
+                    {message.role === "user" ? <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-muted px-4 py-2.5 text-sm">{message.content}</div> : <div className="prose prose-sm w-full max-w-none text-sm prose-p:my-2 prose-ul:my-2">{!message.content && streaming ? <span className="inline-flex items-center gap-2 text-muted-foreground"><Loader2 className="size-3.5 animate-spin" />VINcent denkt nach …</span> : <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>}</div>}
                   </div>
                 ))}
               </div>}
@@ -490,10 +490,10 @@ export const VincentWidget = () => {
 
           <footer className="shrink-0 bg-background px-3 pb-3 pt-2 sm:px-6">
             <form onSubmit={(event) => { event.preventDefault(); send(input); }} className="mx-auto flex max-w-3xl items-end gap-2 rounded-2xl border bg-card p-2 shadow-sm focus-within:border-primary/40 focus-within:shadow-md">
-              <Textarea value={input} onChange={(event) => setInput(event.target.value)} maxLength={VINCENT_MAX_INPUT_LENGTH} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); send(input); } }} placeholder="Nachricht an Vincent" rows={1} className="min-h-[40px] max-h-32 resize-none border-0 bg-transparent px-2 py-2.5 shadow-none focus-visible:ring-0" disabled={streaming || !privacyReady || !acknowledged} />
+              <Textarea value={input} onChange={(event) => setInput(event.target.value)} maxLength={VINCENT_MAX_INPUT_LENGTH} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); send(input); } }} placeholder="Nachricht an VINcent" rows={1} className="min-h-[40px] max-h-32 resize-none border-0 bg-transparent px-2 py-2.5 shadow-none focus-visible:ring-0" disabled={streaming || !privacyReady || !acknowledged} />
               <Button type="submit" size="icon" className="size-9 shrink-0 rounded-xl" aria-label="Nachricht senden" disabled={streaming || !input.trim() || !privacyReady || !acknowledged}>{streaming ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}</Button>
             </form>
-            <p className="mx-auto mt-1.5 max-w-3xl truncate text-center text-[10px] text-muted-foreground">Vincent kann Fehler machen · Keine personenbezogenen oder sensiblen Daten eingeben</p>
+            <p className="mx-auto mt-1.5 max-w-3xl truncate text-center text-[10px] text-muted-foreground">VINcent kann Fehler machen · Keine personenbezogenen oder sensiblen Daten eingeben</p>
           </footer>
         </section>
       </div>
@@ -509,18 +509,18 @@ export const VincentWidget = () => {
       <Dialog open={privacyReady && !acknowledged} onOpenChange={(next) => { if (!next) close(); }}>
         <DialogContent className="max-w-xl">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2"><ShieldCheck className="size-5 text-primary" />Datenschutzhinweis zu Vincent</DialogTitle>
+            <DialogTitle className="flex items-center gap-2"><ShieldCheck className="size-5 text-primary" />Datenschutzhinweis zu VINcent</DialogTitle>
             <DialogDescription>Bitte vor der ersten Nutzung lesen. Dies ist eine Information und keine pauschale Einwilligung in unnötige Verarbeitung.</DialogDescription>
           </DialogHeader>
           <div className="max-h-[55vh] space-y-3 overflow-y-auto text-sm text-muted-foreground">
             <p><strong className="text-foreground">Verantwortlich:</strong> {company}, Kontakt: {contact}.</p>
-            <p>Vincent ist ein KI-System. Zur Beantwortung werden deine Eingabe und ausschließlich zur Frage passende, minimierte Betriebskennzahlen über das Lovable AI Gateway an einen KI-Modellanbieter übermittelt. Direkte Kundennamen, VIN, Kontakt-, Zahlungs-, Termin- und To-Do-Freitexte werden nicht in den automatisch erzeugten Kontext aufgenommen.</p>
-            <p>Nutze Vincent nur für betriebliche Analysen. Gib keine personenbezogenen Kundendaten, Beschäftigtendaten, Passwörter oder besonders geschützten Daten (z. B. Gesundheits- oder Religionsangaben) ein. Vincent darf keine automatisierten Entscheidungen über Kunden oder Beschäftigte treffen; Ergebnisse müssen durch einen Menschen geprüft werden.</p>
-            <p>Unterhaltungen werden automatisch zugriffsgeschützt deinem Benutzerkonto zugeordnet und nach {retentionDays} Tagen gelöscht. Du kannst sie jederzeit exportieren, umbenennen oder sofort löschen. Ist die sichere Ablage vorübergehend nicht verfügbar, kennzeichnet Vincent den Chat sichtbar als nicht gespeichert.</p>
+            <p>VINcent ist ein KI-System. Zur Beantwortung werden deine Eingabe und ausschließlich zur Frage passende, minimierte Betriebskennzahlen über eine serverseitig konfigurierte KI-Schnittstelle an den von euch ausgewählten Anbieter übermittelt. Direkte Kundennamen, VIN, Kontakt-, Zahlungs-, Termin- und To-Do-Freitexte werden nicht in den automatisch erzeugten Kontext aufgenommen.</p>
+            <p>Nutze VINcent nur für betriebliche Analysen. Gib keine personenbezogenen Kundendaten, Beschäftigtendaten, Passwörter oder besonders geschützten Daten (z. B. Gesundheits- oder Religionsangaben) ein. VINcent darf keine automatisierten Entscheidungen über Kunden oder Beschäftigte treffen; Ergebnisse müssen durch einen Menschen geprüft werden.</p>
+            <p>Unterhaltungen werden automatisch zugriffsgeschützt deinem Benutzerkonto zugeordnet und nach {retentionDays} Tagen gelöscht. Du kannst sie jederzeit exportieren, umbenennen oder sofort löschen. Ist die sichere Ablage vorübergehend nicht verfügbar, kennzeichnet VINcent den Chat sichtbar als nicht gespeichert.</p>
             <p>Je nach Modellanbieter kann eine Verarbeitung außerhalb der EU/des EWR auf Basis geeigneter Garantien stattfinden. Maßgeblich sind außerdem eure Datenschutzerklärung, der Auftragsverarbeitungsvertrag und die Anbieterbedingungen.</p>
             <label className="flex cursor-pointer items-start gap-3 rounded-lg border p-3 text-foreground">
               <Checkbox checked={noticeChecked} onCheckedChange={(value) => setNoticeChecked(value === true)} className="mt-0.5" />
-              <span>Ich habe den Hinweis gelesen und werde keine personenbezogenen oder besonders geschützten Daten in Vincent eingeben.</span>
+              <span>Ich habe den Hinweis gelesen und werde keine personenbezogenen oder besonders geschützten Daten in VINcent eingeben.</span>
             </label>
           </div>
           <DialogFooter><Button variant="outline" onClick={close}>Abbrechen</Button><Button disabled={!noticeChecked} onClick={acceptNotice}>Hinweis verstanden</Button></DialogFooter>

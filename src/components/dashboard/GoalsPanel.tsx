@@ -344,7 +344,7 @@ export const GoalsPanel = () => {
                 className="border-primary/40 text-primary-glow hover:bg-primary/10"
               >
                 <Sparkles className="size-4 mr-1.5" />
-                Vincent helfen lassen
+                VINcent helfen lassen
               </Button>
             ) : (
               <DropdownMenu>
@@ -355,12 +355,12 @@ export const GoalsPanel = () => {
                     className="border-primary/40 text-primary-glow hover:bg-primary/10"
                   >
                     <Sparkles className="size-4 mr-1.5" />
-                    Vincent helfen lassen
+                    VINcent helfen lassen
                     <ChevronDown className="size-3.5 ml-1.5 opacity-70" />
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-72">
-                  <DropdownMenuLabel>Bei welchem Ziel soll Vincent helfen?</DropdownMenuLabel>
+                  <DropdownMenuLabel>Bei welchem Ziel soll VINcent helfen?</DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   {enriched.map(({ goal, pct }) => (
                     <DropdownMenuItem

@@ -45,7 +45,7 @@ vi.mock("@/lib/vincentHistory", () => ({
   setVincentHistoryEnabled: historyMocks.setEnabled,
 }));
 
-describe("Vincent chat workspace", () => {
+describe("VINcent chat workspace", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
@@ -68,7 +68,7 @@ describe("Vincent chat workspace", () => {
     render(<VincentWidget />);
     act(() => window.dispatchEvent(new CustomEvent("vincent:open")));
 
-    const input = await screen.findByPlaceholderText("Nachricht an Vincent");
+    const input = await screen.findByPlaceholderText("Nachricht an VINcent");
     expect(screen.getByTestId("vincent-window")).toHaveClass("fixed");
     expect(input).toBeEnabled();
     expect(screen.getByRole("button", { name: "Neuer Chat" })).toBeInTheDocument();
@@ -97,7 +97,7 @@ describe("Vincent chat workspace", () => {
     render(<VincentWidget />);
     act(() => window.dispatchEvent(new CustomEvent("vincent:open")));
 
-    const input = await screen.findByPlaceholderText("Nachricht an Vincent");
+    const input = await screen.findByPlaceholderText("Nachricht an VINcent");
     expect(input).toBeEnabled();
     expect(screen.getByText("Verlauf nicht verfügbar")).toBeInTheDocument();
     expect(screen.getByText("Nicht gespeichert")).toBeInTheDocument();

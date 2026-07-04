@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildVincentContext } from "@/lib/vincentContext";
 import { useProcessStore } from "@/store/processStore";
 
-describe("Vincent context minimization", () => {
+describe("VINcent context minimization", () => {
   it("never exports customer, VIN, contact, payment, todo or calendar free text", () => {
     const state = useProcessStore.getState();
     const customer = state.customers[0];
