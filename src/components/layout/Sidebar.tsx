@@ -191,14 +191,14 @@ export const Sidebar = () => {
           {renderItem(settingsItem)}
         </nav>
 
-        {/* Vincent – KI-Chat, abgesetzt ganz unten */}
+        {/* VINcent – KI-Chat, abgesetzt ganz unten */}
         <div className={cn("border-t border-sidebar-border", collapsed ? "px-2 py-3 flex justify-center" : "px-3 py-3")}>
           {(() => {
             const btn = (
               <button
                 type="button"
                 onClick={() => window.dispatchEvent(new CustomEvent("vincent:open"))}
-                aria-label="Vincent fragen"
+                aria-label="VINcent fragen"
                 data-tour="vincent"
                 className={cn(
                   "flex items-center rounded-lg text-sm font-medium transition-smooth bg-gradient-to-br from-primary/15 to-primary/5 text-primary hover:from-primary hover:to-primary-glow hover:text-primary-foreground",
@@ -206,13 +206,13 @@ export const Sidebar = () => {
                 )}
               >
                 <BotMessageSquare className="size-4 shrink-0" />
-                {!collapsed && <span className="truncate">Vincent fragen</span>}
+                {!collapsed && <span className="truncate">VINcent fragen</span>}
               </button>
             );
             return collapsed ? (
               <Tooltip delayDuration={150}>
                 <TooltipTrigger asChild>{btn}</TooltipTrigger>
-                <TooltipContent side="right">Vincent fragen</TooltipContent>
+                <TooltipContent side="right">VINcent fragen</TooltipContent>
               </Tooltip>
             ) : btn;
           })()}

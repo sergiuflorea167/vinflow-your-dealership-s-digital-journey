@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { containsSpecialCategoryHint, conversationTitle, redactSensitiveText } from "@/lib/vincentPrivacy";
 
-describe("Vincent privacy guard", () => {
+describe("VINcent privacy guard", () => {
   it("redacts direct identifiers before transmission", () => {
     const result = redactSensitiveText(
       "Mail max@example.de, IBAN DE89 3704 0044 0532 0130 00, VIN WBA12345678901234, Tel. +49 (170) 12345678",

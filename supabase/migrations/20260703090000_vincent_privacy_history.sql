@@ -1,4 +1,4 @@
--- Datenschutzfreundliche, benutzergebundene Chat-Historie für Vincent.
+-- Datenschutzfreundliche, benutzergebundene Chat-Historie für VINcent.
 
 CREATE TABLE public.vincent_preferences (
   user_id uuid PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -40,37 +40,37 @@ ALTER TABLE public.vincent_preferences ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.vincent_conversations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.vincent_messages ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Vincent-Einstellungen: eigene lesen"
+CREATE POLICY "VINcent-Einstellungen: eigene lesen"
 ON public.vincent_preferences FOR SELECT TO authenticated
 USING (user_id = auth.uid() AND organization_id = public.get_user_org(auth.uid()));
 
-CREATE POLICY "Vincent-Einstellungen: eigene anlegen"
+CREATE POLICY "VINcent-Einstellungen: eigene anlegen"
 ON public.vincent_preferences FOR INSERT TO authenticated
 WITH CHECK (user_id = auth.uid() AND organization_id = public.get_user_org(auth.uid()));
 
-CREATE POLICY "Vincent-Einstellungen: eigene aktualisieren"
+CREATE POLICY "VINcent-Einstellungen: eigene aktualisieren"
 ON public.vincent_preferences FOR UPDATE TO authenticated
 USING (user_id = auth.uid() AND organization_id = public.get_user_org(auth.uid()))
 WITH CHECK (user_id = auth.uid() AND organization_id = public.get_user_org(auth.uid()));
 
-CREATE POLICY "Vincent-Einstellungen: eigene löschen"
+CREATE POLICY "VINcent-Einstellungen: eigene löschen"
 ON public.vincent_preferences FOR DELETE TO authenticated
 USING (user_id = auth.uid() AND organization_id = public.get_user_org(auth.uid()));
 
-CREATE POLICY "Vincent-Chats: eigene lesen"
+CREATE POLICY "VINcent-Chats: eigene lesen"
 ON public.vincent_conversations FOR SELECT TO authenticated
 USING (user_id = auth.uid() AND organization_id = public.get_user_org(auth.uid()));
 
-CREATE POLICY "Vincent-Chats: eigene anlegen"
+CREATE POLICY "VINcent-Chats: eigene anlegen"
 ON public.vincent_conversations FOR INSERT TO authenticated
 WITH CHECK (user_id = auth.uid() AND organization_id = public.get_user_org(auth.uid()));
 
-CREATE POLICY "Vincent-Chats: eigene aktualisieren"
+CREATE POLICY "VINcent-Chats: eigene aktualisieren"
 ON public.vincent_conversations FOR UPDATE TO authenticated
 USING (user_id = auth.uid() AND organization_id = public.get_user_org(auth.uid()))
 WITH CHECK (user_id = auth.uid() AND organization_id = public.get_user_org(auth.uid()));
 
-CREATE POLICY "Vincent-Chats: eigene löschen"
+CREATE POLICY "VINcent-Chats: eigene löschen"
 ON public.vincent_conversations FOR DELETE TO authenticated
 USING (user_id = auth.uid() AND organization_id = public.get_user_org(auth.uid()));
 
@@ -90,19 +90,19 @@ AS $$
   )
 $$;
 
-CREATE POLICY "Vincent-Nachrichten: eigene lesen"
+CREATE POLICY "VINcent-Nachrichten: eigene lesen"
 ON public.vincent_messages FOR SELECT TO authenticated
 USING (public.can_access_vincent_conversation(conversation_id));
 
-CREATE POLICY "Vincent-Nachrichten: eigene anlegen"
+CREATE POLICY "VINcent-Nachrichten: eigene anlegen"
 ON public.vincent_messages FOR INSERT TO authenticated
 WITH CHECK (public.can_access_vincent_conversation(conversation_id));
 
-CREATE POLICY "Vincent-Nachrichten: eigene löschen"
+CREATE POLICY "VINcent-Nachrichten: eigene löschen"
 ON public.vincent_messages FOR DELETE TO authenticated
 USING (public.can_access_vincent_conversation(conversation_id));
 
-CREATE POLICY "Vincent-Nachrichten: eigene aktualisieren"
+CREATE POLICY "VINcent-Nachrichten: eigene aktualisieren"
 ON public.vincent_messages FOR UPDATE TO authenticated
 USING (public.can_access_vincent_conversation(conversation_id))
 WITH CHECK (public.can_access_vincent_conversation(conversation_id));

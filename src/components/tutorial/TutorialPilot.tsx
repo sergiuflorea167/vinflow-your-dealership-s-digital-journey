@@ -112,8 +112,8 @@ const STEPS: Step[] = [
   },
   {
     selector: '[data-tour="vincent"]',
-    title: "Vincent – dein KI-Assistent",
-    body: "Frag Vincent nach Auswertungen, dem nächsten Schritt in einem Vorgang oder lass dir komplexe Vorgänge in einem Satz zusammenfassen.",
+    title: "VINcent – dein KI-Assistent",
+    body: "Frag VINcent nach Auswertungen, dem nächsten Schritt in einem Vorgang oder lass dir komplexe Vorgänge in einem Satz zusammenfassen.",
     icon: Bot,
     placement: "left",
   },
