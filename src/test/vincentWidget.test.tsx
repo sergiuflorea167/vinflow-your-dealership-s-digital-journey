@@ -15,12 +15,14 @@ const historyMocks = vi.hoisted(() => ({
   setEnabled: vi.fn(),
 }));
 
+const authState = vi.hoisted(() => ({
+  user: { id: "user-1" },
+  profile: { organization_id: "org-1", email: "admin@example.test" },
+  organization: { name: "Testbetrieb" },
+}));
+
 vi.mock("@/context/AuthContext", () => ({
-  useAuth: () => ({
-    user: { id: "user-1" },
-    profile: { organization_id: "org-1", email: "admin@example.test" },
-    organization: { name: "Testbetrieb" },
-  }),
+  useAuth: () => authState,
 }));
 
 vi.mock("@/store/processStore", () => ({
@@ -80,6 +82,8 @@ describe("VINcent chat workspace", () => {
     fireEvent.click(sendButton);
 
     await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+    expect(historyMocks.save).toHaveBeenCalled();
+    expect(historyMocks.save.mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(fetch).mock.invocationCallOrder[0]);
     await waitFor(() => expect(historyMocks.save).toHaveBeenCalledTimes(2));
 
     const savedPayloads = historyMocks.save.mock.calls.map(([payload]) => payload);
@@ -109,5 +113,27 @@ describe("VINcent chat workspace", () => {
 
     await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
     expect(historyMocks.save).not.toHaveBeenCalled();
+  });
+
+  it("keeps the failed AI request in the saved conversation", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce({
+      ok: false,
+      status: 502,
+      body: {},
+      json: vi.fn().mockResolvedValue({ error: "KI vorübergehend nicht erreichbar" }),
+    } as unknown as Response);
+
+    render(<VincentWidget />);
+    act(() => window.dispatchEvent(new CustomEvent("vincent:open")));
+
+    const input = await screen.findByPlaceholderText("Nachricht an VINcent");
+    fireEvent.change(input, { target: { value: "Bitte analysieren" } });
+    fireEvent.click(screen.getByRole("button", { name: "Nachricht senden" }));
+
+    await waitFor(() => expect(historyMocks.save).toHaveBeenCalledTimes(2));
+    const finalPayload = historyMocks.save.mock.calls[1][0];
+    expect(finalPayload.messages).toHaveLength(2);
+    expect(finalPayload.messages[1].content).toContain("KI vorübergehend nicht erreichbar");
+    expect(screen.getByText("Automatisch gespeichert")).toBeInTheDocument();
   });
 });
