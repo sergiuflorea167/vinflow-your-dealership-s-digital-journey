@@ -197,14 +197,28 @@ export const VincentWidget = () => {
     setInput("");
     setStreaming(true);
     streamingRef.current = true;
-    if (historyReady && user) {
-      void setVincentHistoryEnabled(user.id, true)
-        .then(() => persist(requestMessages, nextConversationId))
-        .catch(() => {
-          setSaveStatus("error");
-          setHistoryReady(false);
-        });
+    const shouldPersist = historyReady && Boolean(user);
+    if (shouldPersist && user) {
+      try {
+        await setVincentHistoryEnabled(user.id, true);
+        // Die Nutzernachricht muss gespeichert sein, bevor die KI-Anfrage startet.
+        // So bleibt der Chat auch bei Abbruch, Neuladen oder einer fehlerhaften KI-Antwort erhalten.
+        await persist(requestMessages, nextConversationId);
+      } catch {
+        setSaveStatus("error");
+      }
     }
+
+    const persistFinalMessages = async (finalMessages: VincentMessage[]) => {
+      if (!shouldPersist) return;
+      try {
+        await persist(finalMessages, nextConversationId);
+        setHistoryReady(true);
+      } catch {
+        setHistoryReady(false);
+      }
+    };
+
     const ac = new AbortController();
     abortRef.current = ac;
     let answer = "";
@@ -256,13 +270,7 @@ export const VincentWidget = () => {
       if (buffer) consume(buffer);
       const finalMessages = [...requestMessages, { ...assistantMessage, content: answer || "Keine Antwort erhalten." }];
       setMessages(finalMessages);
-      if (historyReady) {
-        try {
-          await persist(finalMessages, nextConversationId);
-        } catch {
-          setHistoryReady(false);
-        }
-      }
+      await persistFinalMessages(finalMessages);
     } catch (error) {
       if (ac.signal.aborted) return;
       const finalMessages = [...requestMessages, {
@@ -270,6 +278,7 @@ export const VincentWidget = () => {
         content: `⚠️ ${error instanceof Error ? error.message : "Die Anfrage konnte nicht verarbeitet werden."}`,
       }];
       setMessages(finalMessages);
+      await persistFinalMessages(finalMessages);
     } finally {
       setStreaming(false);
       streamingRef.current = false;
