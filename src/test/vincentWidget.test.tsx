@@ -90,10 +90,10 @@ describe("VINcent chat workspace", () => {
     expect(savedPayloads[0].conversationId).toBe(savedPayloads[1].conversationId);
     expect(savedPayloads[0].messages).toHaveLength(1);
     expect(savedPayloads[1].messages).toHaveLength(2);
-    expect(screen.getByText("Automatisch gespeichert")).toBeInTheDocument();
+    expect(screen.getByText("Automatisch gespeichert")).toHaveClass("text-emerald-600");
   });
 
-  it("keeps the chat usable but never claims storage when the secure backend is unavailable", async () => {
+  it("falls back to this browser and keeps the saved chat in the sidebar", async () => {
     historyMocks.loadPreference.mockRejectedValue(new Error("table unavailable"));
     historyMocks.list.mockRejectedValue(new Error("table unavailable"));
     localStorage.setItem("vincent-notice:user-1", "2026-07-03");
@@ -103,8 +103,7 @@ describe("VINcent chat workspace", () => {
 
     const input = await screen.findByPlaceholderText("Nachricht an VINcent");
     expect(input).toBeEnabled();
-    expect(screen.getByText("Verlauf nicht verfügbar")).toBeInTheDocument();
-    expect(screen.getByText("Nicht gespeichert")).toBeInTheDocument();
+    expect(screen.getByText("Automatisch gespeichert · Dieser Browser")).toBeInTheDocument();
 
     fireEvent.change(input, { target: { value: "Temporäre Frage" } });
     const sendButton = screen.getByRole("button", { name: "Nachricht senden" });
@@ -112,7 +111,13 @@ describe("VINcent chat workspace", () => {
     fireEvent.click(sendButton);
 
     await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(screen.getByText("Automatisch gespeichert")).toHaveClass("text-emerald-600"));
     expect(historyMocks.save).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Temporäre Frage" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Neuer Chat" }));
+    expect(screen.getByText("Neue Unterhaltung")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Temporäre Frage" })).toBeInTheDocument();
   });
 
   it("keeps the failed AI request in the saved conversation", async () => {

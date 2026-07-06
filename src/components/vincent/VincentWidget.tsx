@@ -23,6 +23,11 @@ import {
   type VincentMessage,
 } from "@/lib/vincentHistory";
 import {
+  deleteAllLocalVincentConversations, deleteLocalVincentConversation,
+  listLocalVincentConversations, loadLocalVincentMessages,
+  renameLocalVincentConversation, saveLocalVincentConversation,
+} from "@/lib/vincentLocalHistory";
+import {
   containsSpecialCategoryHint, conversationTitle, redactSensitiveText,
   VINCENT_MAX_INPUT_LENGTH, VINCENT_NOTICE_VERSION, VINCENT_RETENTION_DAYS,
 } from "@/lib/vincentPrivacy";
@@ -31,6 +36,7 @@ import { useProcessStore } from "@/store/processStore";
 
 type WindowMode = "normal" | "maximized" | "minimized";
 type SaveStatus = "idle" | "saving" | "saved" | "error";
+type HistoryStorage = "remote" | "local";
 
 const SUGGESTIONS_DE = [
   "Wie ist mein Umsatz dieses Jahr und wie bewertest du ihn?",
@@ -77,6 +83,7 @@ export const VincentWidget = () => {
   const [privacyLoading, setPrivacyLoading] = useState(true);
   const [privacyReady, setPrivacyReady] = useState(false);
   const [historyReady, setHistoryReady] = useState(false);
+  const [historyStorage, setHistoryStorage] = useState<HistoryStorage>("remote");
   const [acknowledged, setAcknowledged] = useState(false);
   const [noticeChecked, setNoticeChecked] = useState(false);
   const [retentionDays, setRetentionDays] = useState(VINCENT_RETENTION_DAYS);
@@ -93,14 +100,20 @@ export const VincentWidget = () => {
 
   const refreshHistory = useCallback(async () => {
     if (!user) return;
+    if (historyStorage === "local") {
+      setConversations(listLocalVincentConversations(user.id));
+      setHistoryReady(true);
+      return;
+    }
     try {
       setConversations(await listVincentConversations());
       setHistoryReady(true);
     } catch {
-      setHistoryReady(false);
-      setConversations([]);
+      setHistoryStorage("local");
+      setConversations(listLocalVincentConversations(user.id));
+      setHistoryReady(true);
     }
-  }, [user]);
+  }, [historyStorage, user]);
 
   useEffect(() => {
     let active = true;
@@ -118,13 +131,15 @@ export const VincentWidget = () => {
         setAcknowledged(preference.acknowledged || locallyAcknowledged);
         setRetentionDays(preference.retentionDays);
         setConversations(history);
+        setHistoryStorage("remote");
         setHistoryReady(true);
       })
       .catch(() => {
         if (!active) return;
         setAcknowledged(locallyAcknowledged);
-        setConversations([]);
-        setHistoryReady(false);
+        setHistoryStorage("local");
+        setConversations(listLocalVincentConversations(user.id));
+        setHistoryReady(true);
       })
       .finally(() => {
         if (!active) return;
@@ -155,14 +170,21 @@ export const VincentWidget = () => {
     const firstUser = nextMessages.find((message) => message.role === "user")?.content ?? "Neuer Chat";
     const existingTitle = conversations.find((conversation) => conversation.id === id)?.title;
     try {
-      await saveVincentConversation({
-        conversationId: id,
-        title: existingTitle ?? conversationTitle(firstUser),
-        messages: nextMessages,
-        userId: user.id,
-        organizationId: profile.organization_id,
-        retentionDays,
-      });
+      const title = existingTitle ?? conversationTitle(firstUser);
+      if (historyStorage === "local") {
+        saveLocalVincentConversation({ conversationId: id, title, messages: nextMessages, userId: user.id, retentionDays });
+      } else {
+        try {
+          await saveVincentConversation({
+            conversationId: id, title, messages: nextMessages, userId: user.id,
+            organizationId: profile.organization_id, retentionDays,
+          });
+        } catch {
+          saveLocalVincentConversation({ conversationId: id, title, messages: nextMessages, userId: user.id, retentionDays });
+          setHistoryStorage("local");
+          setConversations(listLocalVincentConversations(user.id));
+        }
+      }
       setConversationId(id);
       setSaveStatus("saved");
       await refreshHistory();
@@ -170,7 +192,7 @@ export const VincentWidget = () => {
       setSaveStatus("error");
       throw error;
     }
-  }, [conversationId, conversations, profile?.organization_id, refreshHistory, retentionDays, user]);
+  }, [conversationId, conversations, historyStorage, profile?.organization_id, refreshHistory, retentionDays, user]);
 
   const send = useCallback(async (rawText: string) => {
     const trimmed = rawText.trim().slice(0, VINCENT_MAX_INPUT_LENGTH);
@@ -200,7 +222,9 @@ export const VincentWidget = () => {
     const shouldPersist = historyReady && Boolean(user);
     if (shouldPersist && user) {
       try {
-        await setVincentHistoryEnabled(user.id, true);
+        if (historyStorage === "remote") {
+          try { await setVincentHistoryEnabled(user.id, true); } catch { /* persist switches to local storage */ }
+        }
         // Die Nutzernachricht muss gespeichert sein, bevor die KI-Anfrage startet.
         // So bleibt der Chat auch bei Abbruch, Neuladen oder einer fehlerhaften KI-Antwort erhalten.
         await persist(requestMessages, nextConversationId);
@@ -284,7 +308,7 @@ export const VincentWidget = () => {
       streamingRef.current = false;
       abortRef.current = null;
     }
-  }, [acknowledged, conversationId, historyReady, lang, persist, privacyReady, user]);
+  }, [acknowledged, conversationId, historyReady, historyStorage, lang, persist, privacyReady, user]);
 
   useEffect(() => {
     const handler = (event: Event) => {
@@ -302,7 +326,7 @@ export const VincentWidget = () => {
     localStorage.setItem(noticeStorageKey(user.id), VINCENT_NOTICE_VERSION);
     setAcknowledged(true);
     setNoticeChecked(false);
-    if (!historyReady) return;
+    if (!historyReady || historyStorage === "local") return;
     try {
       await acknowledgeVincentNotice(user.id, profile.organization_id);
     } catch {
@@ -314,7 +338,9 @@ export const VincentWidget = () => {
   const loadConversation = async (conversation: VincentConversation) => {
     try {
       abortRef.current?.abort();
-      setMessages(await loadVincentMessages(conversation.id));
+      setMessages(historyStorage === "local" && user
+        ? loadLocalVincentMessages(user.id, conversation.id)
+        : await loadVincentMessages(conversation.id));
       setConversationId(conversation.id);
       setSaveStatus("saved");
     } catch {
@@ -325,7 +351,8 @@ export const VincentWidget = () => {
   const removeConversation = async (conversation: VincentConversation) => {
     if (!window.confirm(`„${conversation.title}“ endgültig löschen?`)) return;
     try {
-      await deleteVincentConversation(conversation.id);
+      if (historyStorage === "local" && user) deleteLocalVincentConversation(user.id, conversation.id);
+      else await deleteVincentConversation(conversation.id);
       if (conversation.id === conversationId) startNew();
       await refreshHistory();
     } catch {
@@ -342,7 +369,8 @@ export const VincentWidget = () => {
     const title = renameTitle.trim();
     if (!renamingConversation || !title) return;
     try {
-      await renameVincentConversation(renamingConversation.id, title);
+      if (historyStorage === "local" && user) renameLocalVincentConversation(user.id, renamingConversation.id, title);
+      else await renameVincentConversation(renamingConversation.id, title);
       setRenamingConversation(null);
       await refreshHistory();
     } catch {
@@ -352,7 +380,8 @@ export const VincentWidget = () => {
 
   const removeAll = async () => {
     if (!window.confirm("Alle deine gespeicherten VINcent-Chats endgültig löschen?")) return;
-    await deleteAllVincentConversations();
+    if (historyStorage === "local" && user) deleteAllLocalVincentConversations(user.id);
+    else await deleteAllVincentConversations();
     startNew();
     await refreshHistory();
   };
@@ -416,7 +445,7 @@ export const VincentWidget = () => {
             </div>
           </div>
           <div className="flex-1 overflow-y-auto px-2 pb-3">
-            {!historyReady && <div className="mx-1 mt-2 rounded-xl border border-amber-500/25 bg-amber-500/5 p-3 text-xs text-muted-foreground"><p className="font-medium text-foreground">Verlauf nicht verfügbar</p><p className="mt-1">Chats bleiben in diesem Fenster, bis die sichere Ablage bereitsteht.</p></div>}
+            {!historyReady && <div className="mx-1 mt-2 rounded-xl border border-amber-500/25 bg-amber-500/5 p-3 text-xs text-muted-foreground"><p className="font-medium text-foreground">Verlauf nicht verfügbar</p><p className="mt-1">Chats bleiben in diesem Fenster, bis die Ablage bereitsteht.</p></div>}
             {historyReady && filteredConversations.length === 0 && <div className="px-3 py-8 text-center text-xs text-muted-foreground">{historySearch ? "Keine Chats gefunden" : "Dein erster Chat erscheint hier automatisch."}</div>}
             {historyReady && ["Heute", "Letzte 7 Tage", "Älter"].map((group) => groupedConversations[group]?.length ? (
               <div key={group} className="mt-3">
@@ -443,7 +472,7 @@ export const VincentWidget = () => {
             ) : null)}
           </div>
           <div className="border-t p-3">
-            <div className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-[10px] text-muted-foreground"><ShieldCheck className="size-3.5 text-primary" /><span>{historyReady ? `Automatisch gespeichert · ${retentionDays} Tage` : "Sichere Ablage ausstehend"}</span></div>
+            <div className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-[10px] text-muted-foreground"><ShieldCheck className="size-3.5 text-primary" /><span>{historyReady ? historyStorage === "local" ? "Automatisch gespeichert · Dieser Browser" : `Automatisch gespeichert · ${retentionDays} Tage` : "Ablage ausstehend"}</span></div>
             {conversations.length > 0 && <Button variant="ghost" size="sm" className="mt-1 w-full justify-start text-xs text-destructive" onClick={removeAll}><Trash2 className="mr-2 size-3.5" />Alle Chats löschen</Button>}
           </div>
         </aside>
@@ -453,7 +482,7 @@ export const VincentWidget = () => {
             <Button variant="ghost" size="icon" className={cn("size-8 shrink-0", showHistory && "md:hidden")} onClick={() => setShowHistory((value) => !value)} aria-label="Chat-Seitenleiste"><PanelLeftOpen className="size-4" /></Button>
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-semibold">{currentConversation?.title || (messages.length ? conversationTitle(messages.find((message) => message.role === "user")?.content ?? "Neuer Chat") : "Neuer Chat")}</p>
-              <p className={cn("flex items-center gap-1 text-[10px]", saveStatus === "error" || !historyReady ? "text-amber-600" : "text-muted-foreground")}>
+              <p className={cn("flex items-center gap-1 text-[10px]", saveStatus === "saved" ? "text-emerald-600" : saveStatus === "error" || !historyReady ? "text-amber-600" : "text-muted-foreground")}>
                 {saveStatus === "saving" && <Loader2 className="size-3 animate-spin" />}
                 {saveStatus === "saved" && <Check className="size-3" />}
                 {!historyReady ? "Nicht gespeichert" : saveStatus === "saving" ? "Wird gespeichert …" : saveStatus === "saved" ? "Automatisch gespeichert" : "Neue Unterhaltung"}
@@ -481,7 +510,7 @@ export const VincentWidget = () => {
                   <div className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-primary-glow text-primary-foreground shadow-lg"><Sparkles className="size-5" /></div>
                   <h2 className="mt-4 text-center font-display text-xl font-semibold">Wobei kann ich dir helfen?</h2>
                   <p className="mx-auto mt-2 max-w-md text-center text-sm text-muted-foreground">Ich analysiere nur die für deine Frage nötigen, minimierten VINflow-Daten.</p>
-                  {!historyReady && <div className="mx-auto mt-5 max-w-lg rounded-xl border border-amber-500/25 bg-amber-500/5 px-4 py-3 text-center text-xs text-muted-foreground"><span className="font-medium text-foreground">Temporärer Chat:</span> Die sichere Ablage ist noch nicht bereit; beim Schließen geht dieser Chat verloren.</div>}
+                  {!historyReady && <div className="mx-auto mt-5 max-w-lg rounded-xl border border-amber-500/25 bg-amber-500/5 px-4 py-3 text-center text-xs text-muted-foreground"><span className="font-medium text-foreground">Temporärer Chat:</span> Die Ablage ist noch nicht bereit; beim Schließen geht dieser Chat verloren.</div>}
                   <div className="mt-7 grid gap-2 sm:grid-cols-2">
                     {suggestions.map((suggestion) => <button key={suggestion} onClick={() => send(suggestion)} className="rounded-xl border bg-card px-4 py-3 text-left text-sm transition-colors hover:border-primary/40 hover:bg-primary/5">{suggestion}</button>)}
                   </div>
@@ -525,7 +554,7 @@ export const VincentWidget = () => {
             <p><strong className="text-foreground">Verantwortlich:</strong> {company}, Kontakt: {contact}.</p>
             <p>VINcent ist ein KI-System. Zur Beantwortung werden deine Eingabe und ausschließlich zur Frage passende, minimierte Betriebskennzahlen über eine serverseitig konfigurierte KI-Schnittstelle an den von euch ausgewählten Anbieter übermittelt. Direkte Kundennamen, VIN, Kontakt-, Zahlungs-, Termin- und To-Do-Freitexte werden nicht in den automatisch erzeugten Kontext aufgenommen.</p>
             <p>Nutze VINcent nur für betriebliche Analysen. Gib keine personenbezogenen Kundendaten, Beschäftigtendaten, Passwörter oder besonders geschützten Daten (z. B. Gesundheits- oder Religionsangaben) ein. VINcent darf keine automatisierten Entscheidungen über Kunden oder Beschäftigte treffen; Ergebnisse müssen durch einen Menschen geprüft werden.</p>
-            <p>Unterhaltungen werden automatisch zugriffsgeschützt deinem Benutzerkonto zugeordnet und nach {retentionDays} Tagen gelöscht. Du kannst sie jederzeit exportieren, umbenennen oder sofort löschen. Ist die sichere Ablage vorübergehend nicht verfügbar, kennzeichnet VINcent den Chat sichtbar als nicht gespeichert.</p>
+            <p>{historyStorage === "local" ? "Unterhaltungen werden automatisch in diesem Browser gespeichert und nach der eingestellten Frist entfernt. Sie stehen auf anderen Geräten nicht zur Verfügung und können jederzeit exportiert, umbenannt oder gelöscht werden." : `Unterhaltungen werden automatisch zugriffsgeschützt deinem Benutzerkonto zugeordnet und nach ${retentionDays} Tagen gelöscht. Du kannst sie jederzeit exportieren, umbenennen oder sofort löschen.`}</p>
             <p>Je nach Modellanbieter kann eine Verarbeitung außerhalb der EU/des EWR auf Basis geeigneter Garantien stattfinden. Maßgeblich sind außerdem eure Datenschutzerklärung, der Auftragsverarbeitungsvertrag und die Anbieterbedingungen.</p>
             <label className="flex cursor-pointer items-start gap-3 rounded-lg border p-3 text-foreground">
               <Checkbox checked={noticeChecked} onCheckedChange={(value) => setNoticeChecked(value === true)} className="mt-0.5" />
