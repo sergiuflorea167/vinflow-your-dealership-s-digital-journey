@@ -14,6 +14,26 @@ export type Database = {
   }
   public: {
     Tables: {
+      vincent_notice_acceptances: {
+        Row: {
+          accepted_at: string
+          accepted_local_date: string
+          notice_version: string
+          organization_id: string
+          timezone: string
+          user_id: string
+        }
+        Insert: {
+          accepted_at?: string
+          accepted_local_date: string
+          notice_version: string
+          organization_id: string
+          timezone: string
+          user_id: string
+        }
+        Update: never
+        Relationships: []
+      }
       vincent_conversations: {
         Row: {
           created_at: string
@@ -265,6 +285,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      acknowledge_vincent_notice: {
+        Args: { _notice_version: string; _timezone: string }
+        Returns: boolean
+      }
       check_vincent_rate_limit: { Args: Record<PropertyKey, never>; Returns: boolean }
       get_user_org: { Args: { _user_id: string }; Returns: string }
       has_role: {
@@ -272,6 +296,10 @@ export type Database = {
           _role: Database["public"]["Enums"]["app_role"]
           _user_id: string
         }
+        Returns: boolean
+      }
+      has_vincent_notice_acceptance: {
+        Args: { _notice_version: string; _timezone: string }
         Returns: boolean
       }
     }

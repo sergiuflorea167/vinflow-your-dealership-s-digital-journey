@@ -1,5 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
-import { VINCENT_NOTICE_VERSION, VINCENT_RETENTION_DAYS } from "@/lib/vincentPrivacy";
+import {
+  getVincentClientTimezone, getVincentLocalDate, VINCENT_NOTICE_VERSION, VINCENT_RETENTION_DAYS,
+} from "@/lib/vincentPrivacy";
 
 export type VincentRole = "user" | "assistant";
 export interface VincentMessage {
@@ -26,27 +28,34 @@ export interface VincentPreference {
 const expiryFromNow = (days: number) => new Date(Date.now() + days * 86_400_000).toISOString();
 
 export const loadVincentPreference = async (userId: string): Promise<VincentPreference> => {
-  const { data, error } = await supabase
+  const [{ data, error }, { data: acceptance, error: acceptanceError }] = await Promise.all([
+    supabase
     .from("vincent_preferences")
-    .select("notice_version,history_enabled,retention_days")
+    .select("history_enabled,retention_days")
     .eq("user_id", userId)
-    .maybeSingle();
+    .maybeSingle(),
+    supabase
+      .from("vincent_notice_acceptances")
+      .select("accepted_local_date")
+      .eq("user_id", userId)
+      .eq("notice_version", VINCENT_NOTICE_VERSION)
+      .eq("accepted_local_date", getVincentLocalDate())
+      .maybeSingle(),
+  ]);
   if (error) throw error;
+  if (acceptanceError) throw acceptanceError;
   return {
-    acknowledged: data?.notice_version === VINCENT_NOTICE_VERSION,
+    acknowledged: acceptance?.accepted_local_date === getVincentLocalDate(),
     historyEnabled: data?.history_enabled ?? false,
     retentionDays: data?.retention_days ?? VINCENT_RETENTION_DAYS,
   };
 };
 
-export const acknowledgeVincentNotice = async (userId: string, organizationId: string) => {
-  const { error } = await supabase.from("vincent_preferences").upsert({
-    user_id: userId,
-    organization_id: organizationId,
-    notice_version: VINCENT_NOTICE_VERSION,
-    acknowledged_at: new Date().toISOString(),
-    retention_days: VINCENT_RETENTION_DAYS,
-  }, { onConflict: "user_id" });
+export const acknowledgeVincentNotice = async () => {
+  const { error } = await supabase.rpc("acknowledge_vincent_notice", {
+    _notice_version: VINCENT_NOTICE_VERSION,
+    _timezone: getVincentClientTimezone(),
+  });
   if (error) throw error;
 };
 

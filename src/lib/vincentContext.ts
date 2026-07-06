@@ -4,8 +4,8 @@ import { getConfiguredProcessSteps, vehicleTotalCostsGross } from "@/data/proces
 
 /**
  * Erstellt ausschließlich den für die konkrete Frage notwendigen Kontext.
- * Direkte Kundenkennungen, VIN, Kontaktdaten, Termine und Freitexte verlassen
- * den Browser grundsätzlich nicht.
+ * Direkte Kundenkennungen, VIN und Kontaktdaten verlassen den Browser nicht.
+ * Die vollständige To-Do-Liste wird transparent als Arbeitskontext übertragen.
  */
 export function buildVincentContext(question = "") {
   const state = useProcessStore.getState();
@@ -75,12 +75,32 @@ export function buildVincentContext(question = "") {
     : undefined;
 
   const today = now.toISOString().slice(0, 10);
-  const todoOverview = wantsTodos ? {
+  const todoOverview = {
     total: todos.filter((todo) => !todo.done).length,
     overdue: todos.filter((todo) => !todo.done && !!todo.dueDate && todo.dueDate < today).length,
     today: todos.filter((todo) => !todo.done && todo.dueDate === today).length,
     highPriority: todos.filter((todo) => !todo.done && todo.priority === "high").length,
-  } : undefined;
+    items: todos.map((todo) => {
+      const vehicle = todo.vehicleId ? vehicles.find((item) => item.id === todo.vehicleId) : undefined;
+      return {
+        id: todo.id,
+        title: todo.title,
+        description: todo.description ?? null,
+        priority: todo.priority,
+        done: todo.done,
+        dueDate: todo.dueDate ?? null,
+        startTime: todo.startTime ?? null,
+        endTime: todo.endTime ?? null,
+        scope: todo.scope,
+        tags: todo.tags ?? [],
+        assignee: todo.assignee ?? null,
+        createdAt: todo.createdAt,
+        completedAt: todo.completedAt ?? null,
+        createdBy: todo.createdBy,
+        vehicle: vehicle ? `${vehicle.make} ${vehicle.model} (${vehicle.year})` : null,
+      };
+    }),
+  };
   const eventOverview = wantsTodos
     ? calendarEvents.filter((event) => event.date === today).reduce<Record<string, number>>((acc, event) => {
         acc[event.type] = (acc[event.type] ?? 0) + 1;
@@ -102,6 +122,7 @@ export function buildVincentContext(question = "") {
     ...(kpis ? { kpis } : {}),
     ...(stock ? { stock } : {}),
     ...(processOverview ? { processes: processOverview } : {}),
-    ...(todoOverview ? { todos: todoOverview, todayEvents: eventOverview } : {}),
+    todos: todoOverview,
+    ...(eventOverview ? { todayEvents: eventOverview } : {}),
   };
 }

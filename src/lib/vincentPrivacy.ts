@@ -1,6 +1,20 @@
-export const VINCENT_NOTICE_VERSION = "2026-07-03";
+export const VINCENT_NOTICE_VERSION = "2026-07-06-todo-access-v1";
 export const VINCENT_RETENTION_DAYS = 30;
 export const VINCENT_MAX_INPUT_LENGTH = 4_000;
+
+export const getVincentClientTimezone = () =>
+  Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
+
+export const getVincentLocalDate = (now = new Date()) => {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: getVincentClientTimezone(),
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(now);
+  const value = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${value.year}-${value.month}-${value.day}`;
+};
 
 const SPECIAL_CATEGORY_TERMS = [
   "gesundheit", "krankheit", "diagnose", "behinderung", "religion", "weltanschauung",

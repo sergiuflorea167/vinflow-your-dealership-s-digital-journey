@@ -29,7 +29,7 @@ import {
 } from "@/lib/vincentLocalHistory";
 import {
   containsSpecialCategoryHint, conversationTitle, redactSensitiveText,
-  VINCENT_MAX_INPUT_LENGTH, VINCENT_NOTICE_VERSION, VINCENT_RETENTION_DAYS,
+  getVincentClientTimezone, VINCENT_MAX_INPUT_LENGTH, VINCENT_RETENTION_DAYS,
 } from "@/lib/vincentPrivacy";
 import { useLang } from "@/lib/i18n";
 import { useProcessStore } from "@/store/processStore";
@@ -54,8 +54,6 @@ const SUGGESTIONS_EN = [
 const newMessage = (role: VincentMessage["role"], content: string): VincentMessage => ({
   id: crypto.randomUUID(), role, content, createdAt: new Date().toISOString(),
 });
-
-const noticeStorageKey = (userId: string) => `vincent-notice:${userId}`;
 
 const conversationGroup = (updatedAt: string) => {
   const age = Date.now() - new Date(updatedAt).getTime();
@@ -86,6 +84,7 @@ export const VincentWidget = () => {
   const [historyStorage, setHistoryStorage] = useState<HistoryStorage>("remote");
   const [acknowledged, setAcknowledged] = useState(false);
   const [noticeChecked, setNoticeChecked] = useState(false);
+  const [privacyNoticeOpen, setPrivacyNoticeOpen] = useState(false);
   const [retentionDays, setRetentionDays] = useState(VINCENT_RETENTION_DAYS);
   const scrollRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -124,30 +123,54 @@ export const VincentWidget = () => {
       setPrivacyLoading(false);
       return;
     }
-    const locallyAcknowledged = localStorage.getItem(noticeStorageKey(user.id)) === VINCENT_NOTICE_VERSION;
-    Promise.all([loadVincentPreference(user.id), listVincentConversations()])
-      .then(([preference, history]) => {
+    void (async () => {
+      try {
+        const preference = await loadVincentPreference(user.id);
         if (!active) return;
-        setAcknowledged(preference.acknowledged || locallyAcknowledged);
+        setAcknowledged(preference.acknowledged);
+        if (!preference.acknowledged) setOpen(true);
         setRetentionDays(preference.retentionDays);
+        setPrivacyReady(true);
+      } catch {
+        if (!active) return;
+        setAcknowledged(false);
+        setPrivacyReady(false);
+      } finally {
+        if (active) setPrivacyLoading(false);
+      }
+
+      try {
+        const history = await listVincentConversations();
+        if (!active) return;
         setConversations(history);
         setHistoryStorage("remote");
         setHistoryReady(true);
-      })
-      .catch(() => {
+      } catch {
         if (!active) return;
-        setAcknowledged(locallyAcknowledged);
         setHistoryStorage("local");
         setConversations(listLocalVincentConversations(user.id));
         setHistoryReady(true);
-      })
-      .finally(() => {
-        if (!active) return;
-        setPrivacyReady(true);
-        setPrivacyLoading(false);
-      });
+      }
+    })();
     return () => { active = false; };
   }, [user, profile?.organization_id]);
+
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>;
+    const scheduleMidnightReset = () => {
+      const nextMidnight = new Date();
+      nextMidnight.setHours(24, 0, 0, 0);
+      timer = setTimeout(() => {
+        setAcknowledged(false);
+        setNoticeChecked(false);
+        setOpen(true);
+        setMode("normal");
+        scheduleMidnightReset();
+      }, Math.max(1_000, nextMidnight.getTime() - Date.now()));
+    };
+    scheduleMidnightReset();
+    return () => clearTimeout(timer);
+  }, []);
 
   const close = () => {
     abortRef.current?.abort();
@@ -260,6 +283,7 @@ export const VincentWidget = () => {
           messages: requestMessages.slice(-12).map(({ role, content }) => ({ role, content })),
           context: buildVincentContext(redacted.text),
           lang,
+          timezone: getVincentClientTimezone(),
         }),
         signal: ac.signal,
       });
@@ -323,15 +347,18 @@ export const VincentWidget = () => {
 
   const acceptNotice = async () => {
     if (!noticeChecked || !user || !profile?.organization_id) return;
-    localStorage.setItem(noticeStorageKey(user.id), VINCENT_NOTICE_VERSION);
-    setAcknowledged(true);
-    setNoticeChecked(false);
-    if (!historyReady || historyStorage === "local") return;
     try {
-      await acknowledgeVincentNotice(user.id, profile.organization_id);
+      await acknowledgeVincentNotice();
+      setAcknowledged(true);
+      setNoticeChecked(false);
+      setPrivacyNoticeOpen(false);
     } catch {
-      setHistoryReady(false);
-      toast({ title: "Hinweis lokal gespeichert", description: "Der Chat bleibt nutzbar; Speichern und Verlauf sind vorübergehend nicht verfügbar." });
+      setAcknowledged(false);
+      toast({
+        variant: "destructive",
+        title: "Bestätigung nicht gespeichert",
+        description: "VINcent bleibt gesperrt, bis die tägliche Bestätigung im Backend protokolliert werden konnte.",
+      });
     }
   };
 
@@ -488,6 +515,7 @@ export const VincentWidget = () => {
                 {!historyReady ? "Nicht gespeichert" : saveStatus === "saving" ? "Wird gespeichert …" : saveStatus === "saved" ? "Automatisch gespeichert" : "Neue Unterhaltung"}
               </p>
             </div>
+            <Button variant="ghost" size="icon" className="size-8 shrink-0" onClick={() => setPrivacyNoticeOpen(true)} aria-label="Datenschutz anzeigen" title="Datenschutz"><ShieldCheck className="size-4" /></Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="size-8 shrink-0" aria-label="Chat-Aktionen"><MoreHorizontal className="size-4" /></Button></DropdownMenuTrigger>
               <DropdownMenuContent align="end">
@@ -544,24 +572,35 @@ export const VincentWidget = () => {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={privacyReady && !acknowledged} onOpenChange={(next) => { if (!next) close(); }}>
+      <Dialog open={privacyReady && (!acknowledged || privacyNoticeOpen)} onOpenChange={(next) => {
+        setPrivacyNoticeOpen(next);
+        if (!next && !acknowledged) close();
+      }}>
         <DialogContent className="max-w-xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2"><ShieldCheck className="size-5 text-primary" />Datenschutzhinweis zu VINcent</DialogTitle>
-            <DialogDescription>Bitte vor der ersten Nutzung lesen. Dies ist eine Information und keine pauschale Einwilligung in unnötige Verarbeitung.</DialogDescription>
+            <DialogDescription>Bitte vor der heutigen Nutzung lesen und bestätigen. Dies ist eine Information und keine pauschale Einwilligung in unnötige Verarbeitung.</DialogDescription>
           </DialogHeader>
           <div className="max-h-[55vh] space-y-3 overflow-y-auto text-sm text-muted-foreground">
             <p><strong className="text-foreground">Verantwortlich:</strong> {company}, Kontakt: {contact}.</p>
-            <p>VINcent ist ein KI-System. Zur Beantwortung werden deine Eingabe und ausschließlich zur Frage passende, minimierte Betriebskennzahlen über eine serverseitig konfigurierte KI-Schnittstelle an den von euch ausgewählten Anbieter übermittelt. Direkte Kundennamen, VIN, Kontakt-, Zahlungs-, Termin- und To-Do-Freitexte werden nicht in den automatisch erzeugten Kontext aufgenommen.</p>
+            <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-foreground">
+              <p className="font-semibold">Welche To-Do-Daten VINcent erhält</p>
+              <p className="mt-1 text-muted-foreground">Bei jeder Anfrage wird deine vollständige To-Do-Liste an den konfigurierten KI-Anbieter übermittelt. Dazu gehören Titel, Beschreibung, Priorität, Status, Fälligkeit und Uhrzeit, Kategorie, Tags, zuständige und erstellende Person sowie ein verknüpftes Fahrzeug mit Marke, Modell und Baujahr. So kann VINcent dir konkret sagen, was als Nächstes zu erledigen ist.</p>
+            </div>
+            <p>Zusätzlich werden deine Eingabe und die für deine Frage passenden Betriebsdaten über die serverseitig konfigurierte KI-Schnittstelle verarbeitet. Direkte Kundennamen, VIN, Kontakt- und Zahlungsdaten aus anderen VINflow-Bereichen werden nicht automatisch in den Kontext aufgenommen. <strong className="text-foreground">Stehen solche Angaben jedoch in einem To-Do-Titel oder einer To-Do-Beschreibung, können sie mitübermittelt werden.</strong> E-Mail-Adressen, IBAN, VIN und Telefonnummern werden nach technischen Mustern entfernt; Namen und sonstiger Freitext lassen sich nicht zuverlässig automatisch erkennen.</p>
             <p>Nutze VINcent nur für betriebliche Analysen. Gib keine personenbezogenen Kundendaten, Beschäftigtendaten, Passwörter oder besonders geschützten Daten (z. B. Gesundheits- oder Religionsangaben) ein. VINcent darf keine automatisierten Entscheidungen über Kunden oder Beschäftigte treffen; Ergebnisse müssen durch einen Menschen geprüft werden.</p>
             <p>{historyStorage === "local" ? "Unterhaltungen werden automatisch in diesem Browser gespeichert und nach der eingestellten Frist entfernt. Sie stehen auf anderen Geräten nicht zur Verfügung und können jederzeit exportiert, umbenannt oder gelöscht werden." : `Unterhaltungen werden automatisch zugriffsgeschützt deinem Benutzerkonto zugeordnet und nach ${retentionDays} Tagen gelöscht. Du kannst sie jederzeit exportieren, umbenennen oder sofort löschen.`}</p>
+            <p><strong className="text-foreground">Tägliche Bestätigung:</strong> Dieser Hinweis muss jeden Kalendertag ab 00:00 Uhr erneut bestätigt werden. Die Bestätigung wird mit Benutzer, Organisation, Hinweisversion, lokalem Datum, Zeitzone und serverseitigem Zeitstempel im Backend protokolliert. Ohne erfolgreiche Protokollierung bleibt VINcent gesperrt.</p>
             <p>Je nach Modellanbieter kann eine Verarbeitung außerhalb der EU/des EWR auf Basis geeigneter Garantien stattfinden. Maßgeblich sind außerdem eure Datenschutzerklärung, der Auftragsverarbeitungsvertrag und die Anbieterbedingungen.</p>
-            <label className="flex cursor-pointer items-start gap-3 rounded-lg border p-3 text-foreground">
+            {!acknowledged && <label className="flex cursor-pointer items-start gap-3 rounded-lg border p-3 text-foreground">
               <Checkbox checked={noticeChecked} onCheckedChange={(value) => setNoticeChecked(value === true)} className="mt-0.5" />
-              <span>Ich habe den Hinweis gelesen und werde keine personenbezogenen oder besonders geschützten Daten in VINcent eingeben.</span>
-            </label>
+              <span>Ich habe verstanden, dass meine vollständige To-Do-Liste bei jeder Anfrage an den KI-Anbieter übermittelt wird und darin enthaltene personenbezogene Angaben mitübertragen werden können. Ich werde keine besonders geschützten Daten in VINcent oder To-Dos eingeben.</span>
+            </label>}
           </div>
-          <DialogFooter><Button variant="outline" onClick={close}>Abbrechen</Button><Button disabled={!noticeChecked} onClick={acceptNotice}>Hinweis verstanden</Button></DialogFooter>
+          <DialogFooter>{acknowledged
+            ? <Button onClick={() => setPrivacyNoticeOpen(false)}>Schließen</Button>
+            : <><Button variant="outline" onClick={close}>Abbrechen</Button><Button disabled={!noticeChecked} onClick={acceptNotice}>Hinweis verstanden</Button></>
+          }</DialogFooter>
         </DialogContent>
       </Dialog>
     </>

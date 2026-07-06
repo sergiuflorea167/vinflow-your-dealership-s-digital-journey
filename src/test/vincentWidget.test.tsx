@@ -93,11 +93,21 @@ describe("VINcent chat workspace", () => {
     expect(screen.getByText("Automatisch gespeichert")).toHaveClass("text-emerald-600");
   });
 
-  it("falls back to this browser and keeps the saved chat in the sidebar", async () => {
+  it("keeps the chat locked when daily acceptance cannot be verified by the backend", async () => {
     historyMocks.loadPreference.mockRejectedValue(new Error("table unavailable"));
     historyMocks.list.mockRejectedValue(new Error("table unavailable"));
-    localStorage.setItem("vincent-notice:user-1", "2026-07-03");
+    render(<VincentWidget />);
+    act(() => window.dispatchEvent(new CustomEvent("vincent:open")));
 
+    const input = await screen.findByPlaceholderText("Nachricht an VINcent");
+    expect(input).toBeDisabled();
+    expect(screen.getByText("VINcent ist nicht verfügbar")).toBeInTheDocument();
+    expect(fetch).not.toHaveBeenCalled();
+    expect(historyMocks.save).not.toHaveBeenCalled();
+  });
+
+  it("falls back to this browser after daily acceptance was verified", async () => {
+    historyMocks.list.mockRejectedValue(new Error("table unavailable"));
     render(<VincentWidget />);
     act(() => window.dispatchEvent(new CustomEvent("vincent:open")));
 
@@ -118,6 +128,26 @@ describe("VINcent chat workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "Neuer Chat" }));
     expect(screen.getByText("Neue Unterhaltung")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Temporäre Frage" })).toBeInTheDocument();
+  });
+
+  it("records and requires the daily data notice before enabling VINcent", async () => {
+    historyMocks.loadPreference.mockResolvedValue({ acknowledged: false, historyEnabled: true, retentionDays: 30 });
+    historyMocks.acknowledge.mockResolvedValue(undefined);
+
+    render(<VincentWidget />);
+    expect(await screen.findByText("Welche To-Do-Daten VINcent erhält")).toBeInTheDocument();
+    expect(screen.getByText(/vollständige To-Do-Liste bei jeder Anfrage/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("checkbox"));
+    fireEvent.click(screen.getByRole("button", { name: "Hinweis verstanden" }));
+
+    await waitFor(() => expect(historyMocks.acknowledge).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(screen.queryByText("Welche To-Do-Daten VINcent erhält")).not.toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: "Datenschutz anzeigen" }));
+    expect(await screen.findByText("Welche To-Do-Daten VINcent erhält")).toBeInTheDocument();
+    expect(screen.queryByRole("checkbox")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Schließen" }));
   });
 
   it("keeps the failed AI request in the saved conversation", async () => {
