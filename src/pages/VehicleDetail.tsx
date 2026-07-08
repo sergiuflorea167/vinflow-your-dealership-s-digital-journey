@@ -618,6 +618,7 @@ const VehicleDetail = () => {
   const canAcceptMore = !acceptedOffer && !process;
   const marketSearch = buildMarketSearchProfile(vehicle);
   const marketEstimate = getMarketValueEstimate(vehicle);
+  const marketFilterCount = getMobileDeDetailedEquipmentCodes(vehicle).length;
   const openMarketSearches = () => {
     setMarketResearchStarted(true);
     window.open(marketSearch.mobileDeUrl, "_blank", "noopener,noreferrer");
@@ -959,12 +960,12 @@ const VehicleDetail = () => {
 
       {/* ---------- Dialoge ---------- */}
       <Dialog open={marketDialog} onOpenChange={setMarketDialog}>
-        <DialogContent className="sm:max-w-2xl">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader className="shrink-0">
             <DialogTitle>Fahrzeugwert ermitteln</DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-5 py-2">
+          <div className="space-y-5 py-2 overflow-y-auto pr-1">
             <div className="rounded-lg border border-border bg-background/40 p-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
@@ -1049,13 +1050,13 @@ const VehicleDetail = () => {
 
             <div className="space-y-2">
               <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Automatisches Rechercheprofil</p>
-              <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-sm text-foreground break-words">
-                {marketSearch.exactQuery}
+              <div className="rounded-lg border border-border bg-muted/30 p-3">
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Suchprofil</p>
+                <p className="mt-1 max-h-10 overflow-hidden text-sm text-foreground">
+                  {marketSearch.exactQuery}
+                </p>
               </div>
-              <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground break-words">
-                {marketSearch.mobileDeUrl}
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
                 <div className="rounded-lg border border-border bg-card p-3">
                   <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Land</p>
                   <p className="text-sm font-medium text-foreground mt-1">Deutschland</p>
@@ -1068,12 +1069,16 @@ const VehicleDetail = () => {
                   <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Bereinigung</p>
                   <p className="text-sm font-medium text-foreground mt-1">Fantasiepreise ignorieren</p>
                 </div>
+                <div className="rounded-lg border border-border bg-card p-3">
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Filter</p>
+                  <p className="text-sm font-medium text-foreground mt-1">{marketFilterCount} Extras erkannt</p>
+                </div>
               </div>
             </div>
 
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="shrink-0 pt-2">
             <Button variant="outline" onClick={() => setMarketDialog(false)}>Schließen</Button>
             <Button className="bg-gradient-brand gap-1.5" onClick={openMarketSearches}>
               <Search className="size-4" /> Suchauftrag starten
