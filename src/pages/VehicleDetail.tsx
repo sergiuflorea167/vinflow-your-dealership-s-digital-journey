@@ -260,6 +260,31 @@ const getMarketValueEstimate = (vehicle: Vehicle) => {
   };
 };
 
+const parseComparablePrices = (value: string) =>
+  value
+    .split(/[\n;,]+/)
+    .map((part) => Number(part.replace(/[^\d,.-]/g, "").replace(/\./g, "").replace(",", ".")))
+    .filter((price) => Number.isFinite(price) && price > 1000);
+
+const getComparableValuation = (prices: number[]) => {
+  const sorted = [...prices].sort((a, b) => a - b);
+  if (sorted.length < 3) return undefined;
+  const trimmed = sorted.length >= 5 ? sorted.slice(1, -1) : sorted;
+  const median = trimmed[Math.floor(trimmed.length / 2)];
+  const low = trimmed[0];
+  const high = trimmed[trimmed.length - 1];
+  const spread = Math.max(0.025, Math.min(0.08, (high - low) / Math.max(median, 1) / 2));
+
+  return {
+    count: prices.length,
+    usedCount: trimmed.length,
+    min: Math.round((median * (1 - spread)) / 100) * 100,
+    max: Math.round((median * (1 + spread)) / 100) * 100,
+    midpoint: Math.round(median / 100) * 100,
+    spreadPct: spread,
+  };
+};
+
 const buildMarketSearchProfile = (vehicle: Vehicle) => {
   const year = getMarketYearBand(vehicle);
   const mileage = getMarketMileageBand(vehicle.mileage);
@@ -349,6 +374,7 @@ const VehicleDetail = () => {
   const [directDialog, setDirectDialog] = useState(false);
   const [locationDialog, setLocationDialog] = useState(false);
   const [marketDialog, setMarketDialog] = useState(false);
+  const [comparablePricesText, setComparablePricesText] = useState("");
 
   if (!vehicle) return <Navigate to="/bestand" replace />;
 
@@ -356,6 +382,8 @@ const VehicleDetail = () => {
   const canAcceptMore = !acceptedOffer && !process;
   const marketSearch = buildMarketSearchProfile(vehicle);
   const marketEstimate = getMarketValueEstimate(vehicle);
+  const comparablePrices = useMemo(() => parseComparablePrices(comparablePricesText), [comparablePricesText]);
+  const comparableValuation = useMemo(() => getComparableValuation(comparablePrices), [comparablePrices]);
 
   const openMarketSearches = () => {
     marketSearch.links.forEach((link) => window.open(link.url, "_blank", "noopener,noreferrer"));
@@ -706,29 +734,29 @@ const VehicleDetail = () => {
             <div className="rounded-lg border border-border bg-background/40 p-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Recherchierter Zielwert</p>
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Marktwert aus Vergleichspreisen</p>
                   <p className="mt-1 font-display text-3xl font-bold text-foreground">
-                    {formatCurrency(marketEstimate.midpoint)}
+                    {comparableValuation ? formatCurrency(comparableValuation.midpoint) : "Noch offen"}
                   </p>
                 </div>
                 <Badge
                   variant="outline"
                   className={cn(
                     "shrink-0",
-                    marketEstimate.quality === "hoch" && "border-success/40 text-success",
-                    marketEstimate.quality === "mittel" && "border-warning/40 text-warning",
-                    marketEstimate.quality === "niedrig" && "border-muted-foreground/40 text-muted-foreground",
+                    comparableValuation ? "border-success/40 text-success" : "border-warning/40 text-warning",
                   )}
                 >
-                  Datenlage {marketEstimate.quality}
+                  {comparableValuation ? `${comparableValuation.usedCount} Treffer gewertet` : "3+ Treffer nötig"}
                 </Badge>
               </div>
               <p className="mt-3 text-[10px] uppercase tracking-widest text-muted-foreground">Enge Wertspanne</p>
               <p className="mt-1 font-display text-3xl font-bold text-foreground">
-                {formatCurrency(marketEstimate.min)} bis {formatCurrency(marketEstimate.max)}
+                {comparableValuation
+                  ? `${formatCurrency(comparableValuation.min)} bis ${formatCurrency(comparableValuation.max)}`
+                  : "Bitte Vergleichspreise eintragen"}
               </p>
               <p className="mt-2 text-xs text-muted-foreground">
-                Spanne ca. +/-{(marketEstimate.spreadPct * 100).toFixed(1)}% aus Fahrzeugdaten, km, Motorisierung, Preisanker und wertrelevanter Ausstattung.
+                Die App schätzt keinen Preis mehr frei. Sie berechnet den Wert aus realen Inseratspreisen, bereinigt Ausreißer und nutzt den Median.
               </p>
             </div>
 
@@ -787,15 +815,6 @@ const VehicleDetail = () => {
               )}
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {marketEstimate.factors.map((factor) => (
-                <div key={factor.label} className="rounded-lg border border-border bg-muted/20 p-3">
-                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">{factor.label}</p>
-                  <p className="mt-1 text-sm font-semibold text-foreground">{factor.value.toFixed(2)}x</p>
-                </div>
-              ))}
-            </div>
-
             <div className="space-y-2">
               <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Tiefe Marktrecherche</p>
               <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-sm text-foreground break-words">
@@ -810,6 +829,23 @@ const VehicleDetail = () => {
                   </Button>
                 ))}
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Gefundene Vergleichspreise</p>
+                <p className="text-[11px] text-muted-foreground">{comparablePrices.length} erkannt</p>
+              </div>
+              <textarea
+                value={comparablePricesText}
+                onChange={(e) => setComparablePricesText(e.target.value)}
+                rows={3}
+                placeholder="z. B. 14.900; 15.450; 15.900; 16.200"
+                className="w-full rounded-md border border-input bg-background/40 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+              <p className="text-xs text-muted-foreground">
+                Nimm nur wirklich vergleichbare Treffer: gleiche Baureihe/Facelift, ähnliche Ausstattung, Baujahr und Kilometerkorridor.
+              </p>
             </div>
           </div>
 
