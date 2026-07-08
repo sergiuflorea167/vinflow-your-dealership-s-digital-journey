@@ -625,6 +625,12 @@ const VehicleDetail = () => {
     toast.success("Automatischer Suchauftrag über mobile.de gestartet.");
   };
 
+  const recalculateMarketValue = () => {
+    setMarketResearchStarted(true);
+    window.open(marketSearch.mobileDeUrl, "_blank", "noopener,noreferrer");
+    toast.success("Marktwert neu ermittelt.");
+  };
+
   // ---- Save helper for inline-edit sections -----------------------------
   const handleSaveSection = (patch: Partial<Vehicle>) => {
     updateVehicle(vehicle.id, patch);
@@ -1080,6 +1086,9 @@ const VehicleDetail = () => {
 
           <DialogFooter className="shrink-0 pt-2">
             <Button variant="outline" onClick={() => setMarketDialog(false)}>Schließen</Button>
+            <Button variant="outline" className="gap-1.5" onClick={recalculateMarketValue}>
+              <History className="size-4" /> Neu ermitteln
+            </Button>
             <Button className="bg-gradient-brand gap-1.5" onClick={openMarketSearches}>
               <Search className="size-4" /> Suchauftrag starten
             </Button>
