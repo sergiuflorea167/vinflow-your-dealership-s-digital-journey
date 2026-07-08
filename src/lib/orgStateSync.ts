@@ -4,6 +4,91 @@ import { useProcessStore, seedDataState, PERSISTED_KEYS, DATA_VERSION } from "@/
 
 type Snapshot = Record<string, unknown>;
 
+const VEHICLE_STATUSES = new Set(["planned", "in_stock", "reserved", "sold"]);
+
+const toNumber = (value: unknown, fallback = 0) => {
+  const n = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(n) ? n : fallback;
+};
+
+const toStringValue = (value: unknown, fallback = "") =>
+  typeof value === "string" ? value : fallback;
+
+const normalizeIso = (value: unknown, fallback?: string) => {
+  if (!value) return fallback;
+  const d = new Date(String(value));
+  return Number.isNaN(d.getTime()) ? fallback : d.toISOString();
+};
+
+const normalizeSnapshot = (snapshot: Snapshot): Snapshot => {
+  const seed = seedDataState() as unknown as Snapshot;
+  const normalized: Snapshot = { ...seed, ...snapshot };
+  const usedVehicleIds = new Set<string>();
+  const vehicles = Array.isArray(snapshot.vehicles) ? snapshot.vehicles : [];
+
+  normalized.vehicles = vehicles
+    .filter((item): item is Record<string, unknown> => !!item && typeof item === "object")
+    .map((vehicle, index) => {
+      let id = toStringValue(vehicle.id).trim();
+      if (!id || usedVehicleIds.has(id)) id = `V-${String(index + 1).padStart(4, "0")}`;
+      while (usedVehicleIds.has(id)) id = `V-${String(usedVehicleIds.size + 1).padStart(4, "0")}`;
+      usedVehicleIds.add(id);
+
+      const status = toStringValue(vehicle.status);
+      const locationRaw = vehicle.location && typeof vehicle.location === "object"
+        ? vehicle.location as Record<string, unknown>
+        : {};
+      const locationSince = normalizeIso(locationRaw.since, normalizeIso(vehicle.arrivedAt, new Date().toISOString()))!;
+      const location = {
+        name: toStringValue(locationRaw.name, "Hof A · Platz 01"),
+        kind: toStringValue(locationRaw.kind, "lot"),
+        since: locationSince,
+        note: toStringValue(locationRaw.note) || undefined,
+      };
+
+      return {
+        ...vehicle,
+        id,
+        vin: toStringValue(vehicle.vin, `LEGACY-${String(index + 1).padStart(6, "0")}`),
+        type: toStringValue(vehicle.type, "limousine"),
+        make: toStringValue(vehicle.make, "Unbekannte Marke"),
+        model: toStringValue(vehicle.model, "Unbekanntes Modell"),
+        year: toNumber(vehicle.year, new Date().getFullYear()),
+        color: toStringValue(vehicle.color),
+        mileage: toNumber(vehicle.mileage),
+        fuel: toStringValue(vehicle.fuel, "Benzin"),
+        transmission: toStringValue(vehicle.transmission, "Automatik"),
+        power_hp: toNumber(vehicle.power_hp),
+        power_kw: toNumber(vehicle.power_kw, Math.round(toNumber(vehicle.power_hp) * 0.7355)),
+        listPrice: toNumber(vehicle.listPrice),
+        purchasePrice: toNumber(vehicle.purchasePrice),
+        status: VEHICLE_STATUSES.has(status) ? status : "in_stock",
+        firstRegistration: toStringValue(vehicle.firstRegistration) || undefined,
+        hu: toStringValue(vehicle.hu) || undefined,
+        arrivedAt: normalizeIso(vehicle.arrivedAt, new Date().toISOString()),
+        soldAt: normalizeIso(vehicle.soldAt),
+        location,
+        locationHistory: Array.isArray(vehicle.locationHistory) ? vehicle.locationHistory : [],
+        costs: Array.isArray(vehicle.costs) ? vehicle.costs : [],
+        features: Array.isArray(vehicle.features) ? vehicle.features : undefined,
+      };
+    });
+
+  normalized.todos = Array.isArray(snapshot.todos) ? snapshot.todos : [];
+  normalized.offers = Array.isArray(snapshot.offers) ? snapshot.offers : [];
+  normalized.processes = Array.isArray(snapshot.processes) ? snapshot.processes : [];
+  normalized.customers = Array.isArray(snapshot.customers) ? snapshot.customers : [];
+  normalized.purchasePlans = Array.isArray(snapshot.purchasePlans) ? snapshot.purchasePlans : [];
+  normalized.activities = Array.isArray(snapshot.activities) ? snapshot.activities : [];
+  normalized.goals = Array.isArray(snapshot.goals) ? snapshot.goals : [];
+  normalized.calendarEvents = Array.isArray(snapshot.calendarEvents) ? snapshot.calendarEvents : [];
+  normalized.dayTemplates = Array.isArray(snapshot.dayTemplates) ? snapshot.dayTemplates : seed.dayTemplates;
+  normalized.settings = snapshot.settings && typeof snapshot.settings === "object" ? snapshot.settings : seed.settings;
+  normalized.dataVersion = DATA_VERSION;
+
+  return normalized;
+};
+
 const pickPersisted = (state: Record<string, unknown>): Snapshot => {
   const out: Snapshot = {};
   for (const k of PERSISTED_KEYS) out[k] = state[k];
@@ -12,7 +97,7 @@ const pickPersisted = (state: Record<string, unknown>): Snapshot => {
 
 const applySnapshot = (snapshot: Snapshot) => {
   // Vollständiges Hydrieren: nur persistierte Felder ersetzen, Aktionen bleiben.
-  useProcessStore.setState({ ...seedDataState(), ...snapshot } as Partial<ReturnType<typeof useProcessStore.getState>>);
+  useProcessStore.setState({ ...seedDataState(), ...normalizeSnapshot(snapshot) } as Partial<ReturnType<typeof useProcessStore.getState>>);
 };
 
 let activeOrgId: string | null = null;
@@ -108,8 +193,25 @@ export const startOrgStateSync = async (orgId: string, userId: string) => {
   }
 
   if (data?.data && typeof data.data === "object") {
-    applySnapshot(data.data as Snapshot);
-    lastPushedJson = JSON.stringify(pickPersisted(data.data as Snapshot));
+    const rawSnapshot = data.data as Snapshot;
+    const normalizedSnapshot = normalizeSnapshot(rawSnapshot);
+    applySnapshot(normalizedSnapshot);
+    const rawJson = JSON.stringify(pickPersisted(rawSnapshot));
+    const normalizedJson = JSON.stringify(pickPersisted(normalizedSnapshot));
+    lastPushedJson = normalizedJson;
+    if (rawJson !== normalizedJson) {
+      await supabase
+        .from("organization_state")
+        .upsert(
+          {
+            organization_id: orgId,
+            data: pickPersisted(normalizedSnapshot) as unknown as Json,
+            data_version: DATA_VERSION,
+            updated_by: userId,
+          },
+          { onConflict: "organization_id" }
+        );
+    }
   } else {
     // Noch kein Datensatz → leeren State anlegen
     const seed = pickPersisted(seedDataState() as unknown as Record<string, unknown>);
@@ -137,8 +239,9 @@ export const startOrgStateSync = async (orgId: string, userId: string) => {
         throw reloadError;
       }
       if (existing?.data && typeof existing.data === "object") {
-        applySnapshot(existing.data as Snapshot);
-        lastPushedJson = JSON.stringify(pickPersisted(existing.data as Snapshot));
+        const normalizedSnapshot = normalizeSnapshot(existing.data as Snapshot);
+        applySnapshot(normalizedSnapshot);
+        lastPushedJson = JSON.stringify(pickPersisted(normalizedSnapshot));
       }
     }
   }
