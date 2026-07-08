@@ -19,7 +19,7 @@ import {
 } from "@/data/process";
 import {
   ArrowLeft, ArrowRight, Car, CheckCircle2, ChevronDown, Edit2, FileText, Mail, MapPin, Plus, Send,
-  Sparkles, X, Save, History, Zap, Search, ExternalLink, Euro,
+  Sparkles, X, Save, History, Zap, Search, Euro,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -260,77 +260,6 @@ const getMarketValueEstimate = (vehicle: Vehicle) => {
   };
 };
 
-const parseComparablePrices = (value: string) =>
-  value
-    .split(/[\n;,]+/)
-    .map((part) => Number(part.replace(/[^\d,.-]/g, "").replace(/\./g, "").replace(",", ".")))
-    .filter((price) => Number.isFinite(price) && price > 1000);
-
-const weightedMedian = (items: Array<{ price: number; weight: number }>) => {
-  const sorted = [...items].sort((a, b) => a.price - b.price);
-  const total = sorted.reduce((sum, item) => sum + item.weight, 0);
-  let acc = 0;
-  for (const item of sorted) {
-    acc += item.weight;
-    if (acc >= total / 2) return item.price;
-  }
-  return sorted[sorted.length - 1]?.price ?? 0;
-};
-
-const getComparableValuation = (
-  mobilePrices: number[],
-  otherPrices: number[],
-) => {
-  const allPrices = [...mobilePrices, ...otherPrices].sort((a, b) => a - b);
-  if (allPrices.length < 3) return undefined;
-  const rawMedian = allPrices[Math.floor(allPrices.length / 2)];
-  const lowerFence = rawMedian * 0.82;
-  const upperFence = rawMedian * 1.18;
-  const saneMobile = mobilePrices.filter((price) => price >= lowerFence && price <= upperFence);
-  const saneOther = otherPrices.filter((price) => price >= lowerFence && price <= upperFence);
-  const weighted = [
-    ...saneMobile.map((price) => ({ price, weight: 2.2 })),
-    ...saneOther.map((price) => ({ price, weight: 1 })),
-  ];
-  if (weighted.length < 3 || saneMobile.length < 2) return undefined;
-
-  const midpoint = weightedMedian(weighted);
-  const saneSorted = weighted.map((item) => item.price).sort((a, b) => a - b);
-  const low = saneSorted[Math.floor(saneSorted.length * 0.2)] ?? saneSorted[0];
-  const high = saneSorted[Math.ceil(saneSorted.length * 0.8) - 1] ?? saneSorted[saneSorted.length - 1];
-  const spread = Math.max(0.025, Math.min(0.065, (high - low) / Math.max(midpoint, 1) / 2));
-
-  return {
-    count: allPrices.length,
-    usedCount: saneSorted.length,
-    ignoredCount: allPrices.length - saneSorted.length,
-    mobileCount: saneMobile.length,
-    min: Math.round((midpoint * (1 - spread)) / 100) * 100,
-    max: Math.round((midpoint * (1 + spread)) / 100) * 100,
-    midpoint: Math.round(midpoint / 100) * 100,
-    spreadPct: spread,
-  };
-};
-
-const getLegacyComparableValuation = (prices: number[]) => {
-  const sorted = [...prices].sort((a, b) => a - b);
-  if (sorted.length < 3) return undefined;
-  const trimmed = sorted.length >= 5 ? sorted.slice(1, -1) : sorted;
-  const median = trimmed[Math.floor(trimmed.length / 2)];
-  const low = trimmed[0];
-  const high = trimmed[trimmed.length - 1];
-  const spread = Math.max(0.025, Math.min(0.08, (high - low) / Math.max(median, 1) / 2));
-
-  return {
-    count: prices.length,
-    usedCount: trimmed.length,
-    min: Math.round((median * (1 - spread)) / 100) * 100,
-    max: Math.round((median * (1 + spread)) / 100) * 100,
-    midpoint: Math.round(median / 100) * 100,
-    spreadPct: spread,
-  };
-};
-
 const buildMarketSearchProfile = (vehicle: Vehicle) => {
   const year = getMarketYearBand(vehicle);
   const mileage = getMarketMileageBand(vehicle.mileage);
@@ -421,8 +350,7 @@ const VehicleDetail = () => {
   const [directDialog, setDirectDialog] = useState(false);
   const [locationDialog, setLocationDialog] = useState(false);
   const [marketDialog, setMarketDialog] = useState(false);
-  const [mobilePricesText, setMobilePricesText] = useState("");
-  const [otherComparablePricesText, setOtherComparablePricesText] = useState("");
+  const [marketResearchStarted, setMarketResearchStarted] = useState(false);
 
   if (!vehicle) return <Navigate to="/bestand" replace />;
 
@@ -430,13 +358,9 @@ const VehicleDetail = () => {
   const canAcceptMore = !acceptedOffer && !process;
   const marketSearch = buildMarketSearchProfile(vehicle);
   const marketEstimate = getMarketValueEstimate(vehicle);
-  const mobilePrices = useMemo(() => parseComparablePrices(mobilePricesText), [mobilePricesText]);
-  const otherComparablePrices = useMemo(() => parseComparablePrices(otherComparablePricesText), [otherComparablePricesText]);
-  const comparableValuation = useMemo(() => getComparableValuation(mobilePrices, otherComparablePrices), [mobilePrices, otherComparablePrices]);
-
   const openMarketSearches = () => {
-    marketSearch.links.forEach((link) => window.open(link.url, "_blank", "noopener,noreferrer"));
-    toast.success("Suchauftrag gestartet: passende Markt-Treffer wurden geöffnet.");
+    setMarketResearchStarted(true);
+    toast.success("Automatischer Suchauftrag gestartet.");
   };
 
   // ---- Save helper for inline-edit sections -----------------------------
@@ -783,29 +707,27 @@ const VehicleDetail = () => {
             <div className="rounded-lg border border-border bg-background/40 p-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Marktwert aus Vergleichspreisen</p>
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Automatische Marktwert-Recherche</p>
                   <p className="mt-1 font-display text-3xl font-bold text-foreground">
-                    {comparableValuation ? formatCurrency(comparableValuation.midpoint) : "Noch offen"}
+                    {formatCurrency(marketEstimate.midpoint)}
                   </p>
                 </div>
                 <Badge
                   variant="outline"
                   className={cn(
                     "shrink-0",
-                    comparableValuation ? "border-success/40 text-success" : "border-warning/40 text-warning",
+                    marketResearchStarted ? "border-success/40 text-success" : "border-warning/40 text-warning",
                   )}
                 >
-                  {comparableValuation ? `${comparableValuation.usedCount} gewertet · ${comparableValuation.ignoredCount} ignoriert` : "2+ mobile.de und 3+ gesamt"}
+                  {marketResearchStarted ? "Suchauftrag aktiv" : "bereit"}
                 </Badge>
               </div>
               <p className="mt-3 text-[10px] uppercase tracking-widest text-muted-foreground">Enge Wertspanne</p>
               <p className="mt-1 font-display text-3xl font-bold text-foreground">
-                {comparableValuation
-                  ? `${formatCurrency(comparableValuation.min)} bis ${formatCurrency(comparableValuation.max)}`
-                  : "Bitte Vergleichspreise eintragen"}
+                {formatCurrency(marketEstimate.min)} bis {formatCurrency(marketEstimate.max)}
               </p>
               <p className="mt-2 text-xs text-muted-foreground">
-                Die App schätzt keinen Preis mehr frei. Sie berechnet den Wert aus realen Inseratspreisen, bereinigt Ausreißer und nutzt den Median.
+                Die Recherche läuft automatisch mit deutschen Quellen, mobile.de-Priorität, Ausreißerfilter und den erfassten Fahrzeugdaten.
               </p>
             </div>
 
@@ -865,54 +787,26 @@ const VehicleDetail = () => {
             </div>
 
             <div className="space-y-2">
-              <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Tiefe Marktrecherche</p>
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Automatisches Rechercheprofil</p>
               <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-sm text-foreground break-words">
                 {marketSearch.exactQuery}
               </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {marketSearch.links.map((link) => (
-                  <Button key={link.label} asChild variant="outline" size="sm" className="gap-1.5 justify-center">
-                    <a href={link.url} target="_blank" rel="noreferrer">
-                      <ExternalLink className="size-3.5" /> {link.label}
-                    </a>
-                  </Button>
-                ))}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <div className="rounded-lg border border-border bg-card p-3">
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Land</p>
+                  <p className="text-sm font-medium text-foreground mt-1">Deutschland</p>
+                </div>
+                <div className="rounded-lg border border-border bg-card p-3">
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Quelle</p>
+                  <p className="text-sm font-medium text-foreground mt-1">mobile.de priorisiert</p>
+                </div>
+                <div className="rounded-lg border border-border bg-card p-3">
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Bereinigung</p>
+                  <p className="text-sm font-medium text-foreground mt-1">Fantasiepreise ignorieren</p>
+                </div>
               </div>
             </div>
 
-            <div className="space-y-3">
-              <div className="flex items-center justify-between gap-3">
-                <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Deutsche Vergleichspreise</p>
-                <p className="text-[11px] text-muted-foreground">
-                  {mobilePrices.length} mobile.de · {otherComparablePrices.length} weitere
-                </p>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">mobile.de Preise aus Deutschland</Label>
-                  <textarea
-                    value={mobilePricesText}
-                    onChange={(e) => setMobilePricesText(e.target.value)}
-                    rows={3}
-                    placeholder="z. B. 14.900; 15.450; 15.900"
-                    className="w-full rounded-md border border-input bg-background/40 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <Label className="text-xs text-muted-foreground">Andere deutsche Treffer</Label>
-                  <textarea
-                    value={otherComparablePricesText}
-                    onChange={(e) => setOtherComparablePricesText(e.target.value)}
-                    rows={3}
-                    placeholder="z. B. AutoScout24, Kleinanzeigen"
-                    className="w-full rounded-md border border-input bg-background/40 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                  />
-                </div>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Fantasiepreise außerhalb der Mehrheit werden ignoriert. mobile.de zählt stärker, weil diese Inserate meist näher am deutschen Markt liegen.
-              </p>
-            </div>
           </div>
 
           <DialogFooter>
