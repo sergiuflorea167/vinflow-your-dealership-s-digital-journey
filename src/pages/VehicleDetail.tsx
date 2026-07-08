@@ -275,6 +275,13 @@ const getMobileDeInteriorCodes = (value?: string) => {
   return [...codes];
 };
 
+const normalizeFeatureText = (value: string) =>
+  value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/ß/g, "ss");
+
 const getMobileDeEquipmentCodes = (vehicle: Vehicle) => {
   const text = [
     vehicle.modelDetail,
@@ -298,6 +305,129 @@ const getMobileDeEquipmentCodes = (vehicle: Vehicle) => {
   if (/matrix|led/.test(text)) codes.add("LED_HEADLIGHTS");
   if (/xenon/.test(text)) codes.add("XENON_HEADLIGHTS");
   if (/anhängerkupplung|anhaengerkupplung|ahk|towbar/.test(text)) codes.add("TRAILER_COUPLING");
+  return [...codes];
+};
+
+const getMobileDeDetailedEquipmentCodes = (vehicle: Vehicle) => {
+  const text = normalizeFeatureText([
+    vehicle.modelDetail,
+    vehicle.interiorMaterial,
+    ...(vehicle.features ?? []),
+  ].filter(Boolean).join(" "));
+  const codes = new Set(getMobileDeEquipmentCodes(vehicle));
+  const addIf = (pattern: RegExp, code: string) => {
+    if (pattern.test(text)) codes.add(code);
+  };
+
+  if (vehicle.serviceBookComplete) codes.add("FULL_SERVICE_HISTORY");
+  if (vehicle.nonSmoker) codes.add("NONSMOKER_VEHICLE");
+  addIf(/scheckheft|serviceheft|service history|full service/, "FULL_SERVICE_HISTORY");
+  addIf(/nichtraucher|non smoker/, "NONSMOKER_VEHICLE");
+  addIf(/garantie|warranty/, "WARRANTY");
+  addIf(/inspektion neu|service neu|new service/, "NEW_SERVICE");
+  addIf(/abgedunkelte scheiben|getonte scheiben|privacy glass|privacy verglasung/, "DARK_TINTED_WINDOWS");
+  addIf(/\babs\b|antiblockier/, "ABS");
+  addIf(/abstandswarner|distance warning|front assist|kollisionswarner/, "DISTANCE_WARNING");
+  addIf(/adaptives fahrwerk|adaptive suspension|fahrwerksregelung|dcc/, "ADAPTIVE_SUSPENSION");
+  addIf(/adaptives kurvenlicht|kurvenlicht|adaptive light|bending lights/, "ADAPTIVE_LIGHTS");
+  addIf(/allwetterreifen|ganzjahresreifen|all season/, "ALL_SEASON_TIRES");
+  addIf(/beheizbare frontscheibe|frontscheibenheizung|heated windscreen|heated windshield/, "HEATED_WINDSHIELD");
+  addIf(/behindertengerecht|rollstuhl|disabled/, "DISABLED_ACCESSIBLE");
+  addIf(/berganfahrassistent|hill start|auto hold/, "HILL_START_ASSIST");
+  addIf(/bi[-\s]?xenon/, "BI_XENON_HEADLIGHTS");
+  addIf(/blendfreies fernlicht|matrix|blendfrei/, "GLARE_FREE_HIGH_BEAM");
+  addIf(/dachreling|roof rail/, "ROOF_RAILS");
+  addIf(/elektr\.? heckklappe|elektrische heckklappe|power tailgate|heckklappe elektrisch/, "ELECTRIC_TAILGATE");
+  addIf(/wegfahrsperre|immobilizer/, "IMMOBILIZER");
+  addIf(/\besp\b|stabilitatsprogramm|stabilitaetsprogramm/, "ESP");
+  addIf(/faltdach|folding roof/, "FOLDING_ROOF");
+  addIf(/fernlichtassistent|high beam assist/, "HIGH_BEAM_ASSIST");
+  addIf(/geschwindigkeitsbegrenzer|speed limiter|limiter/, "SPEED_LIMITER");
+  addIf(/laserlicht|laser light/, "LASER_HEADLIGHTS");
+  addIf(/led[-\s]?scheinwerfer|matrix led|led licht|led headlights/, "LED_HEADLIGHTS");
+  addIf(/led[-\s]?tagfahrlicht|daytime running light|tagfahrlicht/, "DAYTIME_RUNNING_LIGHTS");
+  addIf(/leichtmetallfelgen|alu felgen|alufelgen|alloy wheels/, "ALLOY_WHEELS");
+  addIf(/lichtsensor|light sensor/, "LIGHT_SENSOR");
+  addIf(/luftfederung|air suspension/, "AIR_SUSPENSION");
+  addIf(/nachtsicht|night vision/, "NIGHT_VISION_ASSIST");
+  addIf(/nebelscheinwerfer|fog light/, "FOG_LAMP");
+  addIf(/notbremsassistent|emergency brake|bremsassistent/, "EMERGENCY_BRAKE_ASSIST");
+  addIf(/notrad|emergency wheel/, "EMERGENCY_WHEEL");
+  addIf(/pannenkit|tire repair|reifenreparatur/, "TIRE_REPAIR_KIT");
+  addIf(/panorama|pano|glasdach/, "PANORAMIC_GLASS_ROOF");
+  addIf(/regensensor|rain sensor/, "RAIN_SENSOR");
+  addIf(/reifendruck|rdk|tpms/, "TIRE_PRESSURE_MONITORING");
+  addIf(/reserverad|spare wheel/, "SPARE_WHEEL");
+  addIf(/scheinwerferreinigung|headlight washer/, "HEADLIGHT_WASHER_SYSTEM");
+  addIf(/schiebedach|sunroof/, "SUNROOF");
+  addIf(/schlussellose zentralverriegelung|keyless|keyless go|komfortzugang/, "KEYLESS_ENTRY");
+  addIf(/servolenkung|power steering/, "POWER_ASSISTED_STEERING");
+  addIf(/sommerreifen|summer tires/, "SUMMER_TIRES");
+  addIf(/sportfahrwerk|sports suspension/, "SPORT_SUSPENSION");
+  addIf(/sportpaket|s[-\s]?line|m[-\s]?sport|amg|r[-\s]?line|fr\b/, "SPORT_PACKAGE");
+  addIf(/spurhalteassistent|lane assist|lane departure|spurhalte/, "LANE_DEPARTURE_WARNING");
+  addIf(/stahlfelgen|steel wheels/, "STEEL_WHEELS");
+  addIf(/start[\/\s-]?stopp|start stop/, "START_STOP_SYSTEM");
+  addIf(/totwinkel|blind spot|side assist/, "BLIND_SPOT_MONITOR");
+  addIf(/traktionskontrolle|traction control|asr/, "TRACTION_CONTROL_SYSTEM");
+  addIf(/verkehrszeichen|traffic sign/, "TRAFFIC_SIGN_RECOGNITION");
+  addIf(/winterpaket|winter package/, "WINTER_PACKAGE");
+  addIf(/winterreifen|winter tires/, "WINTER_TIRES");
+  addIf(/zentralverriegelung|central locking/, "CENTRAL_LOCKING");
+  addIf(/alarmanlage|alarm system/, "ALARM_SYSTEM");
+  addIf(/ambiente|ambient/, "AMBIENT_LIGHTING");
+  addIf(/android auto/, "ANDROID_AUTO");
+  addIf(/apple carplay|carplay/, "APPLE_CARPLAY");
+  addIf(/armlehne|armrest/, "ARM_REST");
+  addIf(/beheizbares lenkrad|lenkradheizung|heated steering/, "HEATED_STEERING_WHEEL");
+  addIf(/bluetooth/, "BLUETOOTH");
+  addIf(/bordcomputer|on-board computer|board computer/, "ON_BOARD_COMPUTER");
+  addIf(/cd[-\s]?spieler|cd player/, "CD_PLAYER");
+  addIf(/elektr\.? fensterheber|elektrische fensterheber|electric windows/, "ELECTRIC_WINDOWS");
+  addIf(/elektr\.? seitenspiegel|elektrische seitenspiegel|electric mirror/, "ELECTRIC_EXTERIOR_MIRRORS");
+  addIf(/anklappbar|folding mirror/, "ELECTRIC_FOLDING_MIRRORS");
+  addIf(/elektr\.? sitz|elektrische sitz|electric seat/, "ELECTRIC_ADJUSTABLE_SEATS");
+  addIf(/memory|memo/, "ELECTRIC_ADJUSTABLE_SEATS_WITH_MEMORY");
+  addIf(/freisprecheinrichtung|handsfree|hands-free/, "HANDSFREEKIT");
+  addIf(/gepackraumabtrennung|trennnetz|luggage compartment/, "LUGGAGE_COMPARTMENT_SEPARATION");
+  addIf(/head[-\s]?up|\bhud\b/, "HEAD_UP_DISPLAY");
+  addIf(/induktionsladen|wireless charging|inductive charging/, "WIRELESS_CHARGING");
+  addIf(/innenspiegel.*abblend|autom\.? abblend|auto dimming mirror/, "DIMMING_INTERIOR_MIRROR");
+  addIf(/isofix beifahrer/, "ISOFIX_PASSENGER_SEAT");
+  addIf(/isofix/, "ISOFIX");
+  addIf(/lederlenkrad|leather steering/, "LEATHER_STEERING_WHEEL");
+  addIf(/lordosen|lumbar/, "LUMBAR_SUPPORT");
+  addIf(/massage/, "MASSAGE_SEATS");
+  addIf(/mudigkeitswarner|muedigkeitswarner|attention assist|fatigue/, "FATIGUE_WARNING_SYSTEM");
+  addIf(/multifunktionslenkrad|multi.?function steering/, "MULTIFUNCTIONAL_WHEEL");
+  addIf(/musikstreaming|music streaming/, "INTEGRATED_MUSIC_STREAMING");
+  addIf(/navigation|navi|mmi|command/, "NAVIGATION_SYSTEM");
+  addIf(/notrufsystem|emergency call|ecall/, "EMERGENCY_CALL_SYSTEM");
+  addIf(/dab|digital radio/, "DAB_RADIO");
+  addIf(/raucherpaket|smoker package/, "SMOKERS_PACKAGE");
+  addIf(/rechtslenker|right hand drive|rhd/, "RIGHT_HAND_DRIVE");
+  addIf(/schaltwippen|shift paddle|paddle/, "SHIFT_PADDLES");
+  addIf(/sitzbeluftung|sitzbelueftung|ventilated seats/, "VENTILATED_SEATS");
+  addIf(/sitzheizung hinten|heated rear seats/, "HEATED_REAR_SEATS");
+  addIf(/sitzheizung|heated seats?/, "HEATED_SEATS");
+  addIf(/skisack|ski bag/, "SKI_BAG");
+  addIf(/soundsystem|bang|bose|harman|burmester|b&o/, "SOUND_SYSTEM");
+  addIf(/sport.?sitz|sportsitz|s[-\s]?line.*sitz/, "SPORT_SEATS");
+  addIf(/sprachsteuerung|voice control/, "VOICE_CONTROL");
+  addIf(/standheizung|auxiliary heating/, "AUXILIARY_HEATING");
+  addIf(/touchscreen|touch screen/, "TOUCHSCREEN");
+  addIf(/tuner|radio/, "TUNER");
+  addIf(/\btv\b|fernseher/, "TV");
+  addIf(/umklappbarer beifahrersitz|folding passenger seat/, "FOLD_FLAT_PASSENGER_SEAT");
+  addIf(/\busb\b/, "USB");
+  addIf(/virtuelle seitenspiegel|virtual mirror/, "VIRTUAL_EXTERIOR_MIRRORS");
+  addIf(/volldigital|virtual cockpit|digital cockpit|digitales kombiinstrument/, "DIGITAL_COCKPIT");
+  addIf(/wlan|wifi|hotspot/, "WLAN_WIFI_HOTSPOT");
+  addIf(/ruckfahrkamera|rueckfahrkamera|kamera|rear view/, "REAR_VIEW_CAM");
+  addIf(/360|surround/, "360_CAMERA");
+  addIf(/pdc|parksensor|einparkhilfe/, "PARKING_SENSORS");
+  addIf(/xenon/, "XENON_HEADLIGHTS");
+  addIf(/anhangerkupplung|ahk|towbar/, "TRAILER_COUPLING");
   return [...codes];
 };
 
@@ -337,7 +467,7 @@ const buildMobileDeSearchUrl = (
   appendMany("ft", MOBILE_DE_FUEL_CODES[vehicle.fuel] ?? []);
   appendMany("tr", MOBILE_DE_TRANSMISSION_CODES[vehicle.transmission] ?? []);
   appendMany("it", getMobileDeInteriorCodes(vehicle.interiorMaterial));
-  appendMany("fe", getMobileDeEquipmentCodes(vehicle));
+  appendMany("fe", getMobileDeDetailedEquipmentCodes(vehicle));
 
   const exteriorColor = getMobileDeColorCode(vehicle.color);
   const interiorColor = getMobileDeColorCode(vehicle.interiorColor);
