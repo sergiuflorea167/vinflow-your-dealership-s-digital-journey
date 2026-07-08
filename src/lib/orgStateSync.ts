@@ -20,6 +20,106 @@ const normalizeIso = (value: unknown, fallback?: string) => {
   return Number.isNaN(d.getTime()) ? fallback : d.toISOString();
 };
 
+const uniqueStrings = (items: unknown[]) => {
+  const seen = new Set<string>();
+  return items
+    .map((item) => toStringValue(item).trim())
+    .filter((item) => item.length > 0)
+    .filter((item) => {
+      const key = item.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+};
+
+const inferMockDetails = (vehicle: Record<string, unknown>, index: number) => {
+  const make = toStringValue(vehicle.make).toLowerCase();
+  const model = toStringValue(vehicle.model).toLowerCase();
+  const type = toStringValue(vehicle.type, "limousine");
+  const year = toNumber(vehicle.year, new Date().getFullYear());
+  const premium = /audi|bmw|mercedes|porsche|lexus|volvo|tesla/.test(make);
+  const suv = type === "suv" || /q[23578]|x[1357]|gl[acse]|tiguan|kodiaq|grandland|xc[469]0/.test(model);
+  const transporter = type === "transporter" || /transporter|t6|t5|vito|sprinter|ducato/.test(model);
+  const electric = toStringValue(vehicle.fuel).toLowerCase().includes("elektro") || /eq|electric|e-tron|id\.|tesla/.test(model);
+  const diesel = toStringValue(vehicle.fuel).toLowerCase().includes("diesel") || /tdi|cdi|d\b|bluehdi/.test(model);
+  const audiA6 = /audi/.test(make) && /\ba6\b/.test(model);
+  const audi = /audi/.test(make);
+  const bmw = /bmw/.test(make);
+  const mercedes = /mercedes/.test(make);
+
+  const baseFeatures = [
+    "Navigationssystem",
+    "LED-Scheinwerfer",
+    "Rückfahrkamera",
+    "Einparkhilfe vorne und hinten",
+    "Sitzheizung vorne",
+    "Tempomat",
+    "Bluetooth",
+    "2-Zonen-Klimaautomatik",
+  ];
+  const premiumFeatures = premium ? [
+    "Leder/Alcantara",
+    "Sportsitze",
+    "Digitales Cockpit",
+    "Assistenzpaket",
+    "Keyless Go",
+    "Soundsystem",
+  ] : [];
+  const suvFeatures = suv ? ["Allradantrieb", "Anhängerkupplung", "Dachreling"] : [];
+  const electricFeatures = electric ? ["Wärmepumpe", "Schnellladefunktion", "Batteriezertifikat"] : [];
+  const dieselFeatures = diesel ? ["Euro 6", "Partikelfilter", "Start-Stopp-System"] : [];
+  const audiFeatures = audi ? ["S line Exterieur", "MMI Navigation plus", "Virtual Cockpit"] : [];
+  const bmwFeatures = bmw ? ["M Sportpaket", "BMW Live Cockpit Professional", "Driving Assistant"] : [];
+  const mercedesFeatures = mercedes ? ["AMG Line", "MBUX Navigation", "Totwinkel-Assistent"] : [];
+  const transporterFeatures = transporter ? ["9-Sitzer", "Schiebetür rechts", "Standheizung", "AHK"] : [];
+  const existingFeatures = Array.isArray(vehicle.features) ? vehicle.features : [];
+  const features = uniqueStrings([
+    ...existingFeatures,
+    ...baseFeatures,
+    ...premiumFeatures,
+    ...suvFeatures,
+    ...electricFeatures,
+    ...dieselFeatures,
+    ...audiFeatures,
+    ...bmwFeatures,
+    ...mercedesFeatures,
+    ...transporterFeatures,
+  ]).slice(0, 18);
+
+  const modelDetail = toStringValue(vehicle.modelDetail)
+    || (audiA6 ? "Avant 3.0 TDI quattro S line Facelift"
+      : audi ? "S line"
+      : bmw ? "M Sport"
+      : mercedes ? "AMG Line"
+      : suv ? "Allrad"
+      : transporter ? "Kombi lang"
+      : undefined);
+
+  const firstRegistration = toStringValue(vehicle.firstRegistration)
+    || `${year}-${String((index % 12) + 1).padStart(2, "0")}-15`;
+
+  return {
+    modelDetail,
+    condition: toStringValue(vehicle.condition) || "Gebraucht",
+    previousOwners: toNumber(vehicle.previousOwners, index % 3),
+    drive: toStringValue(vehicle.drive) || (suv || audiA6 ? "Allradantrieb" : "Frontantrieb"),
+    emissionClass: toStringValue(vehicle.emissionClass) || (electric ? "Elektro" : "Euro 6"),
+    color: toStringValue(vehicle.color) || (premium ? "Daytonagrau Metallic" : "Schwarz Metallic"),
+    metallic: typeof vehicle.metallic === "boolean" ? vehicle.metallic : true,
+    interiorColor: toStringValue(vehicle.interiorColor) || "Schwarz",
+    interiorMaterial: toStringValue(vehicle.interiorMaterial) || (premium ? "S-Line Leder/Alcantara Sportsitze" : "Stoff Komfortsitze"),
+    doors: toNumber(vehicle.doors, transporter ? 4 : 5),
+    seats: toNumber(vehicle.seats, transporter ? 9 : 5),
+    firstRegistration,
+    serviceBookComplete: typeof vehicle.serviceBookComplete === "boolean" ? vehicle.serviceBookComplete : true,
+    accidentFree: typeof vehicle.accidentFree === "boolean" ? vehicle.accidentFree : true,
+    nonSmoker: typeof vehicle.nonSmoker === "boolean" ? vehicle.nonSmoker : true,
+    features,
+    notes: toStringValue(vehicle.notes) || "Mock-Ausstattung für Marktwert-Test ergänzt.",
+  };
+};
+
 const normalizeSnapshot = (snapshot: Snapshot): Snapshot => {
   const seed = seedDataState() as unknown as Snapshot;
   const normalized: Snapshot = { ...seed, ...snapshot };
@@ -45,6 +145,7 @@ const normalizeSnapshot = (snapshot: Snapshot): Snapshot => {
         since: locationSince,
         note: toStringValue(locationRaw.note) || undefined,
       };
+      const mock = inferMockDetails(vehicle, index);
 
       return {
         ...vehicle,
@@ -53,24 +154,38 @@ const normalizeSnapshot = (snapshot: Snapshot): Snapshot => {
         type: toStringValue(vehicle.type, "limousine"),
         make: toStringValue(vehicle.make, "Unbekannte Marke"),
         model: toStringValue(vehicle.model, "Unbekanntes Modell"),
+        modelDetail: mock.modelDetail,
         year: toNumber(vehicle.year, new Date().getFullYear()),
-        color: toStringValue(vehicle.color),
+        condition: mock.condition,
+        color: mock.color,
+        metallic: mock.metallic,
+        interiorColor: mock.interiorColor,
+        interiorMaterial: mock.interiorMaterial,
+        doors: mock.doors,
+        seats: mock.seats,
         mileage: toNumber(vehicle.mileage),
         fuel: toStringValue(vehicle.fuel, "Benzin"),
         transmission: toStringValue(vehicle.transmission, "Automatik"),
+        drive: mock.drive,
         power_hp: toNumber(vehicle.power_hp),
         power_kw: toNumber(vehicle.power_kw, Math.round(toNumber(vehicle.power_hp) * 0.7355)),
+        emissionClass: mock.emissionClass,
         listPrice: toNumber(vehicle.listPrice),
         purchasePrice: toNumber(vehicle.purchasePrice),
         status: VEHICLE_STATUSES.has(status) ? status : "in_stock",
-        firstRegistration: toStringValue(vehicle.firstRegistration) || undefined,
+        previousOwners: mock.previousOwners,
+        firstRegistration: mock.firstRegistration,
         hu: toStringValue(vehicle.hu) || undefined,
+        serviceBookComplete: mock.serviceBookComplete,
+        accidentFree: mock.accidentFree,
+        nonSmoker: mock.nonSmoker,
         arrivedAt: normalizeIso(vehicle.arrivedAt, new Date().toISOString()),
         soldAt: normalizeIso(vehicle.soldAt),
         location,
         locationHistory: Array.isArray(vehicle.locationHistory) ? vehicle.locationHistory : [],
         costs: Array.isArray(vehicle.costs) ? vehicle.costs : [],
-        features: Array.isArray(vehicle.features) ? vehicle.features : undefined,
+        features: mock.features,
+        notes: mock.notes,
       };
     });
 
