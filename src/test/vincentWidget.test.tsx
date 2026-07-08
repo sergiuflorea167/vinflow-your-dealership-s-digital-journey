@@ -21,12 +21,26 @@ const authState = vi.hoisted(() => ({
   organization: { name: "Testbetrieb" },
 }));
 
+const storeMocks = vi.hoisted(() => ({
+  addTodo: vi.fn(),
+}));
+
 vi.mock("@/context/AuthContext", () => ({
   useAuth: () => authState,
 }));
 
 vi.mock("@/store/processStore", () => ({
-  useProcessStore: (selector: (state: { settings: Record<string, string> }) => unknown) => selector({ settings: {} }),
+  useProcessStore: (selector: (state: {
+    settings: Record<string, string>;
+    addTodo: ReturnType<typeof vi.fn>;
+    vehicles: unknown[];
+    processes: unknown[];
+  }) => unknown) => selector({
+    settings: {},
+    addTodo: storeMocks.addTodo,
+    vehicles: [],
+    processes: [],
+  }),
 }));
 
 vi.mock("@/lib/i18n", () => ({ useLang: () => "de" }));
@@ -55,6 +69,16 @@ describe("VINcent chat workspace", () => {
     historyMocks.loadPreference.mockResolvedValue({ acknowledged: true, historyEnabled: true, retentionDays: 30 });
     historyMocks.save.mockResolvedValue(new Date(Date.now() + 30 * 86_400_000).toISOString());
     historyMocks.setEnabled.mockResolvedValue(undefined);
+    storeMocks.addTodo.mockReturnValue({
+      id: "TD-1",
+      title: "Inserat prüfen",
+      priority: "high",
+      dueDate: "2026-07-09",
+      scope: "internal_fleet",
+      done: false,
+      createdAt: "2026-07-08T12:00:00.000Z",
+      createdBy: "Admin",
+    });
     Object.defineProperty(HTMLElement.prototype, "scrollTo", { configurable: true, value: vi.fn() });
     vi.stubGlobal("TextDecoder", TextDecoder);
     vi.stubGlobal("TextEncoder", TextEncoder);
@@ -170,5 +194,29 @@ describe("VINcent chat workspace", () => {
     expect(finalPayload.messages).toHaveLength(2);
     expect(finalPayload.messages[1].content).toContain("KI vorübergehend nicht erreichbar");
     expect(screen.getByText("Automatisch gespeichert")).toBeInTheDocument();
+  });
+  it("asks for missing To-Do data and creates the To-Do from the follow-up", async () => {
+    render(<VincentWidget />);
+    act(() => window.dispatchEvent(new CustomEvent("vincent:open")));
+
+    const input = await screen.findByPlaceholderText("Nachricht an VINcent");
+    fireEvent.change(input, { target: { value: "Erstelle ein To-Do: Inserat prüfen" } });
+    fireEvent.click(screen.getByRole("button", { name: "Nachricht senden" }));
+
+    expect(await screen.findByText(/Bis wann soll das To-Do fällig sein/)).toBeInTheDocument();
+    expect(fetch).not.toHaveBeenCalled();
+    expect(storeMocks.addTodo).not.toHaveBeenCalled();
+
+    fireEvent.change(input, { target: { value: "morgen, hoch" } });
+    fireEvent.click(screen.getByRole("button", { name: "Nachricht senden" }));
+
+    await waitFor(() => expect(storeMocks.addTodo).toHaveBeenCalledWith(expect.objectContaining({
+      title: "Inserat prüfen",
+      priority: "high",
+      scope: "internal_fleet",
+      tags: ["VINcent"],
+    })));
+    expect(await screen.findByRole("link", { name: "Inserat prüfen" })).toHaveAttribute("href", "/todos?todo=TD-1");
+    expect(fetch).not.toHaveBeenCalled();
   });
 });

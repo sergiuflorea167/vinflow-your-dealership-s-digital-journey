@@ -17,6 +17,7 @@ import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { buildVincentContext } from "@/lib/vincentContext";
 import { linkifyVincentAnswer } from "@/lib/vincentLinks";
+import { parseVincentTodoCommand, todoQuestionForMissing, type VincentTodoDraft } from "@/lib/vincentTodoCommands";
 import {
   acknowledgeVincentNotice, deleteAllVincentConversations, deleteVincentConversation,
   listVincentConversations, loadVincentMessages, loadVincentPreference,
@@ -84,6 +85,9 @@ export const VincentWidget = () => {
   const lang = useLang();
   const { user, profile, organization } = useAuth();
   const settings = useProcessStore((state) => state.settings);
+  const addTodo = useProcessStore((state) => state.addTodo);
+  const vehicles = useProcessStore((state) => state.vehicles);
+  const processes = useProcessStore((state) => state.processes);
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<WindowMode>("normal");
   const [showHistory, setShowHistory] = useState(true);
@@ -103,6 +107,7 @@ export const VincentWidget = () => {
   const [acknowledged, setAcknowledged] = useState(false);
   const [noticeChecked, setNoticeChecked] = useState(false);
   const [privacyNoticeOpen, setPrivacyNoticeOpen] = useState(false);
+  const [pendingTodoDraft, setPendingTodoDraft] = useState<VincentTodoDraft | null>(null);
   const [retentionDays, setRetentionDays] = useState(VINCENT_RETENTION_DAYS);
   const scrollRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -256,11 +261,52 @@ export const VincentWidget = () => {
     const requestMessages = [...previous, userMessage];
     const nextConversationId = conversationId ?? crypto.randomUUID();
     if (!conversationId) setConversationId(nextConversationId);
+    const shouldPersist = historyReady && Boolean(user);
+
+    const todoCommand = parseVincentTodoCommand(redacted.text, { pending: pendingTodoDraft, vehicles, processes });
+    if (todoCommand) {
+      const assistantContent = (() => {
+        if (todoCommand.missing.length > 0) {
+          setPendingTodoDraft(todoCommand.draft);
+          return todoQuestionForMissing(todoCommand.missing);
+        }
+        const todo = addTodo({
+          title: todoCommand.draft.title!,
+          description: todoCommand.draft.description,
+          priority: todoCommand.draft.priority ?? "medium",
+          scope: todoCommand.draft.scope ?? "general",
+          dueDate: todoCommand.draft.noDueDate ? undefined : todoCommand.draft.dueDate,
+          assignee: todoCommand.draft.assignee,
+          vehicleId: todoCommand.draft.vehicleId,
+          processId: todoCommand.draft.processId,
+          tags: ["VINcent"],
+        });
+        setPendingTodoDraft(null);
+        const due = todo.dueDate ? ` · fällig ${todo.dueDate}` : "";
+        const priority = todo.priority === "high" ? " · hohe Priorität" : todo.priority === "low" ? " · niedrige Priorität" : "";
+        return `Erledigt — ich habe das To-Do [${todo.title}](/todos?todo=${encodeURIComponent(todo.id)}) erstellt${due}${priority}.`;
+      })();
+      const finalMessages = [...requestMessages, { ...assistantMessage, content: assistantContent }];
+      setMessages(finalMessages);
+      setInput("");
+      if (shouldPersist && user) {
+        try {
+          if (historyStorage === "remote") {
+            try { await setVincentHistoryEnabled(user.id, true); } catch { /* persist switches to local storage */ }
+          }
+          await persist(requestMessages, nextConversationId);
+          await persist(finalMessages, nextConversationId);
+        } catch {
+          setSaveStatus("error");
+        }
+      }
+      return;
+    }
+
     setMessages([...requestMessages, assistantMessage]);
     setInput("");
     setStreaming(true);
     streamingRef.current = true;
-    const shouldPersist = historyReady && Boolean(user);
     if (shouldPersist && user) {
       try {
         if (historyStorage === "remote") {
@@ -352,7 +398,7 @@ export const VincentWidget = () => {
       streamingRef.current = false;
       abortRef.current = null;
     }
-  }, [acknowledged, conversationId, historyReady, historyStorage, lang, persist, privacyReady, user]);
+  }, [acknowledged, addTodo, conversationId, historyReady, historyStorage, lang, pendingTodoDraft, persist, privacyReady, processes, user, vehicles]);
 
   useEffect(() => {
     const handler = (event: Event) => {
