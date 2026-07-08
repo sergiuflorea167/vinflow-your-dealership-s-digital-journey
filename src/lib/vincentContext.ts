@@ -2,6 +2,8 @@ import { useProcessStore } from "@/store/processStore";
 import { KPI_CATALOG } from "@/lib/kpis";
 import { getConfiguredProcessSteps, vehicleTotalCostsGross } from "@/data/process";
 
+const appLink = (path: string) => path.startsWith("/") ? path : `/${path}`;
+
 /**
  * Erstellt ausschließlich den für die konkrete Frage notwendigen Kontext.
  * Direkte Kundenkennungen, VIN und Kontaktdaten verlassen den Browser nicht.
@@ -28,6 +30,7 @@ export function buildVincentContext(question = "") {
             id: kpi.id,
             label: kpi.label,
             category: kpi.category,
+            url: appLink("/kpis"),
             value: result.value,
             display: result.display,
             sub: result.sub,
@@ -50,9 +53,11 @@ export function buildVincentContext(question = "") {
         .filter((vehicle) => vehicle.status === "in_stock" || vehicle.status === "reserved")
         .slice(0, 20)
         .map((vehicle) => ({
+          id: vehicle.id,
           make: vehicle.make,
           model: vehicle.model,
           year: vehicle.year,
+          url: appLink(`/bestand/${encodeURIComponent(vehicle.id)}`),
           km: vehicle.mileage,
           status: vehicle.status,
           purchasePrice: vehicle.purchasePrice,
@@ -66,8 +71,11 @@ export function buildVincentContext(question = "") {
     ? processes.slice(0, 20).map((process) => {
         const vehicle = vehicles.find((item) => item.id === process.vehicleId);
         return {
+          id: process.id,
           step: process.currentStep,
+          url: appLink(`/vorgaenge/${encodeURIComponent(process.id)}`),
           vehicle: vehicle ? `${vehicle.make} ${vehicle.model} (${vehicle.year})` : null,
+          vehicleUrl: vehicle ? appLink(`/bestand/${encodeURIComponent(vehicle.id)}`) : null,
           finalPrice: process.fields.finalPrice ?? null,
           createdAt: process.createdAt,
         };
@@ -82,9 +90,11 @@ export function buildVincentContext(question = "") {
     highPriority: todos.filter((todo) => !todo.done && todo.priority === "high").length,
     items: todos.map((todo) => {
       const vehicle = todo.vehicleId ? vehicles.find((item) => item.id === todo.vehicleId) : undefined;
+      const process = todo.processId ? processes.find((item) => item.id === todo.processId) : undefined;
       return {
         id: todo.id,
         title: todo.title,
+        url: appLink(`/todos?todo=${encodeURIComponent(todo.id)}`),
         description: todo.description ?? null,
         priority: todo.priority,
         done: todo.done,
@@ -98,6 +108,9 @@ export function buildVincentContext(question = "") {
         completedAt: todo.completedAt ?? null,
         createdBy: todo.createdBy,
         vehicle: vehicle ? `${vehicle.make} ${vehicle.model} (${vehicle.year})` : null,
+        vehicleUrl: vehicle ? appLink(`/bestand/${encodeURIComponent(vehicle.id)}`) : null,
+        process: process?.id ?? null,
+        processUrl: process ? appLink(`/vorgaenge/${encodeURIComponent(process.id)}`) : null,
       };
     }),
   };
@@ -117,6 +130,14 @@ export function buildVincentContext(question = "") {
       offers: offers.length,
       customers: customers.length,
       openTodos: todos.filter((todo) => !todo.done).length,
+    },
+    links: {
+      dashboard: appLink("/"),
+      todos: appLink("/todos"),
+      stock: appLink("/bestand"),
+      processes: appLink("/vorgaenge"),
+      kpis: appLink("/kpis"),
+      calendar: appLink("/kalender"),
     },
     pipeline,
     ...(kpis ? { kpis } : {}),

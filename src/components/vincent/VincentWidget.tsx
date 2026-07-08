@@ -3,7 +3,7 @@ import {
   Check, Download, Loader2, Maximize2, MessageSquarePlus, Minimize2, Minus,
   MoreHorizontal, PanelLeftClose, PanelLeftOpen, Pencil, Search, Send, ShieldCheck, Sparkles, Trash2, X,
 } from "lucide-react";
-import ReactMarkdown from "react-markdown";
+import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -54,6 +54,23 @@ const SUGGESTIONS_EN = [
 const newMessage = (role: VincentMessage["role"], content: string): VincentMessage => ({
   id: crypto.randomUUID(), role, content, createdAt: new Date().toISOString(),
 });
+
+const markdownComponents: Components = {
+  a: ({ href, children, ...props }) => {
+    const isInternal = typeof href === "string" && href.startsWith("/");
+    return (
+      <a
+        {...props}
+        href={href}
+        className="font-medium text-primary-glow underline underline-offset-2 hover:text-primary"
+        target={isInternal ? undefined : "_blank"}
+        rel={isInternal ? undefined : "noreferrer"}
+      >
+        {children}
+      </a>
+    );
+  },
+};
 
 const conversationGroup = (updatedAt: string) => {
   const age = Date.now() - new Date(updatedAt).getTime();
@@ -547,7 +564,7 @@ export const VincentWidget = () => {
               {messages.length > 0 && <div className="space-y-6 pb-4">
                 {messages.map((message) => (
                   <div key={message.id} className={cn("flex", message.role === "user" ? "justify-end" : "justify-start")}>
-                    {message.role === "user" ? <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-muted px-4 py-2.5 text-sm">{message.content}</div> : <div className="prose prose-sm w-full max-w-none text-sm prose-p:my-2 prose-ul:my-2">{!message.content && streaming ? <span className="inline-flex items-center gap-2 text-muted-foreground"><Loader2 className="size-3.5 animate-spin" />VINcent denkt nach …</span> : <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>}</div>}
+                    {message.role === "user" ? <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-muted px-4 py-2.5 text-sm">{message.content}</div> : <div className="prose prose-sm w-full max-w-none text-sm prose-p:my-2 prose-ul:my-2">{!message.content && streaming ? <span className="inline-flex items-center gap-2 text-muted-foreground"><Loader2 className="size-3.5 animate-spin" />VINcent denkt nach …</span> : <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{message.content}</ReactMarkdown>}</div>}
                   </div>
                 ))}
               </div>}

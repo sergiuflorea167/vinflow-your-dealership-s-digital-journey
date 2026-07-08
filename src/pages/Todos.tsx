@@ -1,5 +1,5 @@
-import { useCallback, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { AppShell } from "@/components/layout/AppShell";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -74,6 +74,8 @@ const toISO = (d: Date) => {
 
 const Todos = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const linkedTodoId = searchParams.get("todo");
   const rawTodos = useProcessStore((s) => s.todos);
   const vehicles = useProcessStore((s) => s.vehicles);
   const offers = useProcessStore((s) => s.offers);
@@ -143,6 +145,16 @@ const Todos = () => {
   }, [rawTodos, processes, offers]);
   const todos = section === "agreements" ? todoGroups.agreements : todoGroups.operational;
 
+  useEffect(() => {
+    if (!linkedTodoId) return;
+    const linkedSection = searchParams.get("section");
+    if (linkedSection === "agreements" || linkedTodoId.startsWith("ct:") || linkedTodoId.startsWith("of:")) {
+      setSection("agreements");
+    } else {
+      setSection("todos");
+    }
+  }, [linkedTodoId, searchParams]);
+
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("open");
   const [scopeFilter, setScopeFilter] = useState<"all" | TodoScope>("all");
   const [priorityFilter, setPriorityFilter] = useState<"all" | TodoPriority>("all");
@@ -153,6 +165,14 @@ const Todos = () => {
   const [createOpen, setCreateOpen] = useState(false);
   const [editTodo, setEditTodo] = useState<Todo | null>(null);
   const [sort, setSort] = useState<SortState<TodoSortKey>>({ key: "dueDate", dir: "asc" });
+
+  useEffect(() => {
+    if (!linkedTodoId) return;
+    const linkedTodo = [...todoGroups.operational, ...todoGroups.agreements].find((todo) => todo.id === linkedTodoId);
+    if (!linkedTodo) return;
+    setStatusFilter("all");
+    setEditTodo(linkedTodo);
+  }, [linkedTodoId, todoGroups]);
 
   // ---- Topbar-Suche -------------------------------------------------------
   const topbarSearch = useMemo(() => ({

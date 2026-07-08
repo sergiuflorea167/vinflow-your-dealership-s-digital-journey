@@ -58,6 +58,7 @@ describe("VINcent context minimization", () => {
       expect(context.todos.items[0]).toMatchObject({
         id: "TD-CONTEXT-1",
         title: "Inserat veröffentlichen",
+        url: "/todos?todo=TD-CONTEXT-1",
         description: "Fotos prüfen und Freigabe einholen",
         priority: "high",
         dueDate: "2026-07-06",
