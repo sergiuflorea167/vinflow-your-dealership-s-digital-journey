@@ -71,10 +71,10 @@ describe("VINcent chat workspace", () => {
     historyMocks.setEnabled.mockResolvedValue(undefined);
     storeMocks.addTodo.mockReturnValue({
       id: "TD-1",
-      title: "Inserat prüfen",
+      title: "Büro prüfen",
       priority: "high",
       dueDate: "2026-07-09",
-      scope: "internal_fleet",
+      scope: "general",
       done: false,
       createdAt: "2026-07-08T12:00:00.000Z",
       createdBy: "Admin",
@@ -200,7 +200,7 @@ describe("VINcent chat workspace", () => {
     act(() => window.dispatchEvent(new CustomEvent("vincent:open")));
 
     const input = await screen.findByPlaceholderText("Nachricht an VINcent");
-    fireEvent.change(input, { target: { value: "Erstelle ein To-Do: Inserat prüfen" } });
+    fireEvent.change(input, { target: { value: "Erstelle ein To-Do: Büro prüfen" } });
     fireEvent.click(screen.getByRole("button", { name: "Nachricht senden" }));
 
     expect(await screen.findByText(/Bis wann soll das To-Do fällig sein/)).toBeInTheDocument();
@@ -211,12 +211,12 @@ describe("VINcent chat workspace", () => {
     fireEvent.click(screen.getByRole("button", { name: "Nachricht senden" }));
 
     await waitFor(() => expect(storeMocks.addTodo).toHaveBeenCalledWith(expect.objectContaining({
-      title: "Inserat prüfen",
+      title: "Büro prüfen",
       priority: "high",
-      scope: "internal_fleet",
+      scope: "general",
       tags: ["VINcent"],
     })));
-    expect(await screen.findByRole("link", { name: "Inserat prüfen" })).toHaveAttribute("href", "/todos?todo=TD-1");
+    expect(await screen.findByRole("link", { name: "Büro prüfen" })).toHaveAttribute("href", "/todos?todo=TD-1");
     expect(fetch).not.toHaveBeenCalled();
   });
 });
