@@ -266,7 +266,53 @@ const parseComparablePrices = (value: string) =>
     .map((part) => Number(part.replace(/[^\d,.-]/g, "").replace(/\./g, "").replace(",", ".")))
     .filter((price) => Number.isFinite(price) && price > 1000);
 
-const getComparableValuation = (prices: number[]) => {
+const weightedMedian = (items: Array<{ price: number; weight: number }>) => {
+  const sorted = [...items].sort((a, b) => a.price - b.price);
+  const total = sorted.reduce((sum, item) => sum + item.weight, 0);
+  let acc = 0;
+  for (const item of sorted) {
+    acc += item.weight;
+    if (acc >= total / 2) return item.price;
+  }
+  return sorted[sorted.length - 1]?.price ?? 0;
+};
+
+const getComparableValuation = (
+  mobilePrices: number[],
+  otherPrices: number[],
+) => {
+  const allPrices = [...mobilePrices, ...otherPrices].sort((a, b) => a - b);
+  if (allPrices.length < 3) return undefined;
+  const rawMedian = allPrices[Math.floor(allPrices.length / 2)];
+  const lowerFence = rawMedian * 0.82;
+  const upperFence = rawMedian * 1.18;
+  const saneMobile = mobilePrices.filter((price) => price >= lowerFence && price <= upperFence);
+  const saneOther = otherPrices.filter((price) => price >= lowerFence && price <= upperFence);
+  const weighted = [
+    ...saneMobile.map((price) => ({ price, weight: 2.2 })),
+    ...saneOther.map((price) => ({ price, weight: 1 })),
+  ];
+  if (weighted.length < 3 || saneMobile.length < 2) return undefined;
+
+  const midpoint = weightedMedian(weighted);
+  const saneSorted = weighted.map((item) => item.price).sort((a, b) => a - b);
+  const low = saneSorted[Math.floor(saneSorted.length * 0.2)] ?? saneSorted[0];
+  const high = saneSorted[Math.ceil(saneSorted.length * 0.8) - 1] ?? saneSorted[saneSorted.length - 1];
+  const spread = Math.max(0.025, Math.min(0.065, (high - low) / Math.max(midpoint, 1) / 2));
+
+  return {
+    count: allPrices.length,
+    usedCount: saneSorted.length,
+    ignoredCount: allPrices.length - saneSorted.length,
+    mobileCount: saneMobile.length,
+    min: Math.round((midpoint * (1 - spread)) / 100) * 100,
+    max: Math.round((midpoint * (1 + spread)) / 100) * 100,
+    midpoint: Math.round(midpoint / 100) * 100,
+    spreadPct: spread,
+  };
+};
+
+const getLegacyComparableValuation = (prices: number[]) => {
   const sorted = [...prices].sort((a, b) => a - b);
   if (sorted.length < 3) return undefined;
   const trimmed = sorted.length >= 5 ? sorted.slice(1, -1) : sorted;
@@ -337,11 +383,12 @@ const buildMarketSearchProfile = (vehicle: Vehicle) => {
     features: featureTerms,
     faceliftLabel: facelift ? `${facelift.label} · ${facelift.isFacelift ? "Facelift erkannt" : "Vor-Facelift erkannt"}` : undefined,
     links: [
-      { label: "Exakt mobile.de", url: `https://www.google.com/search?q=${exactEncoded}+site%3Amobile.de+%22EUR%22` },
-      { label: "Exakt AutoScout24", url: `https://www.google.com/search?q=${exactEncoded}+site%3Aautoscout24.de+%22EUR%22` },
-      { label: "Vergleich ohne Extras", url: `https://www.google.com/search?q=${baselineEncoded}+gebrauchtwagen+preis` },
+      { label: "mobile.de DE exakt", url: `https://www.google.com/search?q=${exactEncoded}+site%3Amobile.de+Deutschland+%22EUR%22` },
+      { label: "mobile.de DE breit", url: `https://www.google.com/search?q=${baselineEncoded}+site%3Amobile.de+Deutschland+%22EUR%22` },
+      { label: "AutoScout24 DE", url: `https://www.google.com/search?q=${exactEncoded}+site%3Aautoscout24.de+Deutschland+%22EUR%22` },
+      { label: "Vergleich ohne Extras", url: `https://www.google.com/search?q=${baselineEncoded}+Deutschland+gebrauchtwagen+preis` },
       { label: "Kleinanzeigen", url: `https://www.kleinanzeigen.de/s-autos/${kleinanzeigenPath}/k0c216` },
-      { label: "DAT/Schwacke Hinweise", url: `https://www.google.com/search?q=${encoded}+DAT+Schwacke+H%C3%A4ndlereinkaufswert` },
+      { label: "DAT/Schwacke DE", url: `https://www.google.com/search?q=${encoded}+Deutschland+DAT+Schwacke+H%C3%A4ndlereinkaufswert` },
       { label: "Ausstattungspreis", url: `https://www.google.com/search?q=${exactEncoded}+Ausstattung+Preis+Gebrauchtwagen` },
     ],
   };
@@ -374,7 +421,8 @@ const VehicleDetail = () => {
   const [directDialog, setDirectDialog] = useState(false);
   const [locationDialog, setLocationDialog] = useState(false);
   const [marketDialog, setMarketDialog] = useState(false);
-  const [comparablePricesText, setComparablePricesText] = useState("");
+  const [mobilePricesText, setMobilePricesText] = useState("");
+  const [otherComparablePricesText, setOtherComparablePricesText] = useState("");
 
   if (!vehicle) return <Navigate to="/bestand" replace />;
 
@@ -382,8 +430,9 @@ const VehicleDetail = () => {
   const canAcceptMore = !acceptedOffer && !process;
   const marketSearch = buildMarketSearchProfile(vehicle);
   const marketEstimate = getMarketValueEstimate(vehicle);
-  const comparablePrices = useMemo(() => parseComparablePrices(comparablePricesText), [comparablePricesText]);
-  const comparableValuation = useMemo(() => getComparableValuation(comparablePrices), [comparablePrices]);
+  const mobilePrices = useMemo(() => parseComparablePrices(mobilePricesText), [mobilePricesText]);
+  const otherComparablePrices = useMemo(() => parseComparablePrices(otherComparablePricesText), [otherComparablePricesText]);
+  const comparableValuation = useMemo(() => getComparableValuation(mobilePrices, otherComparablePrices), [mobilePrices, otherComparablePrices]);
 
   const openMarketSearches = () => {
     marketSearch.links.forEach((link) => window.open(link.url, "_blank", "noopener,noreferrer"));
@@ -746,7 +795,7 @@ const VehicleDetail = () => {
                     comparableValuation ? "border-success/40 text-success" : "border-warning/40 text-warning",
                   )}
                 >
-                  {comparableValuation ? `${comparableValuation.usedCount} Treffer gewertet` : "3+ Treffer nötig"}
+                  {comparableValuation ? `${comparableValuation.usedCount} gewertet · ${comparableValuation.ignoredCount} ignoriert` : "2+ mobile.de und 3+ gesamt"}
                 </Badge>
               </div>
               <p className="mt-3 text-[10px] uppercase tracking-widest text-muted-foreground">Enge Wertspanne</p>
@@ -831,20 +880,37 @@ const VehicleDetail = () => {
               </div>
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-3">
               <div className="flex items-center justify-between gap-3">
-                <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Gefundene Vergleichspreise</p>
-                <p className="text-[11px] text-muted-foreground">{comparablePrices.length} erkannt</p>
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Deutsche Vergleichspreise</p>
+                <p className="text-[11px] text-muted-foreground">
+                  {mobilePrices.length} mobile.de · {otherComparablePrices.length} weitere
+                </p>
               </div>
-              <textarea
-                value={comparablePricesText}
-                onChange={(e) => setComparablePricesText(e.target.value)}
-                rows={3}
-                placeholder="z. B. 14.900; 15.450; 15.900; 16.200"
-                className="w-full rounded-md border border-input bg-background/40 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-              />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">mobile.de Preise aus Deutschland</Label>
+                  <textarea
+                    value={mobilePricesText}
+                    onChange={(e) => setMobilePricesText(e.target.value)}
+                    rows={3}
+                    placeholder="z. B. 14.900; 15.450; 15.900"
+                    className="w-full rounded-md border border-input bg-background/40 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs text-muted-foreground">Andere deutsche Treffer</Label>
+                  <textarea
+                    value={otherComparablePricesText}
+                    onChange={(e) => setOtherComparablePricesText(e.target.value)}
+                    rows={3}
+                    placeholder="z. B. AutoScout24, Kleinanzeigen"
+                    className="w-full rounded-md border border-input bg-background/40 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  />
+                </div>
+              </div>
               <p className="text-xs text-muted-foreground">
-                Nimm nur wirklich vergleichbare Treffer: gleiche Baureihe/Facelift, ähnliche Ausstattung, Baujahr und Kilometerkorridor.
+                Fantasiepreise außerhalb der Mehrheit werden ignoriert. mobile.de zählt stärker, weil diese Inserate meist näher am deutschen Markt liegen.
               </p>
             </div>
           </div>
