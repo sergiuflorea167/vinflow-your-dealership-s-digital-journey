@@ -137,6 +137,7 @@ const FACELIFT_RULES = [
 ];
 
 const MOBILE_DE_MODEL_CODES: Array<{ make: RegExp; model: RegExp; ms: string }> = [
+  { make: /audi/i, model: /\ba4\b/i, ms: "1900;9;;" },
   { make: /audi/i, model: /\ba6\b/i, ms: "1900;10;;" },
   { make: /audi/i, model: /\ba7\b/i, ms: "1900;14;;" },
   { make: /bmw/i, model: /\b3(er)?\b|3 series/i, ms: "3500;20;;" },
@@ -145,6 +146,42 @@ const MOBILE_DE_MODEL_CODES: Array<{ make: RegExp; model: RegExp; ms: string }> 
   { make: /volkswagen|vw/i, model: /\bgolf\b/i, ms: "25200;14;;" },
   { make: /volkswagen|vw/i, model: /\bpassat\b/i, ms: "25200;23;;" },
 ];
+
+const MOBILE_DE_TYPE_CODES: Partial<Record<VehicleType, string>> = {
+  kleinwagen: "SmallCar",
+  limousine: "Limousine",
+  kombi: "EstateCar",
+  suv: "OffRoad",
+  coupe: "SportsCar",
+  cabrio: "Cabrio",
+  transporter: "Van",
+  sportwagen: "SportsCar",
+};
+
+const MOBILE_DE_FUEL_CODES: Partial<Record<FuelType, string[]>> = {
+  Benzin: ["PETROL"],
+  Diesel: ["DIESEL"],
+  Hybrid: ["HYBRID", "HYBRID_DIESEL"],
+  Elektro: ["ELECTRICITY"],
+  "Plug-in-Hybrid": ["HYBRID"],
+  Gas: ["LPG", "CNG"],
+};
+
+const MOBILE_DE_TRANSMISSION_CODES: Partial<Record<Transmission, string[]>> = {
+  Schaltgetriebe: ["MANUAL_GEAR"],
+  Automatik: ["AUTOMATIC_GEAR"],
+  DKG: ["SEMIAUTOMATIC_GEAR", "AUTOMATIC_GEAR"],
+  CVT: ["AUTOMATIC_GEAR"],
+};
+
+const MOBILE_DE_EMISSION_CODES: Partial<Record<EmissionClass, string>> = {
+  "Euro 4": "EURO4",
+  "Euro 5": "EURO5",
+  "Euro 6": "EURO6",
+  "Euro 6d": "EURO6D",
+  "Euro 6d-TEMP": "EURO6D_TEMP",
+  Elektro: "ZERO_EMISSIONS",
+};
 
 const getVehicleReferenceDate = (vehicle: Vehicle) => {
   if (vehicle.firstRegistration) return vehicle.firstRegistration.slice(0, 10);
@@ -213,9 +250,59 @@ const getMarketYearBand = (vehicle: Vehicle) => {
 const getMobileDeModelCode = (vehicle: Vehicle) =>
   MOBILE_DE_MODEL_CODES.find((item) => item.make.test(vehicle.make) && item.model.test(vehicle.model))?.ms;
 
+const getMobileDeColorCode = (value?: string) => {
+  const color = (value ?? "").toLowerCase();
+  if (/schwarz|black|obsidian|carbon/.test(color)) return "BLACK";
+  if (/weiß|weiss|white|alpin|pearl|frost/.test(color)) return "WHITE";
+  if (/grau|grey|gray|silber|silver|daytona|selenit|mineral/.test(color)) return "GREY";
+  if (/blau|blue/.test(color)) return "BLUE";
+  if (/rot|red|rosso/.test(color)) return "RED";
+  if (/grün|gruen|green|verde/.test(color)) return "GREEN";
+  if (/braun|brown|beige|mokka|mojave/.test(color)) return "BROWN";
+  if (/gelb|yellow/.test(color)) return "YELLOW";
+  if (/orange/.test(color)) return "ORANGE";
+  return undefined;
+};
+
+const getMobileDeInteriorCodes = (value?: string) => {
+  const material = (value ?? "").toLowerCase();
+  const codes = new Set<string>();
+  if (/alcantara/.test(material)) codes.add("ALCANTARA");
+  if (/vollleder|nappa|leder/.test(material)) codes.add(/teil|partial|alcantara/.test(material) ? "PARTIAL_LEATHER" : "LEATHER");
+  if (/stoff|fabric/.test(material)) codes.add("FABRIC");
+  if (/kunstleder|vegan|imitation/.test(material)) codes.add("IMITATION_LEATHER");
+  if (/velour|velours/.test(material)) codes.add("VELOUR");
+  return [...codes];
+};
+
+const getMobileDeEquipmentCodes = (vehicle: Vehicle) => {
+  const text = [
+    vehicle.modelDetail,
+    vehicle.interiorMaterial,
+    ...(vehicle.features ?? []),
+  ].filter(Boolean).join(" ").toLowerCase();
+  const codes = new Set<string>();
+  if (vehicle.serviceBookComplete || /scheckheft|serviceheft|service history|full service/.test(text)) codes.add("FULL_SERVICE_HISTORY");
+  if (vehicle.nonSmoker || /nichtraucher|non smoker/.test(text)) codes.add("NONSMOKER_VEHICLE");
+  if (/garantie|warranty/.test(text)) codes.add("WARRANTY");
+  if (/inspektion neu|service neu|new service/.test(text)) codes.add("NEW_SERVICE");
+  if (/sport.?sitz|sportsitz|s[-\s]?line.*sitz/.test(text)) codes.add("SPORT_SEATS");
+  if (/sitzheizung|heated seat/.test(text)) codes.add("HEATED_SEATS");
+  if (/panorama|pano|glasdach/.test(text)) codes.add("PANORAMIC_GLASS_ROOF");
+  if (/schiebedach|sunroof/.test(text)) codes.add("SUNROOF");
+  if (/navigation|navi|mmi|command/.test(text)) codes.add("NAVIGATION_SYSTEM");
+  if (/rückfahrkamera|rueckfahrkamera|kamera|rear view/.test(text)) codes.add("REAR_VIEW_CAM");
+  if (/360|surround/.test(text)) codes.add("360_CAMERA");
+  if (/pdc|parksensor|einparkhilfe/.test(text)) codes.add("PARKING_SENSORS");
+  if (/head.?up|hud/.test(text)) codes.add("HEAD_UP_DISPLAY");
+  if (/matrix|led/.test(text)) codes.add("LED_HEADLIGHTS");
+  if (/xenon/.test(text)) codes.add("XENON_HEADLIGHTS");
+  if (/anhängerkupplung|anhaengerkupplung|ahk|towbar/.test(text)) codes.add("TRAILER_COUPLING");
+  return [...codes];
+};
+
 const buildMobileDeSearchUrl = (
   vehicle: Vehicle,
-  query: string,
   year: ReturnType<typeof getMarketYearBand>,
   mileage: ReturnType<typeof getMarketMileageBand>,
 ) => {
@@ -229,12 +316,36 @@ const buildMobileDeSearchUrl = (
     vc: "Car",
     cn: "DE",
   });
+  const appendMany = (key: string, values: Array<string | undefined>) => {
+    values.filter(Boolean).forEach((value) => params.append(key, value as string));
+  };
   const modelCode = getMobileDeModelCode(vehicle);
   if (modelCode) {
     params.set("ms", modelCode);
-  } else {
-    params.set("ft", query);
   }
+  if (vehicle.condition && vehicle.condition !== "Neu") params.set("con", "USED");
+  if (vehicle.condition === "Neu") params.set("con", "NEW");
+  if (vehicle.power_hp > 0) params.set("pw", `${Math.max(1, vehicle.power_hp - 20)}:${vehicle.power_hp + 20}`);
+  if (vehicle.displacement_ccm) params.set("cc", `${Math.max(0, vehicle.displacement_ccm - 200)}:${vehicle.displacement_ccm + 200}`);
+  if (vehicle.cylinders) params.set("cy", `${Math.max(1, vehicle.cylinders - 1)}:${vehicle.cylinders + 1}`);
+  if (vehicle.seats) params.set("cnc", `:${vehicle.seats + 2}`);
+  if (vehicle.previousOwners) params.set("pvo", String(Math.min(vehicle.previousOwners + 1, 4)));
+  if (vehicle.drive === "Allradantrieb") params.set("dt", "ALL_WHEEL");
+  if (vehicle.emissionClass && MOBILE_DE_EMISSION_CODES[vehicle.emissionClass]) params.set("emc", MOBILE_DE_EMISSION_CODES[vehicle.emissionClass]!);
+
+  appendMany("c", [MOBILE_DE_TYPE_CODES[vehicle.type]]);
+  appendMany("ft", MOBILE_DE_FUEL_CODES[vehicle.fuel] ?? []);
+  appendMany("tr", MOBILE_DE_TRANSMISSION_CODES[vehicle.transmission] ?? []);
+  appendMany("it", getMobileDeInteriorCodes(vehicle.interiorMaterial));
+  appendMany("fe", getMobileDeEquipmentCodes(vehicle));
+
+  const exteriorColor = getMobileDeColorCode(vehicle.color);
+  const interiorColor = getMobileDeColorCode(vehicle.interiorColor);
+  if (exteriorColor) params.set("ecol", exteriorColor);
+  if (interiorColor) params.set("icol", interiorColor);
+
+  if (vehicle.vatReportable) params.set("gi", "12");
+  if (vehicle.status === "in_stock") params.set("rtd", "true");
   return `https://suchen.mobile.de/fahrzeuge/detailsuche?${params.toString()}`;
 };
 
@@ -329,7 +440,7 @@ const buildMarketSearchProfile = (vehicle: Vehicle) => {
     `"${year.min}" OR "${vehicle.year}" OR "${year.max}"`,
     `${formatNumber(mileage.min)}-${formatNumber(mileage.max)} km`,
   ].filter(Boolean).join(" ");
-  const mobileDeUrl = buildMobileDeSearchUrl(vehicle, fullQuery, year, mileage);
+  const mobileDeUrl = buildMobileDeSearchUrl(vehicle, year, mileage);
 
   return {
     query: fullQuery,
