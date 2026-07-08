@@ -16,6 +16,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 import { buildVincentContext } from "@/lib/vincentContext";
+import { linkifyVincentAnswer } from "@/lib/vincentLinks";
 import {
   acknowledgeVincentNotice, deleteAllVincentConversations, deleteVincentConversation,
   listVincentConversations, loadVincentMessages, loadVincentPreference,
@@ -289,6 +290,7 @@ export const VincentWidget = () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.access_token) throw new Error("Sitzung abgelaufen. Bitte erneut anmelden.");
+      const vincentContext = buildVincentContext(redacted.text);
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/vincent-chat`, {
         method: "POST",
         headers: {
@@ -298,7 +300,7 @@ export const VincentWidget = () => {
         },
         body: JSON.stringify({
           messages: requestMessages.slice(-12).map(({ role, content }) => ({ role, content })),
-          context: buildVincentContext(redacted.text),
+          context: vincentContext,
           lang,
           timezone: getVincentClientTimezone(),
         }),
@@ -333,7 +335,8 @@ export const VincentWidget = () => {
         if (done) break;
       }
       if (buffer) consume(buffer);
-      const finalMessages = [...requestMessages, { ...assistantMessage, content: answer || "Keine Antwort erhalten." }];
+      const finalAnswer = answer ? linkifyVincentAnswer(answer, vincentContext) : "Keine Antwort erhalten.";
+      const finalMessages = [...requestMessages, { ...assistantMessage, content: finalAnswer }];
       setMessages(finalMessages);
       await persistFinalMessages(finalMessages);
     } catch (error) {
