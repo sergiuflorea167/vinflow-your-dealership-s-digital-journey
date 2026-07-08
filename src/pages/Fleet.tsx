@@ -68,7 +68,7 @@ const Fleet = () => {
 
   const [query, setQuery] = useState("");
   const [searchField, setSearchField] = useState<"all" | "vin" | "make" | "model" | "color" | "location">("all");
-  const [filter, setFilter] = useState<"all" | VehicleStatus>("in_stock");
+  const [filter, setFilter] = useState<"all" | VehicleStatus>("all");
   const [typeFilter, setTypeFilter] = useState<"all" | VehicleType>("all");
   const [listedFilter, setListedFilter] = useState<ListedFilter>("all");
   const [sort, setSort] = useState<SortState<FleetSortKey>>({ key: "stockDays", dir: "asc" });
@@ -263,7 +263,28 @@ const Fleet = () => {
         </Card>
 
         {filtered.length === 0 ? (
-          <Card className="p-12 text-center text-muted-foreground flex-1">Keine Fahrzeuge gefunden.</Card>
+          <Card className="p-12 text-center text-muted-foreground flex-1">
+            <p>
+              {vehicles.length > 0
+                ? "Keine Fahrzeuge im aktuellen Filter."
+                : "Keine Fahrzeuge gefunden."}
+            </p>
+            {vehicles.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="mt-4"
+                onClick={() => {
+                  setQuery("");
+                  setFilter("all");
+                  setTypeFilter("all");
+                  setListedFilter("all");
+                }}
+              >
+                Alle Fahrzeuge anzeigen
+              </Button>
+            )}
+          </Card>
         ) : (
           <DataTableShell
             footer={<>¹ Wunschmarge = Listenpreis − (Einkauf + Kosten brutto). Echte Marge erst nach Verkauf. · {filtered.length} Fahrzeuge</>}
@@ -415,6 +436,10 @@ const Fleet = () => {
           // Status / soldAt / listed kommen aus der Datei – wenn nichts gesetzt,
           // fällt addVehicle auf "in_stock" zurück.
           rows.forEach((data) => addVehicle(data));
+          setQuery("");
+          setFilter("all");
+          setTypeFilter("all");
+          setListedFilter("all");
         }}
       />
 
