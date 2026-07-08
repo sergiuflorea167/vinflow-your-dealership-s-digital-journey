@@ -136,6 +136,16 @@ const FACELIFT_RULES = [
   },
 ];
 
+const MOBILE_DE_MODEL_CODES: Array<{ make: RegExp; model: RegExp; ms: string }> = [
+  { make: /audi/i, model: /\ba6\b/i, ms: "1900;10;;" },
+  { make: /audi/i, model: /\ba7\b/i, ms: "1900;14;;" },
+  { make: /bmw/i, model: /\b3(er)?\b|3 series/i, ms: "3500;20;;" },
+  { make: /mercedes|mercedes-benz/i, model: /\bc\b|c[\s-]?klasse/i, ms: "17200;21;;" },
+  { make: /toyota/i, model: /\brav[\s-]?4\b|rav4/i, ms: "24100;19;;" },
+  { make: /volkswagen|vw/i, model: /\bgolf\b/i, ms: "25200;14;;" },
+  { make: /volkswagen|vw/i, model: /\bpassat\b/i, ms: "25200;23;;" },
+];
+
 const getVehicleReferenceDate = (vehicle: Vehicle) => {
   if (vehicle.firstRegistration) return vehicle.firstRegistration.slice(0, 10);
   return `${vehicle.year || new Date().getFullYear()}-07-01`;
@@ -198,6 +208,34 @@ const getMarketYearBand = (vehicle: Vehicle) => {
     min: baseYear - tolerance,
     max: baseYear + tolerance,
   };
+};
+
+const getMobileDeModelCode = (vehicle: Vehicle) =>
+  MOBILE_DE_MODEL_CODES.find((item) => item.make.test(vehicle.make) && item.model.test(vehicle.model))?.ms;
+
+const buildMobileDeSearchUrl = (
+  vehicle: Vehicle,
+  query: string,
+  year: ReturnType<typeof getMarketYearBand>,
+  mileage: ReturnType<typeof getMarketMileageBand>,
+) => {
+  const params = new URLSearchParams({
+    dam: "false",
+    fr: `${year.min}:${year.max}`,
+    ml: `${mileage.min}:${mileage.max}`,
+    ref: "quickSearch",
+    s: "Car",
+    sb: "rel",
+    vc: "Car",
+    cn: "DE",
+  });
+  const modelCode = getMobileDeModelCode(vehicle);
+  if (modelCode) {
+    params.set("ms", modelCode);
+  } else {
+    params.set("ft", query);
+  }
+  return `https://suchen.mobile.de/fahrzeuge/detailsuche?${params.toString()}`;
 };
 
 const getMarketValueEstimate = (vehicle: Vehicle) => {
@@ -291,35 +329,16 @@ const buildMarketSearchProfile = (vehicle: Vehicle) => {
     `"${year.min}" OR "${vehicle.year}" OR "${year.max}"`,
     `${formatNumber(mileage.min)}-${formatNumber(mileage.max)} km`,
   ].filter(Boolean).join(" ");
-  const baselineQuery = [
-    vehicle.make,
-    vehicle.model,
-    vehicle.power_hp ? `${vehicle.power_hp} PS` : undefined,
-    `${year.min}-${year.max}`,
-    `${formatNumber(mileage.min)}-${formatNumber(mileage.max)} km`,
-  ].filter(Boolean).join(" ");
-  const encoded = encodeURIComponent(fullQuery);
-  const exactEncoded = encodeURIComponent(exactQuery);
-  const baselineEncoded = encodeURIComponent(baselineQuery);
-  const kleinanzeigenPath = encodeURIComponent(coreTerms.toLowerCase().replace(/\s+/g, "-"));
+  const mobileDeUrl = buildMobileDeSearchUrl(vehicle, fullQuery, year, mileage);
 
   return {
     query: fullQuery,
     exactQuery,
-    baselineQuery,
+    mobileDeUrl,
     year,
     mileage,
     features: featureTerms,
     faceliftLabel: facelift ? `${facelift.label} · ${facelift.isFacelift ? "Facelift erkannt" : "Vor-Facelift erkannt"}` : undefined,
-    links: [
-      { label: "mobile.de DE exakt", url: `https://www.google.com/search?q=${exactEncoded}+site%3Amobile.de+Deutschland+%22EUR%22` },
-      { label: "mobile.de DE breit", url: `https://www.google.com/search?q=${baselineEncoded}+site%3Amobile.de+Deutschland+%22EUR%22` },
-      { label: "AutoScout24 DE", url: `https://www.google.com/search?q=${exactEncoded}+site%3Aautoscout24.de+Deutschland+%22EUR%22` },
-      { label: "Vergleich ohne Extras", url: `https://www.google.com/search?q=${baselineEncoded}+Deutschland+gebrauchtwagen+preis` },
-      { label: "Kleinanzeigen", url: `https://www.kleinanzeigen.de/s-autos/${kleinanzeigenPath}/k0c216` },
-      { label: "DAT/Schwacke DE", url: `https://www.google.com/search?q=${encoded}+Deutschland+DAT+Schwacke+H%C3%A4ndlereinkaufswert` },
-      { label: "Ausstattungspreis", url: `https://www.google.com/search?q=${exactEncoded}+Ausstattung+Preis+Gebrauchtwagen` },
-    ],
   };
 };
 
@@ -360,7 +379,8 @@ const VehicleDetail = () => {
   const marketEstimate = getMarketValueEstimate(vehicle);
   const openMarketSearches = () => {
     setMarketResearchStarted(true);
-    toast.success("Automatischer Suchauftrag gestartet.");
+    window.open(marketSearch.mobileDeUrl, "_blank", "noopener,noreferrer");
+    toast.success("Automatischer Suchauftrag über mobile.de gestartet.");
   };
 
   // ---- Save helper for inline-edit sections -----------------------------
@@ -790,6 +810,9 @@ const VehicleDetail = () => {
               <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Automatisches Rechercheprofil</p>
               <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-sm text-foreground break-words">
                 {marketSearch.exactQuery}
+              </div>
+              <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-xs text-muted-foreground break-words">
+                {marketSearch.mobileDeUrl}
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <div className="rounded-lg border border-border bg-card p-3">
