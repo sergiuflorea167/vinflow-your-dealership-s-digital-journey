@@ -36,6 +36,7 @@ export interface VehicleIntakePayload {
   listed?: { active: boolean; listedAt?: string };
   hsn?: string;
   tsn?: string;
+  features?: string[];
   notes?: string;
 }
 
@@ -286,6 +287,9 @@ export const VehicleIntakeDialog = ({ open, onOpenChange, locations, preset, tit
                 listPrice, purchasePrice, vatReportable,
                 arrivedAt: new Date().toISOString(),
                 location: { name: resolvedLocation, kind: "lot", since: new Date().toISOString() },
+                hsn: hsn || undefined,
+                tsn: tsn || undefined,
+                features: features.length > 0 ? features : undefined,
               });
             }}>
             In Bestand aufnehmen

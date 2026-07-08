@@ -19,7 +19,7 @@ import {
 } from "@/data/process";
 import {
   ArrowLeft, ArrowRight, Car, CheckCircle2, ChevronDown, Edit2, FileText, Mail, MapPin, Plus, Send,
-  Sparkles, X, Save, History, Zap,
+  Sparkles, X, Save, History, Zap, Search, ExternalLink, Euro,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -51,6 +51,277 @@ const DRIVES: DriveType[] = ["Frontantrieb", "Heckantrieb", "Allradantrieb"];
 const EMISSIONS: EmissionClass[] = ["Euro 4", "Euro 5", "Euro 6", "Euro 6d", "Euro 6d-TEMP", "Elektro"];
 const CONDITIONS: VehicleCondition[] = ["Neu", "Gebraucht", "Jahreswagen", "Vorführwagen", "Tageszulassung", "Oldtimer"];
 
+const formatNumber = (value: number) => value.toLocaleString("de-DE");
+
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
+const TYPE_BASE_PRICE: Record<VehicleType, number> = {
+  kleinwagen: 24000,
+  limousine: 42000,
+  kombi: 46000,
+  suv: 52000,
+  coupe: 48000,
+  cabrio: 52000,
+  transporter: 42000,
+  sportwagen: 85000,
+};
+
+const PREMIUM_EQUIPMENT = [
+  { pattern: /s[-\s]?line|m[-\s]?sport|amg|r[-\s]?line|fr\b|opc/i, label: "Sport-/Designpaket", factor: 0.035 },
+  { pattern: /quattro|xdrive|4matic|allrad|awd/i, label: "Allrad", factor: 0.03 },
+  { pattern: /leder|alcantara|nappa|vollleder|teilleder|s[-\s]?line.*(sitz|leder|alcantara)/i, label: "hochwertiger Innenraum", factor: 0.03 },
+  { pattern: /sportsitz|sport sitz|s[-\s]?line sitz|kontursitz|schalensitz/i, label: "Sportsitze", factor: 0.02 },
+  { pattern: /panorama|pano|schiebedach|glasdach/i, label: "Panoramadach", factor: 0.025 },
+  { pattern: /matrix|laser|led|xenon/i, label: "Lichtpaket", factor: 0.02 },
+  { pattern: /head[-\s]?up|hud|virtual cockpit|digital cockpit/i, label: "Digital-/Head-up-Cockpit", factor: 0.02 },
+  { pattern: /navi|navigation|mmi|command|professional/i, label: "Navigation", factor: 0.018 },
+  { pattern: /adaptive cruise|abstand|acc|tempomat|assistenz|lane|spur|totwinkel/i, label: "Assistenzpaket", factor: 0.025 },
+  { pattern: /kamera|rückfahrkamera|360|surround|pdc|park/i, label: "Park-/Kamerasystem", factor: 0.018 },
+  { pattern: /bang|bose|harman|burmester|soundsystem/i, label: "Soundsystem", factor: 0.018 },
+  { pattern: /standheizung/i, label: "Standheizung", factor: 0.02 },
+  { pattern: /anhängerkupplung|ahk|towbar/i, label: "Anhängerkupplung", factor: 0.018 },
+  { pattern: /memory|massage|belüftung|ventiliert|sitzheizung/i, label: "Komfortsitze", factor: 0.016 },
+];
+
+const getBrandFactor = (make: string) => {
+  const normalized = make.trim().toLowerCase();
+  if (["porsche"].includes(normalized)) return 1.45;
+  if (["mercedes", "mercedes-benz", "bmw", "audi"].includes(normalized)) return 1.18;
+  if (["tesla", "lexus", "volvo", "land rover", "jaguar"].includes(normalized)) return 1.12;
+  if (["vw", "volkswagen", "skoda", "seat", "cupra"].includes(normalized)) return 1.03;
+  if (["dacia", "fiat", "citroen", "peugeot", "renault"].includes(normalized)) return 0.92;
+  return 1;
+};
+
+const FACELIFT_RULES = [
+  {
+    make: /audi/i,
+    model: /\ba6\b/i,
+    start: "2015-01-01",
+    label: "Facelift ab 2015",
+    terms: ["facelift", "4G C7 Facelift"],
+    factor: 0.045,
+  },
+  {
+    make: /audi/i,
+    model: /\ba7\b/i,
+    start: "2015-01-01",
+    label: "Facelift ab 2015",
+    terms: ["facelift", "4G Facelift"],
+    factor: 0.04,
+  },
+  {
+    make: /bmw/i,
+    model: /\b3(er)?\b|f30|f31/i,
+    start: "2015-07-01",
+    label: "LCI ab 07/2015",
+    terms: ["LCI", "Facelift"],
+    factor: 0.035,
+  },
+  {
+    make: /mercedes|mercedes-benz/i,
+    model: /\bc\b|c[\s-]?klasse|w205|s205/i,
+    start: "2018-07-01",
+    label: "Facelift ab 07/2018",
+    terms: ["facelift", "Mopf"],
+    factor: 0.035,
+  },
+  {
+    make: /volkswagen|vw/i,
+    model: /\bgolf\b/i,
+    start: "2017-01-01",
+    label: "Facelift ab 2017",
+    terms: ["facelift", "Golf 7.5"],
+    factor: 0.03,
+  },
+];
+
+const getVehicleReferenceDate = (vehicle: Vehicle) => {
+  if (vehicle.firstRegistration) return vehicle.firstRegistration.slice(0, 10);
+  return `${vehicle.year || new Date().getFullYear()}-07-01`;
+};
+
+const getFaceliftInfo = (vehicle: Vehicle) => {
+  const rule = FACELIFT_RULES.find((item) => item.make.test(vehicle.make) && item.model.test(vehicle.model));
+  if (!rule) return undefined;
+
+  return {
+    ...rule,
+    isFacelift: getVehicleReferenceDate(vehicle) >= rule.start,
+  };
+};
+
+const getFeatureTerms = (vehicle: Vehicle) =>
+  [
+    ...(vehicle.features ?? []),
+    vehicle.interiorMaterial,
+    vehicle.interiorColor,
+  ]
+    .map((feature) => feature.trim())
+    .filter((feature) => feature.length > 0)
+    .slice(0, 12);
+
+const getEquipmentScore = (vehicle: Vehicle) => {
+  const haystack = [
+    vehicle.model,
+    vehicle.modelDetail,
+    vehicle.drive,
+    vehicle.interiorMaterial,
+    vehicle.interiorColor,
+    ...(vehicle.features ?? []),
+  ].filter(Boolean).join(" ");
+  const matches = PREMIUM_EQUIPMENT.filter((item) => item.pattern.test(haystack));
+  const factor = clamp(matches.reduce((sum, item) => sum + item.factor, 0), 0, 0.16);
+
+  return {
+    factor,
+    labels: matches.map((item) => item.label),
+  };
+};
+
+const getMarketMileageBand = (mileage: number) => {
+  const tolerance = mileage >= 120000 ? 20000 : 10000;
+  return {
+    tolerance,
+    min: Math.max(0, mileage - tolerance),
+    max: mileage + tolerance,
+  };
+};
+
+const getMarketYearBand = (vehicle: Vehicle) => {
+  const baseYear = vehicle.year || (
+    vehicle.firstRegistration ? new Date(vehicle.firstRegistration).getFullYear() : new Date().getFullYear()
+  );
+  const tolerance = vehicle.firstRegistration ? 1 : 2;
+  return {
+    tolerance,
+    min: baseYear - tolerance,
+    max: baseYear + tolerance,
+  };
+};
+
+const getMarketValueEstimate = (vehicle: Vehicle) => {
+  const currentYear = new Date().getFullYear();
+  const age = Math.max(0, currentYear - (vehicle.year || currentYear));
+  const ageFactor = clamp(Math.pow(0.92, age), 0.36, 1);
+  const mileageFactor = clamp(1.06 - vehicle.mileage / 360000, 0.5, 1.06);
+  const powerFactor = clamp(0.86 + (vehicle.power_hp || 150) / 520, 0.92, 1.32);
+  const fuelFactor = vehicle.fuel === "Elektro" ? 0.96 : vehicle.fuel === "Plug-in-Hybrid" ? 1.02 : vehicle.fuel === "Diesel" ? 1.01 : 1;
+  const equipment = getEquipmentScore(vehicle);
+  const facelift = getFaceliftInfo(vehicle);
+  const faceliftFactor = facelift?.isFacelift ? 1 + facelift.factor : 1;
+  const equipmentFactor = 1 + equipment.factor;
+  const calculatedAnchor =
+    TYPE_BASE_PRICE[vehicle.type]
+    * getBrandFactor(vehicle.make)
+    * ageFactor
+    * mileageFactor
+    * powerFactor
+    * fuelFactor
+    * equipmentFactor
+    * faceliftFactor;
+  const priceAnchor = Math.max(vehicle.listPrice || 0, vehicle.purchasePrice || 0);
+  const anchor = priceAnchor > 0 ? (priceAnchor * 0.55 + calculatedAnchor * 0.45) : calculatedAnchor;
+  const dataScore = [
+    vehicle.make,
+    vehicle.model,
+    vehicle.year > 0,
+    vehicle.mileage > 0,
+    vehicle.power_hp > 0,
+    vehicle.fuel,
+    vehicle.transmission,
+    vehicle.firstRegistration,
+    vehicle.hsn && vehicle.tsn,
+    getFeatureTerms(vehicle).length >= 3,
+    equipment.labels.length > 0,
+    facelift,
+    priceAnchor > 0,
+  ].filter(Boolean).length;
+  const quality = dataScore >= 10 ? "hoch" : dataScore >= 7 ? "mittel" : "niedrig";
+  const spreadPct = quality === "hoch" ? 0.045 : quality === "mittel" ? 0.07 : 0.11;
+  const conditionSpread = vehicle.condition === "Neu" || vehicle.condition === "Tageszulassung" ? 0.02 : 0;
+  const finalSpread = Math.max(0.035, spreadPct - conditionSpread - Math.min(equipment.labels.length, 4) * 0.004);
+
+  return {
+    min: Math.round((anchor * (1 - finalSpread)) / 100) * 100,
+    max: Math.round((anchor * (1 + finalSpread)) / 100) * 100,
+    midpoint: Math.round(anchor / 100) * 100,
+    quality,
+    spreadPct: finalSpread,
+    equipmentLabels: equipment.labels,
+    factors: [
+      { label: "Alter", value: ageFactor },
+      { label: "Kilometer", value: mileageFactor },
+      { label: "Leistung", value: powerFactor },
+      { label: "Ausstattung", value: equipmentFactor },
+      { label: "Facelift", value: faceliftFactor },
+    ],
+    faceliftLabel: facelift ? `${facelift.label} · ${facelift.isFacelift ? "erkannt" : "nicht erkannt"}` : undefined,
+  };
+};
+
+const buildMarketSearchProfile = (vehicle: Vehicle) => {
+  const year = getMarketYearBand(vehicle);
+  const mileage = getMarketMileageBand(vehicle.mileage);
+  const featureTerms = getFeatureTerms(vehicle);
+  const facelift = getFaceliftInfo(vehicle);
+  const faceliftTerms = facelift
+    ? (facelift.isFacelift ? facelift.terms : ["vor Facelift", "pre facelift"])
+    : [];
+  const exactFeatureTerms = featureTerms.slice(0, 5);
+  const coreTerms = [
+    vehicle.make,
+    vehicle.model,
+    vehicle.modelDetail,
+    vehicle.fuel,
+    vehicle.transmission,
+    vehicle.power_hp ? `${vehicle.power_hp} PS` : undefined,
+    vehicle.hsn && vehicle.tsn ? `HSN ${vehicle.hsn} TSN ${vehicle.tsn}` : undefined,
+    ...faceliftTerms,
+  ].filter(Boolean).join(" ");
+  const fullQuery = [
+    coreTerms,
+    featureTerms.join(" "),
+    `${year.min}-${year.max}`,
+    `${formatNumber(mileage.min)}-${formatNumber(mileage.max)} km`,
+  ].filter(Boolean).join(" ");
+  const exactQuery = [
+    coreTerms,
+    exactFeatureTerms.join(" "),
+    `"${year.min}" OR "${vehicle.year}" OR "${year.max}"`,
+    `${formatNumber(mileage.min)}-${formatNumber(mileage.max)} km`,
+  ].filter(Boolean).join(" ");
+  const baselineQuery = [
+    vehicle.make,
+    vehicle.model,
+    vehicle.power_hp ? `${vehicle.power_hp} PS` : undefined,
+    `${year.min}-${year.max}`,
+    `${formatNumber(mileage.min)}-${formatNumber(mileage.max)} km`,
+  ].filter(Boolean).join(" ");
+  const encoded = encodeURIComponent(fullQuery);
+  const exactEncoded = encodeURIComponent(exactQuery);
+  const baselineEncoded = encodeURIComponent(baselineQuery);
+  const kleinanzeigenPath = encodeURIComponent(coreTerms.toLowerCase().replace(/\s+/g, "-"));
+
+  return {
+    query: fullQuery,
+    exactQuery,
+    baselineQuery,
+    year,
+    mileage,
+    features: featureTerms,
+    faceliftLabel: facelift ? `${facelift.label} · ${facelift.isFacelift ? "Facelift erkannt" : "Vor-Facelift erkannt"}` : undefined,
+    links: [
+      { label: "Exakt mobile.de", url: `https://www.google.com/search?q=${exactEncoded}+site%3Amobile.de+%22EUR%22` },
+      { label: "Exakt AutoScout24", url: `https://www.google.com/search?q=${exactEncoded}+site%3Aautoscout24.de+%22EUR%22` },
+      { label: "Vergleich ohne Extras", url: `https://www.google.com/search?q=${baselineEncoded}+gebrauchtwagen+preis` },
+      { label: "Kleinanzeigen", url: `https://www.kleinanzeigen.de/s-autos/${kleinanzeigenPath}/k0c216` },
+      { label: "DAT/Schwacke Hinweise", url: `https://www.google.com/search?q=${encoded}+DAT+Schwacke+H%C3%A4ndlereinkaufswert` },
+      { label: "Ausstattungspreis", url: `https://www.google.com/search?q=${exactEncoded}+Ausstattung+Preis+Gebrauchtwagen` },
+    ],
+  };
+};
+
 // =========================================================================
 
 const VehicleDetail = () => {
@@ -77,11 +348,19 @@ const VehicleDetail = () => {
   const [offerDialog, setOfferDialog] = useState(false);
   const [directDialog, setDirectDialog] = useState(false);
   const [locationDialog, setLocationDialog] = useState(false);
+  const [marketDialog, setMarketDialog] = useState(false);
 
   if (!vehicle) return <Navigate to="/bestand" replace />;
 
   const acceptedOffer = offers.find((o) => o.status === "accepted");
   const canAcceptMore = !acceptedOffer && !process;
+  const marketSearch = buildMarketSearchProfile(vehicle);
+  const marketEstimate = getMarketValueEstimate(vehicle);
+
+  const openMarketSearches = () => {
+    marketSearch.links.forEach((link) => window.open(link.url, "_blank", "noopener,noreferrer"));
+    toast.success("Suchauftrag gestartet: passende Markt-Treffer wurden geöffnet.");
+  };
 
   // ---- Save helper for inline-edit sections -----------------------------
   const handleSaveSection = (patch: Partial<Vehicle>) => {
@@ -152,6 +431,9 @@ const VehicleDetail = () => {
                       </span>
                     </p>
                   </div>
+                  <Button onClick={() => setMarketDialog(true)} variant="outline" size="sm" className="gap-1.5 justify-center">
+                    <Euro className="size-3.5" /> Fahrzeugwert
+                  </Button>
                   {!process && (
                     <div className="flex gap-2 justify-end">
                       <Button onClick={() => setOfferDialog(true)} variant="outline" size="sm" className="gap-1.5">
@@ -414,6 +696,132 @@ const VehicleDetail = () => {
       </div>
 
       {/* ---------- Dialoge ---------- */}
+      <Dialog open={marketDialog} onOpenChange={setMarketDialog}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Fahrzeugwert ermitteln</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-5 py-2">
+            <div className="rounded-lg border border-border bg-background/40 p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Recherchierter Zielwert</p>
+                  <p className="mt-1 font-display text-3xl font-bold text-foreground">
+                    {formatCurrency(marketEstimate.midpoint)}
+                  </p>
+                </div>
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    "shrink-0",
+                    marketEstimate.quality === "hoch" && "border-success/40 text-success",
+                    marketEstimate.quality === "mittel" && "border-warning/40 text-warning",
+                    marketEstimate.quality === "niedrig" && "border-muted-foreground/40 text-muted-foreground",
+                  )}
+                >
+                  Datenlage {marketEstimate.quality}
+                </Badge>
+              </div>
+              <p className="mt-3 text-[10px] uppercase tracking-widest text-muted-foreground">Enge Wertspanne</p>
+              <p className="mt-1 font-display text-3xl font-bold text-foreground">
+                {formatCurrency(marketEstimate.min)} bis {formatCurrency(marketEstimate.max)}
+              </p>
+              <p className="mt-2 text-xs text-muted-foreground">
+                Spanne ca. +/-{(marketEstimate.spreadPct * 100).toFixed(1)}% aus Fahrzeugdaten, km, Motorisierung, Preisanker und wertrelevanter Ausstattung.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <div className="rounded-lg border border-border bg-card p-3">
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Modell</p>
+                <p className="text-sm font-medium text-foreground mt-1">
+                  {vehicle.make} {vehicle.model}{vehicle.modelDetail ? ` ${vehicle.modelDetail}` : ""}
+                </p>
+              </div>
+              <div className="rounded-lg border border-border bg-card p-3">
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Baujahr</p>
+                <p className="text-sm font-medium text-foreground mt-1">
+                  {marketSearch.year.min} bis {marketSearch.year.max}
+                </p>
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  {vehicle.firstRegistration ? `EZ ${formatDate(vehicle.firstRegistration)}` : `+/-${marketSearch.year.tolerance} Jahre`}
+                </p>
+              </div>
+              <div className="rounded-lg border border-border bg-card p-3">
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Modellpflege</p>
+                <p className="text-sm font-medium text-foreground mt-1">
+                  {marketSearch.faceliftLabel ?? "Keine Regel hinterlegt"}
+                </p>
+              </div>
+              <div className="rounded-lg border border-border bg-card p-3">
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Kilometer</p>
+                <p className="text-sm font-medium text-foreground mt-1">
+                  {formatNumber(marketSearch.mileage.min)} bis {formatNumber(marketSearch.mileage.max)} km
+                </p>
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-border bg-card p-3">
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Wertrelevante Ausstattung</p>
+              {marketEstimate.equipmentLabels.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {marketEstimate.equipmentLabels.map((feature) => (
+                    <Badge key={feature} className="bg-success/15 text-success border-success/30">
+                      {feature}
+                    </Badge>
+                  ))}
+                </div>
+              )}
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground mt-3">Suchmerkmale</p>
+              {marketSearch.features.length > 0 ? (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {marketSearch.features.map((feature) => (
+                    <Badge key={feature} variant="outline" className="border-border bg-background/40 text-xs">
+                      {feature}
+                    </Badge>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground mt-1">Noch keine Ausstattung am Fahrzeug hinterlegt.</p>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {marketEstimate.factors.map((factor) => (
+                <div key={factor.label} className="rounded-lg border border-border bg-muted/20 p-3">
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">{factor.label}</p>
+                  <p className="mt-1 text-sm font-semibold text-foreground">{factor.value.toFixed(2)}x</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Tiefe Marktrecherche</p>
+              <div className="rounded-md border border-border bg-muted/30 px-3 py-2 text-sm text-foreground break-words">
+                {marketSearch.exactQuery}
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {marketSearch.links.map((link) => (
+                  <Button key={link.label} asChild variant="outline" size="sm" className="gap-1.5 justify-center">
+                    <a href={link.url} target="_blank" rel="noreferrer">
+                      <ExternalLink className="size-3.5" /> {link.label}
+                    </a>
+                  </Button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setMarketDialog(false)}>Schließen</Button>
+            <Button className="bg-gradient-brand gap-1.5" onClick={openMarketSearches}>
+              <Search className="size-4" /> Suchauftrag starten
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={offerDialog} onOpenChange={setOfferDialog}>
         <DialogContent>
           <DialogHeader><DialogTitle>Neues Angebot anlegen</DialogTitle></DialogHeader>
