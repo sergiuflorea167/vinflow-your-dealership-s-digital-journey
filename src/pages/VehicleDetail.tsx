@@ -511,8 +511,6 @@ const buildMobileDeSearchUrl = (
     if (vehicle.displacement_ccm) params.set("cc", `${Math.max(0, vehicle.displacement_ccm - 200)}:${vehicle.displacement_ccm + 200}`);
     if (vehicle.cylinders) params.set("cy", `${Math.max(1, vehicle.cylinders - 1)}:${vehicle.cylinders + 1}`);
     if (vehicle.drive === "Allradantrieb") params.set("dt", "ALL_WHEEL");
-    if (vehicle.emissionClass && MOBILE_DE_EMISSION_CODES[vehicle.emissionClass]) params.set("emc", MOBILE_DE_EMISSION_CODES[vehicle.emissionClass]!);
-    appendMany("c", [MOBILE_DE_TYPE_CODES[vehicle.type]]);
     appendMany("tr", MOBILE_DE_TRANSMISSION_CODES[vehicle.transmission] ?? []);
   }
 
