@@ -474,8 +474,8 @@ type MarketSearchStage = "basic" | "technical" | "equipment";
 
 const MARKET_SEARCH_STAGES: Array<{ key: MarketSearchStage; label: string; description: string }> = [
   { key: "basic", label: "Basis", description: "Marke, Modell, Kraftstoff, Kilometer" },
-  { key: "technical", label: "Technik", description: "plus Baujahr, Leistung, Getriebe" },
-  { key: "equipment", label: "Ausstattung", description: "plus Innenraum und harte Merkmale" },
+  { key: "technical", label: "Technik", description: "plus Baujahr und Leistung" },
+  { key: "equipment", label: "Ausstattung", description: "plus Getriebe, Innenraum und harte Merkmale" },
 ];
 
 const buildMobileDeSearchUrl = (
@@ -508,13 +508,10 @@ const buildMobileDeSearchUrl = (
     if (vehicle.condition === "Neu") params.set("con", "NEW");
     const power = getMarketPowerBand(vehicle);
     if (power) params.set("pw", `${power.minKw}:${power.maxKw}`);
-    if (vehicle.displacement_ccm) params.set("cc", `${Math.max(0, vehicle.displacement_ccm - 200)}:${vehicle.displacement_ccm + 200}`);
-    if (vehicle.cylinders) params.set("cy", `${Math.max(1, vehicle.cylinders - 1)}:${vehicle.cylinders + 1}`);
-    if (vehicle.drive === "Allradantrieb") params.set("dt", "ALL_WHEEL");
-    appendMany("tr", MOBILE_DE_TRANSMISSION_CODES[vehicle.transmission] ?? []);
   }
 
   if (stage === "equipment") {
+    appendMany("tr", MOBILE_DE_TRANSMISSION_CODES[vehicle.transmission] ?? []);
     if (vehicle.seats) params.set("cnc", `:${vehicle.seats + 2}`);
     if (vehicle.previousOwners) params.set("pvo", String(Math.min(vehicle.previousOwners + 1, 4)));
     appendMany("it", getMobileDeInteriorCodes(vehicle.interiorMaterial));
@@ -550,13 +547,10 @@ const getMarketValueEstimate = (vehicle: Vehicle) => {
     * fuelFactor
     * equipmentFactor
     * faceliftFactor;
-  const priceAnchor = Math.max(vehicle.listPrice || 0, vehicle.purchasePrice || 0);
+  const priceAnchor = vehicle.purchasePrice || 0;
   const candidateAnchors = [calculatedAnchor];
   if (vehicle.purchasePrice > 1000) {
-    candidateAnchors.push(clamp(vehicle.purchasePrice * 1.12, calculatedAnchor * 0.72, calculatedAnchor * 1.34));
-  }
-  if (vehicle.listPrice > 1000) {
-    candidateAnchors.push(clamp(vehicle.listPrice * 0.9, calculatedAnchor * 0.75, calculatedAnchor * 1.28));
+    candidateAnchors.push(clamp(vehicle.purchasePrice * 1.08, calculatedAnchor * 0.78, calculatedAnchor * 1.18));
   }
   const anchor = median(candidateAnchors) || calculatedAnchor;
   const dataScore = [
