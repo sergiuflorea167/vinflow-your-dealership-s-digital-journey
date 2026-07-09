@@ -431,6 +431,13 @@ const getMobileDeDetailedEquipmentCodes = (vehicle: Vehicle) => {
   return [...codes];
 };
 
+const getMobileDeHardEquipmentCodes = (vehicle: Vehicle) => {
+  const codes = new Set<string>();
+  if (vehicle.serviceBookComplete) codes.add("FULL_SERVICE_HISTORY");
+  if (vehicle.nonSmoker) codes.add("NONSMOKER_VEHICLE");
+  return [...codes];
+};
+
 const buildMobileDeSearchUrl = (
   vehicle: Vehicle,
   year: ReturnType<typeof getMarketYearBand>,
@@ -467,7 +474,7 @@ const buildMobileDeSearchUrl = (
   appendMany("ft", MOBILE_DE_FUEL_CODES[vehicle.fuel] ?? []);
   appendMany("tr", MOBILE_DE_TRANSMISSION_CODES[vehicle.transmission] ?? []);
   appendMany("it", getMobileDeInteriorCodes(vehicle.interiorMaterial));
-  appendMany("fe", getMobileDeDetailedEquipmentCodes(vehicle));
+  appendMany("fe", getMobileDeHardEquipmentCodes(vehicle));
 
   const exteriorColor = getMobileDeColorCode(vehicle.color);
   const interiorColor = getMobileDeColorCode(vehicle.interiorColor);
@@ -1076,10 +1083,13 @@ const VehicleDetail = () => {
                   <p className="text-sm font-medium text-foreground mt-1">Fantasiepreise ignorieren</p>
                 </div>
                 <div className="rounded-lg border border-border bg-card p-3">
-                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Filter</p>
-                  <p className="text-sm font-medium text-foreground mt-1">{marketFilterCount} Extras erkannt</p>
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Ausstattung</p>
+                  <p className="text-sm font-medium text-foreground mt-1">{marketFilterCount} Merkmale geprÃ¼ft</p>
                 </div>
               </div>
+              <p className="text-xs text-muted-foreground">
+                Ausstattung wird nicht komplett hart gefiltert, weil viele Inserate Extras nur in der Beschreibung nennen.
+              </p>
             </div>
 
           </div>
