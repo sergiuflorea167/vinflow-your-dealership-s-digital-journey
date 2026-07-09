@@ -470,14 +470,22 @@ const getMobileDeHardEquipmentCodes = (vehicle: Vehicle) => {
   return [...codes];
 };
 
+type MarketSearchStage = "basic" | "technical" | "equipment";
+
+const MARKET_SEARCH_STAGES: Array<{ key: MarketSearchStage; label: string; description: string }> = [
+  { key: "basic", label: "Basis", description: "Marke, Modell, Kraftstoff, Kilometer" },
+  { key: "technical", label: "Technik", description: "plus Baujahr, Leistung, Getriebe" },
+  { key: "equipment", label: "Ausstattung", description: "plus Innenraum und harte Merkmale" },
+];
+
 const buildMobileDeSearchUrl = (
   vehicle: Vehicle,
   year: ReturnType<typeof getMarketYearBand>,
   mileage: ReturnType<typeof getMarketMileageBand>,
+  stage: MarketSearchStage,
 ) => {
   const params = new URLSearchParams({
     dam: "false",
-    fr: `${year.min}:${year.max}`,
     ml: `${mileage.min}:${mileage.max}`,
     ref: "quickSearch",
     s: "Car",
@@ -492,30 +500,34 @@ const buildMobileDeSearchUrl = (
   if (modelCode) {
     params.set("ms", modelCode);
   }
-  if (vehicle.condition && vehicle.condition !== "Neu") params.set("con", "USED");
-  if (vehicle.condition === "Neu") params.set("con", "NEW");
-  const power = getMarketPowerBand(vehicle);
-  if (power) params.set("pw", `${power.minKw}:${power.maxKw}`);
-  if (vehicle.displacement_ccm) params.set("cc", `${Math.max(0, vehicle.displacement_ccm - 200)}:${vehicle.displacement_ccm + 200}`);
-  if (vehicle.cylinders) params.set("cy", `${Math.max(1, vehicle.cylinders - 1)}:${vehicle.cylinders + 1}`);
-  if (vehicle.seats) params.set("cnc", `:${vehicle.seats + 2}`);
-  if (vehicle.previousOwners) params.set("pvo", String(Math.min(vehicle.previousOwners + 1, 4)));
-  if (vehicle.drive === "Allradantrieb") params.set("dt", "ALL_WHEEL");
-  if (vehicle.emissionClass && MOBILE_DE_EMISSION_CODES[vehicle.emissionClass]) params.set("emc", MOBILE_DE_EMISSION_CODES[vehicle.emissionClass]!);
-
-  appendMany("c", [MOBILE_DE_TYPE_CODES[vehicle.type]]);
   appendMany("ft", MOBILE_DE_FUEL_CODES[vehicle.fuel] ?? []);
-  appendMany("tr", MOBILE_DE_TRANSMISSION_CODES[vehicle.transmission] ?? []);
-  appendMany("it", getMobileDeInteriorCodes(vehicle.interiorMaterial));
-  appendMany("fe", getMobileDeHardEquipmentCodes(vehicle));
 
-  const exteriorColor = getMobileDeColorCode(vehicle.color);
-  const interiorColor = getMobileDeColorCode(vehicle.interiorColor);
-  if (exteriorColor) params.set("ecol", exteriorColor);
-  if (interiorColor) params.set("icol", interiorColor);
+  if (stage !== "basic") {
+    params.set("fr", `${year.min}:${year.max}`);
+    if (vehicle.condition && vehicle.condition !== "Neu") params.set("con", "USED");
+    if (vehicle.condition === "Neu") params.set("con", "NEW");
+    const power = getMarketPowerBand(vehicle);
+    if (power) params.set("pw", `${power.minKw}:${power.maxKw}`);
+    if (vehicle.displacement_ccm) params.set("cc", `${Math.max(0, vehicle.displacement_ccm - 200)}:${vehicle.displacement_ccm + 200}`);
+    if (vehicle.cylinders) params.set("cy", `${Math.max(1, vehicle.cylinders - 1)}:${vehicle.cylinders + 1}`);
+    if (vehicle.drive === "Allradantrieb") params.set("dt", "ALL_WHEEL");
+    if (vehicle.emissionClass && MOBILE_DE_EMISSION_CODES[vehicle.emissionClass]) params.set("emc", MOBILE_DE_EMISSION_CODES[vehicle.emissionClass]!);
+    appendMany("c", [MOBILE_DE_TYPE_CODES[vehicle.type]]);
+    appendMany("tr", MOBILE_DE_TRANSMISSION_CODES[vehicle.transmission] ?? []);
+  }
 
-  if (vehicle.vatReportable) params.set("gi", "12");
-  if (vehicle.status === "in_stock") params.set("rtd", "true");
+  if (stage === "equipment") {
+    if (vehicle.seats) params.set("cnc", `:${vehicle.seats + 2}`);
+    if (vehicle.previousOwners) params.set("pvo", String(Math.min(vehicle.previousOwners + 1, 4)));
+    appendMany("it", getMobileDeInteriorCodes(vehicle.interiorMaterial));
+    appendMany("fe", getMobileDeHardEquipmentCodes(vehicle));
+    const exteriorColor = getMobileDeColorCode(vehicle.color);
+    const interiorColor = getMobileDeColorCode(vehicle.interiorColor);
+    if (exteriorColor) params.set("ecol", exteriorColor);
+    if (interiorColor) params.set("icol", interiorColor);
+    if (vehicle.vatReportable) params.set("gi", "12");
+    if (vehicle.status === "in_stock") params.set("rtd", "true");
+  }
   return `https://suchen.mobile.de/fahrzeuge/detailsuche?${params.toString()}`;
 };
 
@@ -619,12 +631,15 @@ const buildMarketSearchProfile = (vehicle: Vehicle) => {
     `"${year.min}" OR "${vehicle.year}" OR "${year.max}"`,
     `${formatNumber(mileage.min)}-${formatNumber(mileage.max)} km`,
   ].filter(Boolean).join(" ");
-  const mobileDeUrl = buildMobileDeSearchUrl(vehicle, year, mileage);
+  const stagedUrls = MARKET_SEARCH_STAGES.map((item) => ({
+    ...item,
+    url: buildMobileDeSearchUrl(vehicle, year, mileage, item.key),
+  }));
 
   return {
     query: fullQuery,
     exactQuery,
-    mobileDeUrl,
+    stagedUrls,
     year,
     mileage,
     power,
@@ -661,6 +676,7 @@ const VehicleDetail = () => {
   const [locationDialog, setLocationDialog] = useState(false);
   const [marketDialog, setMarketDialog] = useState(false);
   const [marketResearchStarted, setMarketResearchStarted] = useState(false);
+  const [marketSearchStageIndex, setMarketSearchStageIndex] = useState(0);
 
   if (!vehicle) return <Navigate to="/bestand" replace />;
 
@@ -669,16 +685,20 @@ const VehicleDetail = () => {
   const marketSearch = buildMarketSearchProfile(vehicle);
   const marketEstimate = getMarketValueEstimate(vehicle);
   const marketFilterCount = getMobileDeDetailedEquipmentCodes(vehicle).length;
+  const activeSearchStage = marketSearch.stagedUrls[marketSearchStageIndex] ?? marketSearch.stagedUrls[0];
   const openMarketSearches = () => {
+    setMarketSearchStageIndex(0);
     setMarketResearchStarted(true);
-    window.open(marketSearch.mobileDeUrl, "_blank", "noopener,noreferrer");
-    toast.success("Automatischer Suchauftrag über mobile.de gestartet.");
+    window.open(marketSearch.stagedUrls[0].url, "_blank", "noopener,noreferrer");
+    toast.success("Basis-Suchauftrag über mobile.de gestartet.");
   };
 
   const recalculateMarketValue = () => {
+    const nextIndex = Math.min(marketSearchStageIndex + 1, marketSearch.stagedUrls.length - 1);
     setMarketResearchStarted(true);
-    window.open(marketSearch.mobileDeUrl, "_blank", "noopener,noreferrer");
-    toast.success("Marktwert neu ermittelt.");
+    setMarketSearchStageIndex(nextIndex);
+    window.open(marketSearch.stagedUrls[nextIndex].url, "_blank", "noopener,noreferrer");
+    toast.success(`${marketSearch.stagedUrls[nextIndex].label}-Suche gestartet.`);
   };
 
   // ---- Save helper for inline-edit sections -----------------------------
@@ -1122,6 +1142,11 @@ const VehicleDetail = () => {
                 <p className="mt-1 max-h-10 overflow-hidden text-sm text-foreground">
                   {marketSearch.exactQuery}
                 </p>
+              </div>
+              <div className="rounded-lg border border-primary/25 bg-primary/5 p-3">
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Aktuelle Suchstufe</p>
+                <p className="text-sm font-medium text-foreground mt-1">{activeSearchStage.label}</p>
+                <p className="text-xs text-muted-foreground mt-1">{activeSearchStage.description}</p>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
                 <div className="rounded-lg border border-border bg-card p-3">
