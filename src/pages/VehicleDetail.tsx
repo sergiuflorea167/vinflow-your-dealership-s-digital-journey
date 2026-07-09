@@ -55,6 +55,12 @@ const formatNumber = (value: number) => value.toLocaleString("de-DE");
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
+const median = (values: number[]) => {
+  const sorted = values.filter((value) => Number.isFinite(value) && value > 0).sort((a, b) => a - b);
+  if (sorted.length === 0) return 0;
+  return sorted[Math.floor(sorted.length / 2)];
+};
+
 const TYPE_BASE_PRICE: Record<VehicleType, number> = {
   kleinwagen: 24000,
   limousine: 42000,
@@ -535,10 +541,14 @@ const getMarketValueEstimate = (vehicle: Vehicle) => {
     * equipmentFactor
     * faceliftFactor;
   const priceAnchor = Math.max(vehicle.listPrice || 0, vehicle.purchasePrice || 0);
-  const cappedOwnAnchor = priceAnchor > 0 ? Math.min(priceAnchor, calculatedAnchor * 1.32) : 0;
-  const anchor = cappedOwnAnchor > 0
-    ? (cappedOwnAnchor * 0.28 + calculatedAnchor * 0.72)
-    : calculatedAnchor;
+  const candidateAnchors = [calculatedAnchor];
+  if (vehicle.purchasePrice > 1000) {
+    candidateAnchors.push(clamp(vehicle.purchasePrice * 1.12, calculatedAnchor * 0.72, calculatedAnchor * 1.34));
+  }
+  if (vehicle.listPrice > 1000) {
+    candidateAnchors.push(clamp(vehicle.listPrice * 0.9, calculatedAnchor * 0.75, calculatedAnchor * 1.28));
+  }
+  const anchor = median(candidateAnchors) || calculatedAnchor;
   const dataScore = [
     vehicle.make,
     vehicle.model,
@@ -1015,7 +1025,7 @@ const VehicleDetail = () => {
             <div className="rounded-lg border border-border bg-background/40 p-4">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Automatische Marktwert-Recherche</p>
+                  <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Vorläufige Marktwert-Recherche</p>
                   <p className="mt-1 font-display text-3xl font-bold text-foreground">
                     {formatCurrency(marketEstimate.midpoint)}
                   </p>
