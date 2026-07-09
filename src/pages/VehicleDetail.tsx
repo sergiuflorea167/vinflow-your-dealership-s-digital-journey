@@ -257,6 +257,22 @@ const getMarketYearBand = (vehicle: Vehicle) => {
   };
 };
 
+const getMarketPowerBand = (vehicle: Vehicle) => {
+  const kw = vehicle.power_kw > 0
+    ? vehicle.power_kw
+    : Math.round((vehicle.power_hp || 0) * 0.7355);
+  if (!kw) return undefined;
+  const tolerance = kw >= 180 ? 18 : kw >= 110 ? 12 : 8;
+  const minKw = Math.max(1, kw - tolerance);
+  const maxKw = kw + tolerance;
+  return {
+    minKw,
+    maxKw,
+    minHp: Math.round(minKw / 0.7355),
+    maxHp: Math.round(maxKw / 0.7355),
+  };
+};
+
 const getMobileDeModelCode = (vehicle: Vehicle) =>
   MOBILE_DE_MODEL_CODES.find((item) => item.make.test(vehicle.make) && item.model.test(vehicle.model))?.ms;
 
@@ -472,7 +488,8 @@ const buildMobileDeSearchUrl = (
   }
   if (vehicle.condition && vehicle.condition !== "Neu") params.set("con", "USED");
   if (vehicle.condition === "Neu") params.set("con", "NEW");
-  if (vehicle.power_hp > 0) params.set("pw", `${Math.max(1, vehicle.power_hp - 20)}:${vehicle.power_hp + 20}`);
+  const power = getMarketPowerBand(vehicle);
+  if (power) params.set("pw", `${power.minKw}:${power.maxKw}`);
   if (vehicle.displacement_ccm) params.set("cc", `${Math.max(0, vehicle.displacement_ccm - 200)}:${vehicle.displacement_ccm + 200}`);
   if (vehicle.cylinders) params.set("cy", `${Math.max(1, vehicle.cylinders - 1)}:${vehicle.cylinders + 1}`);
   if (vehicle.seats) params.set("cnc", `:${vehicle.seats + 2}`);
@@ -563,6 +580,7 @@ const getMarketValueEstimate = (vehicle: Vehicle) => {
 const buildMarketSearchProfile = (vehicle: Vehicle) => {
   const year = getMarketYearBand(vehicle);
   const mileage = getMarketMileageBand(vehicle.mileage);
+  const power = getMarketPowerBand(vehicle);
   const featureTerms = getFeatureTerms(vehicle);
   const facelift = getFaceliftInfo(vehicle);
   const faceliftTerms = facelift
@@ -599,6 +617,7 @@ const buildMarketSearchProfile = (vehicle: Vehicle) => {
     mobileDeUrl,
     year,
     mileage,
+    power,
     features: featureTerms,
     faceliftLabel: facelift ? `${facelift.label} · ${facelift.isFacelift ? "Facelift erkannt" : "Vor-Facelift erkannt"}` : undefined,
   };
@@ -1020,7 +1039,7 @@ const VehicleDetail = () => {
               </p>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
               <div className="rounded-lg border border-border bg-card p-3">
                 <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Modell</p>
                 <p className="text-sm font-medium text-foreground mt-1">
@@ -1047,6 +1066,17 @@ const VehicleDetail = () => {
                 <p className="text-sm font-medium text-foreground mt-1">
                   {formatNumber(marketSearch.mileage.min)} bis {formatNumber(marketSearch.mileage.max)} km
                 </p>
+              </div>
+              <div className="rounded-lg border border-border bg-card p-3">
+                <p className="text-[10px] uppercase tracking-widest text-muted-foreground">Leistung</p>
+                <p className="text-sm font-medium text-foreground mt-1">
+                  {marketSearch.power ? `${marketSearch.power.minHp} bis ${marketSearch.power.maxHp} PS` : "Keine Angabe"}
+                </p>
+                {marketSearch.power && (
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    mobile.de: {marketSearch.power.minKw} bis {marketSearch.power.maxKw} kW
+                  </p>
+                )}
               </div>
             </div>
 
