@@ -93,6 +93,16 @@ const getBrandFactor = (make: string) => {
   return 1;
 };
 
+const getModelClassFactor = (vehicle: Vehicle) => {
+  const name = `${vehicle.make} ${vehicle.model}`.toLowerCase();
+  if (/porsche|amg gt|m5|rs6|rs7|panamera|911/.test(name)) return 1.28;
+  if (/a6|a7|5er|5 series|e[\s-]?klasse|e 220|e 300|v90|xf/.test(name)) return 1.2;
+  if (/a4|a5|3er|3 series|c[\s-]?klasse|c 220|c 300|passat|insignia|octavia/.test(name)) return 1.08;
+  if (/q5|x3|glc|tiguan|rav[\s-]?4|kodiaq/.test(name)) return 1.12;
+  if (/q7|x5|gle|xc90|touareg/.test(name)) return 1.24;
+  return 1;
+};
+
 const FACELIFT_RULES = [
   {
     make: /audi/i,
@@ -489,17 +499,18 @@ const buildMobileDeSearchUrl = (
 const getMarketValueEstimate = (vehicle: Vehicle) => {
   const currentYear = new Date().getFullYear();
   const age = Math.max(0, currentYear - (vehicle.year || currentYear));
-  const ageFactor = clamp(Math.pow(0.89, age), vehicle.fuel === "Elektro" ? 0.2 : 0.18, 1);
-  const mileageFactor = clamp(1.05 - vehicle.mileage / 360000, 0.46, 1.05);
-  const powerFactor = clamp(0.9 + (vehicle.power_hp || 150) / 750, 0.94, 1.22);
-  const fuelFactor = vehicle.fuel === "Elektro" ? 0.88 : vehicle.fuel === "Plug-in-Hybrid" ? 0.94 : vehicle.fuel === "Diesel" ? 0.98 : 1;
+  const ageFactor = clamp(Math.pow(0.905, age), vehicle.fuel === "Elektro" ? 0.22 : 0.2, 1);
+  const mileageFactor = clamp(1.06 - vehicle.mileage / 420000, 0.5, 1.06);
+  const powerFactor = clamp(0.9 + (vehicle.power_hp || 150) / 700, 0.94, 1.26);
+  const fuelFactor = vehicle.fuel === "Elektro" ? 0.9 : vehicle.fuel === "Plug-in-Hybrid" ? 0.95 : vehicle.fuel === "Diesel" ? 0.99 : 1;
   const equipment = getEquipmentScore(vehicle);
   const facelift = getFaceliftInfo(vehicle);
-  const faceliftFactor = facelift?.isFacelift ? 1 + Math.min(facelift.factor, 0.025) : 1;
-  const equipmentFactor = 1 + Math.min(equipment.factor, 0.07);
+  const faceliftFactor = facelift?.isFacelift ? 1 + Math.min(facelift.factor, 0.035) : 1;
+  const equipmentFactor = 1 + Math.min(equipment.factor, 0.1);
   const calculatedAnchor =
     TYPE_BASE_PRICE[vehicle.type]
     * getBrandFactor(vehicle.make)
+    * getModelClassFactor(vehicle)
     * ageFactor
     * mileageFactor
     * powerFactor
@@ -507,9 +518,9 @@ const getMarketValueEstimate = (vehicle: Vehicle) => {
     * equipmentFactor
     * faceliftFactor;
   const priceAnchor = Math.max(vehicle.listPrice || 0, vehicle.purchasePrice || 0);
-  const ownPriceIsPlausible = priceAnchor > 0 && priceAnchor <= calculatedAnchor * 1.18;
-  const anchor = ownPriceIsPlausible
-    ? (priceAnchor * 0.18 + calculatedAnchor * 0.82)
+  const cappedOwnAnchor = priceAnchor > 0 ? Math.min(priceAnchor, calculatedAnchor * 1.32) : 0;
+  const anchor = cappedOwnAnchor > 0
+    ? (cappedOwnAnchor * 0.28 + calculatedAnchor * 0.72)
     : calculatedAnchor;
   const dataScore = [
     vehicle.make,
