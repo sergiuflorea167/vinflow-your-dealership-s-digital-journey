@@ -186,7 +186,9 @@ describe("VINcent chat workspace", () => {
 
     render(<VincentWidget />);
     expect(await screen.findByText("Welche To-Do-Daten VINcent erhält")).toBeInTheDocument();
-    expect(screen.getByText(/vollständige To-Do-Liste bei jeder Anfrage/)).toBeInTheDocument();
+    expect(screen.getByText(/Bei jeder Anfrage wird deine vollständige To-Do-Liste/)).toBeInTheDocument();
+    expect(screen.getByText("Welche Fahrzeugdaten VINcent erhält")).toBeInTheDocument();
+    expect(screen.getByText(/Fahrgestellnummer \(VIN\) und Kennzeichen werden bewusst nie übermittelt/)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("checkbox"));
     fireEvent.click(screen.getByRole("button", { name: "Hinweis verstanden" }));

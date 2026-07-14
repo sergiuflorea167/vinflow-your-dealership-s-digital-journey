@@ -1,4 +1,4 @@
-export const VINCENT_NOTICE_VERSION = "2026-07-06-todo-access-v1";
+export const VINCENT_NOTICE_VERSION = "2026-07-14-vehicle-access-v1";
 export const VINCENT_RETENTION_DAYS = 30;
 export const VINCENT_MAX_INPUT_LENGTH = 4_000;
 

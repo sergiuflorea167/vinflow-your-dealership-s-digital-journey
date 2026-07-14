@@ -112,6 +112,10 @@ function buildVehicleDetail(vehicle: Vehicle) {
     },
     standort: { name: vehicle.location.name, art: vehicle.location.kind },
     notizen: vehicle.notes ? redactSensitiveText(vehicle.notes).text : null,
+    datenschutzhinweis:
+      "VIN und Kennzeichen werden aus Datenschutzgründen nie an die KI übermittelt, da sie in Verbindung mit euren " +
+      "eigenen Kunden-/Vorgangsdaten eine Person identifizierbar machen können. Bei Fragen danach auf die Fahrzeugakte " +
+      "in VINflow verweisen.",
   };
 }
 
