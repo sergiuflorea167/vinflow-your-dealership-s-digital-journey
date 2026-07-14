@@ -22,6 +22,9 @@ import { useProcessStore } from "@/store/processStore";
 import {
   CalendarEvent, CalendarEventType, CALENDAR_EVENT_TYPE_LABELS,
 } from "@/data/process";
+import { useWorkshopStore } from "@/store/workshopStore";
+import { WORKSHOP_DEMO } from "@/data/workshopDemo";
+import { withWorkshopGuard } from "@/lib/workshopGuard";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -341,10 +344,16 @@ const DraggableEvent = ({
 // ---------------------------------------------------------------------------
 
 const CalendarPage = () => {
-  const events = useProcessStore((s) => s.calendarEvents);
-  const addCalendarEvent = useProcessStore((s) => s.addCalendarEvent);
-  const updateCalendarEvent = useProcessStore((s) => s.updateCalendarEvent);
-  const removeCalendarEvent = useProcessStore((s) => s.removeCalendarEvent);
+  const workshopActive = useWorkshopStore((s) => s.activeKey === "calendar");
+  const realEvents = useProcessStore((s) => s.calendarEvents);
+  const realAddCalendarEvent = useProcessStore((s) => s.addCalendarEvent);
+  const realUpdateCalendarEvent = useProcessStore((s) => s.updateCalendarEvent);
+  const realRemoveCalendarEvent = useProcessStore((s) => s.removeCalendarEvent);
+
+  const events = workshopActive ? WORKSHOP_DEMO.calendarEvents : realEvents;
+  const addCalendarEvent = withWorkshopGuard(workshopActive, realAddCalendarEvent);
+  const updateCalendarEvent = withWorkshopGuard(workshopActive, realUpdateCalendarEvent);
+  const removeCalendarEvent = withWorkshopGuard(workshopActive, realRemoveCalendarEvent);
 
   const [anchorDate, setAnchorDate] = useState<Date>(new Date());
   const [editEvent, setEditEvent] = useState<CalendarEvent | null>(null);

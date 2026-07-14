@@ -28,6 +28,9 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { useWorkshopStore } from "@/store/workshopStore";
+import { WORKSHOP_DEMO, DEMO_PARTNERS } from "@/data/workshopDemo";
+import { withWorkshopGuard } from "@/lib/workshopGuard";
 
 type StammTab = "customers" | "partners";
 
@@ -37,7 +40,7 @@ const Stammdaten = () => {
   return (
     <AppShell>
       <div className="space-y-3 animate-fade-in">
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-3 shrink-0" data-tour="master-header">
           <div className="size-9 rounded-xl bg-gradient-brand grid place-items-center shadow-glow">
             <Database className="size-5 text-primary-foreground" />
           </div>
@@ -50,9 +53,9 @@ const Stammdaten = () => {
         </div>
 
         <Tabs value={tab} onValueChange={(v) => setTab(v as StammTab)} className="space-y-3">
-          <TabsList className="bg-background/40 self-start shrink-0">
+          <TabsList className="bg-background/40 self-start shrink-0" data-tour="master-tabs">
             <TabsTrigger value="customers" className="gap-2"><Users className="size-4" /> Kunden</TabsTrigger>
-            <TabsTrigger value="partners"  className="gap-2"><Handshake className="size-4" /> Partner</TabsTrigger>
+            <TabsTrigger value="partners" data-tour="master-tab-partners" className="gap-2"><Handshake className="size-4" /> Partner</TabsTrigger>
           </TabsList>
 
           <TabsContent value="customers" className="mt-0"><CustomersPanel /></TabsContent>
@@ -70,9 +73,13 @@ export default Stammdaten;
 // ===========================================================================
 
 const CustomersPanel = () => {
-  const customers = useProcessStore((s) => s.customers);
-  const offers = useProcessStore((s) => s.offers);
-  const processes = useProcessStore((s) => s.processes);
+  const workshopActive = useWorkshopStore((s) => s.activeKey === "master");
+  const realCustomers = useProcessStore((s) => s.customers);
+  const realOffers = useProcessStore((s) => s.offers);
+  const realProcesses = useProcessStore((s) => s.processes);
+  const customers = workshopActive ? WORKSHOP_DEMO.customers : realCustomers;
+  const offers = workshopActive ? WORKSHOP_DEMO.offers : realOffers;
+  const processes = workshopActive ? WORKSHOP_DEMO.processes : realProcesses;
   const [query, setQuery] = useState("");
 
   const enriched = useMemo(() =>
@@ -91,14 +98,14 @@ const CustomersPanel = () => {
   }, [enriched, query]);
 
   return (
-    <Card className="bg-card border-border overflow-hidden">
-      <div className="flex items-center justify-between gap-3 p-4 border-b border-border flex-wrap">
-        <div className="flex items-center gap-3 flex-1 min-w-0">
+    <Card className="bg-card border-border overflow-hidden" data-tour="master-customers">
+      <div className="flex flex-col gap-3 p-4 border-b border-border sm:flex-row sm:items-center sm:justify-between sm:flex-wrap">
+        <div className="flex flex-col gap-2 flex-1 min-w-0 sm:flex-row sm:items-center sm:gap-3">
           <Input
             placeholder="Schnellsuche…"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="max-w-xs"
+            className="w-full sm:max-w-xs"
           />
           <span className="text-xs text-muted-foreground">{filtered.length} Kunden</span>
         </div>
@@ -110,7 +117,7 @@ const CustomersPanel = () => {
       {filtered.length === 0 ? (
         <div className="p-12 text-center text-muted-foreground text-sm">Keine Kunden gefunden.</div>
       ) : (
-        <div className="overflow-auto max-h-[55vh]">
+        <div className="hidden sm:block overflow-auto max-h-[55vh]">
           <table className="w-full text-xs">
             <thead className="sticky top-0 z-10 bg-background/95 backdrop-blur">
               <tr className="border-b border-border bg-background/30 text-left text-xs uppercase tracking-wider text-muted-foreground">
@@ -155,6 +162,35 @@ const CustomersPanel = () => {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {filtered.length > 0 && (
+        <div className="sm:hidden space-y-2 p-3">
+          {filtered.map(({ customer, offerCount, processCount }) => (
+            <div key={customer.id} className="rounded-lg border border-border bg-background/30 p-3">
+              <div className="flex items-center gap-3">
+                <div className="size-9 rounded-lg bg-gradient-brand grid place-items-center text-primary-foreground font-display font-bold text-xs shrink-0">
+                  {customer.name.split(" ").map((n) => n[0]).slice(0, 2).join("")}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium text-foreground truncate text-sm">{customer.name}</p>
+                  <p className="text-[11px] text-muted-foreground truncate">{`${customer.zip ?? ""} ${customer.city}`.trim()}</p>
+                </div>
+              </div>
+              <div className="mt-2 flex items-center justify-between text-xs">
+                <span className="text-muted-foreground truncate">{customer.email || "–"}</span>
+                <div className="flex items-center gap-2 shrink-0">
+                  {offerCount > 0 && (
+                    <span className="inline-flex items-center justify-center min-w-5 h-5 px-1.5 rounded-full bg-primary/15 text-primary-glow text-[10px] font-semibold">{offerCount}</span>
+                  )}
+                  {processCount > 0 && (
+                    <Badge variant="outline" className="border-success/30 text-success text-[10px] px-1.5 py-0">{processCount}</Badge>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </Card>
@@ -290,10 +326,15 @@ const KIND_BADGE: Record<PartnerKind, string> = {
 };
 
 const PartnersPanel = () => {
-  const partners = useProcessStore((s) => s.settings.partners ?? []);
-  const addPartner = useProcessStore((s) => s.addPartner);
-  const updatePartner = useProcessStore((s) => s.updatePartner);
-  const removePartner = useProcessStore((s) => s.removePartner);
+  const workshopActive = useWorkshopStore((s) => s.activeKey === "master");
+  const realPartners = useProcessStore((s) => s.settings.partners ?? []);
+  const realAddPartner = useProcessStore((s) => s.addPartner);
+  const realUpdatePartner = useProcessStore((s) => s.updatePartner);
+  const realRemovePartner = useProcessStore((s) => s.removePartner);
+  const partners = workshopActive ? DEMO_PARTNERS : realPartners;
+  const addPartner = withWorkshopGuard(workshopActive, realAddPartner);
+  const updatePartner = withWorkshopGuard(workshopActive, realUpdatePartner);
+  const removePartner = withWorkshopGuard(workshopActive, realRemovePartner);
 
   const [query, setQuery] = useState("");
   const [kindFilter, setKindFilter] = useState<"all" | PartnerKind>("all");
@@ -314,17 +355,17 @@ const PartnersPanel = () => {
 
   return (
     <>
-      <Card className="bg-card border-border overflow-hidden">
-        <div className="flex items-center justify-between gap-3 p-4 border-b border-border flex-wrap">
-          <div className="flex items-center gap-3 flex-wrap flex-1 min-w-0">
+      <Card className="bg-card border-border overflow-hidden" data-tour="master-partners">
+        <div className="flex flex-col gap-3 p-4 border-b border-border sm:flex-row sm:items-center sm:justify-between sm:flex-wrap">
+          <div className="flex flex-col gap-2 flex-1 min-w-0 sm:flex-row sm:items-center sm:flex-wrap sm:gap-3">
             <Input
               placeholder="Partner durchsuchen…"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              className="max-w-xs"
+              className="w-full sm:max-w-xs"
             />
             <Select value={kindFilter} onValueChange={(v) => setKindFilter(v as typeof kindFilter)}>
-              <SelectTrigger className="w-[200px]"><SelectValue /></SelectTrigger>
+              <SelectTrigger className="w-full sm:w-[200px]"><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Alle Typen</SelectItem>
                 {(Object.keys(PARTNER_KIND_LABELS) as PartnerKind[]).map((k) => (
@@ -344,7 +385,7 @@ const PartnersPanel = () => {
             Noch keine Partner angelegt.
           </div>
         ) : (
-          <div className="overflow-auto max-h-[55vh]">
+          <div className="hidden sm:block overflow-auto max-h-[55vh]">
             <table className="w-full text-xs">
               <thead className="sticky top-0 z-10 bg-background/95 backdrop-blur">
                 <tr className="border-b border-border bg-background/30 text-left text-xs uppercase tracking-wider text-muted-foreground">
@@ -403,6 +444,46 @@ const PartnersPanel = () => {
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {filtered.length > 0 && (
+          <div className="sm:hidden space-y-2 p-3">
+            {filtered.map((p) => (
+              <div key={p.id} className="rounded-lg border border-border bg-background/30 p-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="font-medium text-foreground truncate text-sm">{p.name}</p>
+                    <p className="font-mono text-[10px] text-muted-foreground truncate">{p.id}</p>
+                  </div>
+                  <Badge variant="outline" className={cn(KIND_BADGE[p.kind], "text-[10px] px-1.5 py-0 shrink-0")}>{PARTNER_KIND_LABELS[p.kind]}</Badge>
+                </div>
+                <div className="mt-2 text-xs text-muted-foreground space-y-0.5">
+                  {p.contactPerson && <p className="text-foreground">{p.contactPerson}</p>}
+                  {p.email && <p className="inline-flex items-center gap-1.5"><Mail className="size-3" /> {p.email}</p>}
+                  {p.phone && <p className="inline-flex items-center gap-1.5"><Phone className="size-3" /> {p.phone}</p>}
+                  {p.address && <p>{p.address}</p>}
+                </div>
+                <div className="mt-2.5 flex items-center gap-1.5 border-t border-border/50 pt-2.5">
+                  <Button variant="outline" size="sm" className="flex-1 h-9 gap-1.5 text-xs" onClick={() => openEdit(p)}>
+                    <Pencil className="size-3.5" /> Bearbeiten
+                  </Button>
+                  <Button
+                    variant="outline" size="icon"
+                    className="h-9 w-9 shrink-0 text-destructive border-destructive/40"
+                    aria-label="Löschen"
+                    onClick={() => {
+                      if (confirm(`Partner "${p.name}" wirklich löschen?`)) {
+                        removePartner(p.id);
+                        toast.success("Partner gelöscht.");
+                      }
+                    }}
+                  >
+                    <Trash2 className="size-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </Card>

@@ -23,6 +23,8 @@ import { useTopbarSearch } from "@/context/TopbarSearchContext";
 import { Link } from "react-router-dom";
 import { Sparkles, ArrowRight } from "lucide-react";
 import { KpiRangePicker } from "@/components/kpi/KpiRangePicker";
+import { useWorkshopStore } from "@/store/workshopStore";
+import { WORKSHOP_DEMO } from "@/data/workshopDemo";
 
 
 
@@ -36,11 +38,16 @@ const TAB_ORDER: { key: KpiCategory; icon: typeof TrendingUp; short: string }[] 
 ];
 
 const KPIs = () => {
-  const vehicles = useProcessStore((s) => s.vehicles);
-  const processes = useProcessStore((s) => s.processes);
-  const customers = useProcessStore((s) => s.customers);
-  const activities = useProcessStore((s) => s.activities);
-  
+  const workshopActive = useWorkshopStore((s) => s.activeKey === "kpis");
+  const realVehicles = useProcessStore((s) => s.vehicles);
+  const realProcesses = useProcessStore((s) => s.processes);
+  const realCustomers = useProcessStore((s) => s.customers);
+  const realActivities = useProcessStore((s) => s.activities);
+  const vehicles = workshopActive ? WORKSHOP_DEMO.vehicles : realVehicles;
+  const processes = workshopActive ? WORKSHOP_DEMO.processes : realProcesses;
+  const customers = workshopActive ? WORKSHOP_DEMO.customers : realCustomers;
+  const activities = workshopActive ? WORKSHOP_DEMO.activities : realActivities;
+
 
   const pinnedCount = useDashboardStore((s) => s.pinnedKpis.length);
   const resetToDefault = useDashboardStore((s) => s.resetToDefault);

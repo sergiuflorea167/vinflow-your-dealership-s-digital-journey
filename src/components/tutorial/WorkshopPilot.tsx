@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, ArrowRight, X, Check, MousePointerClick } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { findVisibleTourTarget } from "@/lib/tourTarget";
 
 export type Placement = "top" | "bottom" | "left" | "right" | "center";
 
@@ -15,6 +16,9 @@ export interface WorkshopStep {
   task?: string;
   icon: React.ComponentType<{ className?: string }>;
   placement?: Placement;
+  /** Wenn gesetzt: der Workshop navigiert zu dieser Route, statt auf rootRoute zu bleiben —
+   * damit ein Workshop mehrere Seiten hintereinander führen kann (z. B. Bestand → Vorgänge). */
+  route?: string;
 }
 
 interface Props {
@@ -26,6 +30,8 @@ interface Props {
   next: () => void;
   prev: () => void;
   stop: () => void;
+  /** Wird beim letzten Schritt ("Fertig") statt stop() aufgerufen, falls gesetzt — z. B. um zum nächsten Workshop zu verketten. */
+  onFinish?: () => void;
 }
 
 const PAD = 8;
@@ -37,7 +43,7 @@ function rectsEqual(a: DOMRect | null, b: DOMRect | null) {
   return a.top === b.top && a.left === b.left && a.width === b.width && a.height === b.height;
 }
 
-export const WorkshopPilot = ({ active, step, steps, rootRoute, labelPrefix, next, prev, stop }: Props) => {
+export const WorkshopPilot = ({ active, step, steps, rootRoute, labelPrefix, next, prev, stop, onFinish }: Props) => {
   const navigate = useNavigate();
   const [rect, setRectState] = useState<DOMRect | null>(null);
   const [ready, setReady] = useState(false);
@@ -46,6 +52,7 @@ export const WorkshopPilot = ({ active, step, steps, rootRoute, labelPrefix, nex
 
   const current = steps[step];
   const isLast = step === steps.length - 1;
+  const finish = onFinish ?? stop;
 
   const setRect = useCallback((r: DOMRect | null) => {
     if (rectsEqual(rectRef.current, r)) return;
@@ -54,8 +61,9 @@ export const WorkshopPilot = ({ active, step, steps, rootRoute, labelPrefix, nex
   }, []);
 
   useEffect(() => {
-    if (active && window.location.pathname !== rootRoute) navigate(rootRoute);
-  }, [active, navigate, rootRoute]);
+    const targetRoute = current?.route ?? rootRoute;
+    if (active && window.location.pathname !== targetRoute) navigate(targetRoute);
+  }, [active, navigate, rootRoute, current?.route]);
 
   useLayoutEffect(() => {
     if (!active) return;
@@ -69,7 +77,7 @@ export const WorkshopPilot = ({ active, step, steps, rootRoute, labelPrefix, nex
     let attempts = 0;
     const tryFind = () => {
       if (cancelled) return;
-      const el = document.querySelector(current.selector!) as HTMLElement | null;
+      const el = findVisibleTourTarget(current.selector!);
       if (el) {
         el.scrollIntoView({ behavior: "smooth", block: "center" });
         window.setTimeout(() => {
@@ -91,7 +99,7 @@ export const WorkshopPilot = ({ active, step, steps, rootRoute, labelPrefix, nex
   useEffect(() => {
     if (!active || !current?.selector || !ready) return;
     const loop = () => {
-      const el = document.querySelector(current.selector!) as HTMLElement | null;
+      const el = findVisibleTourTarget(current.selector!);
       if (el) setRect(el.getBoundingClientRect());
       rafRef.current = window.requestAnimationFrame(loop);
     };
@@ -117,32 +125,33 @@ export const WorkshopPilot = ({ active, step, steps, rootRoute, labelPrefix, nex
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") stop();
       if (e.key === "ArrowRight" || e.key === "Enter") {
-        if (isLast) stop(); else next();
+        if (isLast) finish(); else next();
       }
       if (e.key === "ArrowLeft") prev();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [active, isLast, next, prev, stop]);
+  }, [active, isLast, next, prev, stop, finish]);
 
   if (!active || !ready) return null;
 
   const vw = window.innerWidth;
   const vh = window.innerHeight;
+  const tipW = Math.min(TIP_W, vw - 24);
   let tipStyle: React.CSSProperties = {};
 
   if (!rect || current.placement === "center") {
-    tipStyle = { top: vh / 2 - 140, left: vw / 2 - TIP_W / 2, width: TIP_W };
+    tipStyle = { top: vh / 2 - 140, left: vw / 2 - tipW / 2, width: tipW };
   } else {
     const placement = current.placement ?? "bottom";
     let top = 0; let left = 0;
-    if (placement === "bottom") { top = rect.bottom + TIP_GAP; left = rect.left + rect.width / 2 - TIP_W / 2; }
-    else if (placement === "top") { top = rect.top - TIP_GAP - 240; left = rect.left + rect.width / 2 - TIP_W / 2; }
+    if (placement === "bottom") { top = rect.bottom + TIP_GAP; left = rect.left + rect.width / 2 - tipW / 2; }
+    else if (placement === "top") { top = rect.top - TIP_GAP - 240; left = rect.left + rect.width / 2 - tipW / 2; }
     else if (placement === "right") { top = rect.top + rect.height / 2 - 120; left = rect.right + TIP_GAP; }
-    else if (placement === "left") { top = rect.top + rect.height / 2 - 120; left = rect.left - TIP_GAP - TIP_W; }
-    left = Math.max(12, Math.min(left, vw - TIP_W - 12));
+    else if (placement === "left") { top = rect.top + rect.height / 2 - 120; left = rect.left - TIP_GAP - tipW; }
+    left = Math.max(12, Math.min(left, vw - tipW - 12));
     top = Math.max(12, Math.min(top, vh - 260));
-    tipStyle = { top, left, width: TIP_W };
+    tipStyle = { top, left, width: tipW };
   }
 
   const Icon = current.icon;
@@ -154,7 +163,7 @@ export const WorkshopPilot = ({ active, step, steps, rootRoute, labelPrefix, nex
   const h = cutout ? rect.height + PAD * 2 : 0;
 
   return createPortal(
-    <div className="fixed inset-0 z-[120] pointer-events-none">
+    <div className="fixed inset-0 z-[155] pointer-events-none">
       {cutout ? (
         <>
           <div className="absolute left-0 right-0 top-0" style={{ height: t, background: overlayBg }} />
@@ -224,7 +233,7 @@ export const WorkshopPilot = ({ active, step, steps, rootRoute, labelPrefix, nex
                 Weiter <ArrowRight className="size-3 ml-1" />
               </Button>
             ) : (
-              <Button size="sm" className="h-7 px-3 text-xs bg-gradient-brand" onClick={stop}>
+              <Button size="sm" className="h-7 px-3 text-xs bg-gradient-brand" onClick={finish}>
                 <Check className="size-3 mr-1" /> Fertig
               </Button>
             )}

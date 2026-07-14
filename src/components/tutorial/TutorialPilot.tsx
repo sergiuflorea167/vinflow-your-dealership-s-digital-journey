@@ -6,128 +6,254 @@ import { Button } from "@/components/ui/button";
 import {
   Sparkles, ArrowLeft, ArrowRight, X, Check, Car, Workflow, Search, Bot, User,
   LayoutDashboard, Database, ListChecks, ShoppingCart, BarChart3, FileSignature, Plus,
+  Handshake, ShieldCheck, Receipt, CreditCard, FileCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { findVisibleTourTarget } from "@/lib/tourTarget";
+import { VincentFace } from "@/components/vincent/VincentFace";
 
 type Placement = "top" | "bottom" | "left" | "right" | "center";
+type IconType = React.ComponentType<{ className?: string }>;
 
 interface Step {
   selector?: string;
   route?: string;
+  chapter: string;
   title: string;
   body: string;
-  icon: React.ComponentType<{ className?: string }>;
+  icon: IconType;
   placement?: Placement;
+  /** Kleine Konzept-Grafik für die erklärenden Zwischenschritte (kein Coach-Mark). */
+  visual?: IconType;
+  /** Erklärschritte brauchen etwas mehr Breite für ihre Grafik. */
+  wide?: boolean;
 }
+
+// ---------------------------------------------------------------------------
+// Kleine Erklär-Grafiken für die Konzept-Folien (kein Fachjargon, nur Bilder).
+// ---------------------------------------------------------------------------
+
+const Badge = ({ icon: Icon, label, highlight }: { icon: IconType; label: string; highlight?: boolean }) => (
+  <div className="flex flex-col items-center gap-1.5">
+    <div
+      className={cn(
+        "size-11 rounded-xl grid place-items-center shrink-0",
+        highlight ? "bg-gradient-brand" : "bg-secondary",
+      )}
+    >
+      <Icon className={cn("size-5", highlight ? "text-primary-foreground" : "text-foreground/80")} />
+    </div>
+    <span className="text-[10px] font-medium text-muted-foreground text-center leading-tight">{label}</span>
+  </div>
+);
+
+const ConceptTrio = () => (
+  <div className="flex items-center justify-center gap-2.5 py-3">
+    <Badge icon={User} label="Kunde" />
+    <Plus className="size-4 text-muted-foreground/60 shrink-0" />
+    <Badge icon={Car} label="Fahrzeug" />
+    <ArrowRight className="size-4 text-muted-foreground/60 shrink-0" />
+    <Badge icon={Workflow} label="Vorgang" highlight />
+  </div>
+);
+
+const CORE_STATIONS: { icon: IconType; label: string }[] = [
+  { icon: ShoppingCart, label: "Einkaufsplanung" },
+  { icon: Car, label: "Bestand" },
+  { icon: Receipt, label: "Rechnung" },
+  { icon: FileSignature, label: "Kaufvertrag" },
+];
+
+const OPTIONAL_STEPS: { icon: IconType; label: string }[] = [
+  { icon: CreditCard, label: "Anzahlung" },
+  { icon: FileCheck, label: "Auftrags-bestätigung" },
+  { icon: ShieldCheck, label: "Kontrolle" },
+  { icon: Handshake, label: "Lieferung" },
+];
+
+const ProcessRoad = () => (
+  <div className="py-2">
+    <div className="flex items-start justify-center gap-1">
+      {CORE_STATIONS.map((p, i) => (
+        <div key={p.label} className="flex items-start">
+          <div className="flex flex-col items-center gap-1.5 w-[64px]">
+            <div className="relative size-9 rounded-lg bg-secondary grid place-items-center shrink-0">
+              <span className="absolute -top-1.5 -left-1.5 size-4 rounded-full bg-primary text-primary-foreground text-[9px] font-bold grid place-items-center">
+                {i + 1}
+              </span>
+              <p.icon className="size-4 text-foreground/80" />
+            </div>
+            <span className="text-[9px] font-medium text-muted-foreground text-center leading-tight">{p.label}</span>
+          </div>
+          {i < CORE_STATIONS.length - 1 && (
+            <ArrowRight className="size-3 text-muted-foreground/40 shrink-0 mt-3" />
+          )}
+        </div>
+      ))}
+    </div>
+    <div className="mt-3 pt-3 border-t border-dashed border-border">
+      <p className="text-[9px] font-semibold uppercase tracking-wider text-muted-foreground/70 text-center mb-1.5">
+        + optional dazwischen wählbar
+      </p>
+      <div className="flex items-start justify-center gap-3">
+        {OPTIONAL_STEPS.map((p) => (
+          <div key={p.label} className="flex flex-col items-center gap-1 w-14">
+            <div className="size-7 rounded-md bg-muted grid place-items-center shrink-0">
+              <p.icon className="size-3.5 text-muted-foreground" />
+            </div>
+            <span className="text-[8px] text-muted-foreground text-center leading-tight">{p.label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>
+);
+
+// ---------------------------------------------------------------------------
+// Tour-Inhalte
+// ---------------------------------------------------------------------------
 
 const STEPS: Step[] = [
   {
-    title: "Willkommen bei VINflow",
-    body: "In 2 Minuten zeige ich dir, wie ein kompletter Vorgang läuft – vom Fahrzeug bis zur Übergabe. Du kannst die Tour jederzeit überspringen oder später erneut starten.",
+    chapter: "Willkommen",
+    title: "Hallo, ich bin VINcent!",
+    body: "Ich bin dein persönlicher Assistent hier bei VINflow – und ich zeige dir jetzt in ein paar Minuten alles, was du wissen musst. Kein Vorwissen nötig, versprochen. Du kannst jederzeit mit Esc oder dem X aussteigen, ich bin danach immer über mein Symbol unten rechts für dich da.",
     icon: Sparkles,
     placement: "center",
   },
   {
+    chapter: "So funktioniert's",
+    title: "Lass mich dir zeigen, wie alles zusammenhängt",
+    body: "Bei mir dreht sich alles um 3 Dinge: Ein Kunde plus ein Fahrzeug ergibt einen „Vorgang“ – so nenne ich hier einen Verkauf. Sobald du beide miteinander verknüpfst, übernehme ich für dich den Überblick.",
+    icon: Workflow,
+    visual: ConceptTrio,
+    wide: true,
+    placement: "center",
+  },
+  {
+    chapter: "So funktioniert's",
+    title: "So begleite ich ein Auto durch VINflow",
+    body: "Jedes Fahrzeug von dir fährt bei mir Station für Station: von der Einkaufsplanung über den Bestand bis zu Rechnung und Kaufvertrag. Dazwischen kannst du optionale Belege wie Anzahlung, Auftragsbestätigung, Ausgangskontrolle oder Lieferung einblenden – ganz einfach über „Konfiguration“.",
+    icon: Workflow,
+    visual: ProcessRoad,
+    wide: true,
+    placement: "center",
+  },
+  {
+    chapter: "Dein Rundgang",
     selector: '[data-tour="nav-dashboard"]',
     route: "/",
-    title: "Dein Dashboard",
-    body: "Startseite mit Live-Übersicht: offene Vorgänge, fällige To-Dos, KPIs und aktuelle Aktivitäten. Hier siehst du auf einen Blick, wo du heute anpacken musst.",
+    title: "Das ist deine Startseite",
+    body: "Hier landest du ab jetzt immer zuerst. Ich zeige dir hier jeden Tag, was zu tun ist, welche Vorgänge laufen und wie dein Geschäft steht – alles auf einen Blick.",
     icon: LayoutDashboard,
     placement: "right",
   },
   {
-    title: "So läuft ein Vorgang ab",
-    body: "Jeder Verkauf durchläuft 8 Schritte: 1) Einkaufsplanung → 2) Bestand → 3) Angebot → 4) Anzahlung → 5) Auftragsbestätigung → 6) Ausgangskontrolle → 7) Rechnung → 8) Übergabe. Schritte schalten sich nacheinander frei.",
-    icon: Workflow,
-    placement: "center",
-  },
-  {
+    chapter: "Dein Rundgang",
     selector: '[data-tour="nav-master"]',
     route: "/stammdaten",
-    title: "1. Stammdaten anlegen",
-    body: "Starte hier: Kunden, Lieferanten und Partner pflegst du einmal zentral. Diese Daten greifen alle Vorgänge automatisch ab – keine Doppeleingaben mehr.",
+    title: "Station 1: Kunden & Partner",
+    body: "Trag hier einmal deine Kunden, Lieferanten und Partner ein. Diese Daten merke ich mir – sie stehen dir danach überall im Programm zur Verfügung, du musst nie wieder etwas doppelt eintippen.",
     icon: Database,
     placement: "right",
   },
   {
+    chapter: "Dein Rundgang",
     selector: '[data-tour="master-create"]',
-    title: "Neuen Kunden / Partner anlegen",
-    body: "Klick auf „Neuer Partner“, wähle den Typ (Kunde, Lieferant, …) und trag Stammdaten ein. Speichern – fertig. Steht sofort in allen Vorgängen zur Verfügung.",
+    title: "So legst du jemanden neu an",
+    body: "Klick auf „Neuer Partner“, wähle den Typ (z. B. Kunde oder Lieferant) und füll die Felder aus. Speichern – fertig. Ab sofort kannst du diese Person in jedem Vorgang auswählen.",
     icon: Plus,
     placement: "left",
   },
   {
+    chapter: "Dein Rundgang",
     selector: '[data-tour="nav-fleet"]',
     route: "/bestand",
-    title: "2. Fahrzeuge im Bestand",
-    body: "Alle Fahrzeuge mit VIN, Fotos, Kosten und Status. Per CSV/Excel-Import bringst du bestehende Bestände in Sekunden rein.",
+    title: "Station 2: Deine Fahrzeuge",
+    body: "Hier liegt dein kompletter Fahrzeugbestand: mit Fotos, Kosten und aktuellem Status. Bestehende Listen bringst du per Excel-Import in Sekunden rein, statt sie neu einzutippen.",
     icon: Car,
     placement: "right",
   },
   {
+    chapter: "Dein Rundgang",
     selector: '[data-tour="fleet-intake"]',
-    title: "Fahrzeug aufnehmen",
-    body: "VIN eingeben – Marke, Modell und Daten werden automatisch erkannt. Fotos hochladen, Einkaufspreis & Kosten ergänzen. Damit ist das Fahrzeug verkaufsbereit.",
+    title: "Ein Fahrzeug neu aufnehmen",
+    body: "Gib nur die Fahrgestellnummer (VIN) ein – Marke, Modell und technische Daten fülle ich automatisch für dich aus. Foto hochladen, Preis eintragen – fertig ist das Fahrzeug für den Verkauf bereit.",
     icon: Plus,
     placement: "bottom",
   },
   {
+    chapter: "Dein Rundgang",
     selector: '[data-tour="nav-processes"]',
     route: "/vorgaenge",
-    title: "3. Vorgänge führen",
-    body: "Hier startest du einen Verkaufsvorgang: Fahrzeug + Kunde verknüpfen, Angebot erstellen. Jeder abgeschlossene Schritt erzeugt automatisch einen PDF-Beleg für den Kunden.",
+    title: "Station 3: Verkaufen",
+    body: "Hier verknüpfst du ein Fahrzeug mit einem Kunden – das startet den Vorgang. Ich führe dich danach durch Angebot, Vertrag und Kontrolle bis zur Rechnung und erstelle dabei jedes Dokument automatisch.",
     icon: FileSignature,
     placement: "right",
   },
   {
+    chapter: "Dein Rundgang",
     selector: '[data-tour="nav-purchasing"]',
     route: "/einkaufsplanung",
-    title: "Einkaufsplanung",
-    body: "Plane künftige Ankäufe: Wunschfahrzeuge, Budget, Quelle. Wird ein Fahrzeug gekauft, wandert es per Klick in den Bestand.",
+    title: "Künftige Einkäufe planen",
+    body: "Noch bevor du ein Auto tatsächlich kaufst, kannst du es hier als Wunsch eintragen – mit Budget und Quelle. Schlägst du zu, wandert es mit einem Klick direkt in deinen Bestand.",
     icon: ShoppingCart,
     placement: "right",
   },
   {
+    chapter: "Dein Rundgang",
     selector: '[data-tour="nav-todos"]',
     route: "/todos",
-    title: "To-Dos & Ausgangskontrolle",
-    body: "Alle Aufgaben aus laufenden Vorgängen (Reinigung, TÜV, Aufbereitung, Zulassung …) gebündelt – nichts fällt mehr durchs Raster.",
+    title: "Ich vergesse nichts für dich",
+    body: "Reinigung, TÜV, Aufbereitung, Zulassung – alle offenen Aufgaben aus deinen laufenden Vorgängen sammle ich automatisch hier. Ein Blick genügt, um zu wissen, was heute liegen bleibt.",
     icon: ListChecks,
     placement: "right",
   },
   {
+    chapter: "Dein Rundgang",
     selector: '[data-tour="nav-kpis"]',
     route: "/kpis",
-    title: "KPIs & Insights",
-    body: "Marge, Durchlaufzeiten, Conversion. Echte Zahlen statt Bauchgefühl – aus deinen eigenen Vorgängen berechnet.",
+    title: "Wie läuft dein Geschäft wirklich?",
+    body: "Marge, Durchlaufzeit, wie viele Anfragen zu Verkäufen werden – das rechne ich automatisch aus deinen echten Vorgängen aus. Kein Excel, kein Kopfrechnen.",
     icon: BarChart3,
     placement: "right",
   },
   {
+    chapter: "Dein Rundgang",
     selector: '[data-tour="topbar-search"]',
-    title: "Finde alles sofort",
-    body: "Die Suche oben funktioniert auf jeder Seite – nach VIN, Kennzeichen, Kunde oder Vorgangsnummer.",
+    title: "Alles sofort finden",
+    body: "Diese Suche funktioniert auf jeder Seite. Tipp einfach eine VIN, ein Kennzeichen, einen Kundennamen oder eine Vorgangsnummer ein – oder frag einfach mich, oft geht das noch schneller.",
     icon: Search,
     placement: "bottom",
   },
   {
+    chapter: "Dein Rundgang",
     selector: '[data-tour="vincent"]',
-    title: "VINcent – dein KI-Assistent",
-    body: "Frag VINcent nach Auswertungen, dem nächsten Schritt in einem Vorgang oder lass dir komplexe Vorgänge in einem Satz zusammenfassen.",
+    title: "Und genau hier findest du mich",
+    body: "Das bin übrigens ich, unten rechts auf jeder Seite. Frag mich jederzeit in normalen Worten, z. B. „Was ist der nächste Schritt bei Vorgang 12?“ oder „Wie viel Marge hatte ich letzten Monat?“. Ich kenne deine Daten und antworte sofort.",
     icon: Bot,
     placement: "left",
   },
   {
+    chapter: "Dein Rundgang",
     selector: '[data-tour="user-menu"]',
-    title: "Profil, Team & Wiederholung",
-    body: "Hier findest du deinen Einladungs-Code für Mitarbeiter, das PDF-Branding – und kannst diese Tour jederzeit über „Einführungs-Tour starten“ erneut abspielen.",
+    title: "Mein letzter Tipp",
+    body: "In deinem Profilmenü oben rechts findest du den Team-Einladungscode, dein Firmenlogo für Belege – und mich: Über „Einführungs-Tour starten“ hole ich dich jederzeit wieder ab.",
     icon: User,
     placement: "bottom",
+  },
+  {
+    chapter: "Bereit",
+    title: "Und los geht's!",
+    body: "Das war's von mir – du kennst jetzt die wichtigsten Wege durch VINflow. Am besten lernst du durchs Machen: Leg links unter „Bestand“ dein erstes Fahrzeug an. Und falls du nicht weiterweißt: Ich bin über den Button unten rechts jederzeit für dich da.",
+    icon: Check,
+    placement: "center",
   },
 ];
 
 const PAD = 8;
 const TIP_W = 340;
+const TIP_W_WIDE = 430;
 const TIP_GAP = 12;
 
 export const TutorialPilot = () => {
@@ -158,7 +284,7 @@ export const TutorialPilot = () => {
       return;
     }
     const tryFind = (attempts = 0) => {
-      const el = document.querySelector(current.selector!) as HTMLElement | null;
+      const el = findVisibleTourTarget(current.selector!);
       if (el) {
         const r = el.getBoundingClientRect();
         setRect(r);
@@ -181,7 +307,7 @@ export const TutorialPilot = () => {
   useEffect(() => {
     if (!active || !current?.selector) return;
     const update = () => {
-      const el = document.querySelector(current.selector!) as HTMLElement | null;
+      const el = findVisibleTourTarget(current.selector!);
       if (el) setRect(el.getBoundingClientRect());
     };
     window.addEventListener("resize", update);
@@ -211,13 +337,15 @@ export const TutorialPilot = () => {
   // Compute tooltip position
   const vw = window.innerWidth;
   const vh = window.innerHeight;
+  const baseW = current.wide ? TIP_W_WIDE : TIP_W;
+  const tipW = Math.min(baseW, vw - 24);
   let tipStyle: React.CSSProperties = {};
 
   if (!rect || current.placement === "center") {
     tipStyle = {
-      top: vh / 2 - 120,
-      left: vw / 2 - TIP_W / 2,
-      width: TIP_W,
+      top: vh / 2 - 140,
+      left: vw / 2 - tipW / 2,
+      width: tipW,
     };
   } else {
     const placement = current.placement ?? "bottom";
@@ -225,43 +353,70 @@ export const TutorialPilot = () => {
     let left = 0;
     if (placement === "bottom") {
       top = rect.bottom + TIP_GAP;
-      left = rect.left + rect.width / 2 - TIP_W / 2;
+      left = rect.left + rect.width / 2 - tipW / 2;
     } else if (placement === "top") {
       top = rect.top - TIP_GAP - 180;
-      left = rect.left + rect.width / 2 - TIP_W / 2;
+      left = rect.left + rect.width / 2 - tipW / 2;
     } else if (placement === "right") {
       top = rect.top + rect.height / 2 - 90;
       left = rect.right + TIP_GAP;
     } else if (placement === "left") {
       top = rect.top + rect.height / 2 - 90;
-      left = rect.left - TIP_GAP - TIP_W;
+      left = rect.left - TIP_GAP - tipW;
     }
     // clamp
-    left = Math.max(12, Math.min(left, vw - TIP_W - 12));
+    left = Math.max(12, Math.min(left, vw - tipW - 12));
     top = Math.max(12, Math.min(top, vh - 200));
-    tipStyle = { top, left, width: TIP_W };
+    tipStyle = { top, left, width: tipW };
   }
 
   const Icon = current.icon;
+  const Visual = current.visual;
+  const overlayBg = "hsl(var(--background) / 0.6)";
+  const cutout = rect && current.placement !== "center";
+  const t = cutout ? Math.max(0, rect.top - PAD) : 0;
+  const l = cutout ? Math.max(0, rect.left - PAD) : 0;
+  const w = cutout ? rect.width + PAD * 2 : 0;
+  const h = cutout ? rect.height + PAD * 2 : 0;
 
   return createPortal(
     <div className="fixed inset-0 z-[100] pointer-events-none">
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-background/70 backdrop-blur-[2px] pointer-events-auto animate-in fade-in duration-200"
-        onClick={skip}
-      />
-
-      {/* Spotlight ring */}
-      {rect && current.placement !== "center" && (
+      {/* Dimmed backdrop — cut out around the highlighted element so it stays fully sharp and visible */}
+      {cutout ? (
+        <>
+          <div
+            className="absolute left-0 right-0 top-0 pointer-events-auto animate-in fade-in duration-200"
+            style={{ height: t, background: overlayBg }}
+            onClick={skip}
+          />
+          <div
+            className="absolute left-0 bottom-0 right-0 pointer-events-auto animate-in fade-in duration-200"
+            style={{ top: t + h, background: overlayBg }}
+            onClick={skip}
+          />
+          <div
+            className="absolute pointer-events-auto animate-in fade-in duration-200"
+            style={{ top: t, left: 0, width: l, height: h, background: overlayBg }}
+            onClick={skip}
+          />
+          <div
+            className="absolute pointer-events-auto animate-in fade-in duration-200"
+            style={{ top: t, left: l + w, right: 0, height: h, background: overlayBg }}
+            onClick={skip}
+          />
+          <div
+            className="absolute rounded-xl ring-2 ring-primary pointer-events-none transition-[top,left,width,height] duration-200 ease-out"
+            style={{
+              top: t, left: l, width: w, height: h,
+              boxShadow: "0 0 0 2px hsl(var(--primary) / 0.35), 0 0 24px 3px hsl(var(--primary) / 0.35)",
+            }}
+          />
+        </>
+      ) : (
         <div
-          className="absolute rounded-xl ring-2 ring-primary shadow-[0_0_0_9999px_hsl(var(--background)/0.55)] transition-all duration-300"
-          style={{
-            top: rect.top - PAD,
-            left: rect.left - PAD,
-            width: rect.width + PAD * 2,
-            height: rect.height + PAD * 2,
-          }}
+          className="absolute inset-0 pointer-events-auto animate-in fade-in duration-200"
+          style={{ background: overlayBg }}
+          onClick={skip}
         />
       )}
 
@@ -271,11 +426,24 @@ export const TutorialPilot = () => {
         style={tipStyle}
       >
         <div className="flex items-start gap-3 p-4 pb-3">
-          <div className="size-9 shrink-0 rounded-lg bg-gradient-brand grid place-items-center">
-            <Icon className="size-4 text-primary-foreground" />
+          <div className="relative shrink-0">
+            <VincentFace className="size-11 drop-shadow-[0_3px_8px_hsl(var(--primary)/0.35)]" />
+            <div className="absolute -bottom-1 -right-1 size-5 rounded-full bg-card border border-border grid place-items-center shadow-sm">
+              <Icon className="size-3 text-primary" />
+            </div>
           </div>
           <div className="flex-1 min-w-0">
-            <h3 className="text-sm font-semibold leading-tight font-heading">{current.title}</h3>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-bold text-foreground">VINcent</span>
+              <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-secondary text-muted-foreground font-semibold leading-none">
+                Assistent
+              </span>
+              <span className="min-w-0 flex-1 truncate text-[9px] font-mono uppercase tracking-wider text-muted-foreground/50">
+                · {current.chapter}
+              </span>
+            </div>
+            <h3 className="text-sm font-semibold leading-tight font-heading mt-1">{current.title}</h3>
+            {Visual && <Visual />}
             <p className="text-xs text-muted-foreground leading-relaxed mt-1">{current.body}</p>
           </div>
           <button
@@ -310,7 +478,7 @@ export const TutorialPilot = () => {
               </Button>
             ) : (
               <Button size="sm" className="h-7 px-3 text-xs bg-gradient-brand" onClick={finish}>
-                <Check className="size-3 mr-1" /> Loslegen
+                <Check className="size-3 mr-1" /> Los geht's!
               </Button>
             )}
           </div>

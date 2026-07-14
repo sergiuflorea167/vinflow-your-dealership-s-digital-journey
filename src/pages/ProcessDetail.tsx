@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useProcessStore } from "@/store/processStore";
 import {
-  PROCESS_STEPS, ProcessStepKey, ProcessFields, PaymentMethod, calculateRemainingPayment, formatCurrency, formatCurrencyPrecise, formatDate,
+  PROCESS_STEPS, ProcessStepKey, ProcessFields, PaymentMethod, Process, calculateRemainingPayment, formatCurrency, formatCurrencyPrecise, formatDate,
   getNextProcessStepKey, getProcessStepsForDisplay, normalizeProcessStepKeys, stepIndexIn,
   nextInvoiceNumber, nextContractNumber, nextDownPaymentInvoiceNumber, nextOrderConfirmationNumber, CUSTOMER_AGREEMENT_STEP_KEYS,
 } from "@/data/process";
@@ -31,38 +31,172 @@ import { cn } from "@/lib/utils";
 import { downloadBelegPdf } from "@/lib/pdf";
 import { CustomerPortalCard } from "@/components/process/CustomerPortalCard";
 import { DocumentManager } from "@/components/shared/DocumentManager";
+import { useWorkshopStore } from "@/store/workshopStore";
+import {
+  WORKSHOP_PROCESS_DEMO_PROCESS_ID, WORKSHOP_PROCESS_DEMO_VEHICLE, WORKSHOP_PROCESS_DEMO_CUSTOMER,
+  WORKSHOP_PROCESS_DEMO_OFFER, buildWorkshopProcessDemo,
+} from "@/data/workshopDemo";
+import { Link2 } from "lucide-react";
 
 type InvoicingFields = NonNullable<ProcessFields["invoicing"]>;
 type DownPaymentFields = NonNullable<ProcessFields["downPayment"]>;
 type OrderConfirmationFields = NonNullable<ProcessFields["orderConfirmation"]>;
 type PurchaseContractFields = NonNullable<ProcessFields["purchaseContract"]>;
 
+// ---------- Workshop-Demo: lokale Schritt-Übergänge (spiegeln processStore.ts, ----------
+// ---------- schreiben aber nie in den echten Store) ----------
+
+function demoBookStep(p: Process, stepKey: ProcessStepKey): Process {
+  const rec = p.steps[stepKey];
+  if (!rec || rec.status !== "active" || rec.bookedAt) return p;
+  return { ...p, updatedAt: new Date().toISOString(), steps: { ...p.steps, [stepKey]: { ...rec, bookedAt: new Date().toISOString() } } };
+}
+
+function demoUnbookStep(p: Process, stepKey: ProcessStepKey): Process {
+  const rec = p.steps[stepKey];
+  if (!rec || !rec.bookedAt) return p;
+  return { ...p, steps: { ...p.steps, [stepKey]: { ...rec, bookedAt: undefined } } };
+}
+
+function demoCompleteStep(p: Process, stepKey: ProcessStepKey): Process {
+  const record = p.steps[stepKey];
+  if (p.currentStep !== stepKey || record?.status !== "active") return p;
+  const activeStepKeys = normalizeProcessStepKeys(p.processStepKeys);
+  const nextStepKey = getNextProcessStepKey(stepKey, activeStepKeys);
+  const completedAt = new Date().toISOString();
+  return {
+    ...p,
+    currentStep: nextStepKey ?? p.currentStep,
+    updatedAt: completedAt,
+    steps: {
+      ...p.steps,
+      [stepKey]: { ...p.steps[stepKey], status: "completed", completedAt, documentArchived: true },
+      ...(nextStepKey ? { [nextStepKey]: { ...p.steps[nextStepKey], status: "active" as const } } : {}),
+    },
+  };
+}
+
+function demoSkipStep(p: Process, stepKey: ProcessStepKey): Process {
+  const definition = PROCESS_STEPS.find((s) => s.key === stepKey);
+  if (p.currentStep !== stepKey || p.steps[stepKey]?.status !== "active" || !definition?.skippable) return p;
+  const activeStepKeys = normalizeProcessStepKeys(p.processStepKeys);
+  const nextStepKey = getNextProcessStepKey(stepKey, activeStepKeys);
+  if (!nextStepKey) return p;
+  return {
+    ...p,
+    currentStep: nextStepKey,
+    updatedAt: new Date().toISOString(),
+    steps: {
+      ...p.steps,
+      [stepKey]: { ...p.steps[stepKey], status: "skipped", completedAt: new Date().toISOString() },
+      [nextStepKey]: { ...p.steps[nextStepKey], status: "active" as const },
+    },
+  };
+}
+
+function demoCancelStep(p: Process, stepKey: ProcessStepKey): Process {
+  const idx = PROCESS_STEPS.findIndex((s) => s.key === stepKey);
+  const record = p.steps[stepKey];
+  if (!record || (record.status !== "completed" && record.status !== "skipped")) return p;
+  const activeStepKeys = normalizeProcessStepKeys(p.processStepKeys);
+  const activeSet = new Set(activeStepKeys);
+  const newSteps = { ...p.steps };
+  PROCESS_STEPS.forEach((s, i) => {
+    if (i < idx) return;
+    if (!activeSet.has(s.key)) { newSteps[s.key] = { ...newSteps[s.key], status: "skipped" }; return; }
+    newSteps[s.key] = i === idx ? { status: "active" } : { status: "pending" };
+  });
+  return { ...p, currentStep: stepKey, updatedAt: new Date().toISOString(), steps: newSteps };
+}
+
 const ProcessDetail = () => {
   const { id } = useParams<{ id: string }>();
-  const process = useProcessStore((s) => s.processes.find((p) => p.id === id));
-  const vehicle = useProcessStore((s) => process && s.getVehicle(process.vehicleId));
-  const customer = useProcessStore((s) => process && s.getCustomer(process.customerId));
-  const offer = useProcessStore((s) => process && s.getOffer(process.acceptedOfferId));
+
+  const workshopActive = useWorkshopStore((s) => s.activeKey === "processes") && id === WORKSHOP_PROCESS_DEMO_PROCESS_ID;
+  const [demoProcess, setDemoProcess] = useState<Process>(buildWorkshopProcessDemo);
+
+  const realProcess = useProcessStore((s) => s.processes.find((p) => p.id === id));
+  const realVehicle = useProcessStore((s) => realProcess && s.getVehicle(realProcess.vehicleId));
+  const realCustomer = useProcessStore((s) => realProcess && s.getCustomer(realProcess.customerId));
+  const realOffer = useProcessStore((s) => realProcess && s.getOffer(realProcess.acceptedOfferId));
+
+  const process = workshopActive ? demoProcess : realProcess;
+  const vehicle = workshopActive ? WORKSHOP_PROCESS_DEMO_VEHICLE : realVehicle;
+  const customer = workshopActive ? WORKSHOP_PROCESS_DEMO_CUSTOMER : realCustomer;
+  const offer = workshopActive ? WORKSHOP_PROCESS_DEMO_OFFER : realOffer;
+
   const allActivities = useProcessStore((s) => s.activities);
-  const activities = useMemo(() => allActivities.filter((a) => a.processId === process?.id), [allActivities, process?.id]);
+  const activities = useMemo(
+    () => (workshopActive ? [] : allActivities.filter((a) => a.processId === process?.id)),
+    [allActivities, process?.id, workshopActive]
+  );
   const companyName = useProcessStore((s) => s.settings.companyName);
   const settings = useProcessStore((s) => s.settings);
   const pdfTheme = useProcessStore((s) => s.settings.pdfTheme);
 
-  const completeStep = useProcessStore((s) => s.completeStep);
-  const skipStep = useProcessStore((s) => s.skipStep);
-  const cancelStep = useProcessStore((s) => s.cancelStep);
-  const bookStep = useProcessStore((s) => s.bookStep);
-  const unbookStep = useProcessStore((s) => s.unbookStep);
-  const updateFields = useProcessStore((s) => s.updateProcessFields);
-  const toggleChk = useProcessStore((s) => s.toggleOutboundChecklistItem);
-  const addChk = useProcessStore((s) => s.addOutboundChecklistItem);
-  const removeChk = useProcessStore((s) => s.removeOutboundChecklistItem);
-  const setChkDue = useProcessStore((s) => s.setOutboundChecklistItemDueDate);
-  const addCT = useProcessStore((s) => s.addProcessCustomerTodo);
-  const removeCT = useProcessStore((s) => s.removeProcessCustomerTodo);
-  const toggleCT = useProcessStore((s) => s.toggleProcessCustomerTodo);
-  const setCTDue = useProcessStore((s) => s.setProcessCustomerTodoDueDate);
+  const bookStepReal = useProcessStore((s) => s.bookStep);
+  const unbookStepReal = useProcessStore((s) => s.unbookStep);
+  const completeStepReal = useProcessStore((s) => s.completeStep);
+  const skipStepReal = useProcessStore((s) => s.skipStep);
+  const cancelStepReal = useProcessStore((s) => s.cancelStep);
+  const updateFieldsReal = useProcessStore((s) => s.updateProcessFields);
+  const toggleChkReal = useProcessStore((s) => s.toggleOutboundChecklistItem);
+  const addChkReal = useProcessStore((s) => s.addOutboundChecklistItem);
+  const removeChkReal = useProcessStore((s) => s.removeOutboundChecklistItem);
+  const setChkDueReal = useProcessStore((s) => s.setOutboundChecklistItemDueDate);
+  const addCTReal = useProcessStore((s) => s.addProcessCustomerTodo);
+  const removeCTReal = useProcessStore((s) => s.removeProcessCustomerTodo);
+  const toggleCTReal = useProcessStore((s) => s.toggleProcessCustomerTodo);
+  const setCTDueReal = useProcessStore((s) => s.setProcessCustomerTodoDueDate);
+
+  // Im Workshop-Modus laufen alle Mutationen ausschließlich auf lokalem State (demoProcess) –
+  // der echte Store wird nicht berührt. Siehe workshopGuard.ts / workshopDemo.ts.
+  const bookStep = (processId: string, stepKey: ProcessStepKey) =>
+    workshopActive ? setDemoProcess((p) => demoBookStep(p, stepKey)) : bookStepReal(processId, stepKey);
+  const unbookStep = (processId: string, stepKey: ProcessStepKey) =>
+    workshopActive ? setDemoProcess((p) => demoUnbookStep(p, stepKey)) : unbookStepReal(processId, stepKey);
+  const completeStep = (processId: string, stepKey: ProcessStepKey) =>
+    workshopActive ? setDemoProcess((p) => demoCompleteStep(p, stepKey)) : completeStepReal(processId, stepKey);
+  const skipStep = (processId: string, stepKey: ProcessStepKey) =>
+    workshopActive ? setDemoProcess((p) => demoSkipStep(p, stepKey)) : skipStepReal(processId, stepKey);
+  const cancelStep = (processId: string, stepKey: ProcessStepKey) =>
+    workshopActive ? setDemoProcess((p) => demoCancelStep(p, stepKey)) : cancelStepReal(processId, stepKey);
+  const updateFields = (processId: string, patch: Partial<ProcessFields>) => {
+    if (workshopActive) { setDemoProcess((p) => ({ ...p, fields: { ...p.fields, ...patch }, updatedAt: new Date().toISOString() })); return; }
+    updateFieldsReal(processId, patch);
+  };
+  const toggleChk = (processId: string, chkId: string) =>
+    workshopActive
+      ? setDemoProcess((p) => ({ ...p, outboundChecklist: p.outboundChecklist.map((c) => (c.id === chkId ? { ...c, done: !c.done } : c)) }))
+      : toggleChkReal(processId, chkId);
+  const addChk = (processId: string, title: string) =>
+    workshopActive
+      ? setDemoProcess((p) => ({ ...p, outboundChecklist: [...p.outboundChecklist, { id: `demo-chk-${Date.now()}`, label: title, done: false }] }))
+      : addChkReal(processId, title);
+  const removeChk = (processId: string, chkId: string) =>
+    workshopActive
+      ? setDemoProcess((p) => ({ ...p, outboundChecklist: p.outboundChecklist.filter((c) => c.id !== chkId) }))
+      : removeChkReal(processId, chkId);
+  const setChkDue = (processId: string, chkId: string, due?: string) =>
+    workshopActive
+      ? setDemoProcess((p) => ({ ...p, outboundChecklist: p.outboundChecklist.map((c) => (c.id === chkId ? { ...c, dueDate: due } : c)) }))
+      : setChkDueReal(processId, chkId, due);
+  const addCT = (processId: string, title: string) =>
+    workshopActive
+      ? setDemoProcess((p) => ({ ...p, customerTodosOC: [...p.customerTodosOC, { id: `demo-ct-${Date.now()}`, title, done: false }] }))
+      : addCTReal(processId, title);
+  const removeCT = (processId: string, ctId: string) =>
+    workshopActive
+      ? setDemoProcess((p) => ({ ...p, customerTodosOC: p.customerTodosOC.filter((c) => c.id !== ctId) }))
+      : removeCTReal(processId, ctId);
+  const toggleCT = (processId: string, ctId: string) =>
+    workshopActive
+      ? setDemoProcess((p) => ({ ...p, customerTodosOC: p.customerTodosOC.map((c) => (c.id === ctId ? { ...c, done: !c.done } : c)) }))
+      : toggleCTReal(processId, ctId);
+  const setCTDue = (processId: string, ctId: string, due?: string) =>
+    workshopActive
+      ? setDemoProcess((p) => ({ ...p, customerTodosOC: p.customerTodosOC.map((c) => (c.id === ctId ? { ...c, dueDate: due } : c)) }))
+      : setCTDueReal(processId, ctId, due);
 
   const [selected, setSelected] = useState<ProcessStepKey | undefined>(process?.currentStep);
 
@@ -231,7 +365,7 @@ const ProcessDetail = () => {
           </div>
         </Card>
 
-        <Card className="p-6 bg-card border-border shadow-card">
+        <Card className="p-6 bg-card border-border shadow-card" data-tour="proc-detail-stepper">
           <ProcessStepper currentStep={process.currentStep} selectedStep={selectedKey} onSelect={setSelected} steps={process.steps} processSteps={processSteps} />
         </Card>
 
@@ -255,17 +389,19 @@ const ProcessDetail = () => {
             <Separator className="my-6 bg-border/60" />
 
             {!isLocked && (
-              <StepFields
-                stepKey={selectedKey}
-                fields={process.fields}
-                purchasePrice={purchasePrice}
-                disabled={!isCurrent || isSkipped || isBooked}
-                onChange={(patch) => updateFields(process.id, patch)}
-              />
+              <div data-tour="proc-detail-fields">
+                <StepFields
+                  stepKey={selectedKey}
+                  fields={process.fields}
+                  purchasePrice={purchasePrice}
+                  disabled={!isCurrent || isSkipped || isBooked}
+                  onChange={(patch) => updateFields(process.id, patch)}
+                />
+              </div>
             )}
 
             {CUSTOMER_AGREEMENT_STEP_KEYS.includes(selectedKey) && (
-              <div className="mt-6 rounded-xl border border-border bg-background/40 p-4">
+              <div className="mt-6 rounded-xl border border-border bg-background/40 p-4" data-tour="proc-detail-agreements">
                 <TodoList
                   title="Kundenvereinbarungen"
                   description="Gemeinsame Zusagen an den Kunden. Status und Fälligkeit werden in Angebot, Auftragsbestätigung, Ausgangskontrolle und Kaufvertrag fortgeführt."
@@ -283,7 +419,7 @@ const ProcessDetail = () => {
 
             {/* Outbound checklist – nur auf Ausgangskontrolle */}
             {selectedKey === "outbound_check" && (
-              <div className="mt-6">
+              <div className="mt-6" data-tour="proc-detail-checklist">
                 <TodoList
                   title="Übergabe-Checkliste (intern)"
                   description={`${checklistDone} / ${checklistTotal} erledigt – alle müssen vor dem Abschluss abgehakt sein. Erscheint auch unter „To-Dos" mit Tag „Ausgangskontrolle".`}
@@ -326,7 +462,7 @@ const ProcessDetail = () => {
             </div>
 
             {/* Actions */}
-            <div className="flex items-center justify-end gap-3 mt-6 flex-wrap">
+            <div className="flex items-center justify-end gap-3 mt-6 flex-wrap" data-tour="proc-detail-actions">
               {isLocked && (<p className="text-xs text-muted-foreground mr-auto">Vorherige Schritte zuerst abschließen.</p>)}
               {(isCompleted || isSkipped) && record.completedAt && (
                 <p className="text-xs text-success mr-auto inline-flex items-center gap-2">
@@ -381,6 +517,7 @@ const ProcessDetail = () => {
                       onClick={handleBook}
                       disabled={!validation.ok}
                       className="bg-success text-success-foreground hover:bg-success/90 shadow-elegant gap-2"
+                      data-tour="proc-detail-book"
                     >
                       <CheckCircle2 className="size-4" /> Buchen
                     </Button>
@@ -389,7 +526,7 @@ const ProcessDetail = () => {
                       <Button variant="outline" onClick={handleUnbook} className="gap-2">
                         <RotateCcw className="size-4" /> Buchung lösen
                       </Button>
-                      <Button onClick={handleComplete} className="bg-gradient-brand hover:opacity-90 shadow-elegant gap-2">
+                      <Button onClick={handleComplete} className="bg-gradient-brand hover:opacity-90 shadow-elegant gap-2" data-tour="proc-detail-complete">
                         Beleg erzeugen & {nextStep ? "weiter" : "abschließen"} <ArrowRight className="size-4" />
                       </Button>
                     </>
@@ -401,7 +538,7 @@ const ProcessDetail = () => {
 
           {/* Right column */}
           <div className="space-y-6">
-            <Card className="p-6 bg-card border-border shadow-card">
+            <Card className="p-6 bg-card border-border shadow-card" data-tour="proc-detail-documents">
               <div className="mb-4 flex items-start gap-3">
                 <div className="grid size-9 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary-glow">
                   <FolderArchive className="size-4" />
@@ -413,28 +550,55 @@ const ProcessDetail = () => {
                   </p>
                 </div>
               </div>
-              <DocumentManager
-                documents={process.fields.documents ?? []}
-                entityType="process"
-                entityId={process.id}
-                onChange={(documents) => updateFields(process.id, { documents })}
-                allowPortalVisibility
-                compact
-              />
+              {workshopActive ? (
+                <div className="rounded-lg border border-dashed border-border bg-background/40 p-4 text-xs text-muted-foreground">
+                  Hier lädst du z. B. Fotos vom Fahrzeugzustand, HU-Berichte oder Finanzierungsunterlagen hoch – pro Dokument per Auge-Symbol einzeln fürs Kundenportal freigeben. Im Workshop wird nichts hochgeladen.
+                </div>
+              ) : (
+                <DocumentManager
+                  documents={process.fields.documents ?? []}
+                  entityType="process"
+                  entityId={process.id}
+                  onChange={(documents) => updateFields(process.id, { documents })}
+                  allowPortalVisibility
+                  compact
+                />
+              )}
             </Card>
 
-            <CustomerPortalCard
-              processId={process.id}
-              customerName={customer.name}
-              customerEmail={customer.email}
-              customerPhone={customer.phone}
-              vehicleLabel={`${vehicle.make} ${vehicle.model}`}
-              companyName={companyName}
-              process={process}
-              vehicle={vehicle}
-              customer={customer}
-              offer={offer}
-            />
+            {workshopActive ? (
+              <Card className="p-6 bg-gradient-to-br from-primary/10 via-card to-card border-primary/20 shadow-card" data-tour="proc-detail-portal">
+                <div className="flex items-start gap-3 mb-3">
+                  <div className="size-9 rounded-lg bg-primary/15 grid place-items-center text-primary-glow shrink-0">
+                    <Link2 className="size-4" />
+                  </div>
+                  <div>
+                    <h3 className="font-display font-semibold text-sm">Kunden-Portal</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Persönlicher Link für {customer.name} – Status, Belege & voraussichtlicher Abholtermin.
+                    </p>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  In einem echten Vorgang erzeugst du hier per Klick einen sicheren Link, den du dem Kunden per E-Mail oder WhatsApp schickst. Er sieht darüber live den Status und kann fehlende Unterlagen selbst hochladen – ohne Login. Im Workshop wird kein Link erzeugt.
+                </p>
+              </Card>
+            ) : (
+              <div data-tour="proc-detail-portal">
+                <CustomerPortalCard
+                  processId={process.id}
+                  customerName={customer.name}
+                  customerEmail={customer.email}
+                  customerPhone={customer.phone}
+                  vehicleLabel={`${vehicle.make} ${vehicle.model}`}
+                  companyName={companyName}
+                  process={process}
+                  vehicle={vehicle}
+                  customer={customer}
+                  offer={offer}
+                />
+              </div>
+            )}
 
             <Card className="p-6 bg-card border-border shadow-card">
               <h3 className="font-display font-semibold text-sm mb-4">Kunde</h3>
@@ -446,7 +610,7 @@ const ProcessDetail = () => {
               </div>
             </Card>
 
-            <Card className="p-6 bg-card border-border shadow-card">
+            <Card className="p-6 bg-card border-border shadow-card" data-tour="proc-detail-archive">
               <h3 className="font-display font-semibold text-sm mb-4">Beleg-Archiv</h3>
               <div className="space-y-2">
                 {processSteps.map((s, i) => {
@@ -480,7 +644,9 @@ const ProcessDetail = () => {
               </div>
             </Card>
 
-            <ActivityLog items={activities} title="Vorgangs-Protokoll" />
+            <div data-tour="proc-detail-activity">
+              <ActivityLog items={activities} title="Vorgangs-Protokoll" />
+            </div>
           </div>
         </div>
       </div>
@@ -910,7 +1076,7 @@ type SelectFieldOption = string | { value: string; label: string };
 const SelectField = ({ label, value, options, onChange, disabled }: { label: string; value: string; options: SelectFieldOption[]; onChange: (v: string) => void; disabled?: boolean }) => (
   <div className="space-y-1.5">
     <Label className="text-xs text-muted-foreground">{label}</Label>
-    <select value={value} onChange={(e) => onChange(e.target.value)} disabled={disabled} className="w-full h-10 rounded-md border border-input bg-background/40 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50">
+    <select value={value} onChange={(e) => onChange(e.target.value)} disabled={disabled} className="w-full h-11 rounded-md border border-input bg-background/40 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50">
       <option value="">— wählen —</option>
       {options.map((option) => {
         const value = typeof option === "string" ? option : option.value;

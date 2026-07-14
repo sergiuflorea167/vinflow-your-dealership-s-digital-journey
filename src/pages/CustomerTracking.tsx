@@ -68,8 +68,8 @@ const CustomerTracking = () => {
 
   if (!unlocked) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/10 grid place-items-center p-6">
-        <div className="w-full max-w-2xl rounded-2xl bg-card border border-border shadow-card p-8 sm:p-12 space-y-8">
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/10 grid place-items-center p-4 sm:p-6">
+        <div className="w-full max-w-2xl rounded-2xl bg-card border border-border shadow-card p-5 sm:p-8 md:p-12 space-y-6 sm:space-y-8">
           <div className="flex items-center gap-4">
             <div className="size-12 rounded-xl bg-primary/15 grid place-items-center text-primary-glow">
               <Lock className="size-6" />
@@ -448,18 +448,19 @@ const HeroStat = ({ icon, label, value, sub }: { icon: React.ReactNode; label: s
 type Segment = {
   key: string;
   label: string;
+  shortLabel: string;
   length: number;
   mode: "alpha" | "digit" | "any";
   hint?: string;
 };
 
 const SEGMENTS: Segment[] = [
-  { key: "vn", label: "Vorname", length: 1, mode: "alpha", hint: "1. Buchstabe" },
-  { key: "nn", label: "Nachname", length: 1, mode: "alpha", hint: "1. Buchstabe" },
-  { key: "p1", label: "PLZ", length: 1, mode: "digit", hint: "1. Ziffer" },
-  { key: "mm", label: "Geburtsmonat", length: 2, mode: "digit", hint: "z. B. 04" },
-  { key: "yy", label: "Geburtsjahr", length: 4, mode: "digit", hint: "z. B. 1985" },
-  { key: "p2", label: "PLZ", length: 1, mode: "any", hint: "letztes Zeichen" },
+  { key: "vn", label: "Vorname", shortLabel: "Vorn.", length: 1, mode: "alpha", hint: "1. Buchstabe" },
+  { key: "nn", label: "Nachname", shortLabel: "Nachn.", length: 1, mode: "alpha", hint: "1. Buchstabe" },
+  { key: "p1", label: "PLZ", shortLabel: "PLZ", length: 1, mode: "digit", hint: "1. Ziffer" },
+  { key: "mm", label: "Geburtsmonat", shortLabel: "Monat", length: 2, mode: "digit", hint: "z. B. 04" },
+  { key: "yy", label: "Geburtsjahr", shortLabel: "Jahr", length: 4, mode: "digit", hint: "z. B. 1985" },
+  { key: "p2", label: "PLZ", shortLabel: "PLZ", length: 1, mode: "any", hint: "letztes Zeichen" },
 ];
 
 const sanitizeSegment = (raw: string, mode: Segment["mode"]) => {
@@ -541,15 +542,16 @@ const SegmentedCodeInput = ({
       }}
       className="space-y-5"
     >
-      <div className="flex w-full items-stretch justify-between gap-0 flex-nowrap">
+      <div className="flex w-full items-stretch justify-between gap-1 sm:gap-0 flex-nowrap">
         {SEGMENTS.map((seg, i) => (
           <React.Fragment key={i}>
             <div
-              className="flex flex-col items-center gap-4 min-w-0 px-4 sm:px-6"
+              className="flex flex-col items-center gap-2 sm:gap-4 min-w-0 px-0.5 sm:px-4 md:px-6"
               style={{ flex: `${seg.length} ${seg.length} 0` }}
             >
-              <span className="h-10 flex items-end text-center text-[11px] uppercase tracking-wider text-muted-foreground font-semibold leading-tight">
-                {seg.label}
+              <span className="h-8 sm:h-10 flex items-end text-center text-[9px] sm:text-[11px] uppercase tracking-wider text-muted-foreground font-semibold leading-tight">
+                <span className="sm:hidden">{seg.shortLabel}</span>
+                <span className="hidden sm:inline">{seg.label}</span>
               </span>
               <input
                 ref={(el) => (refs.current[i] = el)}
@@ -562,15 +564,15 @@ const SegmentedCodeInput = ({
                 maxLength={seg.length}
                 aria-label={seg.label}
                 className={cn(
-                  "h-14 w-full rounded-md border bg-background text-center font-mono font-bold text-lg uppercase px-1",
+                  "h-11 sm:h-14 w-full min-w-0 rounded-md border bg-background text-center font-mono font-bold text-sm sm:text-lg uppercase px-0.5 sm:px-1",
                   "focus:outline-none focus:ring-2 focus:ring-primary/60 focus:border-primary",
                   error ? "border-destructive/60" : "border-border",
                 )}
               />
-              <span className="h-10 text-center text-[11px] text-muted-foreground leading-tight">{seg.hint}</span>
+              <span className="h-8 sm:h-10 text-center text-[8px] sm:text-[11px] text-muted-foreground leading-tight px-0.5">{seg.hint}</span>
             </div>
             {i < SEGMENTS.length - 1 && (
-              <div className="w-px self-stretch bg-border/60" aria-hidden="true" />
+              <div className="hidden sm:block w-px self-stretch bg-border/60" aria-hidden="true" />
             )}
           </React.Fragment>
         ))}

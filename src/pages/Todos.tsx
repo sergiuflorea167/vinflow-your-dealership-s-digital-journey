@@ -32,11 +32,14 @@ import {
 } from "@/data/process";
 import { useTopbarSearch } from "@/context/TopbarSearchContext";
 import { DataTableShell } from "@/components/shared/DataTableShell";
-import { SortableTh, SortState } from "@/components/shared/SortableTh";
+import { SortableTh, SortDir, SortState } from "@/components/shared/SortableTh";
 import {
   calculateTodoProgress, TODO_PROGRESS_PERIODS, todoProgressPeriodLabel,
 } from "@/lib/todoProgress";
 import { DocumentManager } from "@/components/shared/DocumentManager";
+import { useWorkshopStore } from "@/store/workshopStore";
+import { WORKSHOP_DEMO } from "@/data/workshopDemo";
+import { withWorkshopGuard } from "@/lib/workshopGuard";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -76,17 +79,27 @@ const Todos = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const linkedTodoId = searchParams.get("todo");
-  const rawTodos = useProcessStore((s) => s.todos);
-  const vehicles = useProcessStore((s) => s.vehicles);
-  const offers = useProcessStore((s) => s.offers);
-  const processes = useProcessStore((s) => s.processes);
-  const addTodo = useProcessStore((s) => s.addTodo);
-  const toggleTodo = useProcessStore((s) => s.toggleTodo);
-  const removeTodo = useProcessStore((s) => s.removeTodo);
-  const updateTodo = useProcessStore((s) => s.updateTodo);
+  const workshopActive = useWorkshopStore((s) => s.activeKey === "todos");
+  const realRawTodos = useProcessStore((s) => s.todos);
+  const realVehicles = useProcessStore((s) => s.vehicles);
+  const realOffers = useProcessStore((s) => s.offers);
+  const realProcesses = useProcessStore((s) => s.processes);
+  const realAddTodo = useProcessStore((s) => s.addTodo);
+  const realToggleTodo = useProcessStore((s) => s.toggleTodo);
+  const realRemoveTodo = useProcessStore((s) => s.removeTodo);
+  const realUpdateTodo = useProcessStore((s) => s.updateTodo);
   const settings = useProcessStore((s) => s.settings);
   const updateSettings = useProcessStore((s) => s.updateSettings);
   const [section, setSection] = useState<"todos" | "agreements">("todos");
+
+  const rawTodos = workshopActive ? WORKSHOP_DEMO.todos : realRawTodos;
+  const vehicles = workshopActive ? WORKSHOP_DEMO.vehicles : realVehicles;
+  const offers = workshopActive ? WORKSHOP_DEMO.offers : realOffers;
+  const processes = workshopActive ? WORKSHOP_DEMO.processes : realProcesses;
+  const addTodo = withWorkshopGuard(workshopActive, realAddTodo);
+  const toggleTodo = withWorkshopGuard(workshopActive, realToggleTodo);
+  const removeTodo = withWorkshopGuard(workshopActive, realRemoveTodo);
+  const updateTodo = withWorkshopGuard(workshopActive, realUpdateTodo);
 
   const todoGroups = useMemo(() => {
     const operational: Todo[] = [...rawTodos];
@@ -492,6 +505,24 @@ const Todos = () => {
               </Button>
             ))}
           </div>
+          <Select
+            value={`${sort.key}:${sort.dir}`}
+            onValueChange={(v) => {
+              const [key, dir] = v.split(":") as [TodoSortKey, SortDir];
+              setSort({ key, dir });
+            }}
+          >
+            <SelectTrigger className="w-full text-xs sm:hidden">
+              <SelectValue placeholder="Sortieren nach…" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="dueDate:asc">Fällig (bald zuerst)</SelectItem>
+              <SelectItem value="priority:asc">Priorität (hoch zuerst)</SelectItem>
+              <SelectItem value="status:asc">Status</SelectItem>
+              <SelectItem value="title:asc">Titel (A → Z)</SelectItem>
+              <SelectItem value="createdAt:desc">Erstellt (neueste zuerst)</SelectItem>
+            </SelectContent>
+          </Select>
         </Card>
 
         {sorted.length === 0 ? (
@@ -500,6 +531,7 @@ const Todos = () => {
           </Card>
         ) : (
           <div data-tour="tt-table">
+          <div className="hidden sm:block">
           <DataTableShell footer={<>{sorted.length} {sorted.length === 1 ? "Eintrag" : "Einträge"}</>}>
             <table>
               <thead>
@@ -648,6 +680,102 @@ const Todos = () => {
               </tbody>
             </table>
           </DataTableShell>
+          </div>
+
+          <div className="sm:hidden space-y-2">
+            {sorted.map((t) => {
+              const overdue = isOverdue(t);
+              const today = isToday(t);
+              const prio = PRIORITY_META[t.priority];
+              const scope = SCOPE_META[t.scope];
+              const veh = t.vehicleId ? vehicleMap[t.vehicleId] : undefined;
+              const proc = t.processId && processMap[t.processId] ? processMap[t.processId] : undefined;
+              return (
+                <Card
+                  key={t.id}
+                  className={cn(
+                    "p-3",
+                    t.done && "opacity-60",
+                    !t.done && overdue && "border-destructive/30 bg-destructive/5",
+                    !t.done && today && "border-warning/30 bg-warning/5",
+                  )}
+                >
+                  <div className="flex items-start gap-2.5">
+                    <Checkbox
+                      checked={t.done}
+                      onCheckedChange={() => toggleTodo(t.id)}
+                      aria-label={t.done ? "Als offen markieren" : "Als erledigt markieren"}
+                      className="mt-1 shrink-0"
+                    />
+                    <button type="button" onClick={() => setEditTodo(t)} className="flex-1 min-w-0 text-left">
+                      <p className={cn(
+                        "font-medium text-foreground leading-tight text-sm",
+                        t.done && "line-through text-muted-foreground",
+                      )}>
+                        {t.title}
+                      </p>
+                      {t.tags && t.tags.length > 0 && (
+                        <p className="text-[10px] text-muted-foreground truncate leading-tight mt-0.5">
+                          {t.tags.map((x) => `#${x}`).join(" ")}
+                        </p>
+                      )}
+                      {!!t.documents?.length && (
+                        <span className="mt-0.5 inline-flex items-center gap-1 text-[10px] text-primary-glow">
+                          <Paperclip className="size-3" /> {t.documents.length} {t.documents.length === 1 ? "Dokument" : "Dokumente"}
+                        </span>
+                      )}
+                    </button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="size-9 shrink-0 text-muted-foreground hover:text-destructive"
+                      onClick={() => { removeTodo(t.id); toast.success("To-Do gelöscht."); }}
+                      aria-label="Löschen"
+                    >
+                      <Trash2 className="size-4" />
+                    </Button>
+                  </div>
+
+                  <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+                    <Badge variant="outline" className={cn(scope.className, "text-[10px] px-1.5 py-0")}>{scope.label}</Badge>
+                    <Badge variant="outline" className={cn(prio.className, "text-[10px] px-1.5 py-0 gap-1")}>
+                      <span className={cn("size-1.5 rounded-full", prio.dot)} /> {prio.label}
+                    </Badge>
+                    {t.done ? (
+                      <Badge className="bg-success/15 text-success border-success/30 text-[10px] px-1.5 py-0">Erledigt</Badge>
+                    ) : overdue ? (
+                      <Badge className="bg-destructive/15 text-destructive border-destructive/30 text-[10px] px-1.5 py-0">Überfällig</Badge>
+                    ) : today ? (
+                      <Badge className="bg-warning/15 text-warning border-warning/30 text-[10px] px-1.5 py-0">Heute</Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0">Offen</Badge>
+                    )}
+                  </div>
+
+                  <div className="mt-2.5 flex items-center justify-between gap-2 text-xs border-t border-border/50 pt-2.5">
+                    <span className={cn(
+                      "inline-flex items-center gap-1",
+                      overdue ? "text-destructive font-medium" : today ? "text-warning font-medium" : "text-muted-foreground",
+                    )}>
+                      {t.dueDate ? <><Calendar className="size-3" /> {formatDate(t.dueDate)}</> : "Kein Datum"}
+                    </span>
+                    {proc ? (
+                      <button type="button" onClick={() => navigate(`/vorgaenge/${proc.id}`)} className="font-mono text-primary-glow hover:underline">
+                        {proc.id}
+                      </button>
+                    ) : veh ? (
+                      <button type="button" onClick={() => navigate(`/bestand/${veh.id}`)} className="inline-flex items-center gap-1 text-primary-glow hover:underline truncate max-w-[160px]">
+                        <Car className="size-3 shrink-0" />
+                        <span className="truncate">{veh.make} {veh.model}</span>
+                      </button>
+                    ) : t.assignee ? (
+                      <span className="text-muted-foreground truncate">{t.assignee}</span>
+                    ) : null}
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
           </div>
         )}
       </div>

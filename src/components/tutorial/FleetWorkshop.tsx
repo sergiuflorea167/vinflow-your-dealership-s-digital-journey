@@ -1,10 +1,9 @@
-import { useFleetWorkshopStore } from "@/store/fleetWorkshopStore";
-import { WorkshopPilot, WorkshopStep } from "./WorkshopPilot";
+import { WorkshopStep } from "./WorkshopPilot";
 import {
   GraduationCap, Car, BarChart3, Filter, Table2, Megaphone, Plus, FileSpreadsheet, Sparkles,
 } from "lucide-react";
 
-const STEPS: WorkshopStep[] = [
+export const FLEET_WORKSHOP_STEPS: WorkshopStep[] = [
   {
     title: "Bestand-Workshop",
     body: "Der Bestand ist deine Schaltzentrale für alle Fahrzeuge – VIN-genau, mit Standort, Kosten und Marge. Wir gehen ihn jetzt Schritt für Schritt durch. Du darfst selbst klicken.",
@@ -58,19 +57,3 @@ const STEPS: WorkshopStep[] = [
     icon: Sparkles, placement: "center",
   },
 ];
-
-export const FleetWorkshop = () => {
-  const { active, step, next, prev, stop } = useFleetWorkshopStore();
-  return (
-    <WorkshopPilot
-      active={active}
-      step={step}
-      steps={STEPS}
-      rootRoute="/bestand"
-      labelPrefix="Bestand-Workshop"
-      next={next}
-      prev={prev}
-      stop={stop}
-    />
-  );
-};

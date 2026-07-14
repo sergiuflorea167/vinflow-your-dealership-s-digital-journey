@@ -1,10 +1,9 @@
-import { usePurchaseWorkshopStore } from "@/store/purchaseWorkshopStore";
-import { WorkshopPilot, WorkshopStep } from "./WorkshopPilot";
+import { WorkshopStep } from "./WorkshopPilot";
 import {
   GraduationCap, ShoppingCart, BarChart3, Filter, Table2, Plus, Trophy, Package, Sparkles,
 } from "lucide-react";
 
-const STEPS: WorkshopStep[] = [
+export const PURCHASE_WORKSHOP_STEPS: WorkshopStep[] = [
   {
     title: "Einkaufsplanung-Workshop",
     body: "Die Einkaufsplanung ist dein Trichter für potenzielle Fahrzeuge – noch bevor sie im Bestand landen. Auktionen, Privatangebote, Händler-Tipps: alles wird hier mit Eckdaten und Notizen festgehalten. Wir gehen das jetzt gemeinsam durch.",
@@ -55,19 +54,3 @@ const STEPS: WorkshopStep[] = [
     icon: Sparkles, placement: "center",
   },
 ];
-
-export const PurchaseWorkshop = () => {
-  const { active, step, next, prev, stop } = usePurchaseWorkshopStore();
-  return (
-    <WorkshopPilot
-      active={active}
-      step={step}
-      steps={STEPS}
-      rootRoute="/einkaufsplanung"
-      labelPrefix="Einkauf-Workshop"
-      next={next}
-      prev={prev}
-      stop={stop}
-    />
-  );
-};

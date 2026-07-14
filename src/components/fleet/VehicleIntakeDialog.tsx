@@ -192,7 +192,7 @@ export const VehicleIntakeDialog = ({ open, onOpenChange, locations, preset, tit
           </div>
 
           <FormField label="Fahrzeugtyp" full>
-            <select value={type} onChange={(e) => setType(e.target.value as VehicleType)} className="w-full h-10 rounded-md border border-input bg-background/40 px-3 text-sm">
+            <select value={type} onChange={(e) => setType(e.target.value as VehicleType)} className="w-full h-11 rounded-md border border-input bg-background/40 px-3 text-sm">
               {Object.entries(VEHICLE_TYPE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </select>
           </FormField>
@@ -200,12 +200,12 @@ export const VehicleIntakeDialog = ({ open, onOpenChange, locations, preset, tit
           <FormField label="Farbe"><Input value={color} onChange={(e) => setColor(e.target.value)} placeholder="z. B. Mineralweiß" /></FormField>
           <FormField label="Kilometer"><Input type="number" value={mileage || ""} onChange={(e) => setMileage(Number(e.target.value))} /></FormField>
           <FormField label="Kraftstoff">
-            <select value={fuel} onChange={(e) => setFuel(e.target.value as FuelType)} className="w-full h-10 rounded-md border border-input bg-background/40 px-3 text-sm">
+            <select value={fuel} onChange={(e) => setFuel(e.target.value as FuelType)} className="w-full h-11 rounded-md border border-input bg-background/40 px-3 text-sm">
               {(["Benzin","Diesel","Hybrid","Elektro","Plug-in-Hybrid","Gas"] as FuelType[]).map((f) => <option key={f} value={f}>{f}</option>)}
             </select>
           </FormField>
           <FormField label="Getriebe">
-            <select value={transmission} onChange={(e) => setTransmission(e.target.value as Transmission)} className="w-full h-10 rounded-md border border-input bg-background/40 px-3 text-sm">
+            <select value={transmission} onChange={(e) => setTransmission(e.target.value as Transmission)} className="w-full h-11 rounded-md border border-input bg-background/40 px-3 text-sm">
               {(["Schaltgetriebe","Automatik","DKG","CVT"] as Transmission[]).map((f) => <option key={f} value={f}>{f}</option>)}
             </select>
           </FormField>
@@ -221,7 +221,7 @@ export const VehicleIntakeDialog = ({ open, onOpenChange, locations, preset, tit
             <select
               value={vatReportable ? "regular" : "margin"}
               onChange={(e) => setVatReportable(e.target.value === "regular")}
-              className="w-full h-10 rounded-md border border-input bg-background/40 px-3 text-sm"
+              className="w-full h-11 rounded-md border border-input bg-background/40 px-3 text-sm"
             >
               <option value="margin">Differenzbesteuerung (§ 25a UStG) — Gebrauchtfahrzeug</option>
               <option value="regular">Regelbesteuerung (19% MwSt. ausweisbar)</option>

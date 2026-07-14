@@ -168,6 +168,8 @@ const Customers = () => {
         {filtered.length === 0 ? (
           <Card className="p-12 text-center text-muted-foreground flex-1">Keine Kunden gefunden.</Card>
         ) : (
+          <>
+          <div className="hidden sm:block">
           <DataTableShell footer={<>{filtered.length} Kunden</>}>
             <table>
               <thead>
@@ -229,6 +231,50 @@ const Customers = () => {
               </tbody>
             </table>
           </DataTableShell>
+          </div>
+
+          <div className="sm:hidden space-y-2">
+            {filtered.map(({ customer, offerCount, processCount, value }) => (
+              <Card
+                key={customer.id}
+                onClick={() => setSelectedId(customer.id)}
+                className="p-3 cursor-pointer active:bg-surface-elevated/40 transition-smooth"
+              >
+                <div className="flex items-center gap-2">
+                  <div className="size-8 rounded-md bg-gradient-brand grid place-items-center text-primary-foreground font-display font-bold text-[11px] shrink-0">
+                    {customer.name.split(" ").map((n) => n[0]).slice(0, 2).join("")}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-foreground truncate leading-tight">{customer.name}</p>
+                    <p className="text-[11px] text-muted-foreground truncate leading-tight">{`${customer.zip ?? ""} ${customer.city}`.trim()}</p>
+                  </div>
+                </div>
+                <div className="mt-2.5 grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
+                  <div>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider">E-Mail</p>
+                    <p className="text-foreground truncate">{customer.email || "–"}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Telefon</p>
+                    <p className="text-foreground truncate">{customer.phone || "–"}</p>
+                  </div>
+                </div>
+                <div className="mt-2.5 flex items-center justify-between border-t border-border/50 pt-2.5">
+                  <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
+                    <span>{offerCount > 0 ? `${offerCount} Angebot${offerCount === 1 ? "" : "e"}` : "Keine Angebote"}</span>
+                    <span>{processCount > 0 ? `${processCount} Vorgang/-gänge` : "Keine Vorgänge"}</span>
+                  </div>
+                  <span className={cn(
+                    "font-semibold text-sm",
+                    value > 0 ? "text-foreground" : "text-muted-foreground",
+                  )}>
+                    {value > 0 ? formatCurrency(value) : "–"}
+                  </span>
+                </div>
+              </Card>
+            ))}
+          </div>
+          </>
         )}
       </div>
 

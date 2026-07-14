@@ -1,11 +1,10 @@
-import { useKpiWorkshopStore } from "@/store/kpiWorkshopStore";
-import { WorkshopPilot, WorkshopStep } from "./WorkshopPilot";
+import { WorkshopStep } from "./WorkshopPilot";
 import {
   GraduationCap, BarChart3, CalendarRange, Target, Layers,
   Pin, Sparkles, RotateCcw, Workflow,
 } from "lucide-react";
 
-const STEPS: WorkshopStep[] = [
+export const KPI_WORKSHOP_STEPS: WorkshopStep[] = [
   {
     title: "KPI-Workshop",
     body:
@@ -85,19 +84,3 @@ const STEPS: WorkshopStep[] = [
     icon: RotateCcw, placement: "center",
   },
 ];
-
-export const KpiWorkshop = () => {
-  const { active, step, next, prev, stop } = useKpiWorkshopStore();
-  return (
-    <WorkshopPilot
-      active={active}
-      step={step}
-      steps={STEPS}
-      rootRoute="/kpis"
-      labelPrefix="KPI-Workshop"
-      next={next}
-      prev={prev}
-      stop={stop}
-    />
-  );
-};

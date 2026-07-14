@@ -23,6 +23,10 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { CustomerQuickSelect } from "@/components/shared/CustomerQuickSelect";
+import { useWorkshopStore } from "@/store/workshopStore";
+import {
+  WORKSHOP_PROCESS_DEMO_VEHICLE_ID, WORKSHOP_PROCESS_DEMO_VEHICLE, WORKSHOP_PROCESS_DEMO_PROCESS_ID,
+} from "@/data/workshopDemo";
 
 // ---- Helpers / Constants ------------------------------------------------
 
@@ -635,7 +639,10 @@ const VehicleDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
-  const vehicle = useProcessStore((s) => s.vehicles.find((v) => v.id === id));
+  const workshopActive = useWorkshopStore((s) => s.activeKey === "processes") && id === WORKSHOP_PROCESS_DEMO_VEHICLE_ID;
+
+  const realVehicle = useProcessStore((s) => s.vehicles.find((v) => v.id === id));
+  const vehicle = workshopActive ? WORKSHOP_PROCESS_DEMO_VEHICLE : realVehicle;
   const allOffers = useProcessStore((s) => s.offers);
   const offers = useMemo(() => allOffers.filter((o) => o.vehicleId === (id ?? "")), [allOffers, id]);
   const customers = useProcessStore((s) => s.customers);
@@ -681,6 +688,7 @@ const VehicleDetail = () => {
 
   // ---- Save helper for inline-edit sections -----------------------------
   const handleSaveSection = (patch: Partial<Vehicle>) => {
+    if (workshopActive) { toast.info("Workshop-Modus: Hier wird nichts gespeichert."); return; }
     updateVehicle(vehicle.id, patch);
     toast.success("Fahrzeugdaten aktualisiert.");
   };
@@ -741,11 +749,11 @@ const VehicleDetail = () => {
                     <Euro className="size-3.5" /> Fahrzeugwert
                   </Button>
                   {!process && (
-                    <div className="flex gap-2 justify-end">
-                      <Button onClick={() => setOfferDialog(true)} variant="outline" size="sm" className="gap-1.5">
+                    <div className="flex gap-2 justify-end" data-tour="veh-detail-cta">
+                      <Button onClick={() => setOfferDialog(true)} variant="outline" size="sm" className="gap-1.5" data-tour="veh-detail-offer">
                         <Plus className="size-3.5" /> Angebot
                       </Button>
-                      <Button onClick={() => setDirectDialog(true)} size="sm" className="bg-gradient-brand gap-1.5">
+                      <Button onClick={() => setDirectDialog(true)} size="sm" className="bg-gradient-brand gap-1.5" data-tour="veh-detail-direct-sale">
                         <Zap className="size-3.5" /> Direkt verkaufen
                       </Button>
                     </div>
@@ -1159,6 +1167,12 @@ const VehicleDetail = () => {
             defaultPrice={vehicle.listPrice}
             customers={customers}
             onSubmit={(data) => {
+              if (workshopActive) {
+                setOfferDialog(false);
+                toast.success("Angebot erstellt (Workshop-Demo) – sobald der Kunde annimmt, startet automatisch ein Vorgang.");
+                navigate(`/vorgaenge/${WORKSHOP_PROCESS_DEMO_PROCESS_ID}`);
+                return;
+              }
               const created = addOffer({ ...data, vehicleId: vehicle.id, status: "draft" });
               toast.success("Angebot angelegt – jetzt Felder ausfüllen & senden.");
               setOfferDialog(false);
@@ -1176,6 +1190,12 @@ const VehicleDetail = () => {
             defaultPrice={vehicle.listPrice}
             customers={customers}
             onSubmit={(data) => {
+              if (workshopActive) {
+                setDirectDialog(false);
+                toast.success("Vorgang gestartet (Workshop-Demo) · Angebot übersprungen – weiter geht's bei „Anzahlung\".");
+                navigate(`/vorgaenge/${WORKSHOP_PROCESS_DEMO_PROCESS_ID}`);
+                return;
+              }
               const proc = startProcessForVehicle({ vehicleId: vehicle.id, ...data });
               if (proc) {
                 toast.success(`Vorgang ${proc.id} gestartet · Angebot übersprungen.`);
@@ -1285,7 +1305,7 @@ const Selectbox = <T extends string>({
   <select
     value={value ?? ""}
     onChange={(e) => onChange((e.target.value || undefined) as T | undefined)}
-    className="w-full h-10 rounded-md border border-input bg-background/40 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+    className="w-full h-11 rounded-md border border-input bg-background/40 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
   >
     <option value="">— bitte wählen —</option>
     {options.map((o) => <option key={o} value={o}>{o}</option>)}
@@ -1318,7 +1338,7 @@ const IdentificationEditor = ({ vehicle, onSave, onCancel }: { vehicle: Vehicle;
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       <Field label="Fahrzeugtyp">
-        <select value={type} onChange={(e) => setType(e.target.value as VehicleType)} className="w-full h-10 rounded-md border border-input bg-background/40 px-3 text-sm">
+        <select value={type} onChange={(e) => setType(e.target.value as VehicleType)} className="w-full h-11 rounded-md border border-input bg-background/40 px-3 text-sm">
           {Object.entries(VEHICLE_TYPE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
         </select>
       </Field>
@@ -1368,12 +1388,12 @@ const TechEditor = ({ vehicle, onSave, onCancel }: { vehicle: Vehicle; onSave: (
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       <Field label="Kraftstoff">
-        <select value={fuel} onChange={(e) => setFuel(e.target.value as FuelType)} className="w-full h-10 rounded-md border border-input bg-background/40 px-3 text-sm">
+        <select value={fuel} onChange={(e) => setFuel(e.target.value as FuelType)} className="w-full h-11 rounded-md border border-input bg-background/40 px-3 text-sm">
           {FUELS.map((f) => <option key={f} value={f}>{f}</option>)}
         </select>
       </Field>
       <Field label="Getriebe">
-        <select value={transmission} onChange={(e) => setTransmission(e.target.value as Transmission)} className="w-full h-10 rounded-md border border-input bg-background/40 px-3 text-sm">
+        <select value={transmission} onChange={(e) => setTransmission(e.target.value as Transmission)} className="w-full h-11 rounded-md border border-input bg-background/40 px-3 text-sm">
           {TRANSMISSIONS.map((f) => <option key={f} value={f}>{f}</option>)}
         </select>
       </Field>
@@ -1598,7 +1618,7 @@ const NewOfferForm = ({
     <>
       <div className="space-y-3 py-2">
         <CustomerQuickSelect value={customerId} onChange={setCustomerId} required />
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="space-y-1.5">
             <Label className="text-xs text-muted-foreground">Angebotspreis (EUR) *</Label>
             <Input type="number" value={price || ""} onChange={(e) => setPrice(Number(e.target.value))} />
@@ -1611,7 +1631,7 @@ const NewOfferForm = ({
       </div>
       <DialogFooter>
         <Button variant="outline" onClick={onCancel}>Abbrechen</Button>
-        <Button disabled={!valid} className="bg-gradient-brand" onClick={() => onSubmit({ customerId, price, validUntil })}>
+        <Button disabled={!valid} className="bg-gradient-brand" onClick={() => onSubmit({ customerId, price, validUntil })} data-tour="veh-detail-offer-submit">
           <ArrowRight className="size-4 mr-1.5" /> Anlegen & ausfüllen
         </Button>
       </DialogFooter>
@@ -1645,7 +1665,7 @@ const DirectSaleForm = ({
       </div>
       <DialogFooter>
         <Button variant="outline" onClick={onCancel}>Abbrechen</Button>
-        <Button disabled={!valid} className="bg-gradient-brand" onClick={() => onSubmit({ customerId, price })}>
+        <Button disabled={!valid} className="bg-gradient-brand" onClick={() => onSubmit({ customerId, price })} data-tour="veh-detail-direct-submit">
           <Zap className="size-4 mr-1.5" /> Vorgang starten
         </Button>
       </DialogFooter>

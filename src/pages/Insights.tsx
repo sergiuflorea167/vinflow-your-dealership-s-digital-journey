@@ -3,11 +3,17 @@ import { Badge } from "@/components/ui/badge";
 import { useProcessStore } from "@/store/processStore";
 import { InsightPlusBuilder } from "@/components/insights/InsightPlusBuilder";
 import { Sparkles } from "lucide-react";
+import { useWorkshopStore } from "@/store/workshopStore";
+import { WORKSHOP_DEMO } from "@/data/workshopDemo";
 
 const Insights = () => {
-  const vehicles = useProcessStore((s) => s.vehicles);
-  const processes = useProcessStore((s) => s.processes);
-  const purchasePlans = useProcessStore((s) => s.purchasePlans);
+  const workshopActive = useWorkshopStore((s) => s.activeKey === "insights");
+  const realVehicles = useProcessStore((s) => s.vehicles);
+  const realProcesses = useProcessStore((s) => s.processes);
+  const realPurchasePlans = useProcessStore((s) => s.purchasePlans);
+  const vehicles = workshopActive ? WORKSHOP_DEMO.vehicles : realVehicles;
+  const processes = workshopActive ? WORKSHOP_DEMO.processes : realProcesses;
+  const purchasePlans = workshopActive ? WORKSHOP_DEMO.purchasePlans : realPurchasePlans;
 
   return (
     <AppShell>

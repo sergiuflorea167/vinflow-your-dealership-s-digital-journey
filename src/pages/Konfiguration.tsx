@@ -331,7 +331,7 @@ const Konfiguration = () => {
   return (
     <AppShell>
       <div className="space-y-4 animate-fade-in">
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-3 shrink-0" data-tour="cfg-header">
           <div className="size-9 rounded-xl bg-gradient-brand grid place-items-center shadow-glow">
             <SettingsIcon className="size-5 text-primary-foreground" />
           </div>
@@ -344,27 +344,27 @@ const Konfiguration = () => {
         </div>
 
         <Tabs defaultValue="process" className="w-full">
-          <TabsList className="grid h-auto w-full grid-cols-4 p-1">
-            <TabsTrigger value="process" className="gap-2 py-2.5">
+          <TabsList className="flex h-auto w-full justify-start overflow-x-auto sm:grid sm:grid-cols-4 p-1" data-tour="cfg-tabs">
+            <TabsTrigger value="process" className="shrink-0 gap-2 py-2.5">
               <Workflow className="size-4" />
               <span>Vorgangskette</span>
             </TabsTrigger>
-            <TabsTrigger value="number-ranges" className="gap-2 py-2.5">
+            <TabsTrigger value="number-ranges" className="shrink-0 gap-2 py-2.5">
               <Hash className="size-4" />
               <span>Nummernkreise</span>
             </TabsTrigger>
-            <TabsTrigger value="todo-focus" className="gap-2 py-2.5">
+            <TabsTrigger value="todo-focus" className="shrink-0 gap-2 py-2.5">
               <Gauge className="size-4" />
               <span>To-Do-Fokus</span>
             </TabsTrigger>
-            <TabsTrigger value="layout" className="gap-2 py-2.5">
+            <TabsTrigger value="layout" className="shrink-0 gap-2 py-2.5">
               <LayoutTemplate className="size-4" />
               <span>Layoutdesigner</span>
             </TabsTrigger>
           </TabsList>
 
           <TabsContent value="process" className="mt-4">
-            <Card className="bg-card border-border overflow-hidden">
+            <Card className="bg-card border-border overflow-hidden" data-tour="cfg-process">
           <div className="p-4 border-b border-border flex items-start justify-between gap-4 flex-wrap">
             <div className="flex items-start gap-3 min-w-0">
               <div className="size-10 rounded-lg bg-primary/15 text-primary-glow grid place-items-center shrink-0">

@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Check, Download, Loader2, Maximize2, MessageSquarePlus, Minimize2, Minus,
-  Mic, MoreHorizontal, PanelLeftClose, PanelLeftOpen, Pencil, Search, Send, ShieldCheck, Sparkles, Trash2, X,
+  Mic, MoreHorizontal, PanelLeftClose, PanelLeftOpen, Pencil, Search, Send, ShieldCheck, Trash2, X,
 } from "lucide-react";
+import { VincentFace } from "./VincentFace";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Button } from "@/components/ui/button";
@@ -35,6 +36,7 @@ import {
 } from "@/lib/vincentPrivacy";
 import { useLang } from "@/lib/i18n";
 import { useProcessStore } from "@/store/processStore";
+import { useVincentUIStore } from "@/store/vincentUIStore";
 
 type WindowMode = "normal" | "maximized" | "minimized";
 type SaveStatus = "idle" | "saving" | "saved" | "error";
@@ -142,6 +144,7 @@ export const VincentWidget = () => {
 
   useEffect(() => { messagesRef.current = messages; }, [messages]);
   useEffect(() => { streamingRef.current = streaming; }, [streaming]);
+  useEffect(() => { useVincentUIStore.setState({ open }); }, [open]);
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, open, mode]);
@@ -233,7 +236,7 @@ export const VincentWidget = () => {
     return () => clearTimeout(timer);
   }, []);
 
-  const close = () => {
+  const close = useCallback(() => {
     abortRef.current?.abort();
     speechRef.current?.stop();
     mediaRecorderRef.current?.stop();
@@ -242,7 +245,7 @@ export const VincentWidget = () => {
     setListening(false);
     setRecordingState("idle");
     setOpen(false);
-  };
+  }, []);
 
   const startNew = () => {
     abortRef.current?.abort();
@@ -637,16 +640,21 @@ export const VincentWidget = () => {
   }, [acknowledged, lang, listening, privacyReady, recordingState, requestPrivacyConfirmation, send, startRecordedVoiceInput, stopRecorder]);
 
   useEffect(() => {
-    const handler = (event: Event) => {
+    const openHandler = (event: Event) => {
       const prompt = (event as CustomEvent<{ prompt?: string }>).detail?.prompt;
       setOpen(true);
       setMode("normal");
       setShowHistory(window.innerWidth >= 768);
       if (prompt) setInput(prompt.slice(0, VINCENT_MAX_INPUT_LENGTH));
     };
-    window.addEventListener("vincent:open", handler as EventListener);
-    return () => window.removeEventListener("vincent:open", handler as EventListener);
-  }, []);
+    const closeHandler = () => close();
+    window.addEventListener("vincent:open", openHandler as EventListener);
+    window.addEventListener("vincent:close", closeHandler);
+    return () => {
+      window.removeEventListener("vincent:open", openHandler as EventListener);
+      window.removeEventListener("vincent:close", closeHandler);
+    };
+  }, [close]);
 
   const acceptNotice = async () => {
     if (!noticeChecked || !user || !profile?.organization_id) return;
@@ -739,7 +747,7 @@ export const VincentWidget = () => {
   if (mode === "minimized") {
     return (
       <div className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] right-3 z-[130] flex items-center gap-2 rounded-xl border bg-card p-2 shadow-elegant sm:bottom-5 sm:right-5">
-        <Button variant="ghost" className="gap-2" onClick={() => setMode("normal")}><Sparkles className="size-4 text-primary" />VINcent</Button>
+        <Button variant="ghost" className="gap-2" onClick={() => setMode("normal")}><VincentFace className="size-5" />VINcent</Button>
         <Button variant="ghost" size="icon" onClick={close} aria-label="Chat schließen"><X className="size-4" /></Button>
       </div>
     );
@@ -767,7 +775,7 @@ export const VincentWidget = () => {
           showHistory ? "translate-x-0" : "-translate-x-full md:hidden",
         )}>
           <div className="flex h-16 items-center gap-2 px-3">
-            <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary-glow text-primary-foreground shadow-sm"><Sparkles className="size-4" /></div>
+            <VincentFace className="size-9 shrink-0" />
             <div className="min-w-0 flex-1"><p className="font-display text-sm font-semibold">VINcent</p><p className="text-[10px] text-muted-foreground">Dein KI-Copilot</p></div>
             <Button variant="ghost" size="icon" className="size-10 sm:size-8" onClick={() => setShowHistory(false)} aria-label="Seitenleiste einklappen"><PanelLeftClose className="size-4" /></Button>
           </div>
@@ -844,7 +852,7 @@ export const VincentWidget = () => {
               {!privacyLoading && !privacyReady && <div className="m-auto rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm"><p className="font-semibold">VINcent ist nicht verfügbar</p><p className="mt-1 text-muted-foreground">Bitte melde dich erneut an.</p></div>}
               {!privacyLoading && privacyReady && messages.length === 0 && (
                 <div className="my-auto py-8">
-                  <div className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-primary-glow text-primary-foreground shadow-lg"><Sparkles className="size-5" /></div>
+                  <VincentFace className="mx-auto size-14" />
                   <h2 className="mt-4 text-center font-display text-xl font-semibold">Wobei kann ich dir helfen?</h2>
                   <p className="mx-auto mt-2 max-w-md text-center text-sm text-muted-foreground">Ich analysiere nur die für deine Frage nötigen, minimierten VINflow-Daten.</p>
                   {!historyReady && <div className="mx-auto mt-5 max-w-lg rounded-xl border border-amber-500/25 bg-amber-500/5 px-4 py-3 text-center text-xs text-muted-foreground"><span className="font-medium text-foreground">Temporärer Chat:</span> Die Ablage ist noch nicht bereit; beim Schließen geht dieser Chat verloren.</div>}

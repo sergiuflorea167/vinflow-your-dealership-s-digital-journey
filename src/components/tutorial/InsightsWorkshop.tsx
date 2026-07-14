@@ -1,11 +1,10 @@
-import { useInsightsWorkshopStore } from "@/store/insightsWorkshopStore";
-import { WorkshopPilot, WorkshopStep } from "./WorkshopPilot";
+import { WorkshopStep } from "./WorkshopPilot";
 import {
   GraduationCap, Sparkles, Zap, Layers, Timer, Euro,
   Filter, BarChart3, Copy, CalendarRange,
 } from "lucide-react";
 
-const STEPS: WorkshopStep[] = [
+export const INSIGHTS_WORKSHOP_STEPS: WorkshopStep[] = [
   {
     title: "Insight+ Workshop",
     body:
@@ -102,19 +101,3 @@ const STEPS: WorkshopStep[] = [
     icon: Sparkles, placement: "center",
   },
 ];
-
-export const InsightsWorkshop = () => {
-  const { active, step, next, prev, stop } = useInsightsWorkshopStore();
-  return (
-    <WorkshopPilot
-      active={active}
-      step={step}
-      steps={STEPS}
-      rootRoute="/insights"
-      labelPrefix="Insight+ Workshop"
-      next={next}
-      prev={prev}
-      stop={stop}
-    />
-  );
-};

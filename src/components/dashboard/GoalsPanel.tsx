@@ -21,6 +21,9 @@ import { Goal, GoalMetric, GoalPeriod, formatCurrency, formatDate, getLastProces
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useT } from "@/lib/i18n";
+import { useWorkshopStore } from "@/store/workshopStore";
+import { WORKSHOP_DEMO } from "@/data/workshopDemo";
+import { withWorkshopGuard } from "@/lib/workshopGuard";
 
 const METRIC_KEY: Record<GoalMetric, string> = {
   revenue: "goals.metric.revenue",
@@ -215,11 +218,18 @@ const personalizedMotivation = (enriched: EnrichedGoal[], firstName: string | un
 
 export const GoalsPanel = () => {
   const t = useT();
-  const goals = useProcessStore((s) => s.goals);
-  const processes = useProcessStore((s) => s.processes);
-  const vehicles = useProcessStore((s) => s.vehicles);
-  const addGoal = useProcessStore((s) => s.addGoal);
-  const removeGoal = useProcessStore((s) => s.removeGoal);
+  // GoalsPanel wird sowohl im Dashboard als auch auf der KPI-Seite gerendert.
+  const workshopActive = useWorkshopStore((s) => s.activeKey === "dashboard" || s.activeKey === "kpis");
+  const realGoals = useProcessStore((s) => s.goals);
+  const realProcesses = useProcessStore((s) => s.processes);
+  const realVehicles = useProcessStore((s) => s.vehicles);
+  const realAddGoal = useProcessStore((s) => s.addGoal);
+  const realRemoveGoal = useProcessStore((s) => s.removeGoal);
+  const goals = workshopActive ? WORKSHOP_DEMO.goals : realGoals;
+  const processes = workshopActive ? WORKSHOP_DEMO.processes : realProcesses;
+  const vehicles = workshopActive ? WORKSHOP_DEMO.vehicles : realVehicles;
+  const addGoal = withWorkshopGuard(workshopActive, realAddGoal);
+  const removeGoal = withWorkshopGuard(workshopActive, realRemoveGoal);
 
   const [collapsed, setCollapsed] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
@@ -388,7 +398,7 @@ export const GoalsPanel = () => {
                   <DialogTitle>{t("goals.dialog.title")}</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4 pt-2">
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     <div>
                       <Label className="text-xs">{t("goals.metric")}</Label>
                       <Select value={metric} onValueChange={(v) => setMetric(v as GoalMetric)}>

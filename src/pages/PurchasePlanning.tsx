@@ -34,6 +34,9 @@ import { cn } from "@/lib/utils";
 import { VehicleIntakeDialog } from "@/components/fleet/VehicleIntakeDialog";
 import { useTopbarSearch } from "@/context/TopbarSearchContext";
 import { DataTableShell } from "@/components/shared/DataTableShell";
+import { useWorkshopStore } from "@/store/workshopStore";
+import { WORKSHOP_DEMO } from "@/data/workshopDemo";
+import { withWorkshopGuard } from "@/lib/workshopGuard";
 
 type PlanSortKey = "created_desc" | "created_asc" | "expected_asc" | "price_asc" | "price_desc" | "supplier";
 
@@ -54,14 +57,23 @@ const SOURCE_ICONS: Record<PurchasePlanSource, LucideIcon> = {
 };
 
 const PurchasePlanning = () => {
-  const plans = useProcessStore((s) => s.purchasePlans);
-  const addPlan = useProcessStore((s) => s.addPurchasePlan);
-  const updateStatus = useProcessStore((s) => s.updatePurchasePlanStatus);
-  const addNote = useProcessStore((s) => s.addPurchasePlanNote);
-  const removeNote = useProcessStore((s) => s.removePurchasePlanNote);
-  const removePlan = useProcessStore((s) => s.removePurchasePlan);
-  const convert = useProcessStore((s) => s.convertPlanToVehicle);
+  const workshopActive = useWorkshopStore((s) => s.activeKey === "purchase");
+  const realPlans = useProcessStore((s) => s.purchasePlans);
+  const realAddPlan = useProcessStore((s) => s.addPurchasePlan);
+  const realUpdateStatus = useProcessStore((s) => s.updatePurchasePlanStatus);
+  const realAddNote = useProcessStore((s) => s.addPurchasePlanNote);
+  const realRemoveNote = useProcessStore((s) => s.removePurchasePlanNote);
+  const realRemovePlan = useProcessStore((s) => s.removePurchasePlan);
+  const realConvert = useProcessStore((s) => s.convertPlanToVehicle);
   const locations = useProcessStore((s) => s.settings.locations);
+
+  const plans = workshopActive ? WORKSHOP_DEMO.purchasePlans : realPlans;
+  const addPlan = withWorkshopGuard(workshopActive, realAddPlan);
+  const updateStatus = withWorkshopGuard(workshopActive, realUpdateStatus);
+  const addNote = withWorkshopGuard(workshopActive, realAddNote);
+  const removeNote = withWorkshopGuard(workshopActive, realRemoveNote);
+  const removePlan = withWorkshopGuard(workshopActive, realRemovePlan);
+  const convert = withWorkshopGuard(workshopActive, realConvert);
 
   const [query, setQuery] = useState("");
   const [searchField, setSearchField] = useState<"all" | "make" | "model" | "supplier">("all");
@@ -181,7 +193,7 @@ const PurchasePlanning = () => {
           </div>
         </Card>
 
-        <div data-tour="pp-table">
+        <div data-tour="pp-table" className="hidden sm:block">
         <DataTableShell footer={<>{filtered.length} Einträge</>}>
           <table>
             <thead>
@@ -288,6 +300,108 @@ const PurchasePlanning = () => {
           </table>
         </DataTableShell>
         </div>
+
+        <div className="sm:hidden space-y-2">
+          {filtered.map((p) => {
+            const meta = STATUS_META[p.status];
+            const SourceIcon = SOURCE_ICONS[p.source];
+            const noteEntries = p.noteEntries ?? [];
+            const lastNote = noteEntries[noteEntries.length - 1];
+            return (
+              <Card
+                key={p.id}
+                onClick={() => setDetailPlanId(p.id)}
+                className="p-3 cursor-pointer active:bg-surface-elevated/40 transition-smooth"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="font-medium text-foreground leading-tight">{p.make} {p.model}</p>
+                    <p className="text-[11px] text-muted-foreground leading-tight">{p.year} · {VEHICLE_TYPE_LABELS[p.type]} · {p.id}</p>
+                  </div>
+                  <Badge className={cn(meta.className, "text-[10px] px-1.5 py-0 shrink-0")}>{meta.label}</Badge>
+                </div>
+
+                <div className="mt-2.5 flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <SourceIcon className="size-3.5 text-muted-foreground shrink-0" />
+                    <div className="min-w-0">
+                      <p className="text-foreground leading-tight">{PURCHASE_PLAN_SOURCE_LABELS[p.source]}</p>
+                      <p className="text-[10px] text-muted-foreground leading-tight truncate">{p.supplier}</p>
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="font-semibold text-foreground">{formatCurrency(p.targetPrice)}</p>
+                    <p className="text-[10px] text-muted-foreground">{p.expectedAt ? formatDate(p.expectedAt) : "–"}</p>
+                  </div>
+                </div>
+
+                {lastNote ? (
+                  <div className="mt-2.5 rounded-md border border-border/60 bg-surface-elevated/30 px-2.5 py-1.5">
+                    <p className="text-xs text-foreground line-clamp-1">{lastNote.text}</p>
+                    <p className="text-[10px] text-muted-foreground leading-tight mt-0.5">
+                      {formatDateTime(lastNote.createdAt)} · {noteEntries.length} Notiz{noteEntries.length !== 1 ? "en" : ""}
+                    </p>
+                  </div>
+                ) : (
+                  <p className="mt-2.5 text-[11px] text-muted-foreground italic">– keine Notiz –</p>
+                )}
+
+                <div className="mt-3 flex items-center gap-1.5 border-t border-border/50 pt-2.5" onClick={(e) => e.stopPropagation()}>
+                  {p.status === "won" && (
+                    <Button size="sm" className="flex-1 h-9 bg-gradient-brand gap-1.5 text-xs" onClick={() => setReceiveDialog({ planId: p.id })}>
+                      <Package className="size-3.5" /> In Bestand
+                    </Button>
+                  )}
+                  {p.status === "tracking" && (
+                    <Button size="sm" variant="outline" className="flex-1 h-9 text-xs gap-1.5" onClick={() => { updateStatus(p.id, "won"); toast.success("Deal abgeschlossen."); }}>
+                      <Trophy className="size-3.5" /> Deal
+                    </Button>
+                  )}
+                  {p.status !== "won" && p.status !== "tracking" && (
+                    <Button size="sm" variant="outline" className="flex-1 h-9 text-xs gap-1.5" onClick={() => setDetailPlanId(p.id)}>
+                      <Eye className="size-3.5" /> Details
+                    </Button>
+                  )}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button size="icon" variant="ghost" className="h-9 w-9 shrink-0" aria-label="Weitere Aktionen">
+                        <MoreHorizontal className="size-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      {p.status !== "tracking" && p.status !== "received" && (
+                        <DropdownMenuItem onClick={() => { updateStatus(p.id, "tracking"); toast.success("Wird wieder verfolgt."); }}>
+                          <Clock className="size-3.5 mr-2" /> Wieder verfolgen
+                        </DropdownMenuItem>
+                      )}
+                      {p.status !== "lost" && p.status !== "received" && (
+                        <DropdownMenuItem onClick={() => { updateStatus(p.id, "lost"); toast.info("Als verloren markiert."); }}>
+                          <XCircle className="size-3.5 mr-2" /> Als verloren markieren
+                        </DropdownMenuItem>
+                      )}
+                      {p.status !== "cancelled" && p.status !== "received" && (
+                        <DropdownMenuItem onClick={() => { updateStatus(p.id, "cancelled"); toast.info("Verworfen."); }}>
+                          <Ban className="size-3.5 mr-2" /> Verwerfen
+                        </DropdownMenuItem>
+                      )}
+                      {p.status !== "received" && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => { removePlan(p.id); toast.success("Eintrag gelöscht."); }}>
+                            <Trash2 className="size-3.5 mr-2" /> Löschen
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </Card>
+            );
+          })}
+          {filtered.length === 0 && (
+            <Card className="p-8 text-center text-sm text-muted-foreground">Keine Einträge gefunden.</Card>
+          )}
+        </div>
       </div>
 
 
@@ -371,12 +485,12 @@ const NewPlanDialog = ({ open, onOpenChange, onSubmit }: {
           <FormField label="Marke *"><Input value={form.make} onChange={(e) => setForm({ ...form, make: e.target.value })} placeholder="z. B. BMW" autoFocus /></FormField>
           <FormField label="Modell *"><Input value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} placeholder="z. B. X3 xDrive30d" /></FormField>
           <FormField label="Quelle">
-            <select value={form.source} onChange={(e) => setForm({ ...form, source: e.target.value as PurchasePlanSource })} className="w-full h-10 rounded-md border border-input bg-background/40 px-3 text-sm">
+            <select value={form.source} onChange={(e) => setForm({ ...form, source: e.target.value as PurchasePlanSource })} className="w-full h-11 rounded-md border border-input bg-background/40 px-3 text-sm">
               {Object.entries(PURCHASE_PLAN_SOURCE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </select>
           </FormField>
           <FormField label="Fahrzeugtyp">
-            <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value as VehicleType })} className="w-full h-10 rounded-md border border-input bg-background/40 px-3 text-sm">
+            <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value as VehicleType })} className="w-full h-11 rounded-md border border-input bg-background/40 px-3 text-sm">
               {Object.entries(VEHICLE_TYPE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
             </select>
           </FormField>

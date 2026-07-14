@@ -22,6 +22,9 @@ import { downloadBelegPdf, downloadOfferPdf } from "@/lib/pdf";
 import { useTopbarSearch } from "@/context/TopbarSearchContext";
 import { DataTableShell } from "@/components/shared/DataTableShell";
 import { toast } from "sonner";
+import { useWorkshopStore } from "@/store/workshopStore";
+import { WORKSHOP_DEMO } from "@/data/workshopDemo";
+import { withWorkshopGuard } from "@/lib/workshopGuard";
 
 type ProcessSortKey = "updated" | "created" | "price" | "id" | "customer";
 type OfferSortKey = "validUntil" | "created" | "price" | "customer" | "id";
@@ -37,12 +40,29 @@ const STATUS_META: Record<OfferStatus, { label: string; className: string }> = {
 
 const ProcessList = () => {
   const navigate = useNavigate();
-  const processes = useProcessStore((s) => s.processes);
-  const offers = useProcessStore((s) => s.offers);
-  const getVehicle = useProcessStore((s) => s.getVehicle);
-  const getCustomer = useProcessStore((s) => s.getCustomer);
-  const updateOfferStatus = useProcessStore((s) => s.updateOfferStatus);
-  const acceptOffer = useProcessStore((s) => s.acceptOffer);
+  const workshopActive = useWorkshopStore((s) => s.activeKey === "processes");
+  const realProcesses = useProcessStore((s) => s.processes);
+  const realOffers = useProcessStore((s) => s.offers);
+  const realGetVehicle = useProcessStore((s) => s.getVehicle);
+  const realGetCustomer = useProcessStore((s) => s.getCustomer);
+  const realUpdateOfferStatus = useProcessStore((s) => s.updateOfferStatus);
+  const realAcceptOffer = useProcessStore((s) => s.acceptOffer);
+
+  const demoVehicleMap = useMemo(() => new Map(WORKSHOP_DEMO.vehicles.map((v) => [v.id, v])), []);
+  const demoCustomerMap = useMemo(() => new Map(WORKSHOP_DEMO.customers.map((c) => [c.id, c])), []);
+
+  const processes = workshopActive ? WORKSHOP_DEMO.processes : realProcesses;
+  const offers = workshopActive ? WORKSHOP_DEMO.offers : realOffers;
+  const getVehicle = useMemo(
+    () => (workshopActive ? (id: string) => demoVehicleMap.get(id) : realGetVehicle),
+    [workshopActive, demoVehicleMap, realGetVehicle],
+  );
+  const getCustomer = useMemo(
+    () => (workshopActive ? (id: string) => demoCustomerMap.get(id) : realGetCustomer),
+    [workshopActive, demoCustomerMap, realGetCustomer],
+  );
+  const updateOfferStatus = withWorkshopGuard(workshopActive, realUpdateOfferStatus);
+  const acceptOffer = withWorkshopGuard(workshopActive, realAcceptOffer);
   const companyName = useProcessStore((s) => s.settings.companyName);
   const pdfTheme = useProcessStore((s) => s.settings.pdfTheme);
   const settings = useProcessStore((s) => s.settings);
@@ -349,7 +369,7 @@ const ProcessList = () => {
   return (
     <AppShell>
       <div className="space-y-3 animate-fade-in">
-        <div className="shrink-0">
+        <div className="shrink-0" data-tour="proc-header">
           <h1 className="text-2xl font-display font-bold">Vorgänge</h1>
           <p className="text-xs text-muted-foreground">
             Alle Angebote, aktiven Verkaufsvorgänge und archivierten Belege.
@@ -361,7 +381,7 @@ const ProcessList = () => {
           onValueChange={(v) => setTab(v as "list" | "archived" | "offers" | "documents")}
           className="space-y-3"
         >
-          <TabsList className="w-full shrink-0 justify-start self-start">
+          <TabsList className="w-full shrink-0 justify-start self-start" data-tour="proc-tabs">
             <TabsTrigger value="list">Aktive Vorgänge ({activeEnriched.length})</TabsTrigger>
             <TabsTrigger value="archived">Archivierte Vorgänge ({archivedEnriched.length})</TabsTrigger>
             <TabsTrigger value="offers">Angebote ({offers.length})</TabsTrigger>
@@ -370,7 +390,7 @@ const ProcessList = () => {
 
           {/* -------- Liste Vorgänge -------- */}
           <TabsContent value="list" className="space-y-3 mt-0">
-            <Card className="px-3 py-2 bg-card border-border shrink-0">
+            <Card className="px-3 py-2 bg-card border-border shrink-0" data-tour="proc-filters">
               <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
                 <Select value={sortKey} onValueChange={(v) => setSortKey(v as ProcessSortKey)}>
                   <SelectTrigger className="w-full text-xs bg-background/40 sm:h-8 sm:w-[170px]">
@@ -410,6 +430,7 @@ const ProcessList = () => {
               </div>
             </Card>
 
+            <div className="hidden sm:block" data-tour="proc-table">
             <DataTableShell footer={<>{filtered.length} Vorgänge</>}>
               <table>
                 <thead>
@@ -472,6 +493,44 @@ const ProcessList = () => {
                 </tbody>
               </table>
             </DataTableShell>
+            </div>
+
+            <div className="sm:hidden space-y-2">
+              {filtered.map(({ p, vehicle, customer }) => {
+                const visibleSteps = getProcessStepsForDisplay(p.currentStep, { processStepKeys: p.processStepKeys });
+                const idx = Math.max(0, stepIndexIn(p.currentStep, visibleSteps));
+                const step = visibleSteps[idx];
+                return (
+                  <Card
+                    key={p.id}
+                    onClick={() => navigate(`/vorgaenge/${p.id}`)}
+                    className="p-3 cursor-pointer active:bg-surface-elevated/40 transition-smooth"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-display font-semibold text-foreground">{p.id}</span>
+                      <Badge variant="outline" className="border-primary/30 text-primary-glow text-[10px] px-1.5 py-0 shrink-0">
+                        {idx + 1}. {step.shortLabel}
+                      </Badge>
+                    </div>
+                    <p className="font-medium text-foreground text-sm mt-1.5 leading-tight">{vehicle!.make} {vehicle!.model}</p>
+                    <p className="font-mono text-[10px] text-muted-foreground leading-tight">{vehicle!.vin}</p>
+                    <div className="mt-2.5 flex items-end justify-between">
+                      <div>
+                        <p className="text-xs text-foreground leading-tight">{customer!.name}</p>
+                        <p className="text-[10px] text-muted-foreground leading-tight">{customer!.city}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-semibold text-foreground text-sm">{formatCurrency(p.fields.finalPrice ?? vehicle!.listPrice)}</p>
+                        <p className="text-[10px] text-muted-foreground">{formatDate(p.updatedAt)}</p>
+                      </div>
+                    </div>
+                  </Card>
+                );
+              })}
+              {filtered.length === 0 && (
+                <Card className="p-8 text-center text-sm text-muted-foreground">Keine Vorgänge gefunden.</Card>
+              )}
+            </div>
           </TabsContent>
 
           {/* -------- Archivierte Vorgänge -------- */}
@@ -505,6 +564,7 @@ const ProcessList = () => {
               </div>
             </Card>
 
+            <div className="hidden sm:block">
             <DataTableShell footer={<>{filteredArchived.length} archivierte Vorgänge</>}>
               <table>
                 <thead>
@@ -564,6 +624,40 @@ const ProcessList = () => {
                 </tbody>
               </table>
             </DataTableShell>
+            </div>
+
+            <div className="sm:hidden space-y-2">
+              {filteredArchived.map(({ p, vehicle, customer }) => {
+                const lastStepKey = getLastProcessStepKey(p.processStepKeys);
+                const completedAt = p.steps[lastStepKey]?.completedAt ?? p.updatedAt;
+                return (
+                  <Card
+                    key={p.id}
+                    onClick={() => navigate(`/vorgaenge/${p.id}`)}
+                    className="p-3 cursor-pointer active:bg-surface-elevated/40 transition-smooth"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-display font-semibold text-foreground">{p.id}</span>
+                      <Badge variant="outline" className="border-success/40 text-success text-[10px] px-1.5 py-0 gap-1 shrink-0">
+                        <CheckCircle2 className="size-3" /> {formatDate(completedAt)}
+                      </Badge>
+                    </div>
+                    <p className="font-medium text-foreground text-sm mt-1.5 leading-tight">{vehicle!.make} {vehicle!.model}</p>
+                    <p className="font-mono text-[10px] text-muted-foreground leading-tight">{vehicle!.vin}</p>
+                    <div className="mt-2.5 flex items-end justify-between">
+                      <div>
+                        <p className="text-xs text-foreground leading-tight">{customer!.name}</p>
+                        <p className="text-[10px] text-muted-foreground leading-tight">{customer!.city}</p>
+                      </div>
+                      <p className="font-semibold text-foreground text-sm">{formatCurrency(p.fields.finalPrice ?? vehicle!.listPrice)}</p>
+                    </div>
+                  </Card>
+                );
+              })}
+              {filteredArchived.length === 0 && (
+                <Card className="p-8 text-center text-sm text-muted-foreground">Noch keine archivierten Vorgänge.</Card>
+              )}
+            </div>
           </TabsContent>
 
           {/* -------- Angebote -------- */}
@@ -622,6 +716,7 @@ const ProcessList = () => {
               </div>
             </Card>
 
+            <div className="hidden sm:block">
             <DataTableShell footer={<>{filteredOffers.length} Angebote</>}>
               <table>
                 <thead>
@@ -775,6 +870,117 @@ const ProcessList = () => {
                 </tbody>
               </table>
             </DataTableShell>
+            </div>
+
+            <div className="sm:hidden space-y-2">
+              {filteredOffers.map(({ o, vehicle, customer }) => {
+                const meta = STATUS_META[o.status];
+                const days = Math.ceil((new Date(o.validUntil).getTime() - Date.now()) / 86400000);
+                const isExpired = o.status === "sent" && days < 0;
+                const isSoon = o.status === "sent" && days >= 0 && days <= 3;
+                return (
+                  <Card key={o.id} className="p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <Link to={`/angebote/${o.id}`} className="font-display font-semibold text-foreground hover:text-primary-glow">
+                          {o.id}
+                        </Link>
+                        <p className="text-[10px] text-muted-foreground">erstellt {formatDate(o.createdAt)}</p>
+                      </div>
+                      <Badge className={cn(meta.className, "text-[10px] px-1.5 py-0 shrink-0")}>{meta.label}</Badge>
+                    </div>
+                    <Link to={`/bestand/${vehicle!.id}`} className="block mt-2 hover:text-primary-glow transition-smooth">
+                      <p className="font-medium text-foreground text-sm leading-tight">{vehicle!.make} {vehicle!.model}</p>
+                      <p className="font-mono text-[10px] text-muted-foreground leading-tight">{vehicle!.vin}</p>
+                    </Link>
+                    <div className="mt-2.5 grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
+                      <div>
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Kunde</p>
+                        <p className="text-foreground">{customer!.name}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Preis</p>
+                        <p className="font-semibold text-foreground">{formatCurrency(o.price)}</p>
+                      </div>
+                      <div>
+                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Gültig bis</p>
+                        <p className={cn("text-foreground", isExpired && "text-warning")}>{formatDate(o.validUntil)}</p>
+                        {o.status === "sent" && (
+                          <p className={cn("text-[10px]", (isExpired || isSoon) ? "text-warning" : "text-muted-foreground")}>
+                            {isExpired
+                              ? `vor ${Math.abs(days)} Tag${Math.abs(days) === 1 ? "" : "en"}`
+                              : `noch ${days} Tag${days === 1 ? "" : "e"}`}
+                          </p>
+                        )}
+                      </div>
+                      {o.status === "sent" && customer?.phone && (
+                        <div className="text-right">
+                          <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Nachfass</p>
+                          <a
+                            href={`tel:${customer.phone}`}
+                            className="inline-flex items-center gap-1 text-primary-glow text-xs hover:underline"
+                          >
+                            <Phone className="size-3" /> Anrufen
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                    <div className="mt-3 flex items-center gap-1.5 border-t border-border/50 pt-2.5">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="flex-1 h-9 gap-1.5 text-xs"
+                        onClick={() => downloadOfferPdf({ offer: o, vehicle: vehicle!, customer: customer!, companyName, companyLogoUrl: settings.companyLogoUrl, seller, pdfTheme, pdfLayout: settings.pdfLayout })}
+                      >
+                        <Download className="size-3.5" /> PDF
+                      </Button>
+                      {o.status === "draft" && (
+                        <Button
+                          size="sm"
+                          className="flex-1 h-9 gap-1.5 text-xs bg-info hover:bg-info/90"
+                          onClick={() => { updateOfferStatus(o.id, "sent"); toast.success("Angebot versendet."); }}
+                        >
+                          <Send className="size-3.5" /> Senden
+                        </Button>
+                      )}
+                      {o.status === "sent" && (
+                        <>
+                          <Button
+                            size="icon"
+                            variant="outline"
+                            className="h-9 w-9 shrink-0 text-success border-success/40"
+                            aria-label="Annehmen → Vorgang starten"
+                            onClick={() => {
+                              const proc = acceptOffer(o.id);
+                              if (proc) { toast.success(`Vorgang ${proc.id} gestartet.`); navigate(`/vorgaenge/${proc.id}`); }
+                            }}
+                          >
+                            <CheckCircle2 className="size-4" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="outline"
+                            className="h-9 w-9 shrink-0 text-destructive border-destructive/40"
+                            aria-label="Ablehnen"
+                            onClick={() => { updateOfferStatus(o.id, "rejected"); toast.message("Angebot abgelehnt."); }}
+                          >
+                            <X className="size-4" />
+                          </Button>
+                        </>
+                      )}
+                      <Link to={`/angebote/${o.id}`}>
+                        <Button size="icon" variant="ghost" className="h-9 w-9 shrink-0" aria-label="Öffnen">
+                          <ChevronRight className="size-4" />
+                        </Button>
+                      </Link>
+                    </div>
+                  </Card>
+                );
+              })}
+              {filteredOffers.length === 0 && (
+                <Card className="p-8 text-center text-sm text-muted-foreground">Keine Angebote gefunden.</Card>
+              )}
+            </div>
           </TabsContent>
 
           {/* -------- Belege-Archiv -------- */}
@@ -805,6 +1011,7 @@ const ProcessList = () => {
               </div>
             </Card>
 
+            <div className="hidden sm:block">
             <DataTableShell footer={<>{filteredDocs.length} Belege</>}>
               <table>
                 <thead>
@@ -861,6 +1068,42 @@ const ProcessList = () => {
                 </tbody>
               </table>
             </DataTableShell>
+            </div>
+
+            <div className="sm:hidden space-y-2">
+              {filteredDocs.map((d, idx) => (
+                <Card key={`${d.processId}-${d.step.key}-${idx}`} className="p-3">
+                  <div className="flex items-center gap-2">
+                    <div className="size-8 rounded-md bg-primary/15 grid place-items-center shrink-0">
+                      <FileText className="size-4 text-primary-glow" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-foreground text-sm truncate">{d.step.documentName}</p>
+                      <p className="text-[10px] text-muted-foreground truncate">{d.vehicleLabel} · {d.customerName}</p>
+                    </div>
+                  </div>
+                  <div className="mt-2.5 flex items-center justify-between border-t border-border/50 pt-2.5">
+                    <div>
+                      <Link to={`/vorgaenge/${d.processId}`} className="font-display font-semibold text-foreground text-sm hover:text-primary-glow">
+                        {d.processId}
+                      </Link>
+                      <p className="text-[10px] text-muted-foreground">{formatDate(d.completedAt)}</p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-9 gap-1.5 text-xs"
+                      onClick={() => handleDownload(d.processId, d.step.key)}
+                    >
+                      <Download className="size-3.5" /> PDF
+                    </Button>
+                  </div>
+                </Card>
+              ))}
+              {filteredDocs.length === 0 && (
+                <Card className="p-8 text-center text-sm text-muted-foreground">Keine Belege gefunden.</Card>
+              )}
+            </div>
           </TabsContent>
         </Tabs>
       </div>

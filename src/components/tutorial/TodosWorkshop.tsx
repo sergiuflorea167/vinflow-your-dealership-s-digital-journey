@@ -1,10 +1,9 @@
-import { useTodosWorkshopStore } from "@/store/todosWorkshopStore";
-import { WorkshopPilot, WorkshopStep } from "./WorkshopPilot";
+import { WorkshopStep } from "./WorkshopPilot";
 import {
   GraduationCap, ListTodo, BarChart3, Filter, Table2, Plus, CheckCircle2, Sparkles,
 } from "lucide-react";
 
-const STEPS: WorkshopStep[] = [
+export const TODOS_WORKSHOP_STEPS: WorkshopStep[] = [
   {
     title: "To-Dos-Workshop",
     body: "Die To-Do-Liste bündelt alle eigenständigen Aufgaben – plus automatisch gespiegelte Aufgaben aus Vorgängen (z. B. Auftragsbestätigung & Ausgangskontrolle). Wir schauen sie uns gemeinsam an.",
@@ -55,19 +54,3 @@ const STEPS: WorkshopStep[] = [
     icon: Sparkles, placement: "center",
   },
 ];
-
-export const TodosWorkshop = () => {
-  const { active, step, next, prev, stop } = useTodosWorkshopStore();
-  return (
-    <WorkshopPilot
-      active={active}
-      step={step}
-      steps={STEPS}
-      rootRoute="/todos"
-      labelPrefix="To-Dos-Workshop"
-      next={next}
-      prev={prev}
-      stop={stop}
-    />
-  );
-};

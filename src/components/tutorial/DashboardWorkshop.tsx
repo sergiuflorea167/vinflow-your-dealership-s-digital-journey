@@ -1,11 +1,10 @@
-import { useWorkshopStore } from "@/store/workshopStore";
-import { WorkshopPilot, WorkshopStep } from "./WorkshopPilot";
+import { WorkshopStep } from "./WorkshopPilot";
 import {
   GraduationCap, Target, LayoutDashboard, CalendarDays, CalendarCheck2,
   BarChart3, Workflow, FolderKanban, Sparkles,
 } from "lucide-react";
 
-const STEPS: WorkshopStep[] = [
+export const DASHBOARD_WORKSHOP_STEPS: WorkshopStep[] = [
   {
     title: "Dashboard-Workshop",
     body: "Wir gehen dein Dashboard jetzt aktiv durch. Bei jedem Schritt darfst du selbst etwas anklicken oder ausprobieren – wie im Live-Betrieb. Mit „Weiter“ überspringst du jede Aufgabe.",
@@ -65,19 +64,3 @@ const STEPS: WorkshopStep[] = [
     icon: Sparkles, placement: "center",
   },
 ];
-
-export const DashboardWorkshop = () => {
-  const { active, step, next, prev, stop } = useWorkshopStore();
-  return (
-    <WorkshopPilot
-      active={active}
-      step={step}
-      steps={STEPS}
-      rootRoute="/"
-      labelPrefix="Workshop"
-      next={next}
-      prev={prev}
-      stop={stop}
-    />
-  );
-};

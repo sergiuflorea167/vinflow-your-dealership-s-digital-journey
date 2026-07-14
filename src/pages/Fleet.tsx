@@ -19,11 +19,12 @@ import {
 } from "@/data/process";
 import { Car, Megaphone, Plus, Download, Settings2 } from "lucide-react";
 import { toast } from "sonner";
-import { useFleetWorkshopStore } from "@/store/fleetWorkshopStore";
+import { useWorkshopStore } from "@/store/workshopStore";
 import { FLEET_DEMO_VEHICLES, FLEET_DEMO_OFFERS, FLEET_DEMO_PROCESSES } from "@/data/workshopDemo";
+import { withWorkshopGuard } from "@/lib/workshopGuard";
 import { cn } from "@/lib/utils";
 import { useTopbarSearch } from "@/context/TopbarSearchContext";
-import { SortableTh, SortState } from "@/components/shared/SortableTh";
+import { SortableTh, SortDir, SortState } from "@/components/shared/SortableTh";
 import { DataTableShell } from "@/components/shared/DataTableShell";
 import { Switch } from "@/components/ui/switch";
 import {
@@ -61,16 +62,17 @@ const Fleet = () => {
   const realOffers = useProcessStore((s) => s.offers);
   const realProcesses = useProcessStore((s) => s.processes);
   const locations = useProcessStore((s) => s.settings.locations);
-  const addVehicle = useProcessStore((s) => s.addVehicle);
-  const setVehicleListed = useProcessStore((s) => s.setVehicleListed);
+  const realAddVehicle = useProcessStore((s) => s.addVehicle);
+  const realSetVehicleListed = useProcessStore((s) => s.setVehicleListed);
 
-  const workshopActive = useFleetWorkshopStore((s) => s.active);
-  
+  const workshopActive = useWorkshopStore((s) => s.activeKey === "fleet");
 
-  // Im Workshop: ausschließlich Demo-Daten
+  // Im Workshop: ausschließlich Demo-Daten, keine echten Schreibzugriffe
   const vehicles = workshopActive ? FLEET_DEMO_VEHICLES : realVehicles;
   const offers = workshopActive ? FLEET_DEMO_OFFERS : realOffers;
   const processes = workshopActive ? FLEET_DEMO_PROCESSES : realProcesses;
+  const addVehicle = withWorkshopGuard(workshopActive, realAddVehicle);
+  const setVehicleListed = withWorkshopGuard(workshopActive, realSetVehicleListed);
 
   const [query, setQuery] = useState("");
   const [searchField, setSearchField] = useState<"all" | "vin" | "make" | "model" | "color">("all");
@@ -263,6 +265,25 @@ const Fleet = () => {
               </Button>
             ))}
           </div>
+          <Select
+            value={`${sort.key}:${sort.dir}`}
+            onValueChange={(v) => {
+              const [key, dir] = v.split(":") as [FleetSortKey, SortDir];
+              setSort({ key, dir });
+            }}
+          >
+            <SelectTrigger className="w-full text-xs sm:hidden">
+              <SelectValue placeholder="Sortieren nach…" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="stockDays:asc">Standzeit (länger zuerst)</SelectItem>
+              <SelectItem value="price:desc">Preis (hoch → niedrig)</SelectItem>
+              <SelectItem value="price:asc">Preis (niedrig → hoch)</SelectItem>
+              <SelectItem value="margin:desc">Marge (hoch → niedrig)</SelectItem>
+              <SelectItem value="name:asc">Fahrzeug (A → Z)</SelectItem>
+              <SelectItem value="hu:asc">HU (früheste zuerst)</SelectItem>
+            </SelectContent>
+          </Select>
         </Card>
 
         {filtered.length === 0 ? (
@@ -289,6 +310,8 @@ const Fleet = () => {
             )}
           </Card>
         ) : (
+          <>
+          <div className="hidden sm:block">
           <DataTableShell
             footer={<>¹ Wunschmarge = Listenpreis − (Einkauf + Kosten brutto). Echte Marge erst nach Verkauf. · {filtered.length} Fahrzeuge</>}
           >
@@ -415,6 +438,88 @@ const Fleet = () => {
             </table>
             </div>
           </DataTableShell>
+          </div>
+
+          <div className="sm:hidden space-y-2" data-tour="fleet-table">
+            {filtered.map(({ vehicle, openOffers, desiredMargin, realizedMargin, stockDays }) => {
+              const meta = STATUS_META[vehicle.status];
+              const huDate = vehicle.hu ? new Date(vehicle.hu) : null;
+              const huSoon = huDate ? (huDate.getTime() - Date.now()) / 86400000 < 90 : false;
+              return (
+                <Card
+                  key={vehicle.id}
+                  onClick={() => navigate(`/bestand/${vehicle.id}`)}
+                  className="p-3 cursor-pointer active:bg-surface-elevated/40 transition-smooth"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="size-8 rounded-md bg-gradient-brand grid place-items-center shrink-0">
+                        <Car className="size-4 text-primary-foreground" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-medium text-foreground truncate leading-tight">{vehicle.make} {vehicle.model}</p>
+                        <p className="text-[11px] text-muted-foreground truncate leading-tight">{vehicle.color} · {vehicle.id}</p>
+                      </div>
+                    </div>
+                    <Badge className={cn(meta.className, "text-[10px] px-1.5 py-0 shrink-0")}>{meta.label}</Badge>
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-2 gap-x-3 gap-y-2 text-xs">
+                    <FleetStat label="EZ / km" value={`${vehicle.year} · ${vehicle.mileage.toLocaleString("de-DE")} km`} />
+                    <FleetStat label="PS" value={String(vehicle.power_hp)} align="right" />
+                    <FleetStat
+                      label="HU"
+                      value={vehicle.hu ? formatDate(vehicle.hu) : "–"}
+                      valueClassName={huSoon ? "text-warning font-medium" : undefined}
+                    />
+                    <FleetStat
+                      label="Tage im Bestand"
+                      value={String(stockDays)}
+                      align="right"
+                      valueClassName={stockDays > 90 ? "text-warning" : stockDays > 60 ? "text-foreground" : undefined}
+                    />
+                    <FleetStat label="Verkaufspreis" value={formatCurrency(vehicle.listPrice)} valueClassName="font-semibold" />
+                    <FleetStat
+                      label="Marge¹"
+                      value={realizedMargin !== null ? formatCurrency(realizedMargin) : `~${formatCurrency(desiredMargin)}`}
+                      align="right"
+                      valueClassName={cn(
+                        "font-semibold",
+                        realizedMargin !== null
+                          ? (realizedMargin >= 0 ? "text-success" : "text-destructive")
+                          : "italic font-medium text-muted-foreground",
+                      )}
+                    />
+                  </div>
+
+                  <div className="mt-3 flex items-center justify-between border-t border-border/50 pt-2.5">
+                    <span className="text-[11px] text-muted-foreground">
+                      {openOffers > 0 ? `${openOffers} Angebot${openOffers === 1 ? "" : "e"} offen` : "Keine Angebote"}
+                    </span>
+                    <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                      <span className="text-[11px] text-muted-foreground">Inseriert</span>
+                      <Switch
+                        checked={!!vehicle.listed?.active}
+                        onCheckedChange={(checked) => {
+                          setVehicleListed(vehicle.id, checked);
+                          toast.success(
+                            checked
+                              ? `${vehicle.make} ${vehicle.model} als inseriert markiert.`
+                              : `Inserat zurückgenommen — neues To-Do erstellt.`
+                          );
+                        }}
+                        aria-label="Inseriert"
+                      />
+                    </div>
+                  </div>
+                </Card>
+              );
+            })}
+            <p className="px-1 text-[10px] text-muted-foreground">
+              ¹ Wunschmarge = Listenpreis − (Einkauf + Kosten brutto). Echte Marge erst nach Verkauf. · {filtered.length} Fahrzeuge
+            </p>
+          </div>
+          </>
         )}
       </div>
 
@@ -470,5 +575,14 @@ const Fleet = () => {
     </AppShell>
   );
 };
+
+const FleetStat = ({
+  label, value, align = "left", valueClassName,
+}: { label: string; value: string; align?: "left" | "right"; valueClassName?: string }) => (
+  <div className={align === "right" ? "text-right" : undefined}>
+    <p className="text-[10px] text-muted-foreground uppercase tracking-wider leading-none">{label}</p>
+    <p className={cn("text-foreground mt-1 leading-tight", valueClassName)}>{value}</p>
+  </div>
+);
 
 export default Fleet;

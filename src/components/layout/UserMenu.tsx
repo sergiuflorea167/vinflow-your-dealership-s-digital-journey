@@ -20,6 +20,7 @@ import { WorkshopPickerDialog } from "@/components/tutorial/WorkshopPickerDialog
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useT } from "@/lib/i18n";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export const UserMenu = () => {
   const settings = useProcessStore((s) => s.settings);
@@ -28,6 +29,7 @@ export const UserMenu = () => {
   const navigate = useNavigate();
   const isGF = roles.includes("geschaeftsfuehrer");
   const t = useT();
+  const isMobile = useIsMobile();
 
   const [open, setOpen] = useState(false);
   const avatarFileRef = useRef<HTMLInputElement>(null);
@@ -149,12 +151,16 @@ export const UserMenu = () => {
           <DropdownMenuItem asChild>
             <Link to="/konfiguration"><SlidersHorizontal className="size-4 mr-2" /> Konfiguration</Link>
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => useTutorialStore.getState().reset()}>
-            <Sparkles className="size-4 mr-2" /> Einführungs-Tour starten
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => setWorkshopPickerOpen(true)}>
-            <GraduationCap className="size-4 mr-2" /> Workshop starten
-          </DropdownMenuItem>
+          {!isMobile && (
+            <>
+              <DropdownMenuItem onClick={() => useTutorialStore.getState().reset()}>
+                <Sparkles className="size-4 mr-2" /> Einführungs-Tour starten
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setWorkshopPickerOpen(true)}>
+                <GraduationCap className="size-4 mr-2" /> Workshop starten
+              </DropdownMenuItem>
+            </>
+          )}
           {isGF && (
             <DropdownMenuItem
               onClick={async () => {

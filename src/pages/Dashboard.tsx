@@ -19,6 +19,7 @@ import {
   DEMO_TODOS, DEMO_EVENTS, DEMO_VEHICLE_MAP, DEMO_PIPELINE, DEMO_ACTIVE_COUNT, DEMO_PROCESS_CARDS,
 } from "@/data/workshopDemo";
 import { DemoProcessCard } from "@/components/process/DemoProcessCard";
+import { withWorkshopGuard } from "@/lib/workshopGuard";
 
 const EVENT_DOT: Record<CalendarEventType, string> = {
   appointment: "bg-primary",
@@ -43,8 +44,9 @@ const Dashboard = () => {
   const realTodos = useProcessStore((s) => s.todos);
   const realVehicles = useProcessStore((s) => s.vehicles);
   const realEvents = useProcessStore((s) => s.calendarEvents);
-  const toggleTodo = useProcessStore((s) => s.toggleTodo);
-  const workshopActive = useWorkshopStore((s) => s.active);
+  const realToggleTodo = useProcessStore((s) => s.toggleTodo);
+  const workshopActive = useWorkshopStore((s) => s.activeKey === "dashboard");
+  const toggleTodo = withWorkshopGuard(workshopActive, realToggleTodo);
 
   // Im Workshop: ausschließlich Demo-Daten. Sonst: echte Daten aus dem Store.
   const todayISO = new Date().toISOString().slice(0, 10);

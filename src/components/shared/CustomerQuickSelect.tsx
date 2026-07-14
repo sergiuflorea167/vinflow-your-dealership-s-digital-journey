@@ -39,7 +39,7 @@ export const CustomerQuickSelect = ({ value, onChange, required }: CustomerQuick
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full h-10 rounded-md border border-input bg-background/40 px-3 text-sm"
+        className="w-full h-11 rounded-md border border-input bg-background/40 px-3 text-sm"
       >
         <option value="">— Kunde wählen —</option>
         {customers.map((c) => (

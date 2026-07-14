@@ -1,68 +1,13 @@
 import { useEffect, useState } from "react";
 import { NavLink } from "react-router-dom";
-import {
-  LayoutDashboard, Workflow, Car, ShoppingCart, ListChecks,
-  BarChart3, Settings as SettingsIcon, ChevronLeft, ChevronRight,
-  Database, Sparkles, CalendarDays, BotMessageSquare, MoreHorizontal,
-} from "lucide-react";
-import type { LucideIcon } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
   Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
 } from "@/components/ui/tooltip";
-import {
-  Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger,
-} from "@/components/ui/sheet";
 import { useT } from "@/lib/i18n";
-
-type NavItem = { to: string; labelKey: string; icon: LucideIcon };
-type NavGroup = { labelKey: string; items: NavItem[] };
-
-const overview: NavItem[] = [
-  { to: "/", labelKey: "nav.dashboard", icon: LayoutDashboard },
-];
-
-const groups: NavGroup[] = [
-  {
-    labelKey: "nav.group.daily",
-    items: [
-      { to: "/bestand",         labelKey: "nav.fleet",      icon: Car },
-      { to: "/vorgaenge",       labelKey: "nav.processes",  icon: Workflow },
-      { to: "/einkaufsplanung", labelKey: "nav.purchasing", icon: ShoppingCart },
-      { to: "/todos",           labelKey: "nav.todos",      icon: ListChecks },
-      { to: "/kalender",        labelKey: "nav.calendar",   icon: CalendarDays },
-    ],
-  },
-  {
-    labelKey: "nav.group.analytics",
-    items: [
-      { to: "/kpis",     labelKey: "nav.kpis",     icon: BarChart3 },
-      { to: "/insights", labelKey: "nav.insights", icon: Sparkles },
-    ],
-  },
-  {
-    labelKey: "nav.group.master",
-    items: [
-      { to: "/stammdaten", labelKey: "nav.master", icon: Database },
-    ],
-  },
-];
-
-const settingsItem: NavItem = { to: "/konfiguration", labelKey: "nav.settings", icon: SettingsIcon };
-const mobileItems: NavItem[] = [
-  overview[0],
-  groups[0].items[0],
-  groups[0].items[1],
-  groups[0].items[3],
-];
-const mobileMoreItems: NavItem[] = [
-  groups[0].items[2],
-  groups[0].items[4],
-  ...groups[1].items,
-  ...groups[2].items,
-  settingsItem,
-];
+import { overview, groups, settingsItem, tourMap, type NavItem, type NavGroup } from "./navItems";
 
 const STORAGE_KEY = "vinflow.sidebar.collapsed";
 
@@ -79,18 +24,6 @@ export const Sidebar = () => {
 
   const renderItem = ({ to, labelKey, icon: Icon }: NavItem) => {
     const label = t(labelKey);
-    const tourMap: Record<string, string> = {
-      "/": "nav-dashboard",
-      "/bestand": "nav-fleet",
-      "/vorgaenge": "nav-processes",
-      "/einkaufsplanung": "nav-purchasing",
-      "/todos": "nav-todos",
-      "/kalender": "nav-calendar",
-      "/kpis": "nav-kpis",
-      "/insights": "nav-insights",
-      "/stammdaten": "nav-master",
-      "/konfiguration": "nav-settings",
-    };
     const tourId = tourMap[to];
     const link = (
       <NavLink
@@ -193,7 +126,7 @@ export const Sidebar = () => {
         <nav className={cn("flex-1 py-5 flex flex-col gap-3 overflow-y-auto", collapsed ? "px-2" : "px-3")}>
           {overview.map(renderItem)}
 
-          {groups.map((g, i) => (
+          {groups.map((g) => (
             <div key={g.labelKey} className="flex flex-col gap-1">
               <div className="my-1 mx-3 h-px bg-sidebar-border/70" />
               {renderGroup(g)}
@@ -206,109 +139,7 @@ export const Sidebar = () => {
 
           {renderItem(settingsItem)}
         </nav>
-
-        {/* VINcent – KI-Chat, abgesetzt ganz unten */}
-        <div className={cn("border-t border-sidebar-border", collapsed ? "px-2 py-3 flex justify-center" : "px-3 py-3")}>
-          {(() => {
-            const btn = (
-              <button
-                type="button"
-                onClick={() => window.dispatchEvent(new CustomEvent("vincent:open"))}
-                aria-label="VINcent fragen"
-                data-tour="vincent"
-                className={cn(
-                  "flex items-center rounded-lg text-sm font-medium transition-smooth bg-gradient-to-br from-primary/15 to-primary/5 text-primary hover:from-primary hover:to-primary-glow hover:text-primary-foreground",
-                  collapsed ? "justify-center h-10 w-10" : "gap-3 px-3 py-2.5 w-full",
-                )}
-              >
-                <BotMessageSquare className="size-4 shrink-0" />
-                {!collapsed && <span className="truncate">VINcent fragen</span>}
-              </button>
-            );
-            return collapsed ? (
-              <Tooltip delayDuration={150}>
-                <TooltipTrigger asChild>{btn}</TooltipTrigger>
-                <TooltipContent side="right">VINcent fragen</TooltipContent>
-              </Tooltip>
-            ) : btn;
-          })()}
-        </div>
       </aside>
-      <nav className="fixed inset-x-0 bottom-0 z-40 grid h-[calc(4rem+env(safe-area-inset-bottom))] grid-cols-5 border-t border-sidebar-border bg-sidebar/95 px-2 pb-[env(safe-area-inset-bottom)] shadow-elegant backdrop-blur-md md:hidden">
-        {mobileItems.map(({ to, labelKey, icon: Icon }) => {
-          const label = t(labelKey);
-          return (
-            <NavLink
-              key={to}
-              to={to}
-              end={to === "/"}
-              aria-label={label}
-              className={({ isActive }) =>
-                cn(
-                  "flex min-h-14 min-w-0 flex-col items-center justify-center gap-1 rounded-md px-1 text-[10px] font-medium transition-smooth",
-                  isActive
-                    ? "text-sidebar-accent-foreground"
-                    : "text-sidebar-foreground/70 hover:text-sidebar-accent-foreground",
-                )
-              }
-            >
-              <Icon className="size-4 shrink-0" />
-              <span className="max-w-full truncate">{label}</span>
-            </NavLink>
-          );
-        })}
-        <Sheet>
-          <SheetTrigger asChild>
-            <button
-              type="button"
-              className="flex min-h-14 min-w-0 flex-col items-center justify-center gap-1 rounded-md px-1 text-[10px] font-medium text-sidebar-foreground/70 transition-smooth hover:text-sidebar-accent-foreground"
-              aria-label="Mehr Navigation"
-            >
-              <MoreHorizontal className="size-4 shrink-0" />
-              <span className="max-w-full truncate">Mehr</span>
-            </button>
-          </SheetTrigger>
-          <SheetContent side="bottom" className="max-h-[78dvh] overflow-y-auto rounded-t-2xl border-sidebar-border bg-sidebar p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] text-sidebar-foreground">
-            <SheetHeader className="mb-4 text-left">
-              <SheetTitle>Navigation</SheetTitle>
-            </SheetHeader>
-            <div className="grid grid-cols-2 gap-2">
-              {mobileMoreItems.map(({ to, labelKey, icon: Icon }) => {
-                const label = t(labelKey);
-                return (
-                  <SheetClose asChild key={to}>
-                    <NavLink
-                      to={to}
-                      aria-label={label}
-                      className={({ isActive }) =>
-                        cn(
-                          "flex min-h-12 items-center gap-3 rounded-lg border border-sidebar-border/70 px-3 py-2 text-sm font-medium transition-smooth",
-                          isActive
-                            ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                            : "text-sidebar-foreground/75 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
-                        )
-                      }
-                    >
-                      <Icon className="size-4 shrink-0" />
-                      <span className="min-w-0 truncate">{label}</span>
-                    </NavLink>
-                  </SheetClose>
-                );
-              })}
-              <SheetClose asChild>
-                <button
-                  type="button"
-                  onClick={() => window.dispatchEvent(new CustomEvent("vincent:open"))}
-                  className="col-span-2 flex min-h-12 items-center gap-3 rounded-lg border border-primary/25 bg-primary/10 px-3 py-2 text-sm font-medium text-primary transition-smooth hover:bg-primary hover:text-primary-foreground"
-                >
-                  <BotMessageSquare className="size-4 shrink-0" />
-                  <span>VINcent fragen</span>
-                </button>
-              </SheetClose>
-            </div>
-          </SheetContent>
-        </Sheet>
-      </nav>
     </TooltipProvider>
   );
 };
