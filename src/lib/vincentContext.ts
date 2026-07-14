@@ -1,6 +1,6 @@
 import { useProcessStore } from "@/store/processStore";
 import { KPI_CATALOG } from "@/lib/kpis";
-import { getConfiguredProcessSteps, vehicleTotalCostsGross } from "@/data/process";
+import { PROCESS_STEPS, vehicleTotalCostsGross } from "@/data/process";
 
 const appLink = (path: string) => path.startsWith("/") ? path : `/${path}`;
 
@@ -42,7 +42,7 @@ export function buildVincentContext(question = "") {
       }).filter(Boolean)
     : undefined;
 
-  const pipeline = getConfiguredProcessSteps(settings).map((step) => ({
+  const pipeline = PROCESS_STEPS.map((step) => ({
     key: step.key,
     label: step.label,
     count: processes.filter((process) => process.currentStep === step.key && process.steps[step.key].status !== "completed").length,

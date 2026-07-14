@@ -4,6 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { buildCustomerTrackingUrl, saveCustomerTrackingSnapshot, type ContactPerson } from "@/lib/customerLink";
+import { buildWhatsAppUrl } from "@/lib/whatsapp";
+import { WhatsAppLogo } from "@/components/shared/WhatsAppLogo";
 import type { Customer, Offer, Process, Vehicle } from "@/data/process";
 import { useProcessStore } from "@/store/processStore";
 import { toast } from "sonner";
@@ -12,6 +14,7 @@ interface Props {
   processId: string;
   customerName: string;
   customerEmail: string;
+  customerPhone: string;
   vehicleLabel: string;
   companyName: string;
   process: Process;
@@ -20,7 +23,7 @@ interface Props {
   offer?: Offer | null;
 }
 
-export const CustomerPortalCard = ({ processId, customerName, customerEmail, vehicleLabel, companyName, process, vehicle, customer, offer }: Props) => {
+export const CustomerPortalCard = ({ processId, customerName, customerEmail, customerPhone, vehicleLabel, companyName, process, vehicle, customer, offer }: Props) => {
   const [url, setUrl] = useState(() => process.fields.customerPortalToken ? buildCustomerTrackingUrl(process.fields.customerPortalToken) : "");
   const [copied, setCopied] = useState(false);
   const [isPreparing, setIsPreparing] = useState(false);
@@ -104,11 +107,24 @@ export const CustomerPortalCard = ({ processId, customerName, customerEmail, veh
     return `mailto:${customerEmail}?subject=${subject}&body=${body}`;
   };
 
+  const buildWhatsAppMessage = (currentUrl: string) =>
+    `Hallo ${customerName},\n\nüber diesen persönlichen Link können Sie den Status Ihres Auftrags verfolgen und alle Belege einsehen:\n\n${currentUrl}\n\nSie können fehlende Belege auch einfach direkt hier per WhatsApp als Foto oder PDF senden.\n\nViele Grüße\n${companyName}`;
+
   const handleEmail = async (event: React.MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault();
     try {
       const currentUrl = await ensureSnapshot();
       window.location.href = buildMailto(currentUrl);
+    } catch {
+      toast.error("Konnte Kundenlink nicht synchronisieren");
+    }
+  };
+
+  const handleWhatsApp = async (event: React.MouseEvent<HTMLAnchorElement>) => {
+    event.preventDefault();
+    try {
+      const currentUrl = await ensureSnapshot();
+      window.open(buildWhatsAppUrl({ phone: customerPhone, message: buildWhatsAppMessage(currentUrl) }), "_blank", "noopener,noreferrer");
     } catch {
       toast.error("Konnte Kundenlink nicht synchronisieren");
     }
@@ -154,6 +170,15 @@ export const CustomerPortalCard = ({ processId, customerName, customerEmail, veh
       <div className="flex flex-wrap gap-2">
         <Button asChild size="sm" className="gap-2 bg-gradient-brand hover:opacity-90 flex-1 min-w-[140px]">
           <a href={url ? buildMailto(url) : "#"} aria-disabled={isPreparing} onClick={handleEmail}><Mail className="size-3.5" /> Per E-Mail senden</a>
+        </Button>
+        <Button asChild size="sm" variant="outline" className="gap-2 flex-1 min-w-[140px]">
+          <a
+            href={url ? buildWhatsAppUrl({ phone: customerPhone, message: buildWhatsAppMessage(url) }) : "#"}
+            aria-disabled={isPreparing}
+            onClick={handleWhatsApp}
+          >
+            <WhatsAppLogo className="size-3.5 text-[#25D366]" /> Per WhatsApp
+          </a>
         </Button>
         <Button asChild size="sm" variant="outline" className="gap-2">
           <a href={url || "#"} target="_blank" rel="noreferrer" onClick={handlePreview}><ExternalLink className="size-3.5" /> Vorschau</a>

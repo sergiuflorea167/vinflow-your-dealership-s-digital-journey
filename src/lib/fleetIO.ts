@@ -359,12 +359,6 @@ export const FIELD_DEFS: FieldDef[] = [
   { key: "salesRevenue", header: "Verkauft für (EUR)", group: "preis", defaultEnabled: true,
     get: (v, ctx) => realizedRevenue(v, ctx) ?? "" /* nur gebuchter & bezahlter Umsatz */ },
 
-  // --- Standort ---
-  { key: "location", header: "Stellplatz", group: "status", defaultEnabled: true,
-    get: (v) => v.location.name,
-    set: (a, raw) => { a.locationName = String(raw ?? "").trim() || undefined; },
-    aliases: ["standort", "platz"] },
-
   // --- Status / Verkauft ---
   { key: "sold", header: "Verkauft", group: "status", defaultEnabled: true,
     get: (v) => (v.status === "sold" ? "WAHR" : "FALSCH"),
@@ -409,7 +403,7 @@ export const FIELD_GROUP_LABELS: Record<FieldDef["group"], string> = {
   tech: "Technik",
   innen: "Innen / Außen",
   preis: "Preise & Besteuerung",
-  status: "Status & Standort",
+  status: "Status",
   datum: "Daten / Termine",
   kosten: "Kosten",
 };
@@ -471,7 +465,6 @@ export const downloadTemplate = async (
     "Einkaufspreis (EUR)": 35000,
     "Listenpreis (EUR)": 42000,
     "Besteuerung": "Differenzbesteuerung",
-    "Stellplatz": "Hof A · Platz 01",
     "Kaufdatum": "2025-01-15",
     "Inseratsdatum": "2025-01-20",
     "Verkauft": "FALSCH",

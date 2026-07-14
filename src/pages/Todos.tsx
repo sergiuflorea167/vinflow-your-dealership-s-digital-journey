@@ -312,7 +312,7 @@ const Todos = () => {
     <AppShell>
       <div className="space-y-3 animate-fade-in">
         {/* Header — kompakt */}
-        <div data-tour="tt-header" className="flex items-center justify-between gap-4 shrink-0">
+        <div data-tour="tt-header" className="flex flex-col gap-3 shrink-0 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
           <div>
             <h1 className="font-display text-2xl font-bold tracking-tight">To-Dos</h1>
             <p className="text-xs text-muted-foreground">
@@ -414,9 +414,9 @@ const Todos = () => {
         </div>
 
         {/* Filter-Leiste kompakt */}
-        <Card data-tour="tt-filters" className="px-3 py-2 flex items-center gap-2 flex-wrap shrink-0">
+        <Card data-tour="tt-filters" className="px-3 py-2 flex flex-col gap-2 shrink-0 sm:flex-row sm:flex-wrap sm:items-center">
           <Select value={scopeFilter} onValueChange={(v) => setScopeFilter(v as typeof scopeFilter)}>
-            <SelectTrigger className="w-[160px] h-8 text-xs"><SelectValue placeholder="Bereich" /></SelectTrigger>
+            <SelectTrigger className="w-full text-xs sm:h-8 sm:w-[160px]"><SelectValue placeholder="Bereich" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Alle Bereiche</SelectItem>
               {(Object.keys(SCOPE_META) as TodoScope[]).map((s) => (
@@ -425,7 +425,7 @@ const Todos = () => {
             </SelectContent>
           </Select>
           <Select value={priorityFilter} onValueChange={(v) => setPriorityFilter(v as typeof priorityFilter)}>
-            <SelectTrigger className="w-[140px] h-8 text-xs"><SelectValue placeholder="Priorität" /></SelectTrigger>
+            <SelectTrigger className="w-full text-xs sm:h-8 sm:w-[140px]"><SelectValue placeholder="Priorität" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Alle Prioritäten</SelectItem>
               <SelectItem value="high">Hoch</SelectItem>
@@ -440,7 +440,7 @@ const Todos = () => {
               if (v !== "custom") setCustomDue(undefined);
             }}
           >
-            <SelectTrigger className="w-[170px] h-8 text-xs gap-1">
+            <SelectTrigger className="w-full text-xs gap-1 sm:h-8 sm:w-[170px]">
               <CalendarDays className="size-3.5 text-muted-foreground" />
               <SelectValue placeholder="Fälligkeit" />
             </SelectTrigger>
@@ -457,7 +457,7 @@ const Todos = () => {
           {dueFilter === "custom" && (
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="h-8 text-xs gap-1.5">
+                <Button variant="outline" size="sm" className="text-xs gap-1.5 sm:h-8">
                   <Calendar className="size-3.5" />
                   {customDue ? formatDate(toISO(customDue)) : "Datum wählen"}
                 </Button>
@@ -473,7 +473,7 @@ const Todos = () => {
               </PopoverContent>
             </Popover>
           )}
-          <div className="flex gap-1.5 flex-wrap">
+          <div className="flex gap-1.5 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
             {([
               { key: "open",    label: `Offen (${stats.open})` },
               { key: "today",   label: `Heute (${stats.today})` },
@@ -485,7 +485,7 @@ const Todos = () => {
                 key={f.key}
                 size="sm"
                 variant={statusFilter === f.key ? "default" : "outline"}
-                className="h-8 text-xs"
+                className="text-xs sm:h-8"
                 onClick={() => setStatusFilter(f.key)}
               >
                 {f.label}
@@ -833,7 +833,7 @@ const TodoForm = ({
         <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} placeholder="Optionale Details…" />
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="space-y-1.5">
           <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">Priorität</Label>
           <Select value={priority} onValueChange={(v) => setPriority(v as TodoPriority)}>
@@ -858,7 +858,7 @@ const TodoForm = ({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="space-y-1.5">
           <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">Fällig am</Label>
           <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
@@ -869,7 +869,7 @@ const TodoForm = ({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div className="space-y-1.5">
           <Label className="text-[10px] uppercase tracking-widest text-muted-foreground">Von (optional)</Label>
           <Input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} disabled={!dueDate} />

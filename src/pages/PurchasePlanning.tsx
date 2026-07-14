@@ -122,7 +122,7 @@ const PurchasePlanning = () => {
   return (
     <AppShell>
       <div className="space-y-3 animate-fade-in">
-        <div className="flex items-center justify-between gap-4 shrink-0" data-tour="pp-header">
+        <div className="flex flex-col gap-3 shrink-0 sm:flex-row sm:items-center sm:justify-between sm:gap-4" data-tour="pp-header">
           <div>
             <h1 className="font-display text-2xl font-bold tracking-tight">Einkaufsplanung</h1>
             <p className="text-xs text-muted-foreground">Schnelle Erfassung potenzieller Einkäufe – Eckdaten + Notizen mit Zeitstempel. Sobald der Deal steht: in den Bestand übernehmen.</p>
@@ -151,9 +151,9 @@ const PurchasePlanning = () => {
           })}
         </div>
 
-        <Card className="px-3 py-2 flex items-center gap-2 flex-wrap shrink-0" data-tour="pp-filters">
+        <Card className="px-3 py-2 flex flex-col gap-2 shrink-0 sm:flex-row sm:flex-wrap sm:items-center" data-tour="pp-filters">
           <Select value={sortKey} onValueChange={(v) => setSortKey(v as PlanSortKey)}>
-            <SelectTrigger className="w-[200px] h-8 text-xs">
+            <SelectTrigger className="w-full text-xs sm:h-8 sm:w-[200px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -165,7 +165,7 @@ const PurchasePlanning = () => {
               <SelectItem value="supplier">Quelle A-Z</SelectItem>
             </SelectContent>
           </Select>
-          <div className="flex gap-1.5 flex-wrap">
+          <div className="flex gap-1.5 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
             {([
               { key: "all",       label: "Alle" },
               { key: "tracking",  label: "Verfolgen" },
@@ -174,7 +174,7 @@ const PurchasePlanning = () => {
               { key: "lost",      label: "Verloren" },
               { key: "cancelled", label: "Verworfen" },
             ] as const).map((f) => (
-              <Button key={f.key} size="sm" variant={filter === f.key ? "default" : "outline"} className="h-8 text-xs" onClick={() => setFilter(f.key)}>
+              <Button key={f.key} size="sm" variant={filter === f.key ? "default" : "outline"} className="text-xs sm:h-8" onClick={() => setFilter(f.key)}>
                 {f.label}
               </Button>
             ))}
@@ -367,7 +367,7 @@ const NewPlanDialog = ({ open, onOpenChange, onSubmit }: {
           <DialogTitle>Schnell-Erfassung Einkauf</DialogTitle>
           <p className="text-xs text-muted-foreground">Nur die Eckdaten – Details kommen später beim Bestandseingang.</p>
         </DialogHeader>
-        <div className="grid grid-cols-2 gap-3 py-2">
+        <div className="grid grid-cols-1 gap-3 py-2 sm:grid-cols-2">
           <FormField label="Marke *"><Input value={form.make} onChange={(e) => setForm({ ...form, make: e.target.value })} placeholder="z. B. BMW" autoFocus /></FormField>
           <FormField label="Modell *"><Input value={form.model} onChange={(e) => setForm({ ...form, model: e.target.value })} placeholder="z. B. X3 xDrive30d" /></FormField>
           <FormField label="Quelle">
@@ -572,7 +572,7 @@ const InfoRow = ({ icon: Icon, label, value, bold }: { icon?: LucideIcon; label:
 );
 
 const FormField = ({ label, children, full }: { label: string; children: React.ReactNode; full?: boolean }) => (
-  <div className={cn("space-y-1.5", full && "col-span-2")}>
+  <div className={cn("space-y-1.5", full && "sm:col-span-2")}>
     <Label className="text-xs text-muted-foreground">{label}</Label>
     {children}
   </div>

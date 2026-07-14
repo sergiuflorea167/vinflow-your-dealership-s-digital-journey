@@ -1,22 +1,40 @@
-import { ReactNode, useEffect, useRef } from "react";
+import { lazy, ReactNode, Suspense, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
-import { VincentWidget } from "@/components/vincent/VincentWidget";
-import { TutorialPilot } from "@/components/tutorial/TutorialPilot";
-import { DashboardWorkshop } from "@/components/tutorial/DashboardWorkshop";
-import { FleetWorkshop } from "@/components/tutorial/FleetWorkshop";
-import { PurchaseWorkshop } from "@/components/tutorial/PurchaseWorkshop";
-import { TodosWorkshop } from "@/components/tutorial/TodosWorkshop";
-import { CalendarWorkshop } from "@/components/tutorial/CalendarWorkshop";
-import { KpiWorkshop } from "@/components/tutorial/KpiWorkshop";
-import { InsightsWorkshop } from "@/components/tutorial/InsightsWorkshop";
-
 import { useTutorialStore } from "@/store/tutorialStore";
 import { useWorkshopStore } from "@/store/workshopStore";
 import { useFleetWorkshopStore } from "@/store/fleetWorkshopStore";
 import { usePurchaseWorkshopStore } from "@/store/purchaseWorkshopStore";
 import { useAuth } from "@/context/AuthContext";
+
+const VincentWidget = lazy(() =>
+  import("@/components/vincent/VincentWidget").then((module) => ({ default: module.VincentWidget })),
+);
+const TutorialPilot = lazy(() =>
+  import("@/components/tutorial/TutorialPilot").then((module) => ({ default: module.TutorialPilot })),
+);
+const DashboardWorkshop = lazy(() =>
+  import("@/components/tutorial/DashboardWorkshop").then((module) => ({ default: module.DashboardWorkshop })),
+);
+const FleetWorkshop = lazy(() =>
+  import("@/components/tutorial/FleetWorkshop").then((module) => ({ default: module.FleetWorkshop })),
+);
+const PurchaseWorkshop = lazy(() =>
+  import("@/components/tutorial/PurchaseWorkshop").then((module) => ({ default: module.PurchaseWorkshop })),
+);
+const TodosWorkshop = lazy(() =>
+  import("@/components/tutorial/TodosWorkshop").then((module) => ({ default: module.TodosWorkshop })),
+);
+const CalendarWorkshop = lazy(() =>
+  import("@/components/tutorial/CalendarWorkshop").then((module) => ({ default: module.CalendarWorkshop })),
+);
+const KpiWorkshop = lazy(() =>
+  import("@/components/tutorial/KpiWorkshop").then((module) => ({ default: module.KpiWorkshop })),
+);
+const InsightsWorkshop = lazy(() =>
+  import("@/components/tutorial/InsightsWorkshop").then((module) => ({ default: module.InsightsWorkshop })),
+);
 
 export const AppShell = ({ children }: { children: ReactNode }) => {
   const { session } = useAuth();
@@ -65,23 +83,25 @@ export const AppShell = ({ children }: { children: ReactNode }) => {
   }, [fleetActive, navigate]);
 
   return (
-    <div className="h-screen flex bg-background text-foreground overflow-hidden">
+    <div className="flex h-dvh bg-background text-foreground overflow-hidden">
       <Sidebar />
-      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 h-dvh overflow-hidden">
         <Topbar />
-        <main className="flex-1 overflow-y-auto">
-          <div className="max-w-[1400px] mx-auto px-6 py-6">{children}</div>
+        <main className="flex-1 overflow-y-auto pb-20 md:pb-0">
+          <div className="max-w-[1400px] mx-auto px-3 py-3 sm:px-6 sm:py-6">{children}</div>
         </main>
       </div>
-      <VincentWidget />
-      <TutorialPilot />
-      <DashboardWorkshop />
-      <FleetWorkshop />
-      <PurchaseWorkshop />
-      <TodosWorkshop />
-      <CalendarWorkshop />
-      <KpiWorkshop />
-      <InsightsWorkshop />
+      <Suspense fallback={null}>
+        <VincentWidget />
+        <TutorialPilot />
+        <DashboardWorkshop />
+        <FleetWorkshop />
+        <PurchaseWorkshop />
+        <TodosWorkshop />
+        <CalendarWorkshop />
+        <KpiWorkshop />
+        <InsightsWorkshop />
+      </Suspense>
 
     </div>
   );

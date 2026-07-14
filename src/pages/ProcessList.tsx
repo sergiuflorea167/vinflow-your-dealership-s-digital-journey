@@ -10,8 +10,8 @@ import {
 } from "@/components/ui/select";
 import { useProcessStore } from "@/store/processStore";
 import {
-  ProcessStep, ProcessStepKey, OfferStatus, formatCurrency, formatDate,
-  getConfiguredProcessSteps, getLastProcessStepKey, getProcessStepsForDisplay, stepIndexIn,
+  PROCESS_STEPS, ProcessStep, ProcessStepKey, OfferStatus, formatCurrency, formatDate,
+  getLastProcessStepKey, getProcessStepsForDisplay, stepIndexIn,
 } from "@/data/process";
 import {
   ChevronRight, FileText, Download, ArrowDownAZ, ArrowUpAZ, CheckCircle2,
@@ -55,14 +55,19 @@ const ProcessList = () => {
     taxNumber: settings.companyTaxNumber,
     email: settings.companyEmail ?? settings.email,
     phone: settings.companyPhone ?? settings.phone,
+    website: settings.companyWebsite,
+    bankName: settings.companyBankName,
+    iban: settings.companyIban,
+    bic: settings.companyBic,
     registration: settings.companyRegistration,
   };
-  const processSteps = useMemo(() => getConfiguredProcessSteps(settings), [settings]);
-  const lastStepKey = getLastProcessStepKey(settings.processStepKeys);
-  const lastStep = processSteps[processSteps.length - 1];
+  const processSteps = PROCESS_STEPS;
   const isProcessArchived = useCallback(
-    (p: { steps: Record<string, { status?: string } | undefined> }) => p.steps?.[lastStepKey]?.status === "completed",
-    [lastStepKey],
+    (p: { processStepKeys?: ProcessStepKey[]; steps: Record<string, { status?: string } | undefined> }) => {
+      const lastStepKey = getLastProcessStepKey(p.processStepKeys);
+      return p.steps?.[lastStepKey]?.status === "completed";
+    },
+    [],
   );
 
   // ---- Tabs ----
@@ -338,7 +343,7 @@ const ProcessList = () => {
     const v = getVehicle(proc.vehicleId);
     const c = getCustomer(proc.customerId);
     if (!v || !c) return;
-    downloadBelegPdf({ process: proc, vehicle: v, customer: c, stepKey, companyName, seller, pdfTheme });
+    downloadBelegPdf({ process: proc, vehicle: v, customer: c, stepKey, companyName, companyLogoUrl: settings.companyLogoUrl, seller, pdfTheme, pdfLayout: settings.pdfLayout });
   };
 
   return (
@@ -356,7 +361,7 @@ const ProcessList = () => {
           onValueChange={(v) => setTab(v as "list" | "archived" | "offers" | "documents")}
           className="space-y-3"
         >
-          <TabsList className="shrink-0 self-start">
+          <TabsList className="w-full shrink-0 justify-start self-start">
             <TabsTrigger value="list">Aktive Vorgänge ({activeEnriched.length})</TabsTrigger>
             <TabsTrigger value="archived">Archivierte Vorgänge ({archivedEnriched.length})</TabsTrigger>
             <TabsTrigger value="offers">Angebote ({offers.length})</TabsTrigger>
@@ -366,9 +371,9 @@ const ProcessList = () => {
           {/* -------- Liste Vorgänge -------- */}
           <TabsContent value="list" className="space-y-3 mt-0">
             <Card className="px-3 py-2 bg-card border-border shrink-0">
-              <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
                 <Select value={sortKey} onValueChange={(v) => setSortKey(v as ProcessSortKey)}>
-                  <SelectTrigger className="w-[170px] h-8 text-xs bg-background/40">
+                  <SelectTrigger className="w-full text-xs bg-background/40 sm:h-8 sm:w-[170px]">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -382,13 +387,13 @@ const ProcessList = () => {
                 <Button
                   variant="outline"
                   size="icon"
-                  className="h-8 w-8"
+                  className="sm:h-8 sm:w-8"
                   onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}
                   aria-label="Richtung wechseln"
                 >
                   {sortDir === "asc" ? <ArrowUpAZ className="size-4" /> : <ArrowDownAZ className="size-4" />}
                 </Button>
-                <div className="flex gap-1.5 overflow-x-auto">
+                <div className="flex gap-1.5 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
                   <FilterPill active={filter === "all"} onClick={() => setFilter("all")}>
                     Alle ({activeEnriched.length})
                   </FilterPill>
@@ -420,7 +425,7 @@ const ProcessList = () => {
                 </thead>
                 <tbody>
                   {filtered.map(({ p, vehicle, customer }) => {
-                    const visibleSteps = getProcessStepsForDisplay(p.currentStep, settings);
+                    const visibleSteps = getProcessStepsForDisplay(p.currentStep, { processStepKeys: p.processStepKeys });
                     const idx = Math.max(0, stepIndexIn(p.currentStep, visibleSteps));
                     const step = visibleSteps[idx];
                     return (
@@ -472,9 +477,9 @@ const ProcessList = () => {
           {/* -------- Archivierte Vorgänge -------- */}
           <TabsContent value="archived" className="space-y-3 mt-0">
             <Card className="px-3 py-2 bg-card border-border shrink-0">
-              <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
                 <Select value={archSortKey} onValueChange={(v) => setArchSortKey(v as ProcessSortKey)}>
-                  <SelectTrigger className="w-[170px] h-8 text-xs bg-background/40">
+                  <SelectTrigger className="w-full text-xs bg-background/40 sm:h-8 sm:w-[170px]">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -488,14 +493,14 @@ const ProcessList = () => {
                 <Button
                   variant="outline"
                   size="icon"
-                  className="h-8 w-8"
+                  className="sm:h-8 sm:w-8"
                   onClick={() => setArchSortDir((d) => (d === "asc" ? "desc" : "asc"))}
                   aria-label="Richtung wechseln"
                 >
                   {archSortDir === "asc" ? <ArrowUpAZ className="size-4" /> : <ArrowDownAZ className="size-4" />}
                 </Button>
-                <p className="text-[11px] text-muted-foreground ml-auto">
-                  Vorgänge, deren letzter aktiver Schritt („{lastStep.shortLabel}") abgeschlossen wurde.
+                <p className="text-[11px] text-muted-foreground sm:ml-auto">
+                  Vorgänge, deren letzter Schritt in ihrer festen Vorgangskette abgeschlossen wurde.
                 </p>
               </div>
             </Card>
@@ -514,6 +519,7 @@ const ProcessList = () => {
                 </thead>
                 <tbody>
                   {filteredArchived.map(({ p, vehicle, customer }) => {
+                    const lastStepKey = getLastProcessStepKey(p.processStepKeys);
                     const completedAt = p.steps[lastStepKey]?.completedAt ?? p.updatedAt;
                     return (
                       <tr key={p.id} className="hover:bg-surface-elevated/40 transition-smooth group">
@@ -563,9 +569,9 @@ const ProcessList = () => {
           {/* -------- Angebote -------- */}
           <TabsContent value="offers" className="space-y-3 mt-0">
             <Card className="px-3 py-2 bg-card border-border shrink-0">
-              <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
                 <Select value={offerSortKey} onValueChange={(v) => setOfferSortKey(v as OfferSortKey)}>
-                  <SelectTrigger className="w-[180px] h-8 text-xs bg-background/40">
+                  <SelectTrigger className="w-full text-xs bg-background/40 sm:h-8 sm:w-[180px]">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -579,7 +585,7 @@ const ProcessList = () => {
                 <Button
                   variant="outline"
                   size="icon"
-                  className="h-8 w-8"
+                  className="sm:h-8 sm:w-8"
                   onClick={() => setOfferSortDir((d) => (d === "asc" ? "desc" : "asc"))}
                   aria-label="Richtung wechseln"
                 >
@@ -587,7 +593,7 @@ const ProcessList = () => {
                 </Button>
 
                 <Select value={offerStatus} onValueChange={(v) => setOfferStatus(v as "all" | OfferStatus)}>
-                  <SelectTrigger className="w-[160px] h-8 text-xs bg-background/40">
+                  <SelectTrigger className="w-full text-xs bg-background/40 sm:h-8 sm:w-[160px]">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -599,7 +605,7 @@ const ProcessList = () => {
                   </SelectContent>
                 </Select>
 
-                <div className="flex gap-1.5 overflow-x-auto">
+                <div className="flex gap-1.5 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
                   <FilterPill active={offerValidity === "all"} onClick={() => setOfferValidity("all")}>
                     Alle ({offerCounts.all})
                   </FilterPill>
@@ -696,7 +702,7 @@ const ProcessList = () => {
                               title="PDF herunterladen"
                               onClick={(e) => {
                                 e.preventDefault();
-                                downloadOfferPdf({ offer: o, vehicle: vehicle!, customer: customer!, companyName, seller, pdfTheme });
+                                downloadOfferPdf({ offer: o, vehicle: vehicle!, customer: customer!, companyName, companyLogoUrl: settings.companyLogoUrl, seller, pdfTheme, pdfLayout: settings.pdfLayout });
                               }}
                             >
                               <Download className="size-3.5" />
@@ -774,9 +780,9 @@ const ProcessList = () => {
           {/* -------- Belege-Archiv -------- */}
           <TabsContent value="documents" className="space-y-3 mt-0">
             <Card className="px-3 py-2 bg-card border-border shrink-0">
-              <div className="flex items-center gap-2 flex-wrap">
+              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
                 <Select value={docStep} onValueChange={(v) => setDocStep(v as "all" | ProcessStepKey)}>
-                  <SelectTrigger className="w-[200px] h-8 text-xs bg-background/40">
+                  <SelectTrigger className="w-full text-xs bg-background/40 sm:h-8 sm:w-[200px]">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -789,7 +795,7 @@ const ProcessList = () => {
                 <Button
                   variant="outline"
                   size="icon"
-                  className="h-8 w-8"
+                  className="sm:h-8 sm:w-8"
                   onClick={() => setDocSortDir((d) => (d === "asc" ? "desc" : "asc"))}
                   aria-label="Sortierung wechseln"
                   title={docSortDir === "asc" ? "Älteste zuerst" : "Neueste zuerst"}
@@ -866,7 +872,7 @@ const FilterPill = ({ active, onClick, children }: { active: boolean; onClick: (
   <button
     onClick={onClick}
     className={cn(
-      "px-3 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-smooth border",
+      "min-h-10 px-3 py-2 rounded-lg text-xs font-medium whitespace-nowrap transition-smooth border sm:min-h-0 sm:py-1.5",
       active
         ? "bg-primary text-primary-foreground border-primary shadow-glow"
         : "bg-background/40 text-muted-foreground border-border hover:text-foreground hover:border-primary/40"

@@ -8,9 +8,11 @@ import { ProcessStepKey, formatCurrency, formatDate, getProcessStepsForDisplay, 
 import { findProcessIdForToken, loadCustomerTrackingSnapshot, type CustomerTrackingSnapshot } from "@/lib/customerLink";
 import { matchesCustomerAccessCode } from "@/lib/customerCode";
 import { downloadBelegPdf } from "@/lib/pdf";
+import { buildWhatsAppUrl } from "@/lib/whatsapp";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { WhatsAppLogo } from "@/components/shared/WhatsAppLogo";
 import logo from "@/assets/logo.png";
 
 const CustomerTracking = () => {
@@ -130,7 +132,7 @@ const CustomerTracking = () => {
     );
   }
 
-  const processSteps = getProcessStepsForDisplay(process.currentStep, storeSettings);
+  const processSteps = getProcessStepsForDisplay(process.currentStep, { processStepKeys: process.processStepKeys });
   const completedCount = processSteps.filter((s) => {
     const r = process.steps[s.key];
     return r.status === "completed" || r.status === "skipped";
@@ -139,6 +141,10 @@ const CustomerTracking = () => {
   const currentIdx = Math.max(0, stepIndexIn(process.currentStep, processSteps));
   const isFinished = completedCount === processSteps.length;
   const sharedDocuments = (process.fields.documents ?? []).filter((document) => document.portalVisible && document.portalUrl);
+  const whatsappReceiptUrl = buildWhatsAppUrl({
+    phone: contact.phone,
+    message: `Hallo ${contact.name || companyName},\n\nich möchte Belege zu Vorgang ${process.id} (${vehicle.make} ${vehicle.model}) einreichen. Ich sende die Dateien direkt hier im Chat.\n\nViele Grüße\n${customer.name}`,
+  });
 
   // Voraussichtlicher Abholtermin: Liefertermin aus AB > Übergabedatum > +14 Tage ab Erstellung.
   const pickupDate =
@@ -154,7 +160,9 @@ const CustomerTracking = () => {
       offer: offer ?? undefined,
       stepKey: key,
       companyName,
+      companyLogoUrl: storeSettings.companyLogoUrl,
       pdfTheme,
+      pdfLayout: storeSettings.pdfLayout,
       seller: {
         street: storeSettings.companyStreet,
         zip: storeSettings.companyZip,
@@ -164,6 +172,10 @@ const CustomerTracking = () => {
         taxNumber: storeSettings.companyTaxNumber,
         email: storeSettings.companyEmail ?? contact.email,
         phone: storeSettings.companyPhone ?? contact.phone,
+        website: storeSettings.companyWebsite,
+        bankName: storeSettings.companyBankName,
+        iban: storeSettings.companyIban,
+        bic: storeSettings.companyBic,
         registration: storeSettings.companyRegistration,
       },
     });
@@ -175,7 +187,7 @@ const CustomerTracking = () => {
       <header className="border-b border-border/50 bg-card/40 backdrop-blur-md sticky top-0 z-10">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <img src={logo} alt={companyName} className="size-9 object-contain" />
+            <img src={storeSettings.companyLogoUrl || logo} alt={companyName} className="size-9 object-contain" />
             <div>
               <p className="font-display font-bold text-foreground leading-tight">{companyName}</p>
               <p className="text-[11px] text-muted-foreground">Ihr Fahrzeug-Portal</p>
@@ -372,6 +384,24 @@ const CustomerTracking = () => {
           )}
         </section>
 
+        <section className="rounded-2xl bg-card border border-border shadow-card p-6 sm:p-8">
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="font-display text-xl font-bold flex items-center gap-2">
+                <Paperclip className="size-5 text-primary-glow" /> Belege einreichen
+              </h2>
+              <p className="text-sm text-muted-foreground mt-1">
+                Senden Sie fehlende Unterlagen einfach als Foto oder PDF per WhatsApp. Ihr Autohaus ordnet die Belege dem Vorgang zu.
+              </p>
+            </div>
+            <Button asChild className="gap-2 bg-gradient-brand hover:opacity-90 shrink-0">
+              <a href={whatsappReceiptUrl} target="_blank" rel="noreferrer">
+                <WhatsAppLogo className="size-4" /> Per WhatsApp senden
+              </a>
+            </Button>
+          </div>
+        </section>
+
         {/* Contact */}
         <section className="rounded-2xl bg-gradient-to-br from-primary/10 via-card to-card border border-primary/20 shadow-card p-6 sm:p-8">
           <h2 className="font-display text-xl font-bold">Fragen zu Ihrem Vorgang?</h2>
@@ -387,6 +417,11 @@ const CustomerTracking = () => {
             {contact.phone && (
               <Button asChild className="gap-2 bg-gradient-brand hover:opacity-90">
                 <a href={`tel:${contact.phone}`}><Phone className="size-4" /> {contact.phone}</a>
+              </Button>
+            )}
+            {contact.phone && (
+              <Button asChild variant="outline" className="gap-2">
+                <a href={whatsappReceiptUrl} target="_blank" rel="noreferrer"><WhatsAppLogo className="size-4 text-[#25D366]" /> WhatsApp</a>
               </Button>
             )}
           </div>

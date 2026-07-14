@@ -23,13 +23,13 @@ import {
   ProcessStepKey, formatCurrency, normalizeProcessStepKeys,
 } from "@/data/process";
 import {
-  CheckCircle2, Database, FileText, Handshake, Mail, MapPin, Pencil, Phone, Plus,
+  CheckCircle2, Database, FileText, Handshake, Mail, Pencil, Phone, Plus,
   RotateCcw, Save, Trash2, Users, Workflow, X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
-type StammTab = "customers" | "partners" | "locations";
+type StammTab = "customers" | "partners";
 
 const Stammdaten = () => {
   const [tab, setTab] = useState<StammTab>("customers");
@@ -44,7 +44,7 @@ const Stammdaten = () => {
           <div>
             <h1 className="font-display text-2xl font-bold tracking-tight">Stammdaten</h1>
             <p className="text-xs text-muted-foreground">
-              Kunden, Partner und Standorte zentral verwalten — überall im System auswählbar.
+              Kunden und Partner zentral verwalten.
             </p>
           </div>
         </div>
@@ -53,12 +53,10 @@ const Stammdaten = () => {
           <TabsList className="bg-background/40 self-start shrink-0">
             <TabsTrigger value="customers" className="gap-2"><Users className="size-4" /> Kunden</TabsTrigger>
             <TabsTrigger value="partners"  className="gap-2"><Handshake className="size-4" /> Partner</TabsTrigger>
-            <TabsTrigger value="locations" className="gap-2"><MapPin className="size-4" /> Standorte</TabsTrigger>
           </TabsList>
 
           <TabsContent value="customers" className="mt-0"><CustomersPanel /></TabsContent>
           <TabsContent value="partners"  className="mt-0"><PartnersPanel /></TabsContent>
-          <TabsContent value="locations" className="mt-0"><LocationsPanel /></TabsContent>
         </Tabs>
       </div>
     </AppShell>
@@ -512,122 +510,3 @@ const FormField = ({ label, children, full }: { label: string; children: React.R
     {children}
   </div>
 );
-
-// ===========================================================================
-// Locations Panel
-// ===========================================================================
-
-const LocationsPanel = () => {
-  const locations = useProcessStore((s) => s.settings.locations);
-  const addLocation = useProcessStore((s) => s.addSettingsLocation);
-  const removeLocation = useProcessStore((s) => s.removeSettingsLocation);
-  const vehicles = useProcessStore((s) => s.vehicles);
-
-  const [newName, setNewName] = useState("");
-
-  const usage = useMemo(() => {
-    const map: Record<string, number> = {};
-    vehicles.forEach((v) => {
-      const name = v.location?.name;
-      if (name) map[name] = (map[name] ?? 0) + 1;
-    });
-    return map;
-  }, [vehicles]);
-
-  const submit = () => {
-    const trimmed = newName.trim();
-    if (!trimmed) return;
-    if (locations.includes(trimmed)) {
-      toast.error("Standort existiert bereits.");
-      return;
-    }
-    addLocation(trimmed);
-    setNewName("");
-    toast.success("Standort hinzugefügt.");
-  };
-
-  return (
-    <Card className="bg-card border-border overflow-hidden">
-      <div className="p-4 border-b border-border">
-        <div className="flex gap-2 max-w-md">
-          <Input
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && submit()}
-            placeholder="z. B. Hof B · Platz 04"
-          />
-          <Button onClick={submit} className="bg-gradient-brand gap-2 shrink-0">
-            <Plus className="size-4" /> Hinzufügen
-          </Button>
-        </div>
-        <p className="text-xs text-muted-foreground mt-2">
-          Diese Standorte stehen überall im System als Stellplatz-Auswahl zur Verfügung.
-        </p>
-      </div>
-
-      {locations.length === 0 ? (
-        <div className="p-12 text-center text-muted-foreground text-sm">Noch keine Standorte angelegt.</div>
-      ) : (
-        <div className="overflow-auto max-h-[55vh]">
-          <table className="w-full text-xs">
-            <thead className="sticky top-0 z-10 bg-background/95 backdrop-blur">
-              <tr className="border-b border-border bg-background/30 text-left text-xs uppercase tracking-wider text-muted-foreground">
-                <th className="px-3 py-2 font-medium">Standort</th>
-                <th className="px-3 py-2 font-medium text-center">Belegt mit</th>
-                <th className="px-3 py-2 font-medium text-right">Aktion</th>
-              </tr>
-            </thead>
-            <tbody>
-              {locations.map((loc) => {
-                const count = usage[loc] ?? 0;
-                return (
-                  <tr key={loc} className="border-b border-border/50 hover:bg-surface-elevated/40 transition-smooth">
-                    <td className="px-3 py-2">
-                      <div className="flex items-center gap-2">
-                        <MapPin className="size-4 text-info shrink-0" />
-                        <span className="font-medium text-foreground">{loc}</span>
-                      </div>
-                    </td>
-                    <td className="px-3 py-2 text-center">
-                      {count > 0 ? (
-                        <Badge variant="outline" className="border-primary/30 text-primary-glow">
-                          {count} Fahrzeug{count !== 1 ? "e" : ""}
-                        </Badge>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">leer</span>
-                      )}
-                    </td>
-                    <td className="px-3 py-2">
-                      <div className="flex justify-end">
-                        <Button
-                          variant="ghost" size="icon"
-                          className={cn(
-                            "size-8",
-                            count > 0
-                              ? "text-muted-foreground/40 cursor-not-allowed"
-                              : "text-muted-foreground hover:text-destructive",
-                          )}
-                          disabled={count > 0}
-                          onClick={() => {
-                            if (confirm(`Standort "${loc}" wirklich entfernen?`)) {
-                              removeLocation(loc);
-                              toast.success("Standort entfernt.");
-                            }
-                          }}
-                          aria-label="Löschen"
-                          title={count > 0 ? "Standort wird noch verwendet" : "Standort entfernen"}
-                        >
-                          <Trash2 className="size-3.5" />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </Card>
-  );
-};

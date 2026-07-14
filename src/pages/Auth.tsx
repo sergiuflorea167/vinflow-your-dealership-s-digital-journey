@@ -230,7 +230,7 @@ const Auth = () => {
 
               <TabsContent value="signup">
                 <form onSubmit={handleSignup} className="space-y-3">
-                  <div className="grid grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                     <div>
                       <Label className="text-xs">Vorname</Label>
                       <Input value={firstName} onChange={(e) => setFirstName(e.target.value)} required />
@@ -256,7 +256,7 @@ const Auth = () => {
 
                   <div className="pt-2 space-y-2">
                     <Label className="text-xs">Organisation</Label>
-                    <RadioGroup value={orgMode} onValueChange={(v) => setOrgMode(v as "create" | "join")} className="grid grid-cols-2 gap-2">
+                    <RadioGroup value={orgMode} onValueChange={(v) => setOrgMode(v as "create" | "join")} className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                       <label className={`flex items-center gap-2 rounded-lg border p-2.5 cursor-pointer transition-smooth ${orgMode === "create" ? "border-primary bg-primary/5" : "border-border"}`}>
                         <RadioGroupItem value="create" />
                         <div className="flex-1">

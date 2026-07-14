@@ -133,7 +133,9 @@ const OfferDetail = () => {
       vehicle,
       customer,
       companyName,
+      companyLogoUrl: settings.companyLogoUrl,
       pdfTheme,
+      pdfLayout: settings.pdfLayout,
       seller: {
         street: settings.companyStreet,
         zip: settings.companyZip,
@@ -143,6 +145,10 @@ const OfferDetail = () => {
         taxNumber: settings.companyTaxNumber,
         email: settings.companyEmail ?? settings.email,
         phone: settings.companyPhone ?? settings.phone,
+        website: settings.companyWebsite,
+        bankName: settings.companyBankName,
+        iban: settings.companyIban,
+        bic: settings.companyBic,
         registration: settings.companyRegistration,
       },
     });

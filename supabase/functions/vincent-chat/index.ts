@@ -69,7 +69,7 @@ const sanitizeValue = (value: unknown, depth = 0): unknown => {
 };
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method === "OPTIONS") return new Response(null, { headers: { ...corsHeaders, ...securityHeaders } });
   if (req.method !== "POST") return jsonResponse({ error: "Methode nicht erlaubt" }, 405);
 
   try {

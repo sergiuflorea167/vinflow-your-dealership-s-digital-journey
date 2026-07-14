@@ -8,7 +8,6 @@ import { FuelType, Transmission, VehicleType, VEHICLE_TYPE_LABELS, Vehicle, Vehi
 import { ScanLine, Loader2, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { useProcessStore } from "@/store/processStore";
 
 export interface VehicleIntakePayload {
   vin: string;
@@ -85,9 +84,6 @@ export const VehicleIntakeDialog = ({ open, onOpenChange, locations, preset, tit
   const [hu, setHu] = useState("");
   const [purchasePrice, setPurchasePrice] = useState(preset?.targetPrice ?? 0);
   const [listPrice, setListPrice] = useState(preset?.targetPrice ? Math.round(preset.targetPrice * 1.2) : 0);
-  const [location, setLocation] = useState(locations[0] ?? "Hof A · Platz 01");
-  const [newLocation, setNewLocation] = useState("");
-  const addLocation = useProcessStore((s) => s.addSettingsLocation);
   const [features, setFeatures] = useState<string[]>([]);
   // Differenzbesteuerung ist Standard für Gebrauchtfahrzeuge.
   const [vatReportable, setVatReportable] = useState<boolean>(false);
@@ -149,7 +145,6 @@ export const VehicleIntakeDialog = ({ open, onOpenChange, locations, preset, tit
     setHu("");
     setPurchasePrice(preset?.targetPrice ?? 0);
     setListPrice(preset?.targetPrice ? Math.round(preset.targetPrice * 1.2) : 0);
-    setLocation(locations[0] ?? "Hof A · Platz 01");
     setFeatures([]);
     setHsn("");
     setTsn("");
@@ -158,12 +153,11 @@ export const VehicleIntakeDialog = ({ open, onOpenChange, locations, preset, tit
   }, [open]);
 
   // Nur das Nötigste ist Pflicht – Rest kann später ergänzt werden.
-  const resolvedLocation = location === "__new__" ? newLocation.trim() : location;
+  const resolvedLocation = locations[0] ?? "Bestand";
   const valid =
     make.trim().length > 0 &&
     model.trim().length > 0 &&
-    vin.length >= 11 &&
-    !!resolvedLocation;
+    vin.length >= 11;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -192,29 +186,6 @@ export const VehicleIntakeDialog = ({ open, onOpenChange, locations, preset, tit
           </FormField>
           <FormField label="Marke *"><Input value={make} onChange={(e) => setMake(e.target.value)} placeholder="z. B. BMW" /></FormField>
           <FormField label="Modell *"><Input value={model} onChange={(e) => setModel(e.target.value)} placeholder="z. B. X3 xDrive30d" /></FormField>
-          <FormField label="Stellplatz *" full>
-            <select
-              value={location}
-              onChange={(e) => {
-                const v = e.target.value;
-                setLocation(v);
-                if (v !== "__new__") setNewLocation("");
-              }}
-              className="w-full h-10 rounded-md border border-input bg-background/40 px-3 text-sm"
-            >
-              {locations.map((l) => <option key={l} value={l}>{l}</option>)}
-              <option value="__new__">+ Neuen Stellplatz anlegen…</option>
-            </select>
-            {location === "__new__" && (
-              <Input
-                value={newLocation}
-                onChange={(e) => setNewLocation(e.target.value)}
-                placeholder="z. B. Hof B · Platz 04"
-                className="mt-2"
-                autoFocus
-              />
-            )}
-          </FormField>
 
           <div className="col-span-2 mt-2 mb-1 text-[11px] uppercase tracking-widest text-muted-foreground font-semibold">
             Optional · kann später ergänzt werden
@@ -277,7 +248,6 @@ export const VehicleIntakeDialog = ({ open, onOpenChange, locations, preset, tit
             disabled={!valid}
             className="bg-gradient-brand"
             onClick={() => {
-              if (location === "__new__") addLocation(resolvedLocation);
               onSubmit({
                 vin, type, make, model, year,
                 color, mileage, fuel, transmission,

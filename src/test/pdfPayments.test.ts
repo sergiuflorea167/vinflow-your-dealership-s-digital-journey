@@ -67,6 +67,8 @@ describe("purchase contract payments", () => {
     expect(text).toContain("RE-2025-0088");
     expect(text).toContain("05.05.2025");
     expect(text).toContain("Finanzierung");
+    expect(text).toContain("-27.900,00");
+    expect(text).not.toContain("Zahlungsübersicht");
   });
 
   it("includes the payment date directly in the down-payment line item", () => {

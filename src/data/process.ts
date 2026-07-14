@@ -568,6 +568,8 @@ export interface Process {
   acceptedOfferId: string;
   createdAt: string;
   updatedAt: string;
+  /** Feste Vorgangskette zum Zeitpunkt der Anlage. Spaetere Konfigurationsaenderungen duerfen bestehende Vorgaenge nicht veraendern. */
+  processStepKeys?: ProcessStepKey[];
   currentStep: ProcessStepKey;
   steps: Record<ProcessStepKey, StepRecord>;
   fields: ProcessFields;
@@ -674,9 +676,284 @@ export type NumberRanges = Record<NumberRangeKey, NumberRangeConfig>;
 
 export type TodoProgressPeriod = "today" | "week" | "month" | "all";
 
+export type PdfLogoPosition = "right" | "left" | "hidden";
+export type PdfAccentColor = "blue" | "graphite" | "gold" | "red" | "green";
+export type PdfLayoutBlockKey = "logo" | "sender" | "address" | "meta" | "title" | "vehicle" | "content";
+export type PdfFooterStyle = "columns" | "compact" | "minimal";
+export type PdfDocumentLayoutGroupKey = "sales" | "control" | "contract" | "delivery";
+
+export interface PdfLayoutOffset {
+  x: number;
+  y: number;
+}
+
+export interface PdfLogoSize {
+  widthMm: number;
+  heightMm: number;
+}
+
+export interface PdfFooterConfig {
+  style: PdfFooterStyle;
+  showLine: boolean;
+  showBank: boolean;
+  showCompany: boolean;
+  showTax: boolean;
+  showContact: boolean;
+  showPageNumber: boolean;
+  yOffsetMm: number;
+  fontScale: number;
+}
+
+export interface PdfFollowingPageConfig {
+  showHeader: boolean;
+  contentStartMm: number;
+  senderOffset: PdfLayoutOffset;
+}
+
+export interface PdfTableLayoutConfig {
+  columnWidthsMm: {
+    pos: number;
+    description: number;
+    qty: number;
+    unit: number;
+    unitPrice: number;
+    total: number;
+  };
+  rowHeightsMm: {
+    header: number;
+    item: number;
+    total: number;
+  };
+}
+
+export interface PdfDocumentContentConfig {
+  showVehicleCard: boolean;
+  showIntroText: boolean;
+  showMainTable: boolean;
+  showTodos: boolean;
+  showPaymentInfo: boolean;
+  showSignatures: boolean;
+  showChecklist: boolean;
+  showContractClauses: boolean;
+  showDeliveryDetails: boolean;
+  contentOffsetMm: number;
+  sectionGapMm: number;
+}
+
+export interface PdfLayoutConfig {
+  logoPosition: PdfLogoPosition;
+  logoSize: PdfLogoSize;
+  accentColor: PdfAccentColor;
+  marginMm: number;
+  fontScale: number;
+  showMetaBlock: boolean;
+  showFooter: boolean;
+  footer: PdfFooterConfig;
+  followingPage: PdfFollowingPageConfig;
+  table: PdfTableLayoutConfig;
+  documentContents: Record<PdfDocumentLayoutGroupKey, PdfDocumentContentConfig>;
+  blockOffsets: Record<PdfLayoutBlockKey, PdfLayoutOffset>;
+}
+
+export const PDF_DOCUMENT_GROUP_BY_STEP: Record<ProcessStepKey, PdfDocumentLayoutGroupKey> = {
+  offer: "sales",
+  down_payment: "sales",
+  order_confirmation: "sales",
+  invoicing: "sales",
+  outbound_check: "control",
+  purchase_contract: "contract",
+  delivery_confirmation: "delivery",
+};
+
+export const DEFAULT_PDF_LAYOUT: PdfLayoutConfig = {
+  logoPosition: "right",
+  logoSize: { widthMm: 54, heightMm: 18 },
+  accentColor: "blue",
+  marginMm: 18,
+  fontScale: 1,
+  showMetaBlock: true,
+  showFooter: true,
+  footer: {
+    style: "columns",
+    showLine: true,
+    showBank: true,
+    showCompany: true,
+    showTax: true,
+    showContact: true,
+    showPageNumber: true,
+    yOffsetMm: 0,
+    fontScale: 1,
+  },
+  followingPage: {
+    showHeader: true,
+    contentStartMm: 42,
+    senderOffset: { x: 0, y: 0 },
+  },
+  table: {
+    columnWidthsMm: {
+      pos: 11,
+      description: 88,
+      qty: 15,
+      unit: 13,
+      unitPrice: 23,
+      total: 24,
+    },
+    rowHeightsMm: {
+      header: 7,
+      item: 8.5,
+      total: 6,
+    },
+  },
+  documentContents: {
+    sales: {
+      showVehicleCard: true,
+      showIntroText: true,
+      showMainTable: true,
+      showTodos: true,
+      showPaymentInfo: true,
+      showSignatures: false,
+      showChecklist: false,
+      showContractClauses: false,
+      showDeliveryDetails: true,
+      contentOffsetMm: 0,
+      sectionGapMm: 6,
+    },
+    control: {
+      showVehicleCard: true,
+      showIntroText: true,
+      showMainTable: false,
+      showTodos: true,
+      showPaymentInfo: false,
+      showSignatures: false,
+      showChecklist: true,
+      showContractClauses: false,
+      showDeliveryDetails: false,
+      contentOffsetMm: 0,
+      sectionGapMm: 6,
+    },
+    contract: {
+      showVehicleCard: true,
+      showIntroText: true,
+      showMainTable: true,
+      showTodos: true,
+      showPaymentInfo: true,
+      showSignatures: true,
+      showChecklist: false,
+      showContractClauses: true,
+      showDeliveryDetails: true,
+      contentOffsetMm: 0,
+      sectionGapMm: 6,
+    },
+    delivery: {
+      showVehicleCard: true,
+      showIntroText: true,
+      showMainTable: false,
+      showTodos: false,
+      showPaymentInfo: false,
+      showSignatures: true,
+      showChecklist: false,
+      showContractClauses: false,
+      showDeliveryDetails: true,
+      contentOffsetMm: 0,
+      sectionGapMm: 6,
+    },
+  },
+  blockOffsets: {
+    logo: { x: 0, y: 0 },
+    sender: { x: 0, y: 0 },
+    address: { x: 0, y: 0 },
+    meta: { x: 0, y: 0 },
+    title: { x: 0, y: 0 },
+    vehicle: { x: 0, y: 0 },
+    content: { x: 0, y: 0 },
+  },
+};
+
+const normalizePdfLayoutOffset = (offset?: Partial<PdfLayoutOffset>): PdfLayoutOffset => ({
+  x: Math.min(40, Math.max(-40, Number(offset?.x ?? 0))),
+  y: Math.min(40, Math.max(-40, Number(offset?.y ?? 0))),
+});
+
+const normalizePdfLogoSize = (logoSize?: Partial<PdfLogoSize>): PdfLogoSize => ({
+  widthMm: Math.min(110, Math.max(18, Number(logoSize?.widthMm ?? DEFAULT_PDF_LAYOUT.logoSize.widthMm))),
+  heightMm: Math.min(45, Math.max(8, Number(logoSize?.heightMm ?? DEFAULT_PDF_LAYOUT.logoSize.heightMm))),
+});
+
+const normalizePdfFooter = (footer?: Partial<PdfFooterConfig>): PdfFooterConfig => ({
+  ...DEFAULT_PDF_LAYOUT.footer,
+  ...footer,
+  style: footer?.style === "compact" || footer?.style === "minimal" ? footer.style : "columns",
+  yOffsetMm: Math.min(12, Math.max(-18, Number(footer?.yOffsetMm ?? DEFAULT_PDF_LAYOUT.footer.yOffsetMm))),
+  fontScale: Math.min(1.15, Math.max(0.85, Number(footer?.fontScale ?? DEFAULT_PDF_LAYOUT.footer.fontScale))),
+});
+
+const normalizePdfFollowingPage = (followingPage?: Partial<PdfFollowingPageConfig>): PdfFollowingPageConfig => ({
+  ...DEFAULT_PDF_LAYOUT.followingPage,
+  ...followingPage,
+  contentStartMm: Math.min(90, Math.max(28, Number(followingPage?.contentStartMm ?? DEFAULT_PDF_LAYOUT.followingPage.contentStartMm))),
+  senderOffset: normalizePdfLayoutOffset(followingPage?.senderOffset),
+});
+
+const normalizePdfTable = (table?: Partial<PdfTableLayoutConfig>): PdfTableLayoutConfig => ({
+  columnWidthsMm: {
+    pos: Math.min(22, Math.max(7, Number(table?.columnWidthsMm?.pos ?? DEFAULT_PDF_LAYOUT.table.columnWidthsMm.pos))),
+    description: Math.min(120, Math.max(48, Number(table?.columnWidthsMm?.description ?? DEFAULT_PDF_LAYOUT.table.columnWidthsMm.description))),
+    qty: Math.min(28, Math.max(9, Number(table?.columnWidthsMm?.qty ?? DEFAULT_PDF_LAYOUT.table.columnWidthsMm.qty))),
+    unit: Math.min(26, Math.max(8, Number(table?.columnWidthsMm?.unit ?? DEFAULT_PDF_LAYOUT.table.columnWidthsMm.unit))),
+    unitPrice: Math.min(40, Math.max(14, Number(table?.columnWidthsMm?.unitPrice ?? DEFAULT_PDF_LAYOUT.table.columnWidthsMm.unitPrice))),
+    total: Math.min(42, Math.max(16, Number(table?.columnWidthsMm?.total ?? DEFAULT_PDF_LAYOUT.table.columnWidthsMm.total))),
+  },
+  rowHeightsMm: {
+    header: Math.min(13, Math.max(5, Number(table?.rowHeightsMm?.header ?? DEFAULT_PDF_LAYOUT.table.rowHeightsMm.header))),
+    item: Math.min(18, Math.max(6, Number(table?.rowHeightsMm?.item ?? DEFAULT_PDF_LAYOUT.table.rowHeightsMm.item))),
+    total: Math.min(13, Math.max(5, Number(table?.rowHeightsMm?.total ?? DEFAULT_PDF_LAYOUT.table.rowHeightsMm.total))),
+  },
+});
+
+const normalizePdfDocumentContent = (
+  content: Partial<PdfDocumentContentConfig> | undefined,
+  fallback: PdfDocumentContentConfig,
+): PdfDocumentContentConfig => ({
+  ...fallback,
+  ...content,
+  contentOffsetMm: Math.min(40, Math.max(-24, Number(content?.contentOffsetMm ?? fallback.contentOffsetMm))),
+  sectionGapMm: Math.min(16, Math.max(2, Number(content?.sectionGapMm ?? fallback.sectionGapMm))),
+});
+
+const normalizePdfDocumentContents = (
+  contents?: Partial<Record<PdfDocumentLayoutGroupKey, Partial<PdfDocumentContentConfig>>>,
+): Record<PdfDocumentLayoutGroupKey, PdfDocumentContentConfig> => ({
+  sales: normalizePdfDocumentContent(contents?.sales, DEFAULT_PDF_LAYOUT.documentContents.sales),
+  control: normalizePdfDocumentContent(contents?.control, DEFAULT_PDF_LAYOUT.documentContents.control),
+  contract: normalizePdfDocumentContent(contents?.contract, DEFAULT_PDF_LAYOUT.documentContents.contract),
+  delivery: normalizePdfDocumentContent(contents?.delivery, DEFAULT_PDF_LAYOUT.documentContents.delivery),
+});
+
+export const normalizePdfLayout = (layout?: Partial<PdfLayoutConfig>): PdfLayoutConfig => ({
+  ...DEFAULT_PDF_LAYOUT,
+  ...layout,
+  logoSize: normalizePdfLogoSize(layout?.logoSize),
+  marginMm: Math.min(24, Math.max(12, Number(layout?.marginMm ?? DEFAULT_PDF_LAYOUT.marginMm))),
+  fontScale: Math.min(1.12, Math.max(0.9, Number(layout?.fontScale ?? DEFAULT_PDF_LAYOUT.fontScale))),
+  footer: normalizePdfFooter(layout?.footer),
+  followingPage: normalizePdfFollowingPage(layout?.followingPage),
+  table: normalizePdfTable(layout?.table),
+  documentContents: normalizePdfDocumentContents(layout?.documentContents),
+  blockOffsets: {
+    logo: normalizePdfLayoutOffset(layout?.blockOffsets?.logo),
+    sender: normalizePdfLayoutOffset(layout?.blockOffsets?.sender),
+    address: normalizePdfLayoutOffset(layout?.blockOffsets?.address),
+    meta: normalizePdfLayoutOffset(layout?.blockOffsets?.meta),
+    title: normalizePdfLayoutOffset(layout?.blockOffsets?.title),
+    vehicle: normalizePdfLayoutOffset(layout?.blockOffsets?.vehicle),
+    content: normalizePdfLayoutOffset(layout?.blockOffsets?.content),
+  },
+});
+
 export interface Settings {
   userName: string;
   companyName: string;
+  companyLogoUrl?: string;
   processStepKeys?: ProcessStepKey[];
   locations: string[];     // freie Stellplatz-Liste
   partners: Partner[];
@@ -688,6 +965,7 @@ export interface Settings {
   role?: string;
   avatarUrl?: string;
   pdfTheme?: string;
+  pdfLayout?: PdfLayoutConfig;
   /** Persönlicher Standardzeitraum für die To-Do-Fortschrittsanzeige. */
   todoProgressPeriod?: TodoProgressPeriod;
   // Unternehmensdaten – werden u.a. im Kaufvertrag als Verkäuferdaten genutzt
@@ -699,6 +977,10 @@ export interface Settings {
   companyTaxNumber?: string; // Steuernummer, alternativ zur USt-IdNr.
   companyEmail?: string;     // Kontakt-E-Mail (BT-43, Seller electronic address)
   companyPhone?: string;     // Kontakt-Telefon (BT-42)
+  companyWebsite?: string;
+  companyBankName?: string;
+  companyIban?: string;
+  companyBic?: string;
   companyRegistration?: string; // z. B. „HRB 12345, AG München"
   // Nummernkreise – optional für bestehende Organisationsdaten
   numberRanges?: NumberRanges;
@@ -1798,7 +2080,22 @@ export const DEFAULT_SETTINGS: Settings = {
   role: "Geschäftsführer",
   avatarUrl: "",
   companyName: "VINflow Autohaus GmbH",
+  companyLogoUrl: "",
+  companyStreet: "Musterstraße 12",
+  companyZip: "80331",
+  companyCity: "München",
+  companyRepresentative: "Sergiu-Razvan Florea",
+  companyVatId: "DE123456789",
+  companyTaxNumber: "143/824/02666",
+  companyEmail: "rechnung@vinflow.de",
+  companyPhone: "+49 89 1234567",
+  companyWebsite: "www.vinflow.de",
+  companyBankName: "Commerzbank",
+  companyIban: "DE89 3704 0044 0532 0130 00",
+  companyBic: "COBADEFFXXX",
+  companyRegistration: "HRB 12345, AG München",
   pdfTheme: "indigo",
+  pdfLayout: DEFAULT_PDF_LAYOUT,
   todoProgressPeriod: "week",
   processStepKeys: DEFAULT_PROCESS_STEP_KEYS,
   numberRanges: DEFAULT_NUMBER_RANGES,

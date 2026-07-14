@@ -318,7 +318,7 @@ export const useProcessStore = create<State>()(
             const record = process.steps[stepKey];
             if (process.currentStep !== stepKey || record?.status !== "active") return state;
             const idx = stepIndex(stepKey);
-            const activeStepKeys = normalizeProcessStepKeys(state.settings.processStepKeys);
+            const activeStepKeys = normalizeProcessStepKeys(process.processStepKeys);
             const nextStepKey = getNextProcessStepKey(stepKey, activeStepKeys);
             const nextStep = nextStepKey ? PROCESS_STEPS.find((s) => s.key === nextStepKey) : undefined;
             const isLastStep = !nextStepKey;
@@ -357,7 +357,7 @@ export const useProcessStore = create<State>()(
             const idx = stepIndex(stepKey);
             const definition = PROCESS_STEPS[idx];
             if (process.currentStep !== stepKey || process.steps[stepKey]?.status !== "active" || !definition?.skippable) return state;
-            const activeStepKeys = normalizeProcessStepKeys(state.settings.processStepKeys);
+            const activeStepKeys = normalizeProcessStepKeys(process.processStepKeys);
             const nextStepKey = getNextProcessStepKey(stepKey, activeStepKeys);
             if (!nextStepKey) return state;
 
@@ -390,7 +390,7 @@ export const useProcessStore = create<State>()(
             // Only allow cancelling steps that were completed or skipped.
             const record = process.steps[stepKey];
             if (!record || (record.status !== "completed" && record.status !== "skipped")) return state;
-            const activeStepKeys = normalizeProcessStepKeys(state.settings.processStepKeys);
+            const activeStepKeys = normalizeProcessStepKeys(process.processStepKeys);
             const activeSet = new Set(activeStepKeys);
 
             const updatedProcesses = state.processes.map((p) => {
@@ -784,6 +784,7 @@ export const useProcessStore = create<State>()(
             createdAt: completedAt,
             updatedAt: completedAt,
             currentStep,
+            processStepKeys: activeStepKeys,
             steps: buildEmptySteps(currentStep, activeStepKeys),
             fields: {
               finalPrice,
@@ -860,6 +861,7 @@ export const useProcessStore = create<State>()(
             updatedAt: createdAt,
             // Angebot wird übersprungen, wir starten direkt bei Anzahlung
             currentStep,
+            processStepKeys: activeStepKeys,
             steps: buildEmptySteps(currentStep, activeStepKeys),
             fields: { finalPrice: price },
             customerTodosOC: [],

@@ -24,6 +24,29 @@ const authState = vi.hoisted(() => ({
 const storeMocks = vi.hoisted(() => ({
   addTodo: vi.fn(),
 }));
+const speechMocks = vi.hoisted(() => ({
+  instances: [] as Array<{
+    continuous: boolean;
+    interimResults: boolean;
+    lang: string;
+    onend: (() => void) | null;
+    onerror: (() => void) | null;
+    onresult: ((event: {
+      resultIndex: number;
+      results: ArrayLike<{ isFinal: boolean; 0: { transcript: string } }>;
+    }) => void) | null;
+    start: ReturnType<typeof vi.fn>;
+    stop: ReturnType<typeof vi.fn>;
+  }>,
+  recorders: [] as Array<{
+    mimeType: string;
+    ondataavailable: ((event: { data: Blob }) => void) | null;
+    onerror: (() => void) | null;
+    onstop: (() => void) | null;
+    start: ReturnType<typeof vi.fn>;
+    stop: ReturnType<typeof vi.fn>;
+  }>,
+}));
 
 vi.mock("@/context/AuthContext", () => ({
   useAuth: () => authState,
@@ -88,6 +111,9 @@ describe("VINcent chat workspace", () => {
       status: 200,
       body: { getReader: () => ({ read: vi.fn().mockImplementation(() => Promise.resolve(chunks.length ? { value: chunks.shift(), done: false } : { value: undefined, done: true })) }) },
     }));
+    delete (window as typeof window & { SpeechRecognition?: unknown }).SpeechRecognition;
+    speechMocks.instances = [];
+    speechMocks.recorders = [];
   });
 
   it("creates and automatically saves a conversation around the AI response", async () => {
@@ -96,7 +122,7 @@ describe("VINcent chat workspace", () => {
 
     const input = await screen.findByPlaceholderText("Nachricht an VINcent");
     expect(screen.getByTestId("vincent-window")).toHaveClass("fixed");
-    expect(input).toBeEnabled();
+    await waitFor(() => expect(input).toBeEnabled());
     expect(screen.getByRole("button", { name: "Neuer Chat" })).toBeInTheDocument();
 
     fireEvent.change(input, { target: { value: "Wie entwickelt sich mein Umsatz?" } });
@@ -218,5 +244,123 @@ describe("VINcent chat workspace", () => {
     })));
     expect(await screen.findByRole("link", { name: "Büro prüfen" })).toHaveAttribute("href", "/todos?todo=TD-1");
     expect(fetch).not.toHaveBeenCalled();
+  });
+});
+
+describe("VINcent speech input", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    historyMocks.list.mockResolvedValue([]);
+    historyMocks.loadPreference.mockResolvedValue({ acknowledged: true, historyEnabled: true, retentionDays: 30 });
+    historyMocks.save.mockResolvedValue(new Date(Date.now() + 30 * 86_400_000).toISOString());
+    historyMocks.setEnabled.mockResolvedValue(undefined);
+    speechMocks.instances = [];
+    speechMocks.recorders = [];
+    Object.defineProperty(HTMLElement.prototype, "scrollTo", { configurable: true, value: vi.fn() });
+    vi.stubGlobal("TextDecoder", TextDecoder);
+    vi.stubGlobal("TextEncoder", TextEncoder);
+    const chunks = [new TextEncoder().encode('data: {"choices":[{"delta":{"content":"Alles klar."}}]}\n\ndata: [DONE]\n\n')];
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      body: { getReader: () => ({ read: vi.fn().mockImplementation(() => Promise.resolve(chunks.length ? { value: chunks.shift(), done: false } : { value: undefined, done: true })) }) },
+    }));
+  });
+
+  it("sends a spoken question to VINcent automatically", async () => {
+    class MockSpeechRecognition {
+      continuous = false;
+      interimResults = false;
+      lang = "";
+      onend: (() => void) | null = null;
+      onerror: (() => void) | null = null;
+      onresult: ((event: {
+        resultIndex: number;
+        results: ArrayLike<{ isFinal: boolean; 0: { transcript: string } }>;
+      }) => void) | null = null;
+      start = vi.fn();
+      stop = vi.fn(() => this.onend?.());
+
+      constructor() {
+        speechMocks.instances.push(this);
+      }
+    }
+    (window as typeof window & { SpeechRecognition: typeof MockSpeechRecognition }).SpeechRecognition = MockSpeechRecognition;
+
+    render(<VincentWidget />);
+    act(() => window.dispatchEvent(new CustomEvent("vincent:open")));
+
+    const input = await screen.findByPlaceholderText("Nachricht an VINcent");
+    await waitFor(() => expect(input).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: "Mit VINcent sprechen" }));
+
+    expect(speechMocks.instances[0].start).toHaveBeenCalledTimes(1);
+    act(() => {
+      speechMocks.instances[0].onresult?.({
+        resultIndex: 0,
+        results: [{ isFinal: true, 0: { transcript: "Welche Fahrzeuge stehen zu lange?" } }],
+      });
+    });
+
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+    const request = JSON.parse(vi.mocked(fetch).mock.calls[0][1]?.body as string);
+    expect(request.messages[0]).toEqual({ role: "user", content: "Welche Fahrzeuge stehen zu lange?" });
+  });
+
+  it("records audio and transcribes it when browser speech recognition is unavailable", async () => {
+    delete (window as typeof window & { SpeechRecognition?: unknown }).SpeechRecognition;
+    delete (window as typeof window & { webkitSpeechRecognition?: unknown }).webkitSpeechRecognition;
+    const trackStop = vi.fn();
+    Object.defineProperty(navigator, "mediaDevices", {
+      configurable: true,
+      value: { getUserMedia: vi.fn().mockResolvedValue({ getTracks: () => [{ stop: trackStop }] }) },
+    });
+    class MockMediaRecorder {
+      mimeType = "audio/webm";
+      ondataavailable: ((event: { data: Blob }) => void) | null = null;
+      onerror: (() => void) | null = null;
+      onstop: (() => void) | null = null;
+      start = vi.fn();
+      stop = vi.fn(() => {
+        this.ondataavailable?.({ data: new Blob(["audio"], { type: "audio/webm" }) });
+        this.onstop?.();
+      });
+
+      constructor() {
+        speechMocks.recorders.push(this);
+      }
+    }
+    vi.stubGlobal("MediaRecorder", MockMediaRecorder);
+    vi.mocked(fetch)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: vi.fn().mockResolvedValue({ text: "Welche Aufgaben sind dringend?" }),
+      } as unknown as Response)
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        body: { getReader: () => ({ read: vi.fn()
+          .mockResolvedValueOnce({ value: new TextEncoder().encode('data: {"choices":[{"delta":{"content":"Alles klar."}}]}\n\n'), done: false })
+          .mockResolvedValueOnce({ value: new TextEncoder().encode("data: [DONE]\n\n"), done: false })
+          .mockResolvedValueOnce({ value: undefined, done: true }) }) },
+      } as unknown as Response);
+
+    render(<VincentWidget />);
+    act(() => window.dispatchEvent(new CustomEvent("vincent:open")));
+
+    const input = await screen.findByPlaceholderText("Nachricht an VINcent");
+    await waitFor(() => expect(input).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: "Mit VINcent sprechen" }));
+    await waitFor(() => expect(speechMocks.recorders[0].start).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(screen.getByRole("button", { name: "Zuhören beenden" }));
+
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(fetch).mock.calls[0][0]).toContain("/functions/v1/vincent-transcribe");
+    const request = JSON.parse(vi.mocked(fetch).mock.calls[1][1]?.body as string);
+    expect(request.messages[0]).toEqual({ role: "user", content: "Welche Aufgaben sind dringend?" });
+    expect(trackStop).toHaveBeenCalled();
   });
 });

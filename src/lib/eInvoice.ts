@@ -103,8 +103,8 @@ export const buildZugferdXml = ({
   const sellerEAS = sellerEmail ? `<ram:URIUniversalCommunication><ram:URIID schemeID="EM">${esc(sellerEmail)}</ram:URIID></ram:URIUniversalCommunication>` : "";
 
   // --- Bank / Payment ---
-  const iban = cleanIban(BANK.iban);
-  const bic = cleanBic(BANK.bic);
+  const iban = cleanIban(seller?.iban || BANK.iban);
+  const bic = cleanBic(seller?.bic || BANK.bic);
 
   const itemName = `${vehicle.make} ${vehicle.model} (${vehicle.year}) · FIN ${vehicle.vin}`;
 

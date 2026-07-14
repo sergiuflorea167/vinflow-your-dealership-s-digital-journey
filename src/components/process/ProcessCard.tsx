@@ -9,8 +9,7 @@ import { useProcessStore } from "@/store/processStore";
 export const ProcessCard = ({ process }: { process: Process }) => {
   const vehicle = useProcessStore((s) => s.getVehicle(process.vehicleId));
   const customer = useProcessStore((s) => s.getCustomer(process.customerId));
-  const settings = useProcessStore((s) => s.settings);
-  const processSteps = getProcessStepsForDisplay(process.currentStep, settings);
+  const processSteps = getProcessStepsForDisplay(process.currentStep, { processStepKeys: process.processStepKeys });
   const idx = Math.max(0, stepIndexIn(process.currentStep, processSteps));
   const currentStep = processSteps[idx];
   const progress = processSteps.length > 1 ? Math.round((idx / (processSteps.length - 1)) * 100) : 100;

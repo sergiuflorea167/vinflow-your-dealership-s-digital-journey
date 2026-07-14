@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Check, Download, Loader2, Maximize2, MessageSquarePlus, Minimize2, Minus,
-  MoreHorizontal, PanelLeftClose, PanelLeftOpen, Pencil, Search, Send, ShieldCheck, Sparkles, Trash2, X,
+  Mic, MoreHorizontal, PanelLeftClose, PanelLeftOpen, Pencil, Search, Send, ShieldCheck, Sparkles, Trash2, X,
 } from "lucide-react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -39,6 +39,25 @@ import { useProcessStore } from "@/store/processStore";
 type WindowMode = "normal" | "maximized" | "minimized";
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 type HistoryStorage = "remote" | "local";
+type SpeechRecognitionConstructor = new () => SpeechRecognitionLike;
+type SpeechRecognitionLike = {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  onend: (() => void) | null;
+  onerror: (() => void) | null;
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
+  start: () => void;
+  stop: () => void;
+};
+type RecordingState = "idle" | "recording" | "transcribing";
+type SpeechRecognitionEventLike = {
+  resultIndex: number;
+  results: ArrayLike<{
+    isFinal: boolean;
+    0: { transcript: string };
+  }>;
+};
 
 const SUGGESTIONS_DE = [
   "Wie ist mein Umsatz dieses Jahr und wie bewertest du ihn?",
@@ -90,7 +109,7 @@ export const VincentWidget = () => {
   const processes = useProcessStore((state) => state.processes);
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<WindowMode>("normal");
-  const [showHistory, setShowHistory] = useState(true);
+  const [showHistory, setShowHistory] = useState(() => typeof window === "undefined" || window.innerWidth >= 768);
   const [historySearch, setHistorySearch] = useState("");
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState(false);
@@ -109,8 +128,15 @@ export const VincentWidget = () => {
   const [privacyNoticeOpen, setPrivacyNoticeOpen] = useState(false);
   const [pendingTodoDraft, setPendingTodoDraft] = useState<VincentTodoDraft | null>(null);
   const [retentionDays, setRetentionDays] = useState(VINCENT_RETENTION_DAYS);
+  const [listening, setListening] = useState(false);
+  const [recordingState, setRecordingState] = useState<RecordingState>("idle");
   const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const speechRef = useRef<SpeechRecognitionLike | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
+  const audioStreamRef = useRef<MediaStream | null>(null);
   const messagesRef = useRef(messages);
   const streamingRef = useRef(streaming);
 
@@ -119,6 +145,18 @@ export const VincentWidget = () => {
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, open, mode]);
+  useEffect(() => {
+    if (!open || mode === "minimized" || !privacyReady || !acknowledged) return;
+    const timer = window.setTimeout(() => inputRef.current?.focus(), 100);
+    return () => window.clearTimeout(timer);
+  }, [acknowledged, mode, open, privacyReady]);
+  useEffect(() => {
+    return () => {
+      speechRef.current?.stop();
+      mediaRecorderRef.current?.stop();
+      audioStreamRef.current?.getTracks().forEach((track) => track.stop());
+    };
+  }, []);
 
   const refreshHistory = useCallback(async () => {
     if (!user) return;
@@ -197,13 +235,23 @@ export const VincentWidget = () => {
 
   const close = () => {
     abortRef.current?.abort();
+    speechRef.current?.stop();
+    mediaRecorderRef.current?.stop();
+    audioStreamRef.current?.getTracks().forEach((track) => track.stop());
     setStreaming(false);
+    setListening(false);
+    setRecordingState("idle");
     setOpen(false);
   };
 
   const startNew = () => {
     abortRef.current?.abort();
+    speechRef.current?.stop();
+    mediaRecorderRef.current?.stop();
+    audioStreamRef.current?.getTracks().forEach((track) => track.stop());
     setStreaming(false);
+    setListening(false);
+    setRecordingState("idle");
     setMessages([]);
     setConversationId(null);
     setSaveStatus("idle");
@@ -240,9 +288,25 @@ export const VincentWidget = () => {
     }
   }, [conversationId, conversations, historyStorage, profile?.organization_id, refreshHistory, retentionDays, user]);
 
+  const requestPrivacyConfirmation = useCallback(() => {
+    setOpen(true);
+    setMode("normal");
+    setPrivacyNoticeOpen(true);
+    toast({
+      title: "Datenschutzhinweis erforderlich",
+      description: privacyLoading
+        ? "VINcent prüft die Freigabe noch. Bitte kurz warten."
+        : "Bitte bestätige den heutigen Hinweis, danach kannst du VINcent nutzen.",
+    });
+  }, [privacyLoading]);
+
   const send = useCallback(async (rawText: string) => {
     const trimmed = rawText.trim().slice(0, VINCENT_MAX_INPUT_LENGTH);
-    if (!trimmed || streamingRef.current || !privacyReady || !acknowledged) return;
+    if (!trimmed || streamingRef.current) return;
+    if (!privacyReady) {
+      requestPrivacyConfirmation();
+      return;
+    }
     if (containsSpecialCategoryHint(trimmed)) {
       toast({
         variant: "destructive",
@@ -398,13 +462,186 @@ export const VincentWidget = () => {
       streamingRef.current = false;
       abortRef.current = null;
     }
-  }, [acknowledged, addTodo, conversationId, historyReady, historyStorage, lang, pendingTodoDraft, persist, privacyReady, processes, user, vehicles]);
+  }, [addTodo, conversationId, historyReady, historyStorage, lang, pendingTodoDraft, persist, privacyReady, processes, requestPrivacyConfirmation, user, vehicles]);
+
+  const transcribeAudio = useCallback(async (audio: Blob) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) throw new Error("Sitzung abgelaufen. Bitte erneut anmelden.");
+    const formData = new FormData();
+    formData.append("audio", audio, `vincent-${Date.now()}.webm`);
+    formData.append("lang", lang === "en" ? "en" : "de");
+    const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/vincent-transcribe`, {
+      method: "POST",
+      headers: {
+        apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: formData,
+    });
+    const body = await response.json().catch(() => null);
+    if (!response.ok) throw new Error(body?.error || "Sprache konnte nicht erkannt werden.");
+    const text = typeof body?.text === "string" ? body.text.trim().slice(0, VINCENT_MAX_INPUT_LENGTH) : "";
+    if (!text) throw new Error("Ich konnte keine Sprache erkennen.");
+    return text;
+  }, [lang]);
+
+  const stopRecorder = useCallback(() => {
+    mediaRecorderRef.current?.stop();
+    mediaRecorderRef.current = null;
+    audioStreamRef.current?.getTracks().forEach((track) => track.stop());
+    audioStreamRef.current = null;
+  }, []);
+
+  const startRecordedVoiceInput = useCallback(async () => {
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
+      toast({ variant: "destructive", title: "Mikrofon nicht verfuegbar", description: "Dieser Browser unterstuetzt keine reine Audioaufnahme. Bitte tippe deine Frage ein." });
+      return;
+    }
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
+      toast({
+        variant: "destructive",
+        title: "Mikrofon nicht verfügbar",
+        description: "Bitte erlaube den Mikrofonzugriff oder tippe deine Frage ein.",
+      });
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioStreamRef.current = stream;
+      audioChunksRef.current = [];
+      const recorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = recorder;
+      recorder.ondataavailable = (event) => {
+        if (event.data.size > 0) audioChunksRef.current.push(event.data);
+      };
+      recorder.onerror = () => {
+        stopRecorder();
+        setListening(false);
+        setRecordingState("idle");
+        toast({ variant: "destructive", title: "Aufnahme fehlgeschlagen", description: "Bitte prüfe den Mikrofonzugriff." });
+      };
+      recorder.onstop = () => {
+        const chunks = audioChunksRef.current;
+        audioChunksRef.current = [];
+        audioStreamRef.current?.getTracks().forEach((track) => track.stop());
+        audioStreamRef.current = null;
+        if (!chunks.length) {
+          setListening(false);
+          setRecordingState("idle");
+          return;
+        }
+        const audio = new Blob(chunks, { type: recorder.mimeType || "audio/webm" });
+        setRecordingState("transcribing");
+        void transcribeAudio(audio)
+          .then((text) => {
+            setInput(text);
+            return send(text);
+          })
+          .catch((error) => {
+            toast({
+              variant: "destructive",
+              title: "Spracheingabe nicht erkannt",
+              description: error instanceof Error ? error.message : "Bitte versuche es erneut oder tippe deine Frage ein.",
+            });
+          })
+          .finally(() => {
+            setListening(false);
+            setRecordingState("idle");
+            mediaRecorderRef.current = null;
+          });
+      };
+      recorder.start();
+      setListening(true);
+      setRecordingState("recording");
+    } catch {
+      stopRecorder();
+      setListening(false);
+      setRecordingState("idle");
+      toast({
+        variant: "destructive",
+        title: "Mikrofon nicht freigegeben",
+        description: "Bitte pruefe in Safari die Mikrofon-Erlaubnis fuer diese Website und lade die Seite neu.",
+      });
+    }
+  }, [send, stopRecorder, transcribeAudio]);
+
+  const startVoiceInput = useCallback(() => {
+    if (!privacyReady || !acknowledged) {
+      requestPrivacyConfirmation();
+      return;
+    }
+    if (listening || recordingState !== "idle") {
+      speechRef.current?.stop();
+      stopRecorder();
+      setListening(false);
+      setRecordingState("idle");
+      return;
+    }
+
+    const browserWindow = window as typeof window & {
+      SpeechRecognition?: SpeechRecognitionConstructor;
+      webkitSpeechRecognition?: SpeechRecognitionConstructor;
+    };
+    const Recognition = browserWindow.SpeechRecognition || browserWindow.webkitSpeechRecognition;
+    if (!Recognition) {
+      void startRecordedVoiceInput();
+      return;
+    }
+
+    const recognition = new Recognition();
+    speechRef.current = recognition;
+    recognition.lang = lang === "en" ? "en-US" : "de-DE";
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.onend = () => {
+      setListening(false);
+      setRecordingState("idle");
+    };
+    recognition.onerror = () => {
+      setListening(false);
+      setRecordingState("idle");
+      toast({
+        variant: "destructive",
+        title: "Spracheingabe gestoppt",
+        description: "VINcent konnte dich nicht klar verstehen. Bitte versuche es erneut.",
+      });
+    };
+    recognition.onresult = (event) => {
+      let transcript = "";
+      let finalTranscript = "";
+      for (let index = event.resultIndex; index < event.results.length; index += 1) {
+        const text = event.results[index][0].transcript;
+        transcript += text;
+        if (event.results[index].isFinal) finalTranscript += text;
+      }
+      const cleanTranscript = transcript.trim().slice(0, VINCENT_MAX_INPUT_LENGTH);
+      if (cleanTranscript) setInput(cleanTranscript);
+      const cleanFinal = finalTranscript.trim().slice(0, VINCENT_MAX_INPUT_LENGTH);
+      if (cleanFinal) {
+        recognition.stop();
+        setListening(false);
+        setRecordingState("idle");
+        void send(cleanFinal);
+      }
+    };
+
+    try {
+      recognition.start();
+      setListening(true);
+      setRecordingState("recording");
+    } catch {
+      setListening(false);
+      setRecordingState("idle");
+      void startRecordedVoiceInput();
+    }
+  }, [acknowledged, lang, listening, privacyReady, recordingState, requestPrivacyConfirmation, send, startRecordedVoiceInput, stopRecorder]);
 
   useEffect(() => {
     const handler = (event: Event) => {
       const prompt = (event as CustomEvent<{ prompt?: string }>).detail?.prompt;
       setOpen(true);
       setMode("normal");
+      setShowHistory(window.innerWidth >= 768);
       if (prompt) setInput(prompt.slice(0, VINCENT_MAX_INPUT_LENGTH));
     };
     window.addEventListener("vincent:open", handler as EventListener);
@@ -501,7 +738,7 @@ export const VincentWidget = () => {
   if (!open) return null;
   if (mode === "minimized") {
     return (
-      <div className="fixed bottom-5 right-5 z-40 flex items-center gap-2 rounded-xl border bg-card p-2 shadow-elegant">
+      <div className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] right-3 z-[130] flex items-center gap-2 rounded-xl border bg-card p-2 shadow-elegant sm:bottom-5 sm:right-5">
         <Button variant="ghost" className="gap-2" onClick={() => setMode("normal")}><Sparkles className="size-4 text-primary" />VINcent</Button>
         <Button variant="ghost" size="icon" onClick={close} aria-label="Chat schließen"><X className="size-4" /></Button>
       </div>
@@ -511,22 +748,28 @@ export const VincentWidget = () => {
   const suggestions = lang === "en" ? SUGGESTIONS_EN : SUGGESTIONS_DE;
   const company = settings.companyName || organization?.name || "dein Unternehmen";
   const contact = settings.companyEmail || profile?.email || "deine Administration";
+  const voiceBusy = listening || recordingState !== "idle";
+  const voiceLabel = recordingState === "transcribing"
+    ? "Sprache wird verarbeitet"
+    : listening
+      ? "Zuhören beenden"
+      : "Mit VINcent sprechen";
   const panelClass = mode === "maximized"
-    ? "fixed inset-2 z-40 sm:inset-4"
-    : "fixed bottom-3 right-3 z-40 h-[min(90dvh,780px)] w-[min(calc(100vw-1.5rem),980px)] sm:bottom-6 sm:right-6";
+    ? "fixed inset-0 z-[130] h-dvh w-screen sm:inset-4 sm:h-auto sm:w-auto"
+    : "fixed inset-0 z-[130] h-dvh w-screen sm:inset-auto sm:bottom-6 sm:right-6 sm:h-[min(90dvh,780px)] sm:w-[min(calc(100vw-1.5rem),980px)]";
 
   return (
     <>
-      <div data-testid="vincent-window" className={cn(panelClass, "flex overflow-hidden rounded-2xl border bg-background shadow-2xl animate-fade-in")}>
+      <div data-testid="vincent-window" className={cn(panelClass, "flex overflow-hidden border-0 bg-background shadow-2xl animate-fade-in sm:rounded-2xl sm:border")}>
         {showHistory && <button type="button" className="absolute inset-0 z-10 bg-black/20 md:hidden" onClick={() => setShowHistory(false)} aria-label="Seitenleiste schließen" />}
         <aside className={cn(
-          "absolute inset-y-0 left-0 z-20 flex w-[280px] flex-col border-r bg-muted/35 transition-transform md:relative md:z-auto md:shrink-0",
+          "absolute inset-y-0 left-0 z-20 flex w-[min(86vw,320px)] flex-col border-r bg-muted/95 transition-transform backdrop-blur md:relative md:z-auto md:w-[280px] md:shrink-0 md:bg-muted/35 md:backdrop-blur-0",
           showHistory ? "translate-x-0" : "-translate-x-full md:hidden",
         )}>
           <div className="flex h-16 items-center gap-2 px-3">
             <div className="flex size-9 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-primary-glow text-primary-foreground shadow-sm"><Sparkles className="size-4" /></div>
             <div className="min-w-0 flex-1"><p className="font-display text-sm font-semibold">VINcent</p><p className="text-[10px] text-muted-foreground">Dein KI-Copilot</p></div>
-            <Button variant="ghost" size="icon" className="size-8" onClick={() => setShowHistory(false)} aria-label="Seitenleiste einklappen"><PanelLeftClose className="size-4" /></Button>
+            <Button variant="ghost" size="icon" className="size-10 sm:size-8" onClick={() => setShowHistory(false)} aria-label="Seitenleiste einklappen"><PanelLeftClose className="size-4" /></Button>
           </div>
           <div className="px-3 pb-3">
             <Button className="w-full justify-start gap-2 rounded-xl" onClick={startNew}><MessageSquarePlus className="size-4" />Neuer Chat</Button>
@@ -534,7 +777,7 @@ export const VincentWidget = () => {
           <div className="px-3 pb-2">
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-muted-foreground" />
-              <Input value={historySearch} onChange={(event) => setHistorySearch(event.target.value)} placeholder="Chats durchsuchen" className="h-9 rounded-lg bg-background/70 pl-9 text-xs" disabled={!historyReady} />
+              <Input value={historySearch} onChange={(event) => setHistorySearch(event.target.value)} placeholder="Chats durchsuchen" className="h-9 rounded-lg bg-background/70 pl-9 text-xs" />
             </div>
           </div>
           <div className="flex-1 overflow-y-auto px-2 pb-3">
@@ -546,11 +789,11 @@ export const VincentWidget = () => {
                 <div className="space-y-0.5">
                   {groupedConversations[group].map((conversation) => (
                     <div key={conversation.id} className={cn("group flex items-center rounded-lg pr-1 hover:bg-muted", conversation.id === conversationId && "bg-muted")}>
-                      <button type="button" onClick={() => { void loadConversation(conversation); if (window.innerWidth < 768) setShowHistory(false); }} className="min-w-0 flex-1 px-2.5 py-2 text-left text-xs">
+                      <button type="button" onClick={() => { void loadConversation(conversation); if (window.innerWidth < 768) setShowHistory(false); }} className="min-h-11 min-w-0 flex-1 px-2.5 py-2 text-left text-xs sm:min-h-0">
                         <span className="block truncate font-medium">{conversation.title}</span>
                       </button>
                       <DropdownMenu>
-                        <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="size-7 shrink-0 opacity-0 group-hover:opacity-100 data-[state=open]:opacity-100" aria-label={`Aktionen für ${conversation.title}`}><MoreHorizontal className="size-3.5" /></Button></DropdownMenuTrigger>
+                        <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="size-10 shrink-0 opacity-100 data-[state=open]:opacity-100 sm:size-7 sm:opacity-0 sm:group-hover:opacity-100" aria-label={`Aktionen für ${conversation.title}`}><MoreHorizontal className="size-3.5" /></Button></DropdownMenuTrigger>
                         <DropdownMenuContent align="start" side="right">
                           <DropdownMenuItem onSelect={() => openRename(conversation)}><Pencil className="mr-2 size-4" />Umbenennen</DropdownMenuItem>
                           <DropdownMenuItem onSelect={() => exportCurrent()} disabled={conversation.id !== conversationId}><Download className="mr-2 size-4" />Exportieren</DropdownMenuItem>
@@ -571,8 +814,8 @@ export const VincentWidget = () => {
         </aside>
 
         <section className="flex min-w-0 flex-1 flex-col bg-background">
-          <header className="flex h-16 shrink-0 items-center gap-2 border-b px-3 sm:px-4">
-            <Button variant="ghost" size="icon" className={cn("size-8 shrink-0", showHistory && "md:hidden")} onClick={() => setShowHistory((value) => !value)} aria-label="Chat-Seitenleiste"><PanelLeftOpen className="size-4" /></Button>
+          <header className="flex min-h-16 shrink-0 items-center gap-1 border-b px-2 sm:gap-2 sm:px-4">
+            <Button variant="ghost" size="icon" className={cn("size-10 shrink-0 sm:size-8", showHistory && "md:hidden")} onClick={() => setShowHistory((value) => !value)} aria-label="Chat-Seitenleiste"><PanelLeftOpen className="size-4" /></Button>
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-semibold">{currentConversation?.title || (messages.length ? conversationTitle(messages.find((message) => message.role === "user")?.content ?? "Neuer Chat") : "Neuer Chat")}</p>
               <p className={cn("flex items-center gap-1 text-[10px]", saveStatus === "saved" ? "text-emerald-600" : saveStatus === "error" || !historyReady ? "text-amber-600" : "text-muted-foreground")}>
@@ -581,22 +824,22 @@ export const VincentWidget = () => {
                 {!historyReady ? "Nicht gespeichert" : saveStatus === "saving" ? "Wird gespeichert …" : saveStatus === "saved" ? "Automatisch gespeichert" : "Neue Unterhaltung"}
               </p>
             </div>
-            <Button variant="ghost" size="icon" className="size-8 shrink-0" onClick={() => setPrivacyNoticeOpen(true)} aria-label="Datenschutz anzeigen" title="Datenschutz"><ShieldCheck className="size-4" /></Button>
+            <Button variant="ghost" size="icon" className="size-10 shrink-0 sm:size-8" onClick={() => setPrivacyNoticeOpen(true)} aria-label="Datenschutz anzeigen" title="Datenschutz"><ShieldCheck className="size-4" /></Button>
             <DropdownMenu>
-              <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="size-8 shrink-0" aria-label="Chat-Aktionen"><MoreHorizontal className="size-4" /></Button></DropdownMenuTrigger>
+              <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="size-10 shrink-0 sm:size-8" aria-label="Chat-Aktionen"><MoreHorizontal className="size-4" /></Button></DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuItem onSelect={exportCurrent} disabled={!messages.length}><Download className="mr-2 size-4" />Exportieren</DropdownMenuItem>
                 {currentConversation && <><DropdownMenuItem onSelect={() => openRename(currentConversation)}><Pencil className="mr-2 size-4" />Umbenennen</DropdownMenuItem><DropdownMenuSeparator /><DropdownMenuItem onSelect={() => void removeConversation(currentConversation)} className="text-destructive"><Trash2 className="mr-2 size-4" />Löschen</DropdownMenuItem></>}
               </DropdownMenuContent>
             </DropdownMenu>
             <div className="mx-1 hidden h-5 w-px bg-border sm:block" />
-            <Button variant="ghost" size="icon" className="size-8 shrink-0" onClick={() => setMode("minimized")} aria-label="Minimieren"><Minus className="size-4" /></Button>
-            <Button variant="ghost" size="icon" className="size-8 shrink-0" onClick={() => setMode(mode === "maximized" ? "normal" : "maximized")} aria-label="Größe ändern">{mode === "maximized" ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}</Button>
-            <Button variant="ghost" size="icon" className="size-8 shrink-0" onClick={close} aria-label="Schließen"><X className="size-4" /></Button>
+            <Button variant="ghost" size="icon" className="hidden size-8 shrink-0 sm:inline-flex" onClick={() => setMode("minimized")} aria-label="Minimieren"><Minus className="size-4" /></Button>
+            <Button variant="ghost" size="icon" className="hidden size-8 shrink-0 sm:inline-flex" onClick={() => setMode(mode === "maximized" ? "normal" : "maximized")} aria-label="Größe ändern">{mode === "maximized" ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}</Button>
+            <Button variant="ghost" size="icon" className="size-10 shrink-0 sm:size-8" onClick={close} aria-label="Schließen"><X className="size-4" /></Button>
           </header>
 
           <div ref={scrollRef} className="flex-1 overflow-y-auto">
-            <div className="mx-auto flex min-h-full w-full max-w-3xl flex-col px-4 py-6 sm:px-8">
+            <div className="mx-auto flex min-h-full w-full max-w-3xl flex-col px-3 py-4 sm:px-8 sm:py-6">
               {privacyLoading && <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground"><Loader2 className="mr-2 size-4 animate-spin" />Sicherheitskonfiguration wird geprüft …</div>}
               {!privacyLoading && !privacyReady && <div className="m-auto rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm"><p className="font-semibold">VINcent ist nicht verfügbar</p><p className="mt-1 text-muted-foreground">Bitte melde dich erneut an.</p></div>}
               {!privacyLoading && privacyReady && messages.length === 0 && (
@@ -605,27 +848,31 @@ export const VincentWidget = () => {
                   <h2 className="mt-4 text-center font-display text-xl font-semibold">Wobei kann ich dir helfen?</h2>
                   <p className="mx-auto mt-2 max-w-md text-center text-sm text-muted-foreground">Ich analysiere nur die für deine Frage nötigen, minimierten VINflow-Daten.</p>
                   {!historyReady && <div className="mx-auto mt-5 max-w-lg rounded-xl border border-amber-500/25 bg-amber-500/5 px-4 py-3 text-center text-xs text-muted-foreground"><span className="font-medium text-foreground">Temporärer Chat:</span> Die Ablage ist noch nicht bereit; beim Schließen geht dieser Chat verloren.</div>}
+                  {!acknowledged && <div className="mx-auto mt-5 max-w-lg rounded-xl border border-primary/25 bg-primary/5 px-4 py-3 text-center text-sm"><p className="font-medium">Vor der Nutzung ist der heutige Datenschutzhinweis erforderlich.</p><Button className="mt-3 w-full sm:w-auto" onClick={requestPrivacyConfirmation}>Hinweis oeffnen</Button></div>}
                   <div className="mt-7 grid gap-2 sm:grid-cols-2">
-                    {suggestions.map((suggestion) => <button key={suggestion} onClick={() => send(suggestion)} className="rounded-xl border bg-card px-4 py-3 text-left text-sm transition-colors hover:border-primary/40 hover:bg-primary/5">{suggestion}</button>)}
+                    {suggestions.map((suggestion) => <button key={suggestion} onClick={() => send(suggestion)} className="min-h-12 rounded-xl border bg-card px-4 py-3 text-left text-sm transition-colors hover:border-primary/40 hover:bg-primary/5">{suggestion}</button>)}
                   </div>
                 </div>
               )}
               {messages.length > 0 && <div className="space-y-6 pb-4">
                 {messages.map((message) => (
                   <div key={message.id} className={cn("flex", message.role === "user" ? "justify-end" : "justify-start")}>
-                    {message.role === "user" ? <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl rounded-br-md bg-muted px-4 py-2.5 text-sm">{message.content}</div> : <div className="prose prose-sm w-full max-w-none text-sm prose-p:my-2 prose-ul:my-2">{!message.content && streaming ? <span className="inline-flex items-center gap-2 text-muted-foreground"><Loader2 className="size-3.5 animate-spin" />VINcent denkt nach …</span> : <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{message.content}</ReactMarkdown>}</div>}
+                    {message.role === "user" ? <div className="max-w-[92%] whitespace-pre-wrap break-words rounded-2xl rounded-br-md bg-muted px-4 py-2.5 text-sm sm:max-w-[85%]">{message.content}</div> : <div className="prose prose-sm w-full max-w-none break-words text-sm prose-p:my-2 prose-ul:my-2">{!message.content && streaming ? <span className="inline-flex items-center gap-2 text-muted-foreground"><Loader2 className="size-3.5 animate-spin" />VINcent denkt nach …</span> : <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>{message.content}</ReactMarkdown>}</div>}
                   </div>
                 ))}
               </div>}
             </div>
           </div>
 
-          <footer className="shrink-0 bg-background px-3 pb-3 pt-2 sm:px-6">
+          <footer className="shrink-0 bg-background px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] pt-2 sm:px-6 sm:pb-3">
             <form onSubmit={(event) => { event.preventDefault(); send(input); }} className="mx-auto flex max-w-3xl items-end gap-2 rounded-2xl border bg-card p-2 shadow-sm focus-within:border-primary/40 focus-within:shadow-md">
-              <Textarea value={input} onChange={(event) => setInput(event.target.value)} maxLength={VINCENT_MAX_INPUT_LENGTH} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); send(input); } }} placeholder="Nachricht an VINcent" rows={1} className="min-h-[40px] max-h-32 resize-none border-0 bg-transparent px-2 py-2.5 shadow-none focus-visible:ring-0" disabled={streaming || !privacyReady || !acknowledged} />
-              <Button type="submit" size="icon" className="size-9 shrink-0 rounded-xl" aria-label="Nachricht senden" disabled={streaming || !input.trim() || !privacyReady || !acknowledged}>{streaming ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}</Button>
+              <Textarea ref={inputRef} value={input} onChange={(event) => setInput(event.target.value)} maxLength={VINCENT_MAX_INPUT_LENGTH} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); send(input); } }} placeholder="Nachricht an VINcent" rows={1} className="min-h-11 min-w-0 max-h-32 resize-none border-0 bg-transparent px-2 py-2.5 shadow-none focus-visible:ring-0" disabled={streaming || !privacyReady} />
+              <Button type="button" variant={voiceBusy ? "default" : "ghost"} size="icon" className={cn("size-11 shrink-0 rounded-xl sm:size-9", listening && "animate-pulse")} aria-label={voiceLabel} title={voiceLabel} onClick={startVoiceInput} disabled={streaming}>
+                {voiceBusy ? <Loader2 className="size-4 animate-spin" /> : <Mic className="size-4" />}
+              </Button>
+              <Button type="button" size="icon" className="size-11 shrink-0 rounded-xl sm:size-9" aria-label="Nachricht senden" onClick={() => { void send(input); }} disabled={streaming || !input.trim()}>{streaming ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}</Button>
             </form>
-            <p className="mx-auto mt-1.5 max-w-3xl truncate text-center text-[10px] text-muted-foreground">VINcent kann Fehler machen · Keine personenbezogenen oder sensiblen Daten eingeben</p>
+            <p className="mx-auto mt-1.5 max-w-3xl text-center text-[10px] leading-tight text-muted-foreground">{recordingState === "transcribing" ? "VINcent verarbeitet deine Sprache" : listening ? "VINcent hört zu. Tippe erneut auf das Mikrofon, um zu senden." : "VINcent kann Fehler machen · Keine personenbezogenen oder sensiblen Daten eingeben"}</p>
           </footer>
         </section>
       </div>

@@ -27,11 +27,11 @@ export const DataTableShell = ({
     <Card className={cn("bg-card border-border overflow-hidden flex flex-col min-h-0", className)}>
       <div
         className={cn(
-          "overflow-auto",
-          "[&_table]:w-full [&_table]:text-xs",
+          "overflow-auto overscroll-x-contain",
+          "[&_table]:w-max sm:[&_table]:w-full [&_table]:min-w-full [&_table]:text-xs",
           "[&_thead]:sticky [&_thead]:top-0 [&_thead]:z-10 [&_thead]:bg-background/95 [&_thead]:backdrop-blur",
-          "[&_thead_th]:px-3 [&_thead_th]:py-2 [&_thead_th]:font-medium [&_thead_th]:text-left [&_thead_th]:text-muted-foreground [&_thead_th]:uppercase [&_thead_th]:tracking-wider [&_thead_th]:text-[10px]",
-          "[&_tbody_td]:px-3 [&_tbody_td]:py-2",
+          "[&_thead_th]:px-3 [&_thead_th]:py-2 [&_thead_th]:font-medium [&_thead_th]:text-left [&_thead_th]:text-muted-foreground [&_thead_th]:uppercase [&_thead_th]:tracking-wider [&_thead_th]:text-[10px] [&_thead_th]:whitespace-nowrap",
+          "[&_tbody_td]:px-3 [&_tbody_td]:py-3 sm:[&_tbody_td]:py-2",
           "[&_tbody_tr]:border-b [&_tbody_tr]:border-border/50 [&_tbody_tr:last-child]:border-0",
         )}
         style={{ maxHeight }}

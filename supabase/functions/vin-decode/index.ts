@@ -10,6 +10,15 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
+const securityHeaders = {
+  "X-Content-Type-Options": "nosniff",
+  "Referrer-Policy": "no-referrer",
+};
+
+const jsonResponse = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
+  status,
+  headers: { ...corsHeaders, ...securityHeaders, "Content-Type": "application/json" },
+});
 
 type Decoded = {
   make?: string;
@@ -222,8 +231,12 @@ async function decodeViaFreeVinDecoder(vin: string): Promise<Decoded | null> {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  if (req.method === "OPTIONS") return new Response(null, { headers: { ...corsHeaders, ...securityHeaders } });
+  if (req.method !== "POST") return jsonResponse({ error: "Methode nicht erlaubt" }, 405);
   try {
+    const contentLength = Number(req.headers.get("content-length") ?? 0);
+    if (contentLength > 20_000) return jsonResponse({ error: "Anfrage ist zu gross" }, 413);
+
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
     const authorization = req.headers.get("Authorization") ?? "";
@@ -240,7 +253,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { vin } = await req.json();
+    const { vin } = await req.json().catch(() => ({}));
     const v = String(vin ?? "").trim().toUpperCase();
     if (!/^[A-HJ-NPR-Z0-9]{11,17}$/.test(v)) {
       return new Response(JSON.stringify({ error: "VIN ungültig" }), {
@@ -273,9 +286,7 @@ Deno.serve(async (req) => {
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (e) {
-    return new Response(
-      JSON.stringify({ error: String((e as Error).message ?? e) }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-    );
+    console.error("vin-decode failed", e instanceof Error ? e.name : "unknown");
+    return jsonResponse({ error: "VIN konnte nicht verarbeitet werden" }, 500);
   }
 });

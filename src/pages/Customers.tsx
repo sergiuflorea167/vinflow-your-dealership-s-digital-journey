@@ -107,7 +107,7 @@ const Customers = () => {
   return (
     <AppShell>
       <div className="space-y-3 animate-fade-in">
-        <div className="flex items-center justify-between gap-4 shrink-0">
+        <div className="flex flex-col gap-3 shrink-0 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
           <div>
             <h1 className="font-display text-2xl font-bold tracking-tight">Kunden</h1>
             <p className="text-xs text-muted-foreground">{customers.length} Kunden mit Angeboten &amp; Vorgängen</p>
@@ -134,9 +134,9 @@ const Customers = () => {
           ))}
         </div>
 
-        <Card className="px-3 py-2 flex items-center gap-2 flex-wrap shrink-0">
+        <Card className="px-3 py-2 flex flex-col gap-2 shrink-0 sm:flex-row sm:flex-wrap sm:items-center">
           <Select value={sortKey} onValueChange={(v) => setSortKey(v as CustomerSortKey)}>
-            <SelectTrigger className="w-[160px] h-8 text-xs"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-full text-xs sm:h-8 sm:w-[160px]"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="name">Name A-Z</SelectItem>
               <SelectItem value="city">Stadt A-Z</SelectItem>
@@ -145,7 +145,7 @@ const Customers = () => {
               <SelectItem value="offers">Angebote ↓</SelectItem>
             </SelectContent>
           </Select>
-          <div className="flex gap-1.5 flex-wrap">
+          <div className="flex gap-1.5 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
             {([
               { key: "all",            label: `Alle (${stats.total})` },
               { key: "with_processes", label: `Mit Vorgang (${stats.with_processes})` },
@@ -156,7 +156,7 @@ const Customers = () => {
                 key={f.key}
                 size="sm"
                 variant={filter === f.key ? "default" : "outline"}
-                className="h-8 text-xs"
+                className="text-xs sm:h-8"
                 onClick={() => setFilter(f.key)}
               >
                 {f.label}

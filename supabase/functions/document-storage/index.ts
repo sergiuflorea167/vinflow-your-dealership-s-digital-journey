@@ -2,16 +2,34 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 
 const BUCKET = "vinflow-documents";
 const MAX_FILE_SIZE = 20 * 1024 * 1024;
+const BLOCKED_MIME_TYPES = new Set([
+  "image/svg+xml",
+  "text/html",
+  "application/xhtml+xml",
+  "application/javascript",
+  "text/javascript",
+]);
+const BLOCKED_EXTENSIONS = /\.(?:html?|xhtml|svg|js|mjs|cjs)$/i;
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-file-name, x-organization-id, x-uploaded-by",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
+const securityHeaders = {
+  "X-Content-Type-Options": "nosniff",
+  "Referrer-Policy": "no-referrer",
+};
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), {
   status,
-  headers: { ...corsHeaders, "Content-Type": "application/json" },
+  headers: { ...corsHeaders, ...securityHeaders, "Content-Type": "application/json" },
 });
+
+class HttpError extends Error {
+  constructor(public status: number, message: string) {
+    super(message);
+  }
+}
 
 const safeSegment = (value: string) => value
   .normalize("NFKD")
@@ -47,7 +65,7 @@ const authenticateLegacyUser = async (request: Request) => {
 };
 
 Deno.serve(async (request) => {
-  if (request.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
+  if (request.method === "OPTIONS") return new Response("ok", { headers: { ...corsHeaders, ...securityHeaders } });
   if (request.method !== "POST") return json({ error: "Methode nicht erlaubt." }, 405);
 
   try {
@@ -77,10 +95,13 @@ Deno.serve(async (request) => {
       const id = crypto.randomUUID();
       const fileName = decodedHeader(request, "x-file-name") || "datei";
       const uploadedBy = decodedHeader(request, "x-uploaded-by").slice(0, 200);
-      const storagePath = [organizationId, entityType, safeSegment(entityId), `${id}-${safeSegment(fileName)}`].join("/");
       const mimeType = request.headers.get("content-type") || "application/octet-stream";
+      if (BLOCKED_MIME_TYPES.has(mimeType.toLowerCase()) || BLOCKED_EXTENSIONS.test(fileName)) {
+        return json({ error: "Dieser Dateityp ist aus SicherheitsgrÃ¼nden nicht erlaubt." }, 415);
+      }
+      const storagePath = [organizationId, entityType, safeSegment(entityId), `${id}-${safeSegment(fileName)}`].join("/");
       const { error } = await storage.upload(storagePath, bytes, { contentType: mimeType, upsert: false });
-      if (error) throw error;
+      if (error) throw new HttpError(500, "Datei konnte nicht gespeichert werden.");
       return json({
         id,
         name: fileName,
@@ -99,18 +120,29 @@ Deno.serve(async (request) => {
 
     if (action === "sign") {
       const { data, error } = await storage.createSignedUrl(storagePath, 60);
-      if (error) throw error;
+      if (error) throw new HttpError(404, "Dokument konnte nicht geÃ¶ffnet werden.");
       return json({ signedUrl: data.signedUrl });
     }
     if (action === "delete") {
       const { error } = await storage.remove([storagePath]);
-      if (error) throw error;
+      if (error) throw new HttpError(500, "Dokument konnte nicht gelÃ¶scht werden.");
       return json({ deleted: true });
     }
     return json({ error: "Unbekannte Aktion." }, 400);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Dokumentenablage nicht erreichbar.";
-    const status = /anmeld|Benutzerzugriff/i.test(message) ? 401 : 500;
+    const message = error instanceof HttpError
+      ? error.message
+      : error instanceof Error && /anmeld|Benutzerzugriff/i.test(error.message)
+        ? error.message
+        : "Dokumentenablage nicht erreichbar.";
+    const status = error instanceof HttpError
+      ? error.status
+      : /anmeld|Benutzerzugriff/i.test(message)
+        ? 401
+        : 500;
+    if (!(error instanceof HttpError) && status === 500) {
+      console.error("document-storage failed", error instanceof Error ? error.name : "unknown");
+    }
     return json({ error: message }, status);
   }
 });

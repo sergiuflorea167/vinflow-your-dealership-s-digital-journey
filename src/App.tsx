@@ -1,27 +1,10 @@
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
+import type { ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Route, Routes, useLocation, useNavigate, useParams } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import Index from "./pages/Index.tsx";
-import NotFound from "./pages/NotFound.tsx";
-import ProcessList from "./pages/ProcessList.tsx";
-import ProcessDetail from "./pages/ProcessDetail.tsx";
-import Fleet from "./pages/Fleet.tsx";
-import VehicleDetail from "./pages/VehicleDetail.tsx";
-import PurchasePlanning from "./pages/PurchasePlanning.tsx";
-import Customers from "./pages/Customers.tsx";
-import KPIs from "./pages/KPIs.tsx";
-import Insights from "./pages/Insights.tsx";
-import OfferDetail from "./pages/OfferDetail.tsx";
-import Todos from "./pages/Todos.tsx";
-import Calendar from "./pages/Calendar.tsx";
-import Stammdaten from "./pages/Stammdaten.tsx";
-import Konfiguration from "./pages/Konfiguration.tsx";
-import CustomerTracking from "./pages/CustomerTracking.tsx";
-import Auth from "./pages/Auth.tsx";
-import ResetPassword from "./pages/ResetPassword.tsx";
 import { TopbarSearchProvider } from "./context/TopbarSearchContext";
 import { KpiRangeProvider } from "./context/KpiRangeContext";
 import { AuthProvider } from "./context/AuthContext";
@@ -30,12 +13,37 @@ import { ProtectedRoute } from "./components/auth/ProtectedRoute";
 
 const queryClient = new QueryClient();
 
+const Index = lazy(() => import("./pages/Index.tsx"));
+const NotFound = lazy(() => import("./pages/NotFound.tsx"));
+const ProcessList = lazy(() => import("./pages/ProcessList.tsx"));
+const ProcessDetail = lazy(() => import("./pages/ProcessDetail.tsx"));
+const Fleet = lazy(() => import("./pages/Fleet.tsx"));
+const VehicleDetail = lazy(() => import("./pages/VehicleDetail.tsx"));
+const PurchasePlanning = lazy(() => import("./pages/PurchasePlanning.tsx"));
+const Customers = lazy(() => import("./pages/Customers.tsx"));
+const KPIs = lazy(() => import("./pages/KPIs.tsx"));
+const Insights = lazy(() => import("./pages/Insights.tsx"));
+const OfferDetail = lazy(() => import("./pages/OfferDetail.tsx"));
+const Todos = lazy(() => import("./pages/Todos.tsx"));
+const Calendar = lazy(() => import("./pages/Calendar.tsx"));
+const Stammdaten = lazy(() => import("./pages/Stammdaten.tsx"));
+const Konfiguration = lazy(() => import("./pages/Konfiguration.tsx"));
+const CustomerTracking = lazy(() => import("./pages/CustomerTracking.tsx"));
+const Auth = lazy(() => import("./pages/Auth.tsx"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword.tsx"));
+
+const RouteFallback = () => (
+  <div className="min-h-screen grid place-items-center bg-background">
+    <div className="size-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+  </div>
+);
+
 const RedirectVehicle = () => {
   const { id } = useParams<{ id: string }>();
   return <Navigate to={`/bestand/${id ?? ""}`} replace />;
 };
 
-const Protected = ({ children }: { children: React.ReactNode }) => (
+const Protected = ({ children }: { children: ReactNode }) => (
   <ProtectedRoute>
     <TopbarSearchProvider>
       <KpiRangeProvider>{children}</KpiRangeProvider>
@@ -65,33 +73,36 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter>
+      <BrowserRouter future={{ v7_relativeSplatPath: true, v7_startTransition: true }}>
         <AuthProvider>
           <RecoveryRedirectGuard />
-          <Routes>
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/reset-password" element={<ResetPassword />} />
-            <Route path="/track/:token" element={<CustomerTracking />} />
+          <Suspense fallback={<RouteFallback />}>
+            <Routes>
+              <Route path="/auth" element={<Auth />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
+              <Route path="/track/:token" element={<CustomerTracking />} />
 
-            <Route path="/" element={<Protected><Index /></Protected>} />
-            <Route path="/einkaufsplanung" element={<Protected><PurchasePlanning /></Protected>} />
-            <Route path="/bestand" element={<Protected><Fleet /></Protected>} />
-            <Route path="/bestand/:id" element={<Protected><VehicleDetail /></Protected>} />
-            <Route path="/flotte" element={<Navigate to="/bestand" replace />} />
-            <Route path="/flotte/:id" element={<RedirectVehicle />} />
-            <Route path="/vorgaenge" element={<Protected><ProcessList /></Protected>} />
-            <Route path="/vorgaenge/:id" element={<Protected><ProcessDetail /></Protected>} />
-            <Route path="/angebote/:id" element={<Protected><OfferDetail /></Protected>} />
-            <Route path="/kunden" element={<Protected><Customers /></Protected>} />
-            <Route path="/kpis" element={<Protected><KPIs /></Protected>} />
-            <Route path="/insights" element={<Protected><Insights /></Protected>} />
-            <Route path="/todos" element={<Protected><Todos /></Protected>} />
-            <Route path="/kalender" element={<Protected><Calendar /></Protected>} />
-            <Route path="/stammdaten" element={<Protected><Stammdaten /></Protected>} />
-            <Route path="/konfiguration" element={<Protected><Konfiguration /></Protected>} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+              <Route path="/" element={<Protected><Index /></Protected>} />
+              <Route path="/einkaufsplanung" element={<Protected><PurchasePlanning /></Protected>} />
+              <Route path="/bestand" element={<Protected><Fleet /></Protected>} />
+              <Route path="/bestand/:id" element={<Protected><VehicleDetail /></Protected>} />
+              <Route path="/flotte" element={<Navigate to="/bestand" replace />} />
+              <Route path="/flotte/:id" element={<RedirectVehicle />} />
+              <Route path="/vorgaenge" element={<Protected><ProcessList /></Protected>} />
+              <Route path="/vorgaenge/:id" element={<Protected><ProcessDetail /></Protected>} />
+              <Route path="/angebote/:id" element={<Protected><OfferDetail /></Protected>} />
+              <Route path="/kunden" element={<Protected><Customers /></Protected>} />
+              <Route path="/kpis" element={<Protected><KPIs /></Protected>} />
+              <Route path="/insights" element={<Protected><Insights /></Protected>} />
+              <Route path="/todos" element={<Protected><Todos /></Protected>} />
+              <Route path="/kalender" element={<Protected><Calendar /></Protected>} />
+              <Route path="/stammdaten" element={<Protected><Stammdaten /></Protected>} />
+              <Route path="/einstellungen" element={<Navigate to="/konfiguration" replace />} />
+              <Route path="/konfiguration" element={<Protected><Konfiguration /></Protected>} />
+              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </Suspense>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>

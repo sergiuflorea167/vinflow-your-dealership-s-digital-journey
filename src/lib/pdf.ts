@@ -8,8 +8,12 @@ import {
   VEHICLE_TYPE_LABELS,
   CUSTOMER_AGREEMENT_STEP_KEYS,
   ProcessStepKey,
+  PdfLayoutBlockKey,
+  PdfLayoutConfig,
+  PDF_DOCUMENT_GROUP_BY_STEP,
   formatCurrencyPrecise as formatCurrency,
   formatDate,
+  normalizePdfLayout,
 } from "@/data/process";
 import { getContractClauses, type ContractClauseContext } from "@/lib/contractClauses";
 
@@ -111,14 +115,51 @@ const PROFESSIONAL_DOCUMENT_THEME: Omit<PdfTheme, "key" | "label" | "description
 };
 
 let BRAND = PROFESSIONAL_DOCUMENT_THEME;
+let ACTIVE_LAYOUT = normalizePdfLayout();
+let ACTIVE_DOCUMENT_CONTENT = ACTIVE_LAYOUT.documentContents.sales;
 
 const applyPdfTheme = (_key?: PdfThemeKey) => {
   // Geschäftsdokumente bleiben bewusst neutral und unabhängig vom App-Farbthema.
   BRAND = PROFESSIONAL_DOCUMENT_THEME;
 };
 
-const PAGE = { w: 210, h: 297, margin: 20 };
+const ACCENT_COLORS: Record<PdfLayoutConfig["accentColor"], RGB> = {
+  blue: [0, 70, 125],
+  graphite: [55, 65, 81],
+  gold: [168, 132, 50],
+  red: [192, 32, 44],
+  green: [45, 106, 79],
+};
+
+const applyPdfLayout = (layout?: PdfLayoutConfig) => {
+  ACTIVE_LAYOUT = normalizePdfLayout(layout);
+  ACTIVE_DOCUMENT_CONTENT = ACTIVE_LAYOUT.documentContents.sales;
+  PAGE.margin = ACTIVE_LAYOUT.marginMm;
+};
+
+const applyDocumentContent = (stepKey: ProcessStepKey) => {
+  const group = PDF_DOCUMENT_GROUP_BY_STEP[stepKey] ?? "sales";
+  ACTIVE_DOCUMENT_CONTENT = ACTIVE_LAYOUT.documentContents[group] ?? ACTIVE_LAYOUT.documentContents.sales;
+};
+
+const fontSize = (size: number) => Number((size * ACTIVE_LAYOUT.fontScale).toFixed(2));
+
+const blockOffset = (key: PdfLayoutBlockKey) => ACTIVE_LAYOUT.blockOffsets[key] ?? { x: 0, y: 0 };
+
+const PAGE = {
+  w: 210,
+  h: 297,
+  margin: 18,
+  footerTop: 268,
+  contentBottom: 258,
+  headerY: 16,
+  addressY: 58,
+  titleY: 112,
+  tableY: 125,
+};
 export const BANK = { iban: "DE89 3704 0044 0532 0130 00", bic: "COBADEFFXXX", bank: "Commerzbank" };
+
+let activeStandardChrome: { title: string; docNumber: string; companyName: string; seller?: SellerInfo; companyLogoUrl?: string } | null = null;
 
 const setColor = (doc: jsPDF, c: RGB, type: "fill" | "draw" | "text" = "text") => {
   if (type === "fill") doc.setFillColor(c[0], c[1], c[2]);
@@ -136,222 +177,476 @@ const fitSingleLine = (doc: jsPDF, value: string, maxWidth: number) => {
 // ---------- Header / Footer ----------
 
 const companyAddress = (seller?: SellerInfo) => [seller?.street, [seller?.zip, seller?.city].filter(Boolean).join(" ")].filter(Boolean).join(" · ");
+const companySenderLine = (companyName: string, seller?: SellerInfo) => [companyName, companyAddress(seller)].filter(Boolean).join(" · ");
+const sellerBank = (seller?: SellerInfo) => ({
+  bank: seller?.bankName || BANK.bank,
+  iban: seller?.iban || BANK.iban,
+  bic: seller?.bic || BANK.bic,
+});
 
-const drawHeader = (doc: jsPDF, _title: string, _docNumber: string, companyName: string, seller?: SellerInfo) => {
-  // Reiner Briefkopf; Dokumenttitel und Belegnummer folgen weiter unten wie in der Referenz.
+const logoFormat = (dataUrl: string) => dataUrl.startsWith("data:image/jpeg") || dataUrl.startsWith("data:image/jpg") ? "JPEG" : "PNG";
+const logoAlias = (dataUrl: string) => `company-logo-${dataUrl.length}-${dataUrl.slice(0, 32)}-${dataUrl.slice(-32)}`.replace(/[^A-Za-z0-9_-]/g, "");
+const optimizedLogoCache = new Map<string, Promise<string>>();
+
+const waitForPaint = () => new Promise<void>((resolve) => {
+  if (typeof window === "undefined" || typeof window.requestAnimationFrame !== "function") {
+    resolve();
+    return;
+  }
+  window.requestAnimationFrame(() => resolve());
+});
+
+const loadImage = (src: string) => new Promise<HTMLImageElement>((resolve, reject) => {
+  const image = new Image();
+  image.onload = () => resolve(image);
+  image.onerror = reject;
+  image.src = src;
+});
+
+const optimizePdfLogo = async (companyLogoUrl?: string) => {
+  if (!companyLogoUrl || !companyLogoUrl.startsWith("data:image/")) return companyLogoUrl;
+  if (companyLogoUrl.length < 250_000) return companyLogoUrl;
+
+  const cached = optimizedLogoCache.get(companyLogoUrl);
+  if (cached) return cached;
+
+  const optimized = (async () => {
+    if (typeof document === "undefined") return companyLogoUrl;
+    const image = await loadImage(companyLogoUrl);
+    const sourceWidth = image.naturalWidth || image.width;
+    const sourceHeight = image.naturalHeight || image.height;
+    if (!sourceWidth || !sourceHeight) return companyLogoUrl;
+
+    const maxWidth = 900;
+    const maxHeight = 360;
+    const scale = Math.min(1, maxWidth / sourceWidth, maxHeight / sourceHeight);
+    if (scale >= 1 && companyLogoUrl.length < 500_000) return companyLogoUrl;
+
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(sourceWidth * scale));
+    canvas.height = Math.max(1, Math.round(sourceHeight * scale));
+    const context = canvas.getContext("2d");
+    if (!context) return companyLogoUrl;
+
+    context.fillStyle = "#ffffff";
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+    return canvas.toDataURL("image/jpeg", 0.86);
+  })().catch(() => companyLogoUrl);
+
+  optimizedLogoCache.set(companyLogoUrl, optimized);
+  return optimized;
+};
+
+const preparePdfArgs = async <T extends { companyLogoUrl?: string }>(args: T): Promise<T> => ({
+  ...args,
+  companyLogoUrl: await optimizePdfLogo(args.companyLogoUrl),
+});
+
+const headerLogoY = () => 16 + blockOffset("logo").y;
+const headerBottomY = () => {
+  if (ACTIVE_LAYOUT.logoPosition === "hidden") return PAGE.headerY + blockOffset("sender").y + 13;
+  return Math.max(PAGE.headerY + blockOffset("sender").y + 13, headerLogoY() + ACTIVE_LAYOUT.logoSize.heightMm);
+};
+
+const drawHeader = (doc: jsPDF, _title: string, _docNumber: string, companyName: string, seller?: SellerInfo, companyLogoUrl?: string) => {
+  const logoOffset = blockOffset("logo");
+  const senderOffset = blockOffset("sender");
+  const x = PAGE.margin;
+  const logoW = ACTIVE_LAYOUT.logoSize.widthMm;
+  const logoH = ACTIVE_LAYOUT.logoSize.heightMm;
+  const logoX = (ACTIVE_LAYOUT.logoPosition === "left" ? PAGE.margin : PAGE.w - PAGE.margin - logoW) + logoOffset.x;
+  const logoY = headerLogoY();
+  const textX = (ACTIVE_LAYOUT.logoPosition === "left" ? PAGE.margin + logoW + 8 : x) + senderOffset.x;
+  const textY = Math.max(PAGE.headerY + senderOffset.y, logoY + 2);
+  const textWidth = ACTIVE_LAYOUT.logoPosition === "left"
+    ? Math.max(42, PAGE.w - textX - PAGE.margin)
+    : Math.max(42, PAGE.w - PAGE.margin * 2 - logoW - 12);
+
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(12);
+  doc.setFontSize(fontSize(10));
   setColor(doc, BRAND.ink);
-  doc.text(fitSingleLine(doc, companyName, 105), PAGE.margin, 16.5);
+  doc.text(fitSingleLine(doc, companyName, textWidth), textX, textY);
 
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(7);
+  doc.setFontSize(fontSize(7.5));
   setColor(doc, BRAND.muted);
   const address = companyAddress(seller);
-  doc.text(fitSingleLine(doc, address || "Fahrzeughandel & Service", 105), PAGE.margin, 20.5);
+  doc.text(fitSingleLine(doc, address || "Fahrzeughandel & Service", textWidth), textX, textY + 4.2);
 
-  doc.setFontSize(7.5);
-  setColor(doc, BRAND.muted);
-  if (seller?.phone) doc.text(fitSingleLine(doc, `Tel. ${seller.phone}`, 55), PAGE.w - PAGE.margin, 16.5, { align: "right" });
-  if (seller?.email) doc.text(fitSingleLine(doc, seller.email, 55), PAGE.w - PAGE.margin, 20.5, { align: "right" });
-
-  setColor(doc, BRAND.border, "draw");
-  doc.setLineWidth(0.3);
-  doc.line(PAGE.margin, 27, PAGE.w - PAGE.margin, 27);
+  if (ACTIVE_LAYOUT.logoPosition !== "hidden") {
+    if (companyLogoUrl) {
+      try {
+        doc.addImage(companyLogoUrl, logoFormat(companyLogoUrl), logoX, logoY, logoW, logoH, logoAlias(companyLogoUrl), "FAST");
+        return;
+      } catch (error) {
+        console.warn("[pdf] company logo could not be rendered", error);
+      }
+    }
+    setColor(doc, ACCENT_COLORS[ACTIVE_LAYOUT.accentColor], "fill");
+    doc.roundedRect(logoX, logoY, logoW, logoH, 0.8, 0.8, "F");
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(fontSize(Math.min(18, logoH * 0.8)));
+    setColor(doc, [255, 255, 255]);
+    doc.text("LOGO", logoX + logoW / 2, logoY + logoH / 2 + 2, { align: "center" });
+  }
 };
 
-const drawDocumentHeading = (doc: jsPDF, title: string, docNumber: string, y: number) => {
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(18);
+const drawFollowingPageHeader = (doc: jsPDF, title: string, docNumber: string, companyName: string, seller?: SellerInfo, companyLogoUrl?: string) => {
+  if (!ACTIVE_LAYOUT.followingPage.showHeader) return;
+  drawHeader(doc, title, docNumber, companyName, seller, companyLogoUrl);
+  const separatorY = headerBottomY() + 5;
+  setColor(doc, BRAND.border, "draw");
+  doc.setLineWidth(0.25);
+  doc.line(PAGE.margin, separatorY, PAGE.w - PAGE.margin, separatorY);
+};
+
+const drawDocumentHeading = (doc: jsPDF, title: string, _docNumber: string, y: number) => {
+  const offset = blockOffset("title");
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(14);
   setColor(doc, BRAND.ink);
-  doc.text(title, PAGE.margin, y);
-
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(8.5);
-  setColor(doc, BRAND.muted);
-  doc.text(docNumber, PAGE.w - PAGE.margin, y, { align: "right" });
-
-  setColor(doc, BRAND.border, "draw");
-  doc.setLineWidth(0.3);
-  doc.line(PAGE.margin, y + 3, PAGE.w - PAGE.margin, y + 3);
-  return y + 9;
+  doc.text(title, PAGE.margin + offset.x, y + offset.y);
+  return y + offset.y + 13;
 };
 
-const drawFooter = (doc: jsPDF, companyName: string, seller?: SellerInfo) => {
-  const y = PAGE.h - 27;
+const drawFooter = (doc: jsPDF, companyName: string, seller?: SellerInfo, pageNumber?: number, pageCount?: number) => {
+  if (!ACTIVE_LAYOUT.showFooter) return;
+  const footer = ACTIVE_LAYOUT.footer;
+  const configuredY = PAGE.footerTop + footer.yOffsetMm;
+  const configuredFontSize = 6.1 * footer.fontScale;
+  const configuredAddressLines = [seller?.street, [seller?.zip, seller?.city].filter(Boolean).join(" ")].filter(Boolean);
+  const configuredTaxLine = seller?.vatId ? `USt-IdNr. ${seller.vatId}` : seller?.taxNumber ? `St.-Nr. ${seller.taxNumber}` : "USt-IdNr. -";
+  const configuredSections = [
+    footer.showBank ? { title: "Bankverbindung", lines: [sellerBank(seller).bank, `IBAN ${sellerBank(seller).iban}`, `BIC ${sellerBank(seller).bic}`] } : null,
+    footer.showCompany ? { title: "Unternehmen", lines: [companyName, ...configuredAddressLines, seller?.representative ? `GF ${seller.representative}` : undefined].filter(Boolean) as string[] } : null,
+    footer.showTax ? { title: "Steuer", lines: [configuredTaxLine, seller?.registration].filter(Boolean) as string[] } : null,
+    footer.showContact ? { title: "Kontakt", lines: [seller?.phone ? `Tel. ${seller.phone}` : "Telefon -", seller?.email ? `E-Mail ${seller.email}` : "E-Mail -", seller?.website || "Website -"] } : null,
+  ].filter(Boolean) as Array<{ title: string; lines: string[] }>;
+
+  if (footer.showLine) {
+    setColor(doc, BRAND.border, "draw");
+    doc.setLineWidth(0.3);
+    doc.line(PAGE.margin, configuredY, PAGE.w - PAGE.margin, configuredY);
+  }
+
+  if (footer.style === "minimal") {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(configuredFontSize);
+    setColor(doc, BRAND.ink);
+    const parts = [
+      footer.showCompany ? companyName : null,
+      footer.showContact && seller?.email ? seller.email : null,
+      footer.showBank ? `IBAN ${sellerBank(seller).iban}` : null,
+      footer.showTax ? configuredTaxLine : null,
+    ].filter(Boolean) as string[];
+    doc.text(fitSingleLine(doc, parts.join("   "), PAGE.w - 2 * PAGE.margin - 28), PAGE.margin, configuredY + 6);
+  } else if (footer.style === "compact") {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(configuredFontSize);
+    setColor(doc, BRAND.ink);
+    const compactText = configuredSections.flatMap((section) => [section.title, ...section.lines]).join("   ");
+    doc.text(fitSingleLine(doc, compactText, PAGE.w - 2 * PAGE.margin - 30), PAGE.margin, configuredY + 6);
+  } else if (configuredSections.length) {
+    const colW = (PAGE.w - 2 * PAGE.margin) / configuredSections.length;
+    const drawConfiguredFooterText = (text: string, col: number, offsetY: number) => {
+      doc.text(fitSingleLine(doc, text, colW - 3), PAGE.margin + col * colW, configuredY + offsetY);
+    };
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(configuredFontSize);
+    setColor(doc, BRAND.muted);
+    configuredSections.forEach((section, col) => drawConfiguredFooterText(section.title, col, 5));
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(configuredFontSize);
+    setColor(doc, BRAND.ink);
+    configuredSections.forEach((section, col) => {
+      section.lines.slice(0, 4).forEach((line, index) => drawConfiguredFooterText(line, col, 9 + index * 3.2));
+    });
+  }
+
+  if (footer.showPageNumber) {
+    setColor(doc, BRAND.muted);
+    doc.setFontSize(6.8 * footer.fontScale);
+    const current = pageNumber ?? doc.getCurrentPageInfo().pageNumber;
+    const total = pageCount ?? doc.getNumberOfPages();
+    doc.text(`Seite ${current}/${total}`, PAGE.w - PAGE.margin, PAGE.h - 7, { align: "right" });
+  }
+  return;
+  const y = PAGE.footerTop;
+  const footerFontSize = 6.1;
   setColor(doc, BRAND.border, "draw");
   doc.setLineWidth(0.3);
   doc.line(PAGE.margin, y, PAGE.w - PAGE.margin, y);
 
-  const colW = (PAGE.w - 2 * PAGE.margin) / 3;
+  const colW = (PAGE.w - 2 * PAGE.margin) / 4;
+  const drawFooterText = (text: string, col: number, offsetY: number) => {
+    doc.text(fitSingleLine(doc, text, colW - 3), PAGE.margin + col * colW, y + offsetY);
+  };
+
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(7);
+  doc.setFontSize(footerFontSize);
   setColor(doc, BRAND.muted);
-  doc.text("UNTERNEHMEN", PAGE.margin, y + 4);
-  doc.text("BANKVERBINDUNG", PAGE.margin + colW, y + 4);
-  doc.text("KONTAKT", PAGE.margin + 2 * colW, y + 4);
+  doc.text("Bankverbindung", PAGE.margin, y + 5);
+  doc.text("Unternehmen", PAGE.margin + colW, y + 5);
+  doc.text("Steuer", PAGE.margin + 2 * colW, y + 5);
+  doc.text("Kontakt", PAGE.margin + 3 * colW, y + 5);
 
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(7);
+  doc.setFontSize(footerFontSize);
   setColor(doc, BRAND.ink);
-  doc.text(companyName, PAGE.margin, y + 8);
+  drawFooterText(sellerBank(seller).bank, 0, 9);
+  drawFooterText(`IBAN ${sellerBank(seller).iban}`, 0, 12.2);
+  drawFooterText(`BIC ${sellerBank(seller).bic}`, 0, 15.4);
+
+  drawFooterText(companyName, 1, 9);
   const addressLines = [seller?.street, [seller?.zip, seller?.city].filter(Boolean).join(" ")].filter(Boolean);
-  if (addressLines[0]) doc.text(addressLines[0], PAGE.margin, y + 11);
-  if (addressLines[1]) doc.text(addressLines[1], PAGE.margin, y + 14);
+  if (addressLines[0]) drawFooterText(addressLines[0], 1, 12.2);
+  if (addressLines[1]) drawFooterText(addressLines[1], 1, 15.4);
+  if (seller?.representative) drawFooterText(`GF ${seller.representative}`, 1, 18.6);
   const taxLine = seller?.vatId ? `USt-IdNr. ${seller.vatId}` : seller?.taxNumber ? `St.-Nr. ${seller.taxNumber}` : "USt-IdNr. —";
-  doc.text(taxLine, PAGE.margin, y + 17);
-  if (seller?.registration) doc.text(seller.registration, PAGE.margin, y + 20);
+  drawFooterText(taxLine, 2, 9);
+  if (seller?.registration) drawFooterText(seller.registration, 2, 12.2);
 
-  doc.text(BANK.bank, PAGE.margin + colW, y + 8);
-  doc.text(`IBAN ${BANK.iban}`, PAGE.margin + colW, y + 11);
-  doc.text(`BIC ${BANK.bic}`, PAGE.margin + colW, y + 14);
-
-  doc.text(seller?.phone ? `Tel. ${seller.phone}` : "Telefon —", PAGE.margin + 2 * colW, y + 8);
-  doc.text(seller?.email ? `E-Mail ${seller.email}` : "E-Mail —", PAGE.margin + 2 * colW, y + 11);
-  if (seller?.representative) doc.text(`Ansprechpartner: ${seller.representative}`, PAGE.margin + 2 * colW, y + 14);
+  drawFooterText(seller?.phone ? `Tel. ${seller.phone}` : "Telefon —", 3, 9);
+  drawFooterText(seller?.email ? `E-Mail ${seller.email}` : "E-Mail —", 3, 12.2);
+  drawFooterText(seller?.website || "Website -", 3, 15.4);
 
   setColor(doc, BRAND.muted);
-  doc.setFontSize(6.5);
-  doc.text(
-    `Erstellt am ${formatDate(new Date().toISOString())} · Seite ${doc.getNumberOfPages()}`,
-    PAGE.w - PAGE.margin, PAGE.h - 7, { align: "right" }
-  );
+  doc.setFontSize(6.8);
+  const current = pageNumber ?? doc.getCurrentPageInfo().pageNumber;
+  const total = pageCount ?? doc.getNumberOfPages();
+  doc.text(`Seite ${current}/${total}`, PAGE.w - PAGE.margin, PAGE.h - 7, { align: "right" });
+};
+
+const drawFooterOnAllPages = (doc: jsPDF, companyName: string, seller?: SellerInfo) => {
+  if (!ACTIVE_LAYOUT.showFooter) return;
+  const pageCount = doc.getNumberOfPages();
+  const currentPage = doc.getCurrentPageInfo().pageNumber;
+  for (let page = 1; page <= pageCount; page += 1) {
+    doc.setPage(page);
+    drawFooter(doc, companyName, seller, page, pageCount);
+  }
+  doc.setPage(currentPage);
+};
+
+const ensureStandardSpace = (doc: jsPDF, y: number, requiredHeight: number) => {
+  if (!activeStandardChrome || y + requiredHeight <= PAGE.contentBottom) return y;
+  doc.addPage();
+  drawFollowingPageHeader(doc, activeStandardChrome.title, activeStandardChrome.docNumber, activeStandardChrome.companyName, activeStandardChrome.seller, activeStandardChrome.companyLogoUrl);
+  return ACTIVE_LAYOUT.followingPage.contentStartMm;
 };
 
 // ---------- Building blocks ----------
 
 const drawAddressBlock = (doc: jsPDF, customer: Customer, y: number, companyName: string, seller?: SellerInfo, _label = "EMPFÄNGER") => {
+  const offset = blockOffset("address");
+  const addressX = PAGE.margin + offset.x;
+  const addressY = y + offset.y;
   doc.setFont("helvetica", "normal");
   doc.setFontSize(6.5);
   setColor(doc, BRAND.muted);
-  const senderLine = [companyName, seller?.street, [seller?.zip, seller?.city].filter(Boolean).join(" ")].filter(Boolean).join(" · ");
-  doc.text(senderLine, PAGE.margin, y);
+  doc.text(fitSingleLine(doc, companySenderLine(companyName, seller), 108), addressX, addressY);
 
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(10.5);
+  doc.setFontSize(10);
   setColor(doc, BRAND.ink);
-  doc.text(customer.name, PAGE.margin, y + 8);
+  doc.text(customer.name, addressX, addressY + 8);
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9.5);
   setColor(doc, BRAND.ink);
-  let ay = y + 13;
-  if (customer.street) { doc.text(customer.street, PAGE.margin, ay); ay += 5; }
-  doc.text(`${customer.zip ?? ""} ${customer.city}`.trim(), PAGE.margin, ay); ay += 6;
+  let ay = addressY + 13;
+  if (customer.contactPerson) { doc.text(customer.contactPerson, addressX, ay); ay += 5; }
+  if (customer.street) { doc.text(customer.street, addressX, ay); ay += 5; }
+  doc.text(`${customer.zip ?? ""} ${customer.city}`.trim(), addressX, ay); ay += 6;
 
   doc.setFontSize(8);
   setColor(doc, BRAND.muted);
-  if (customer.email) { doc.text(customer.email, PAGE.margin, ay); ay += 4; }
-  if (customer.phone) doc.text(customer.phone, PAGE.margin, ay);
+  if (customer.email) { doc.text(customer.email, addressX, ay); ay += 4; }
+  if (customer.phone) doc.text(customer.phone, addressX, ay);
 };
 
 const drawMetaBlock = (doc: jsPDF, rows: Array<[string, string]>, y: number) => {
-  const w = 72;
-  const x = PAGE.w - PAGE.margin - w;
+  const offset = blockOffset("meta");
+  const w = 56;
+  const x = PAGE.w - PAGE.margin - w + offset.x;
+  const metaY = y + offset.y;
+  const dividerX = x + 26;
+  const rowH = 5.6;
+  setColor(doc, BRAND.border, "draw");
+  doc.setLineWidth(0.35);
+  doc.line(dividerX, metaY - 2.5, dividerX, metaY + Math.max(rows.length, 8) * rowH - 1);
   rows.forEach(([label, value], i) => {
-    const ry = y + i * 5.5;
+    const ry = metaY + i * rowH;
     doc.setFont("helvetica", "normal");
-    doc.setFontSize(8);
+    doc.setFontSize(7.3);
     setColor(doc, BRAND.muted);
-    doc.text(label, x, ry);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
+    doc.text(fitSingleLine(doc, label, 23), x, ry);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.3);
     setColor(doc, BRAND.ink);
-    doc.text(value, x + w, ry, { align: "right" });
+    doc.text(fitSingleLine(doc, value, 27), x + w, ry, { align: "right" });
   });
 };
 
 const drawVehicleCard = (doc: jsPDF, vehicle: Vehicle, y: number) => {
+  const x = PAGE.margin;
+  const startY = y;
   const w = PAGE.w - 2 * PAGE.margin;
-  const h = 29;
-  setColor(doc, [255, 255, 255], "fill");
-  setColor(doc, BRAND.border, "draw");
-  doc.setLineWidth(0.3);
-  doc.rect(PAGE.margin, y, w, h, "FD");
-
-  setColor(doc, [244, 244, 244], "fill");
-  doc.rect(PAGE.margin, y, w, 7, "F");
+  const h = 28;
+  const colW = w / 4;
+  const row = (label: string, value: string, col: number, rowY: number) => {
+    const colX = x + col * colW;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(6.8);
+    setColor(doc, BRAND.muted);
+    doc.text(label, colX, rowY);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.8);
+    setColor(doc, BRAND.ink);
+    doc.text(fitSingleLine(doc, value, colW - 4), colX, rowY + 4);
+  };
 
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(7.5);
-  setColor(doc, BRAND.ink);
-  doc.text("FAHRZEUGDATEN", PAGE.margin + 4, y + 4.8);
-  doc.text(`ERSTZULASSUNG  ${vehicle.firstRegistration ? formatDate(vehicle.firstRegistration) : "—"}`, PAGE.w - PAGE.margin - 4, y + 4.8, { align: "right" });
+  doc.setFontSize(7.2);
+  setColor(doc, BRAND.muted);
+  doc.text("Fahrzeugdaten", x, startY);
 
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(11.5);
+  doc.setFontSize(9.8);
   setColor(doc, BRAND.ink);
   const title = [vehicle.make, vehicle.model, vehicle.modelDetail].filter(Boolean).join(" ");
-  doc.text(title, PAGE.margin + 4, y + 13.5);
+  doc.text(fitSingleLine(doc, title, w), x, startY + 6);
 
-  doc.setFont("courier", "normal");
-  doc.setFontSize(8);
-  setColor(doc, BRAND.muted);
-  doc.text(`VIN ${vehicle.vin}`, PAGE.margin + 4, y + 19);
+  row("VIN", vehicle.vin, 0, startY + 13);
+  row("Erstzulassung", vehicle.firstRegistration ? formatDate(vehicle.firstRegistration) : "—", 1, startY + 13);
+  row("Kilometerstand", `${vehicle.mileage.toLocaleString("de-DE")} km`, 2, startY + 13);
+  row("Baujahr", String(vehicle.year), 3, startY + 13);
+  row("Farbe", vehicle.color || "—", 0, startY + 22);
+  row("Kraftstoff", vehicle.fuel || "—", 1, startY + 22);
+  row("Getriebe", vehicle.transmission || "—", 2, startY + 22);
+  row("Leistung", `${vehicle.power_kw} kW / ${vehicle.power_hp} PS`, 3, startY + 22);
 
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(8.5);
-  setColor(doc, BRAND.ink);
-  doc.text(
-    `${vehicle.year} · ${vehicle.color} · ${vehicle.mileage.toLocaleString("de-DE")} km · ${vehicle.fuel} · ${vehicle.transmission} · ${vehicle.power_hp} PS`,
-    PAGE.margin + 4, y + 25
-  );
+  return startY + h + 7;
+};
 
-  return y + h + 8;
+const drawVehicleFieldGrid = (doc: jsPDF, fields: Array<[string, string]>, y: number) => {
+  const visibleFields = fields.filter(([, value]) => value && value !== "-");
+  if (!visibleFields.length) return y;
+
+  const x = PAGE.margin;
+  const w = PAGE.w - 2 * PAGE.margin;
+  const colW = w / 4;
+  const rowGap = 9;
+
+  visibleFields.forEach(([label, value], index) => {
+    const col = index % 4;
+    const row = Math.floor(index / 4);
+    const colX = x + col * colW;
+    const rowY = y + row * rowGap;
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(6.8);
+    setColor(doc, BRAND.muted);
+    doc.text(label, colX, rowY);
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.8);
+    setColor(doc, BRAND.ink);
+    doc.text(fitSingleLine(doc, value, colW - 4), colX, rowY + 4);
+  });
+
+  return y + Math.ceil(visibleFields.length / 4) * rowGap + 3;
 };
 
 interface LineItem {
   description: string;
   qty: string;
+  unit?: string;
   unitPrice: number;
   total: number;
+  excludeFromTotal?: boolean;
 }
 
 const drawTable = (doc: jsPDF, items: LineItem[], y: number, totalLabel = "Gesamtsumme", options?: { showVat?: boolean; vatBase?: number }) => {
   const x = PAGE.margin;
   const w = PAGE.w - 2 * PAGE.margin;
-  const rowH = 9;
+  const rawWidths = ACTIVE_LAYOUT.table.columnWidthsMm;
+  const rawWidthSum = Object.values(rawWidths).reduce((sum, width) => sum + width, 0) || 174;
+  const widthScale = w / rawWidthSum;
+  const widths = {
+    pos: rawWidths.pos * widthScale,
+    description: rawWidths.description * widthScale,
+    qty: rawWidths.qty * widthScale,
+    unit: rawWidths.unit * widthScale,
+    unitPrice: rawWidths.unitPrice * widthScale,
+    total: rawWidths.total * widthScale,
+  };
+  const headerH = ACTIVE_LAYOUT.table.rowHeightsMm.header;
+  const itemMinH = ACTIVE_LAYOUT.table.rowHeightsMm.item;
+  const summaryRowH = ACTIVE_LAYOUT.table.rowHeightsMm.total;
+  const cols = {
+    pos: x,
+    description: x + widths.pos,
+    qty: x + widths.pos + widths.description,
+    unit: x + widths.pos + widths.description + widths.qty,
+    unitPrice: x + widths.pos + widths.description + widths.qty + widths.unit,
+    total: x + widths.pos + widths.description + widths.qty + widths.unit + widths.unitPrice,
+  };
+  const right = (start: number, width: number) => start + width - 2;
+  const left = (start: number) => start + 2;
 
-  // Neutrale Sechs-Spalten-Tabelle wie in der Referenzvorlage.
-  setColor(doc, [240, 240, 240], "fill");
-  doc.rect(x, y, w, 8, "F");
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(7);
-  setColor(doc, BRAND.ink);
-  doc.text("POS.", x + 3, y + 5.2);
-  doc.text("MENGE", x + 25, y + 5.2, { align: "center" });
-  doc.text("EINHEIT", x + 39, y + 5.2);
-  doc.text("BEZEICHNUNG", x + 58, y + 5.2);
-  doc.text("EINZELPREIS", x + 138, y + 5.2, { align: "right" });
-  doc.text("GESAMTPREIS", x + w - 3, y + 5.2, { align: "right" });
-  setColor(doc, BRAND.ink, "draw");
-  doc.setLineWidth(0.35);
-  doc.line(x, y + 8, x + w, y + 8);
-
-  let cy = y + 8;
-  items.forEach((it, index) => {
-    if (index % 2 === 0) {
-      setColor(doc, BRAND.light, "fill");
-      doc.rect(x, cy, w, rowH, "F");
-    }
-    cy += rowH;
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9.5);
+  const drawTableHeader = (hy: number) => {
+    setColor(doc, [232, 232, 232], "fill");
+    doc.rect(x, hy, w, headerH, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(7);
     setColor(doc, BRAND.ink);
-    doc.text(`${index + 1}.`, x + 3, cy - 3);
-    doc.text(it.qty, x + 25, cy - 3, { align: "center" });
-    doc.text("Stk.", x + 39, cy - 3);
-    const description = doc.splitTextToSize(it.description, 74)[0];
-    doc.text(description, x + 58, cy - 3);
-    doc.text(formatCurrency(it.unitPrice), x + 138, cy - 3, { align: "right" });
-    doc.text(formatCurrency(it.total), x + w - 3, cy - 3, { align: "right" });
+    const textY = hy + Math.max(4.4, headerH - 2.2);
+    doc.text("Pos.", left(cols.pos), textY);
+    doc.text("Bezeichnung", left(cols.description), textY);
+    doc.text("Menge", right(cols.qty, widths.qty), textY, { align: "right" });
+    doc.text("Einh.", left(cols.unit), textY);
+    doc.text("E-Preis", right(cols.unitPrice, widths.unitPrice), textY, { align: "right" });
+    doc.text("G-Preis", right(cols.total, widths.total), textY, { align: "right" });
+    setColor(doc, BRAND.border, "draw");
+    doc.setLineWidth(0.2);
+    doc.line(x, hy + headerH, x + w, hy + headerH);
+    return hy + headerH;
+  };
+
+  let cy = drawTableHeader(y);
+  items.forEach((it, index) => {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.8);
+    const description = doc.splitTextToSize(it.description, widths.description - 4);
+    const rowH = Math.max(itemMinH, description.length * 3.8 + 3);
+    if (cy + rowH > PAGE.contentBottom) {
+      doc.addPage();
+      if (activeStandardChrome) {
+        drawFollowingPageHeader(doc, activeStandardChrome.title, activeStandardChrome.docNumber, activeStandardChrome.companyName, activeStandardChrome.seller, activeStandardChrome.companyLogoUrl);
+      }
+      cy = drawTableHeader(ACTIVE_LAYOUT.followingPage.contentStartMm);
+    }
+
+    setColor(doc, BRAND.ink);
+    doc.text(fitSingleLine(doc, String(index + 1), widths.pos - 4), left(cols.pos), cy + 5);
+    doc.text(description, left(cols.description), cy + 5);
+    doc.setFontSize(7.4);
+    doc.text(fitSingleLine(doc, it.qty, widths.qty - 4), right(cols.qty, widths.qty), cy + 5, { align: "right" });
+    doc.text(fitSingleLine(doc, it.unit ?? "Stk.", widths.unit - 4), left(cols.unit), cy + 5);
+    doc.text(fitSingleLine(doc, formatCurrency(it.unitPrice), widths.unitPrice - 4), right(cols.unitPrice, widths.unitPrice), cy + 5, { align: "right" });
+    doc.text(fitSingleLine(doc, formatCurrency(it.total), widths.total - 4), right(cols.total, widths.total), cy + 5, { align: "right" });
+    cy += rowH;
     setColor(doc, BRAND.border, "draw");
     doc.setLineWidth(0.2);
     doc.line(x, cy, x + w, cy);
   });
 
   cy += 3;
-  const total = items.reduce((s, i) => s + i.total, 0);
+  const total = items.reduce((s, i) => s + (i.excludeFromTotal ? 0 : i.total), 0);
   const taxableGross = options?.vatBase ?? total;
   const net = options?.showVat ? taxableGross / 1.19 : taxableGross;
   const vat = taxableGross - net;
@@ -362,25 +657,33 @@ const drawTable = (doc: jsPDF, items: LineItem[], y: number, totalLabel = "Gesam
         { label: totalLabel, value: total, total: true },
       ]
     : [{ label: totalLabel, value: total, total: true }];
-  const summaryH = summaryRows.length * 6 + 4;
-  setColor(doc, BRAND.light, "fill");
-  doc.rect(x + 93, cy, w - 93, summaryH, "F");
+  const summaryW = 72;
+  const summaryX = x + w - summaryW;
+  const summaryH = summaryRows.length * summaryRowH + 5;
+  if (cy + summaryH > PAGE.contentBottom) {
+    doc.addPage();
+    if (activeStandardChrome) {
+      drawFollowingPageHeader(doc, activeStandardChrome.title, activeStandardChrome.docNumber, activeStandardChrome.companyName, activeStandardChrome.seller, activeStandardChrome.companyLogoUrl);
+    }
+    cy = ACTIVE_LAYOUT.followingPage.contentStartMm;
+  }
   summaryRows.forEach((row, index) => {
-    const rowY = cy + 6 + index * 6;
+    const rowY = cy + Math.max(5, summaryRowH) + index * summaryRowH;
     doc.setFont("helvetica", row.total ? "bold" : "normal");
-    doc.setFontSize(row.total ? 10 : 8.5);
+    doc.setFontSize(row.total ? 10.5 : 8.2);
     setColor(doc, BRAND.ink);
-    doc.text(row.label, x + 97, rowY);
-    doc.text(formatCurrency(row.value), x + w - 3, rowY, { align: "right" });
+    doc.text(row.label, summaryX, rowY);
+    doc.text(formatCurrency(row.value), x + w - 1, rowY, { align: "right" });
   });
   setColor(doc, BRAND.ink, "draw");
   doc.setLineWidth(0.5);
-  doc.line(x + 93, cy + summaryH, x + w, cy + summaryH);
+  doc.line(summaryX, cy + summaryH, x + w, cy + summaryH);
 
   return cy + summaryH + 7;
 };
 
 const drawSectionTitle = (doc: jsPDF, title: string, y: number) => {
+  y = ensureStandardSpace(doc, y, 9);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(10.5);
   setColor(doc, BRAND.ink);
@@ -397,11 +700,18 @@ const drawTextBlock = (doc: jsPDF, text: string, y: number, options?: { fontSize
   doc.setFontSize(fs);
   setColor(doc, options?.muted ? BRAND.muted : BRAND.ink);
   const lines = doc.splitTextToSize(text, PAGE.w - 2 * PAGE.margin);
-  doc.text(lines, PAGE.margin, y);
-  return y + lines.length * fs * 0.42;
+  const lineH = Math.max(3.6, fs * 0.42);
+  let cursor = y;
+  lines.forEach((line: string) => {
+    cursor = ensureStandardSpace(doc, cursor, lineH + 1);
+    doc.text(line, PAGE.margin, cursor);
+    cursor += lineH;
+  });
+  return cursor;
 };
 
 const drawDeliveryCallout = (doc: jsPDF, deliveryDate: string | undefined, y: number) => {
+  y = ensureStandardSpace(doc, y, 16);
   const w = PAGE.w - 2 * PAGE.margin;
   const h = 14;
   setColor(doc, BRAND.light, "fill");
@@ -425,6 +735,7 @@ const drawTodos = (doc: jsPDF, todos: { title: string; done?: boolean; dueDate?:
   y = drawSectionTitle(doc, title, y);
   y += 2;
   todos.forEach((t) => {
+    y = ensureStandardSpace(doc, y, 7);
     setColor(doc, BRAND.ink, "fill");
     doc.circle(PAGE.margin + 1.2, y - 1, 0.8, "F");
     doc.setFont("helvetica", "normal");
@@ -467,6 +778,10 @@ export interface SellerInfo {
   taxNumber?: string;
   email?: string;
   phone?: string;
+  website?: string;
+  bankName?: string;
+  iban?: string;
+  bic?: string;
   registration?: string;
 }
 
@@ -477,30 +792,44 @@ export interface GeneratePdfArgs {
   offer?: Offer;
   stepKey: ProcessStepKey;
   companyName?: string;
+  companyLogoUrl?: string;
   /** Unternehmensdaten des Nutzers – werden als Verkäuferdaten im Kaufvertrag verwendet. */
   seller?: SellerInfo;
   pdfTheme?: PdfThemeKey;
+  pdfLayout?: PdfLayoutConfig;
 }
 
-const downPaymentPositionDescription = (downPayment?: Process["fields"]["downPayment"]) =>
-  `abzgl. geleistete Anzahlung${downPayment?.receivedDate ? ` vom ${formatDate(downPayment.receivedDate)}` : ""}`;
+const downPaymentPositionDescription = (downPayment?: Process["fields"]["downPayment"]) => {
+  const details = [
+    downPayment?.invoiceNumber ? `Beleg-Nr. ${downPayment.invoiceNumber}` : undefined,
+    downPayment?.receivedDate ? `Zahlungsdatum ${formatDate(downPayment.receivedDate)}` : downPayment?.invoiceDate ? `Belegdatum ${formatDate(downPayment.invoiceDate)}` : undefined,
+    downPayment?.method ? `Zahlungsart ${downPayment.method}` : undefined,
+    downPayment?.received ? "Status: eingegangen" : undefined,
+  ].filter(Boolean).join(" · ");
+  return `abzgl. geleistete Anzahlung${downPayment?.receivedDate ? ` vom ${formatDate(downPayment.receivedDate)}` : ""}${details ? ` (${details})` : ""}`;
+};
 
-const STANDARD_LAYOUT_START_Y = 124;
+const standardLayoutStartY = () => PAGE.tableY + blockOffset("content").y + ACTIVE_DOCUMENT_CONTENT.contentOffsetMm;
 
 const drawStandardChrome = (
   doc: jsPDF,
-  args: { title: string; docNumber: string; companyName: string; seller?: SellerInfo; customer: Customer; vehicle: Vehicle; meta: Array<[string, string]>; addressLabel?: string }
+  args: { title: string; docNumber: string; companyName: string; seller?: SellerInfo; companyLogoUrl?: string; customer: Customer; vehicle: Vehicle; meta: Array<[string, string]>; addressLabel?: string }
 ) => {
-  drawHeader(doc, args.title, args.docNumber, args.companyName, args.seller);
-  drawAddressBlock(doc, args.customer, 36, args.companyName, args.seller, args.addressLabel);
-  drawMetaBlock(doc, args.meta, 42);
-  drawDocumentHeading(doc, args.title, args.docNumber, 76);
-  const cursor = drawVehicleCard(doc, args.vehicle, 86);
+  activeStandardChrome = { title: args.title, docNumber: args.docNumber, companyName: args.companyName, seller: args.seller, companyLogoUrl: args.companyLogoUrl };
+  drawHeader(doc, args.title, args.docNumber, args.companyName, args.seller, args.companyLogoUrl);
+  drawAddressBlock(doc, args.customer, PAGE.addressY, args.companyName, args.seller, args.addressLabel);
+  if (ACTIVE_LAYOUT.showMetaBlock) drawMetaBlock(doc, args.meta, PAGE.addressY + 1);
+  drawDocumentHeading(doc, args.title, args.docNumber, PAGE.titleY);
+  const cursor = ACTIVE_DOCUMENT_CONTENT.showVehicleCard
+    ? drawVehicleCard(doc, args.vehicle, PAGE.titleY + 14)
+    : PAGE.titleY + 18;
   return cursor;
 };
 
-export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, companyName = "VINflow Autohaus GmbH", seller, pdfTheme }: GeneratePdfArgs): jsPDF => {
+export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, companyName = "VINflow Autohaus GmbH", companyLogoUrl, seller, pdfTheme, pdfLayout }: GeneratePdfArgs): jsPDF => {
   applyPdfTheme(pdfTheme);
+  applyPdfLayout(pdfLayout);
+  applyDocumentContent(stepKey);
   const doc = createPdfDocument();
   const step = PROCESS_STEPS.find((s) => s.key === stepKey)!;
   const finalPrice = process.fields.finalPrice ?? vehicle.listPrice;
@@ -510,7 +839,7 @@ export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, c
 
   // Kaufvertrag: spezielles, längeres Layout
   if (stepKey === "purchase_contract") {
-    return buildKaufvertrag(doc, { process, vehicle, customer, companyName, seller, finalPrice });
+    return buildKaufvertrag(doc, { process, vehicle, customer, companyName, companyLogoUrl, seller, finalPrice });
   }
 
   const resolvedNumber = stepKey === "invoicing"
@@ -543,42 +872,52 @@ export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, c
     title: step.documentName,
     docNumber,
     companyName,
+    companyLogoUrl,
     seller,
     customer,
     vehicle,
     meta: [
       [numberLabel, resolvedNumber],
+      ["Kundennummer", customer.id ?? "—"],
       ["Belegdatum", formatDate(documentDate ?? new Date().toISOString())],
       ["Vorgangs-Nr.", process.id],
+      ["Bearbeiter", seller?.representative ?? "—"],
+      ["Seite", "1"],
     ],
   });
-  cursor = Math.max(cursor, STANDARD_LAYOUT_START_Y);
+  cursor = Math.max(cursor, standardLayoutStartY());
 
   const drawCustomerAgreements = (c: number) => {
-    if (!CUSTOMER_AGREEMENT_STEP_KEYS.includes(stepKey) || !process.customerTodosOC.length) return c;
-    return drawTodos(doc, process.customerTodosOC, c + 6, "Kundenvereinbarungen");
+    if (!ACTIVE_DOCUMENT_CONTENT.showTodos || !CUSTOMER_AGREEMENT_STEP_KEYS.includes(stepKey) || !process.customerTodosOC.length) return c;
+    return drawTodos(doc, process.customerTodosOC, c + ACTIVE_DOCUMENT_CONTENT.sectionGapMm, "Kundenvereinbarungen");
   };
 
   switch (stepKey) {
     case "offer": {
+      if (ACTIVE_DOCUMENT_CONTENT.showIntroText) {
       cursor = drawTextBlock(doc,
         `Sehr geehrte/r ${customer.name}, vielen Dank für Ihr Interesse. Wir freuen uns, Ihnen für das oben genannte Fahrzeug folgendes verbindliches Angebot unterbreiten zu dürfen.`,
         cursor);
       cursor += 6;
+      }
       const offerPrice = offer?.price ?? vehicle.listPrice;
       const offerDiscount = offer?.discount ?? 0;
       const offerTaxBase = Math.max(0, offerPrice - offerDiscount);
+      if (ACTIVE_DOCUMENT_CONTENT.showMainTable) {
       cursor = drawTable(doc, [
         { description: `${vehicle.make} ${vehicle.model} (${vehicle.year})`, qty: "1", unitPrice: offerPrice, total: offerPrice },
         ...(offerDiscount > 0 ? [{ description: "Rabatt", qty: "1", unitPrice: -offerDiscount, total: -offerDiscount }] : []),
         ...(tradeInValue > 0 ? [{ description: `Inzahlungnahme · ${tradeIn?.vehicleDescription ?? "Kundenfahrzeug"}`, qty: "1", unitPrice: -tradeInValue, total: -tradeInValue }] : []),
       ], cursor, "Zahlbetrag", { showVat: !isMarginTaxed(vehicle), vatBase: offerTaxBase });
+      }
+      if (ACTIVE_DOCUMENT_CONTENT.showPaymentInfo) {
       cursor = drawSectionTitle(doc, "Konditionen", cursor);
       cursor = drawTextBlock(doc,
         `Gültigkeit: bis ${offer ? formatDate(offer.validUntil) : "—"}\nLieferung: nach Vereinbarung\nGewährleistung: 12 Monate gemäß BGB\n${taxationLine(vehicle)}`,
         cursor);
+      }
       const agreements = process.customerTodosOC.length ? process.customerTodosOC : offer?.customerTodos ?? [];
-      if (agreements.length) {
+      if (ACTIVE_DOCUMENT_CONTENT.showTodos && agreements.length) {
         cursor += 6;
         cursor = drawTodos(doc, agreements, cursor, "Kundenvereinbarungen");
       }
@@ -588,23 +927,28 @@ export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, c
       const dp = process.fields.downPayment;
       const ocDp = process.fields.orderConfirmation;
       const down = dp?.amount ?? Math.round(finalPrice * 0.15);
+      if (ACTIVE_DOCUMENT_CONTENT.showIntroText) {
       cursor = drawTextBlock(doc,
         `Hiermit stellen wir Ihnen die vereinbarte Anzahlung für das oben genannte Fahrzeug in Rechnung. Bitte überweisen Sie den Betrag bis zum vereinbarten Termin auf das angegebene Konto.`,
         cursor);
       cursor += 4;
-      cursor = drawDeliveryCallout(doc, ocDp?.deliveryDate, cursor);
+      }
+      if (ACTIVE_DOCUMENT_CONTENT.showDeliveryDetails) cursor = drawDeliveryCallout(doc, ocDp?.deliveryDate, cursor);
+      if (ACTIVE_DOCUMENT_CONTENT.showMainTable) {
       cursor = drawTable(doc, [
         { description: "Anzahlung Fahrzeugkauf", qty: "1", unitPrice: down, total: down },
       ], cursor, "Zu zahlender Betrag", { showVat: !isMarginTaxed(vehicle) });
-      if (tradeInValue > 0) {
+      }
+      if (ACTIVE_DOCUMENT_CONTENT.showPaymentInfo && tradeInValue > 0) {
         cursor = drawSectionTitle(doc, "Vereinbarte Inzahlungnahme", cursor);
         cursor = drawTextBlock(doc,
           `Fahrzeug: ${tradeIn?.vehicleDescription ?? "Kundenfahrzeug"}\nAnrechnungswert: ${formatCurrency(tradeInValue)}${tradeIn?.details ? `\nDetails: ${tradeIn.details}` : ""}`,
           cursor, { fontSize: 8.5 });
       }
+      if (ACTIVE_DOCUMENT_CONTENT.showPaymentInfo) {
       cursor = drawSectionTitle(doc, "Zahlungsdaten Anzahlung", cursor);
       cursor = drawTextBlock(doc,
-        `Empfänger: ${companyName}\nIBAN: ${BANK.iban}\nBIC: ${BANK.bic}\nVerwendungszweck: ${dp?.invoiceNumber ?? process.id}\nRechnungsdatum: ${dp?.invoiceDate ? formatDate(dp.invoiceDate) : "—"}\nZahlungsbedingung: ${dp?.paymentTerms ?? (dp?.dueDate ? `Fällig am ${formatDate(dp.dueDate)}` : "Sofort fällig nach Erhalt der Rechnung")}\nZahlungsart: ${dp?.method ?? "nicht angegeben"}${dp?.received ? `\nZahlung eingegangen am: ${dp.receivedDate ? formatDate(dp.receivedDate) : "—"}` : ""}\n${taxationLine(vehicle)}`,
+        `Empfänger: ${companyName}\nBank: ${sellerBank(seller).bank}\nIBAN: ${sellerBank(seller).iban}\nBIC: ${sellerBank(seller).bic}\nVerwendungszweck: ${dp?.invoiceNumber ?? process.id}\nRechnungsdatum: ${dp?.invoiceDate ? formatDate(dp.invoiceDate) : "—"}\nZahlungsbedingung: ${dp?.paymentTerms ?? (dp?.dueDate ? `Fällig am ${formatDate(dp.dueDate)}` : "Sofort fällig nach Erhalt der Rechnung")}\nZahlungsart: ${dp?.method ?? "nicht angegeben"}${dp?.received ? `\nZahlung eingegangen am: ${dp.receivedDate ? formatDate(dp.receivedDate) : "—"}` : ""}\n${taxationLine(vehicle)}`,
         cursor);
       if (ocDp?.paymentTerms || ocDp?.paymentMethod) {
         cursor = drawSectionTitle(doc, "Vereinbarte Restzahlung", cursor);
@@ -612,20 +956,26 @@ export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, c
           `Zahlungsbedingung: ${ocDp?.paymentTerms ?? "nicht angegeben"}\nZahlungsart: ${ocDp?.paymentMethod ?? "nicht angegeben"}`,
           cursor);
       }
+      }
       break;
     }
     case "order_confirmation": {
       const oc = process.fields.orderConfirmation;
+      if (ACTIVE_DOCUMENT_CONTENT.showIntroText) {
       cursor = drawTextBlock(doc,
         `Wir bestätigen Ihnen hiermit den verbindlichen Kaufauftrag für das oben aufgeführte Fahrzeug zu folgenden Konditionen:`,
         cursor);
       cursor += 4;
-      cursor = drawDeliveryCallout(doc, oc?.deliveryDate, cursor);
+      }
+      if (ACTIVE_DOCUMENT_CONTENT.showDeliveryDetails) cursor = drawDeliveryCallout(doc, oc?.deliveryDate, cursor);
+      if (ACTIVE_DOCUMENT_CONTENT.showMainTable) {
       cursor = drawTable(doc, [
         { description: `${vehicle.make} ${vehicle.model}`, qty: "1", unitPrice: finalPrice, total: finalPrice },
         ...(tradeInValue > 0 ? [{ description: `Inzahlungnahme · ${tradeIn?.vehicleDescription ?? "Kundenfahrzeug"}`, qty: "1", unitPrice: -tradeInValue, total: -tradeInValue }] : []),
         ...(receivedDownPayment > 0 ? [{ description: downPaymentPositionDescription(process.fields.downPayment), qty: "1", unitPrice: -receivedDownPayment, total: -receivedDownPayment }] : []),
       ], cursor, "Verbleibender Restbetrag", { showVat: !isMarginTaxed(vehicle), vatBase: finalPrice });
+      }
+      if (ACTIVE_DOCUMENT_CONTENT.showPaymentInfo) {
       cursor = drawSectionTitle(doc, "Eckdaten", cursor);
       cursor = drawTextBlock(doc,
         `Auftragsdatum: ${oc?.orderDate ? formatDate(oc.orderDate) : "—"}\n${taxationLine(vehicle)}`,
@@ -634,6 +984,7 @@ export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, c
       cursor = drawTextBlock(doc,
         `${process.fields.downPayment ? `Anzahlung${process.fields.downPayment.invoiceNumber ? ` (${process.fields.downPayment.invoiceNumber})` : ""}\nBetrag: ${formatCurrency(process.fields.downPayment.amount ?? 0)}\nZahlungsbedingung: ${process.fields.downPayment.paymentTerms ?? "nicht angegeben"}\nZahlungsart: ${process.fields.downPayment.method ?? "nicht angegeben"}\nGezahlt am: ${process.fields.downPayment.receivedDate ? formatDate(process.fields.downPayment.receivedDate) : "nicht dokumentiert"}\n\n` : ""}Restzahlung\nZahlungsbedingung: ${oc?.paymentTerms ?? "nicht angegeben"}\nZahlungsart: ${oc?.paymentMethod ?? "nicht angegeben"}`,
         cursor);
+      }
       cursor = drawCustomerAgreements(cursor);
       break;
     }
@@ -641,13 +992,17 @@ export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, c
       const checklist = process.outboundChecklist;
       const doneCount = checklist.filter((i) => i.done).length;
       const allDone = doneCount === checklist.length && checklist.length > 0;
+      if (ACTIVE_DOCUMENT_CONTENT.showIntroText) {
       cursor = drawTextBlock(doc,
         allDone
           ? `Vor Übergabe des Fahrzeugs wurde folgende Ausgangskontrolle vollständig durchgeführt und dokumentiert:`
           : `Stand der Ausgangskontrolle (${doneCount} von ${checklist.length} Punkten erledigt):`,
         cursor);
       cursor += 4;
+      }
+      if (ACTIVE_DOCUMENT_CONTENT.showChecklist) {
       checklist.forEach((item) => {
+        cursor = ensureStandardSpace(doc, cursor, 8);
         if (item.done) {
           setColor(doc, BRAND.ink, "fill");
           doc.circle(PAGE.margin + 2, cursor + 2, 1.5, "F");
@@ -670,6 +1025,7 @@ export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, c
       cursor = drawTextBlock(doc,
         allDone ? `Das Fahrzeug ist übergabebereit.` : `Hinweis: Es sind noch ${checklist.length - doneCount} Punkte offen. Das Fahrzeug ist noch nicht vollständig übergabebereit.`,
         cursor, { muted: true });
+      }
       cursor = drawCustomerAgreements(cursor);
       break;
     }
@@ -678,40 +1034,54 @@ export const generateBelegPdf = ({ process, vehicle, customer, offer, stepKey, c
       const ocInv = process.fields.orderConfirmation;
       const down = receivedDownPayment;
       const remaining = Math.max(0, finalPrice - tradeInValue - down);
+      if (ACTIVE_DOCUMENT_CONTENT.showIntroText) {
       cursor = drawTextBlock(doc,
         `Für das oben aufgeführte Fahrzeug stellen wir Ihnen hiermit den Kaufpreis in Rechnung. Eine bereits geleistete Anzahlung wird verrechnet.`,
         cursor);
       cursor += 4;
-      cursor = drawDeliveryCallout(doc, ocInv?.deliveryDate, cursor);
+      }
+      if (ACTIVE_DOCUMENT_CONTENT.showDeliveryDetails) cursor = drawDeliveryCallout(doc, ocInv?.deliveryDate, cursor);
+      if (ACTIVE_DOCUMENT_CONTENT.showMainTable) {
       cursor = drawTable(doc, [
         { description: `${vehicle.make} ${vehicle.model} (${vehicle.year})`, qty: "1", unitPrice: finalPrice, total: finalPrice },
         ...(tradeInValue > 0 ? [{ description: `Inzahlungnahme · ${tradeIn?.vehicleDescription ?? "Kundenfahrzeug"}`, qty: "1", unitPrice: -tradeInValue, total: -tradeInValue }] : []),
         ...(down > 0 ? [{ description: downPaymentPositionDescription(process.fields.downPayment), qty: "1", unitPrice: -down, total: -down }] : []),
       ], cursor, inv?.paid ? "Bezahlt" : "Restbetrag", { showVat: !isMarginTaxed(vehicle), vatBase: finalPrice });
+      }
+      if (ACTIVE_DOCUMENT_CONTENT.showPaymentInfo) {
       cursor = drawSectionTitle(doc, "Zahlungsdaten", cursor);
       cursor = drawTextBlock(doc,
-        `Rechnungs-Nr.: ${inv?.invoiceNumber ?? "—"}\nRechnungsdatum: ${inv?.invoiceDate ? formatDate(inv.invoiceDate) : formatDate(new Date().toISOString())}\nZahlungsbedingung: ${inv?.paymentTerms ?? (inv?.dueDate ? `Fällig am ${formatDate(inv.dueDate)}` : "Sofort fällig nach Erhalt der Rechnung")}\nZahlungsart: ${inv?.method ?? "nicht angegeben"}\nIBAN: ${BANK.iban} · BIC: ${BANK.bic}\nVerwendungszweck: ${process.id}${inv?.paid ? `\nZahlungsstatus: Bezahlt${inv.paidDate ? ` am ${formatDate(inv.paidDate)}` : ""} – Vielen Dank!` : `\nDer Restbetrag von ${formatCurrency(remaining)} ist bei Fahrzeugübergabe fällig.`}\n${taxationLine(vehicle)}`,
+        `Rechnungs-Nr.: ${inv?.invoiceNumber ?? "—"}\nRechnungsdatum: ${inv?.invoiceDate ? formatDate(inv.invoiceDate) : formatDate(new Date().toISOString())}\nZahlungsbedingung: ${inv?.paymentTerms ?? (inv?.dueDate ? `Fällig am ${formatDate(inv.dueDate)}` : "Sofort fällig nach Erhalt der Rechnung")}\nZahlungsart: ${inv?.method ?? "nicht angegeben"}\nBank: ${sellerBank(seller).bank}\nIBAN: ${sellerBank(seller).iban} · BIC: ${sellerBank(seller).bic}\nVerwendungszweck: ${process.id}${inv?.paid ? `\nZahlungsstatus: Bezahlt${inv.paidDate ? ` am ${formatDate(inv.paidDate)}` : ""} – Vielen Dank!` : `\nDer Restbetrag von ${formatCurrency(remaining)} ist bei Fahrzeugübergabe fällig.`}\n${taxationLine(vehicle)}`,
         cursor);
+      }
       break;
     }
     case "delivery_confirmation": {
       const del = process.fields.delivery;
+      if (ACTIVE_DOCUMENT_CONTENT.showIntroText) {
       cursor = drawTextBlock(doc, `Hiermit bestätigt der Kunde die ordnungsgemäße Übergabe des Fahrzeugs in technisch und optisch einwandfreiem Zustand.`, cursor);
       cursor += 6;
+      }
+      if (ACTIVE_DOCUMENT_CONTENT.showDeliveryDetails) {
       cursor = drawSectionTitle(doc, "Übergabedaten", cursor);
       cursor = drawTextBlock(doc,
         `Übergabedatum: ${del?.handoverDate ? formatDate(del.handoverDate) : formatDate(new Date().toISOString())}\nÜbergabeort: ${del?.handoverLocation ?? "Filiale"}\nKilometerstand bei Übergabe: ${del?.finalMileage?.toLocaleString("de-DE") ?? vehicle.mileage.toLocaleString("de-DE")} km\nTankfüllung: ${del?.fuelLevel ?? "voll"}\nMitgegeben: 2 Schlüssel, Zulassungsbescheinigung Teil I & II, Service-Heft`,
         cursor);
+      }
+      if (ACTIVE_DOCUMENT_CONTENT.showSignatures) {
       cursor = drawSignatureRow(doc, cursor + 20, "Unterschrift Kunde", `Unterschrift ${companyName}`);
+      }
       break;
     }
   }
 
-  drawFooter(doc, companyName, seller);
+  drawFooterOnAllPages(doc, companyName, seller);
+  activeStandardChrome = null;
   return doc;
 };
 
 const drawSignatureRow = (doc: jsPDF, y: number, leftLabel: string, rightLabel: string) => {
+  y = ensureStandardSpace(doc, y, 14);
   const colW = (PAGE.w - 2 * PAGE.margin - 10) / 2;
   setColor(doc, BRAND.ink, "draw");
   doc.setLineWidth(0.4);
@@ -841,66 +1211,22 @@ const CustomerSection = (
 
 const VehicleSection = (doc: jsPDF, vehicle: Vehicle, y: number, kv?: Process["fields"]["purchaseContract"]) => {
   let cursor = drawSectionTitle(doc, "1. Fahrzeug", y);
-  cursor = drawKvSpecsTable(doc, vehicle, cursor + 3, kv);
+  cursor = drawVehicleCard(doc, vehicle, cursor + 3);
+  cursor = drawVehicleFieldGrid(doc, [
+    ["Fahrzeugart", VEHICLE_TYPE_LABELS[vehicle.type]],
+    ["HSN / TSN", [vehicle.hsn, vehicle.tsn].filter(Boolean).join(" / ") || "-"],
+    ["Amtl. Kennzeichen", vehicle.licensePlate ?? "-"],
+    ["Vorbesitzer", vehicle.previousOwners != null ? String(vehicle.previousOwners) : "-"],
+    ["Schlüssel", kv?.keysCount != null ? String(kv.keysCount) : "-"],
+    ["Hubraum", vehicle.displacement_ccm ? `${vehicle.displacement_ccm} ccm` : "-"],
+    ["Innenraum", [vehicle.interiorColor, vehicle.interiorMaterial].filter(Boolean).join(", ") || "-"],
+    ["HU/AU gültig bis", vehicle.hu ? formatDate(vehicle.hu) : "-"],
+    ["Serviceheft", (vehicle.serviceBookComplete || kv?.docServiceBook) ? "vollständig / vorhanden" : "-"],
+  ], cursor);
   if (vehicle.features?.length) {
     cursor = drawTextBlock(doc, `Sonderausstattung / Zubehör: ${vehicle.features.join(" · ")}`, cursor + 2, { fontSize: 8.5 });
   }
   return cursor + 4;
-};
-
-interface PaymentOverviewRow {
-  label: string;
-  reference?: string;
-  amount: number;
-  date?: string;
-  method?: string;
-  paid: boolean;
-}
-
-const drawPaymentOverview = (doc: jsPDF, rows: PaymentOverviewRow[], y: number) => {
-  let cursor = drawSectionTitle(doc, "Zahlungsübersicht", y);
-  const x = PAGE.margin;
-  const width = PAGE.w - 2 * PAGE.margin;
-  const columns = [0, 38, 72, 104, 145, width];
-  const headerHeight = 7;
-  const rowHeight = 11;
-  const headers = ["Zahlung", "Betrag", "Zahlungsdatum", "Zahlungsart", "Status"];
-
-  setColor(doc, BRAND.light, "fill");
-  doc.rect(x, cursor, width, headerHeight, "F");
-  doc.setFont("helvetica", "bold");
-  doc.setFontSize(7);
-  setColor(doc, BRAND.muted);
-  headers.forEach((header, index) => doc.text(header, x + columns[index] + 2, cursor + 4.5));
-  cursor += headerHeight;
-
-  rows.forEach((row) => {
-    setColor(doc, BRAND.border, "draw");
-    doc.setLineWidth(0.2);
-    doc.line(x, cursor + rowHeight, x + width, cursor + rowHeight);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(8.3);
-    setColor(doc, BRAND.ink);
-    doc.text(row.label, x + 2, cursor + 4.2);
-    if (row.reference) {
-      doc.setFont("helvetica", "normal");
-      doc.setFontSize(6.5);
-      setColor(doc, BRAND.muted);
-      doc.text(row.reference, x + 2, cursor + 8.1);
-    }
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(8.3);
-    setColor(doc, BRAND.ink);
-    doc.text(formatCurrency(row.amount), x + columns[2] - 2, cursor + 6.2, { align: "right" });
-    doc.text(row.date ? formatDate(row.date) : "—", x + columns[2] + 2, cursor + 6.2);
-    doc.text(row.method || "nicht angegeben", x + columns[3] + 2, cursor + 6.2);
-    doc.setFont("helvetica", "bold");
-    setColor(doc, row.paid ? BRAND.success : BRAND.muted);
-    doc.text(row.paid ? "Eingegangen" : "Offen", x + columns[4] + 2, cursor + 6.2);
-    cursor += rowHeight;
-  });
-
-  return cursor + 5;
 };
 
 const PriceSection = (
@@ -933,32 +1259,26 @@ const PriceSection = (
   if (downPaymentValue > 0) {
     priceItems.push({ description: downPaymentPositionDescription(args.downPayment), qty: "1", unitPrice: -downPaymentValue, total: -downPaymentValue });
   }
-  cursor = drawTable(doc, priceItems, cursor, "Restkaufpreis", { showVat: false });
   const finalInvoicePaid = !!args.invoice?.paid;
   const cashPurchasePrice = Math.max(0, args.finalPrice - tradeInValue);
   const restPaymentAmount = Math.max(0, cashPurchasePrice - downPaymentAmount);
   const paidAmount = downPaymentValue + (finalInvoicePaid ? restPaymentAmount : 0);
   const remaining = Math.max(0, cashPurchasePrice - paidAmount);
   const paymentStatus = remaining === 0 ? "bezahlt" : paidAmount > 0 ? "teilbezahlt" : "offen";
-  const paymentRows: PaymentOverviewRow[] = [
-    ...(downPaymentAmount > 0 ? [{
-      label: "Anzahlung",
-      reference: args.downPayment?.invoiceNumber,
-      amount: downPaymentAmount,
-      date: depositReceived ? args.downPayment?.receivedDate : undefined,
-      method: args.downPayment?.method,
-      paid: depositReceived,
-    }] : []),
-    {
-      label: "Restzahlung",
-      reference: args.invoice?.invoiceNumber,
-      amount: restPaymentAmount,
-      date: finalInvoicePaid ? args.invoice?.paidDate : undefined,
-      method: args.invoice?.method,
-      paid: finalInvoicePaid,
-    },
-  ];
-  cursor = drawPaymentOverview(doc, paymentRows, cursor);
+  const restPaymentDetails = [
+    args.invoice?.invoiceNumber ? `Beleg-Nr. ${args.invoice.invoiceNumber}` : undefined,
+    finalInvoicePaid && args.invoice?.paidDate ? `Zahlungsdatum ${formatDate(args.invoice.paidDate)}` : undefined,
+    args.invoice?.method ? `Zahlungsart ${args.invoice.method}` : undefined,
+    finalInvoicePaid ? "Status: eingegangen" : "Status: offen",
+  ].filter(Boolean).join(" · ");
+  priceItems.push({
+    description: `${finalInvoicePaid ? "abzgl. geleistete Restzahlung" : "Restzahlung"}${restPaymentDetails ? ` (${restPaymentDetails})` : ""}`,
+    qty: "1",
+    unitPrice: finalInvoicePaid ? -restPaymentAmount : restPaymentAmount,
+    total: finalInvoicePaid ? -restPaymentAmount : restPaymentAmount,
+    excludeFromTotal: !finalInvoicePaid,
+  });
+  cursor = drawTable(doc, priceItems, cursor, "Zu zahlender Restbetrag", { showVat: false });
   cursor = drawTextBlock(doc,
     `Zahlungsstand laut Rechnungsdaten: ${paymentStatus}. ` +
     `Gezahlter Betrag: ${formatCurrency(paidAmount)}. Offener Betrag: ${formatCurrency(remaining)}.\n` +
@@ -1085,7 +1405,7 @@ const drawContractHeading = (doc: jsPDF, args: { title: string; contractNumber: 
 
 const buildKaufvertrag = (
   doc: jsPDF,
-  { process, vehicle, customer, companyName, seller, finalPrice }: { process: Process; vehicle: Vehicle; customer: Customer; companyName: string; seller?: SellerInfo; finalPrice: number }
+  { process, vehicle, customer, companyName, companyLogoUrl, seller, finalPrice }: { process: Process; vehicle: Vehicle; customer: Customer; companyName: string; companyLogoUrl?: string; seller?: SellerInfo; finalPrice: number }
 ): jsPDF => {
   const kv = process.fields.purchaseContract;
   const place = kv?.place ?? customer.city ?? "—";
@@ -1110,33 +1430,36 @@ const buildKaufvertrag = (
   const customerType = kv?.customerType ?? (customer.salutation === "firma" ? "b2b" : "b2c");
   const contractNumber = kv?.contractNumber ?? process.id;
 
-  drawHeader(doc, "Kaufvertrag", `Vertrags-Nr. ${contractNumber}`, companyName, resolvedSeller);
+  drawHeader(doc, "Kaufvertrag", `Vertrags-Nr. ${contractNumber}`, companyName, resolvedSeller, companyLogoUrl);
+  const contractHeadingY = Math.max(38, headerBottomY() + 12);
   let cursor = drawContractHeading(doc, {
     title: "Verbindliche Bestellung / Kaufvertrag eines Fahrzeugs",
     contractNumber,
     contractDate,
     place,
-    y: 38,
+    y: contractHeadingY,
   });
 
   cursor = CustomerSection(doc, cursor, { companyName, seller: resolvedSeller, customer, customerType });
 
   // Preamble
+  if (ACTIVE_DOCUMENT_CONTENT.showIntroText) {
   cursor = drawTextBlock(doc,
     `Zwischen den vorstehenden Parteien wird hiermit folgender Kaufvertrag über ein gebrauchtes Kraftfahrzeug geschlossen.`,
     cursor, { muted: true });
   cursor += 4;
+  }
 
   const addContractPage = () => {
     drawFooter(doc, companyName, resolvedSeller);
     doc.addPage();
-    drawHeader(doc, "Kaufvertrag", `Vertrags-Nr. ${contractNumber}`, companyName, resolvedSeller);
+    drawHeader(doc, "Kaufvertrag", `Vertrags-Nr. ${contractNumber}`, companyName, resolvedSeller, companyLogoUrl);
     cursor = drawContractHeading(doc, {
       title: "Kaufvertrag – Fortsetzung",
       contractNumber,
       contractDate,
       place,
-      y: 38,
+      y: Math.max(38, headerBottomY() + 12),
     });
   };
   const ensureSpace = (requiredHeight = 35) => {
@@ -1148,8 +1471,11 @@ const buildKaufvertrag = (
   const featureHeight = vehicle.features?.length
     ? doc.splitTextToSize(vehicle.features.join(" · "), PAGE.w - 2 * PAGE.margin).length * 4
     : 0;
+  if (ACTIVE_DOCUMENT_CONTENT.showVehicleCard) {
   ensureSpace(Math.min(135 + featureHeight, 180));
   cursor = VehicleSection(doc, vehicle, cursor, kv);
+  }
+  if (ACTIVE_DOCUMENT_CONTENT.showMainTable || ACTIVE_DOCUMENT_CONTENT.showPaymentInfo) {
   ensureSpace(125);
   cursor = PriceSection(doc, cursor, {
     vehicle,
@@ -1158,6 +1484,7 @@ const buildKaufvertrag = (
     downPayment: process.fields.downPayment,
     invoice: process.fields.invoicing,
   });
+  }
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
@@ -1170,10 +1497,12 @@ const buildKaufvertrag = (
   const conditionHeight = 30 + doc.splitTextToSize(conditionDetailText, PAGE.w - 2 * PAGE.margin).length * 4;
   ensureSpace(Math.min(conditionHeight, 175));
   cursor = ConditionSection(doc, cursor, vehicle, kv);
+  if (ACTIVE_DOCUMENT_CONTENT.showDeliveryDetails) {
   ensureSpace(45);
   cursor = DeliverySection(doc, cursor, process, kv);
+  }
 
-  if (process.customerTodosOC.length) {
+  if (ACTIVE_DOCUMENT_CONTENT.showTodos && process.customerTodosOC.length) {
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9.5);
     const todoHeight = 14 + process.customerTodosOC.reduce((height, todo) => {
@@ -1189,7 +1518,7 @@ const buildKaufvertrag = (
     (kv?.additionalAgreementEnabled && kv.additionalAgreement?.trim()) ||
     kv?.financing
   );
-  if (hasAdditional) {
+  if (ACTIVE_DOCUMENT_CONTENT.showContractClauses && hasAdditional) {
     const additionalText = [kv?.additionalAgreement, kv?.financingDetails].filter(Boolean).join("\n");
     doc.setFont("helvetica", "normal");
     doc.setFontSize(9);
@@ -1202,6 +1531,7 @@ const buildKaufvertrag = (
     ensureSpace(requiredHeight);
     return cursor;
   };
+  if (ACTIVE_DOCUMENT_CONTENT.showContractClauses) {
   cursor = LegalSection(doc, cursor, {
     customerType,
     warrantyMonths: customerType === "b2c" && !kv?.consumerWarrantyLimitationAccepted ? 24 : kv?.warrantyMonths ?? 12,
@@ -1212,7 +1542,9 @@ const buildKaufvertrag = (
     showPrivacy: kv?.showPrivacy !== false,
     exportSale: !!kv?.exportSale,
   }, ensureCursorSpace);
+  }
 
+  if (ACTIVE_DOCUMENT_CONTENT.showSignatures) {
   ensureSpace(customerType === "b2c" && !!kv?.consumerWarrantyLimitationAccepted ? 62 : 42);
 
   SignatureSection(doc, cursor, {
@@ -1223,13 +1555,16 @@ const buildKaufvertrag = (
     representative: sRep,
     separateB2CAgreement: customerType === "b2c" && !!kv?.consumerWarrantyLimitationAccepted,
   });
+  }
 
   drawFooter(doc, companyName, resolvedSeller);
   return doc;
 };
 
 export const downloadBelegPdf = async (args: GeneratePdfArgs) => {
-  const doc = generateBelegPdf(args);
+  await waitForPaint();
+  const preparedArgs = await preparePdfArgs(args);
+  const doc = generateBelegPdf(preparedArgs);
   const step = PROCESS_STEPS.find((s) => s.key === args.stepKey)!;
   const baseName = `${args.process.id}_${step.documentName.replace(/[^A-Za-z0-9]/g, "_")}`;
 
@@ -1273,28 +1608,40 @@ export interface GenerateOfferPdfArgs {
   vehicle: Vehicle;
   customer: Customer;
   companyName?: string;
+  companyLogoUrl?: string;
   seller?: SellerInfo;
   pdfTheme?: PdfThemeKey;
+  pdfLayout?: PdfLayoutConfig;
 }
 
-export const generateOfferPdf = ({ offer, vehicle, customer, companyName = "VINflow Autohaus GmbH", seller, pdfTheme }: GenerateOfferPdfArgs): jsPDF => {
+export const generateOfferPdf = ({ offer, vehicle, customer, companyName = "VINflow Autohaus GmbH", companyLogoUrl, seller, pdfTheme, pdfLayout }: GenerateOfferPdfArgs): jsPDF => {
   applyPdfTheme(pdfTheme);
+  applyPdfLayout(pdfLayout);
+  applyDocumentContent("offer");
   const doc = createPdfDocument();
-  drawHeader(doc, "Angebot", `Angebots-Nr. ${offer.id}`, companyName, seller);
-  drawAddressBlock(doc, customer, 36, companyName, seller, "ANGEBOTSEMPFÄNGER");
-  drawMetaBlock(doc, [
+  activeStandardChrome = { title: "Angebot", docNumber: `Angebots-Nr. ${offer.id}`, companyName, seller, companyLogoUrl };
+  drawHeader(doc, "Angebot", `Angebots-Nr. ${offer.id}`, companyName, seller, companyLogoUrl);
+  drawAddressBlock(doc, customer, PAGE.addressY, companyName, seller, "ANGEBOTSEMPFÄNGER");
+  if (ACTIVE_LAYOUT.showMetaBlock) drawMetaBlock(doc, [
     ["Angebots-Nr.", offer.id],
+    ["Kundennummer", customer.id],
     ["Erstellt am", formatDate(offer.createdAt)],
     ["Gültig bis", formatDate(offer.validUntil)],
-  ], 42);
-  drawDocumentHeading(doc, "Angebot", `Angebots-Nr. ${offer.id}`, 76);
-  let cursor = drawVehicleCard(doc, vehicle, 86);
-  cursor = Math.max(cursor, STANDARD_LAYOUT_START_Y);
+    ["Bearbeiter", seller?.representative ?? "—"],
+    ["Seite", "1"],
+  ], PAGE.addressY + 1);
+  drawDocumentHeading(doc, "Angebot", `Angebots-Nr. ${offer.id}`, PAGE.titleY);
+  let cursor = ACTIVE_DOCUMENT_CONTENT.showVehicleCard
+    ? drawVehicleCard(doc, vehicle, PAGE.titleY + 14)
+    : PAGE.titleY + 18;
+  cursor = Math.max(cursor, standardLayoutStartY());
 
+  if (ACTIVE_DOCUMENT_CONTENT.showIntroText) {
   cursor = drawTextBlock(doc,
     `Sehr geehrte/r ${customer.name}, vielen Dank für Ihr Interesse. Wir freuen uns, Ihnen für das oben genannte Fahrzeug folgendes verbindliches Angebot unterbreiten zu dürfen.`,
     cursor);
   cursor += 6;
+  }
 
   const items: LineItem[] = [
     { description: `${vehicle.make} ${vehicle.model} (${vehicle.year})`, qty: "1", unitPrice: offer.price, total: offer.price },
@@ -1305,31 +1652,39 @@ export const generateOfferPdf = ({ offer, vehicle, customer, companyName = "VINf
   if (offer.tradeIn && offer.tradeIn.value > 0) {
     items.push({ description: `Inzahlungnahme · ${offer.tradeIn.vehicleDescription}`, qty: "1", unitPrice: -offer.tradeIn.value, total: -offer.tradeIn.value });
   }
+  if (ACTIVE_DOCUMENT_CONTENT.showMainTable) {
   cursor = drawTable(doc, items, cursor, "Zahlbetrag", {
     showVat: !isMarginTaxed(vehicle),
     vatBase: Math.max(0, offer.price - (offer.discount ?? 0)),
   });
+  }
 
+  if (ACTIVE_DOCUMENT_CONTENT.showPaymentInfo) {
   cursor = drawSectionTitle(doc, "Konditionen", cursor);
   cursor = drawTextBlock(doc,
     `Gültigkeit: bis ${formatDate(offer.validUntil)}\nLieferung: nach Vereinbarung\nGewährleistung: 12 Monate gemäß BGB\n${taxationLine(vehicle)}`,
     cursor);
+  }
 
-  if (offer.customerTodos.length) {
+  if (ACTIVE_DOCUMENT_CONTENT.showTodos && offer.customerTodos.length) {
     cursor += 6;
     cursor = drawTodos(doc, offer.customerTodos, cursor, "Kundenvereinbarungen");
   }
-  if (offer.notes && offer.notes.trim()) {
+  if (ACTIVE_DOCUMENT_CONTENT.showTodos && offer.notes && offer.notes.trim()) {
     cursor += 4;
     cursor = drawSectionTitle(doc, "Hinweise", cursor);
     cursor = drawTextBlock(doc, offer.notes, cursor, { muted: true });
   }
 
-  drawFooter(doc, companyName, seller);
+  drawFooterOnAllPages(doc, companyName, seller);
+  activeStandardChrome = null;
   return doc;
 };
 
-export const downloadOfferPdf = (args: GenerateOfferPdfArgs) => {
-  const doc = generateOfferPdf(args);
+export const downloadOfferPdf = async (args: GenerateOfferPdfArgs) => {
+  await waitForPaint();
+  const preparedArgs = await preparePdfArgs(args);
+  const doc = generateOfferPdf(preparedArgs);
   doc.save(`${args.offer.id}_Angebot.pdf`);
 };
+

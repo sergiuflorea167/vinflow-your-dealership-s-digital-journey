@@ -128,12 +128,12 @@ const ProcessDetail = () => {
   );
 
   if (!process || !vehicle || !customer) return <Navigate to="/vorgaenge" replace />;
-  const activeStepKeys = normalizeProcessStepKeys(settings.processStepKeys);
+  const activeStepKeys = normalizeProcessStepKeys(process.processStepKeys);
   const purchasePrice = process.fields.finalPrice ?? vehicle.listPrice;
   const tradeInValue = process.fields.tradeIn?.value ?? 0;
   const receivedDownPayment = process.fields.downPayment?.received ? process.fields.downPayment.amount ?? 0 : 0;
   const remainingAmount = Math.max(0, purchasePrice - tradeInValue - receivedDownPayment);
-  const processSteps = getProcessStepsForDisplay(process.currentStep, settings);
+  const processSteps = getProcessStepsForDisplay(process.currentStep, { processStepKeys: process.processStepKeys });
   const selectedStep = PROCESS_STEPS.find((s) => s.key === selectedKey) ?? processSteps[0];
   const selectedIdx = Math.max(0, stepIndexIn(selectedStep.key, processSteps));
   const currentIdx = Math.max(0, stepIndexIn(process.currentStep, processSteps));
@@ -179,7 +179,7 @@ const ProcessDetail = () => {
 
   const handleDownload = (key: ProcessStepKey) => {
     downloadBelegPdf({
-      process, vehicle, customer, offer, stepKey: key, companyName, pdfTheme,
+      process, vehicle, customer, offer, stepKey: key, companyName, companyLogoUrl: settings.companyLogoUrl, pdfTheme, pdfLayout: settings.pdfLayout,
       seller: {
         street: settings.companyStreet,
         zip: settings.companyZip,
@@ -189,6 +189,10 @@ const ProcessDetail = () => {
         taxNumber: settings.companyTaxNumber,
         email: settings.companyEmail ?? settings.email,
         phone: settings.companyPhone ?? settings.phone,
+        website: settings.companyWebsite,
+        bankName: settings.companyBankName,
+        iban: settings.companyIban,
+        bic: settings.companyBic,
         registration: settings.companyRegistration,
       },
     });
@@ -423,6 +427,7 @@ const ProcessDetail = () => {
               processId={process.id}
               customerName={customer.name}
               customerEmail={customer.email}
+              customerPhone={customer.phone}
               vehicleLabel={`${vehicle.make} ${vehicle.model}`}
               companyName={companyName}
               process={process}

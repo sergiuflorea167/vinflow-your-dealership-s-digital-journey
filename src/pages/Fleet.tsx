@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { lazy, Suspense, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { AppShell } from "@/components/layout/AppShell";
 import { Card } from "@/components/ui/card";
@@ -21,10 +21,6 @@ import { Car, Megaphone, Plus, Download, Settings2 } from "lucide-react";
 import { toast } from "sonner";
 import { useFleetWorkshopStore } from "@/store/fleetWorkshopStore";
 import { FLEET_DEMO_VEHICLES, FLEET_DEMO_OFFERS, FLEET_DEMO_PROCESSES } from "@/data/workshopDemo";
-import { exportVehicles, downloadTemplate } from "@/lib/fleetIO";
-import { FleetImportDialog } from "@/components/fleet/FleetImportDialog";
-import { FleetExportDialog } from "@/components/fleet/FleetExportDialog";
-import { VehicleIntakeDialog } from "@/components/fleet/VehicleIntakeDialog";
 import { cn } from "@/lib/utils";
 import { useTopbarSearch } from "@/context/TopbarSearchContext";
 import { SortableTh, SortState } from "@/components/shared/SortableTh";
@@ -36,7 +32,7 @@ import {
 
 type FleetSortKey =
   | "name" | "type" | "year" | "mileage" | "power" | "color"
-  | "location" | "hu" | "stockDays" | "price" | "margin" | "openOffers" | "status" | "listed";
+  | "hu" | "stockDays" | "price" | "margin" | "openOffers" | "status" | "listed";
 
 const STATUS_META: Record<VehicleStatus, { label: string; className: string }> = {
   planned:  { label: "Geplant",    className: "bg-info/15 text-info border-info/30" },
@@ -48,6 +44,16 @@ const STATUS_META: Record<VehicleStatus, { label: string; className: string }> =
 const STATUS_ORDER: Record<VehicleStatus, number> = { in_stock: 0, reserved: 1, planned: 2, sold: 3 };
 
 type ListedFilter = "all" | "listed" | "not_listed";
+
+const FleetImportDialog = lazy(() =>
+  import("@/components/fleet/FleetImportDialog").then((module) => ({ default: module.FleetImportDialog })),
+);
+const FleetExportDialog = lazy(() =>
+  import("@/components/fleet/FleetExportDialog").then((module) => ({ default: module.FleetExportDialog })),
+);
+const VehicleIntakeDialog = lazy(() =>
+  import("@/components/fleet/VehicleIntakeDialog").then((module) => ({ default: module.VehicleIntakeDialog })),
+);
 
 const Fleet = () => {
   const navigate = useNavigate();
@@ -67,7 +73,7 @@ const Fleet = () => {
   const processes = workshopActive ? FLEET_DEMO_PROCESSES : realProcesses;
 
   const [query, setQuery] = useState("");
-  const [searchField, setSearchField] = useState<"all" | "vin" | "make" | "model" | "color" | "location">("all");
+  const [searchField, setSearchField] = useState<"all" | "vin" | "make" | "model" | "color">("all");
   const [filter, setFilter] = useState<"all" | VehicleStatus>("all");
   const [typeFilter, setTypeFilter] = useState<"all" | VehicleType>("all");
   const [listedFilter, setListedFilter] = useState<ListedFilter>("all");
@@ -88,7 +94,6 @@ const Fleet = () => {
       { key: "make",     label: "Marke" },
       { key: "model",    label: "Modell" },
       { key: "color",    label: "Farbe" },
-      { key: "location", label: "Stellplatz" },
     ],
   }), [query, searchField]);
 
@@ -125,12 +130,11 @@ const Fleet = () => {
       if (!query.trim()) return true;
       const q = query.toLowerCase();
       const fields: Record<typeof searchField, string> = {
-        all: `${vehicle.vin} ${vehicle.make} ${vehicle.model} ${vehicle.color} ${vehicle.location.name}`,
+        all: `${vehicle.vin} ${vehicle.make} ${vehicle.model} ${vehicle.color}`,
         vin: vehicle.vin,
         make: vehicle.make,
         model: vehicle.model,
         color: vehicle.color,
-        location: vehicle.location.name,
       };
       return fields[searchField].toLowerCase().includes(q);
     });
@@ -146,7 +150,6 @@ const Fleet = () => {
         case "mileage":    cmp = va.mileage - vb.mileage; break;
         case "power":      cmp = va.power_hp - vb.power_hp; break;
         case "color":      cmp = va.color.localeCompare(vb.color); break;
-        case "location":   cmp = va.location.name.localeCompare(vb.location.name); break;
         case "hu":         cmp = (va.hu ?? "").localeCompare(vb.hu ?? ""); break;
         case "stockDays":  cmp = b.stockDays - a.stockDays; break; // default: ältester zuerst → invertiere unten
         case "price":      cmp = va.listPrice - vb.listPrice; break;
@@ -180,12 +183,12 @@ const Fleet = () => {
 
       <div className="space-y-3 animate-fade-in">
         {/* Header — kompakt */}
-        <div className="flex items-center justify-between gap-4 shrink-0">
+        <div className="flex flex-col gap-3 shrink-0 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
           <div>
             <h1 className="font-display text-2xl font-bold tracking-tight">Bestand</h1>
             <p className="text-xs text-muted-foreground">Fahrzeugbestand · VIN-basiert</p>
           </div>
-          <div data-tour="fleet-io" className="flex items-center gap-2">
+          <div data-tour="fleet-io" className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
             <Button size="sm" variant="outline" className="gap-2" onClick={() => setExportOpen(true)}>
               <Settings2 className="size-4" /> Export…
             </Button>
@@ -195,7 +198,7 @@ const Fleet = () => {
             <Button
               size="sm"
               data-tour="fleet-intake"
-              className="bg-gradient-brand hover:opacity-90 shadow-elegant gap-2"
+              className="col-span-2 bg-gradient-brand hover:opacity-90 shadow-elegant gap-2 sm:col-span-1"
               onClick={() => setIntakeOpen(true)}
             >
               <Plus className="size-4" /> Fahrzeug aufnehmen
@@ -224,9 +227,9 @@ const Fleet = () => {
         </div>
 
         {/* Filter-Leiste kompakt */}
-        <Card data-tour="fleet-filters" className="px-3 py-2 flex items-center gap-2 flex-wrap shrink-0">
+        <Card data-tour="fleet-filters" className="px-3 py-2 flex flex-col gap-2 shrink-0 sm:flex-row sm:flex-wrap sm:items-center">
           <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as "all" | VehicleType)}>
-            <SelectTrigger className="w-[160px] h-8 text-xs"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-full text-xs sm:h-8 sm:w-[160px]"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Alle Typen</SelectItem>
               {Object.entries(VEHICLE_TYPE_LABELS).map(([k, v]) => (
@@ -235,14 +238,14 @@ const Fleet = () => {
             </SelectContent>
           </Select>
           <Select value={listedFilter} onValueChange={(v) => setListedFilter(v as ListedFilter)}>
-            <SelectTrigger className="w-[160px] h-8 text-xs"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-full text-xs sm:h-8 sm:w-[160px]"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Alle Inserate</SelectItem>
               <SelectItem value="listed">Nur inseriert ({stats.listed})</SelectItem>
               <SelectItem value="not_listed">Nicht inseriert ({stats.notListed})</SelectItem>
             </SelectContent>
           </Select>
-          <div className="flex gap-1.5 flex-wrap">
+          <div className="flex gap-1.5 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
             {([
               { key: "all",      label: `Alle (${stats.total})` },
               { key: "in_stock", label: `Bestand (${stats.in_stock})` },
@@ -253,7 +256,7 @@ const Fleet = () => {
                 key={f.key}
                 size="sm"
                 variant={filter === f.key ? "default" : "outline"}
-                className="h-8 text-xs"
+                className="text-xs sm:h-8"
                 onClick={() => setFilter(f.key)}
               >
                 {f.label}
@@ -298,7 +301,6 @@ const Fleet = () => {
                   <SortableTh label="EZ / km" sortKey="mileage" state={sort} onChange={setSort} />
                   <SortableTh label="PS" sortKey="power" state={sort} onChange={setSort} align="right" />
                   <SortableTh label="HU" sortKey="hu" state={sort} onChange={setSort} />
-                  <SortableTh label="Stellplatz" sortKey="location" state={sort} onChange={setSort} />
                   <SortableTh label="Tage" sortKey="stockDays" state={sort} onChange={setSort} align="right" />
                   <SortableTh label="VK" sortKey="price" state={sort} onChange={setSort} align="right" />
                   <SortableTh label="Marge¹" sortKey="margin" state={sort} onChange={setSort} align="right" />
@@ -338,7 +340,6 @@ const Fleet = () => {
                       <td className={cn("whitespace-nowrap", huSoon ? "text-warning font-medium" : "text-muted-foreground")}>
                         {vehicle.hu ? formatDate(vehicle.hu) : "–"}
                       </td>
-                      <td className="text-muted-foreground truncate max-w-[140px]">{vehicle.location.name}</td>
                       <td className={cn(
                         "text-right font-medium whitespace-nowrap",
                         stockDays > 90 ? "text-warning" : stockDays > 60 ? "text-foreground" : "text-muted-foreground",
@@ -417,7 +418,9 @@ const Fleet = () => {
         )}
       </div>
 
-      <VehicleIntakeDialog
+      <Suspense fallback={null}>
+        {intakeOpen && (
+          <VehicleIntakeDialog
         open={intakeOpen}
         onOpenChange={setIntakeOpen}
         locations={locations}
@@ -426,9 +429,11 @@ const Fleet = () => {
           toast.success(`${data.make} ${data.model} in den Bestand aufgenommen.`);
           setIntakeOpen(false);
         }}
-      />
+          />
+        )}
 
-      <FleetImportDialog
+        {importOpen && (
+          <FleetImportDialog
         open={importOpen}
         onOpenChange={setImportOpen}
         defaultLocation={locations[0] ?? "Hof A · Platz 01"}
@@ -441,21 +446,27 @@ const Fleet = () => {
           setTypeFilter("all");
           setListedFilter("all");
         }}
-      />
+          />
+        )}
 
-      <FleetExportDialog
+        {exportOpen && (
+          <FleetExportDialog
         open={exportOpen}
         onOpenChange={setExportOpen}
         totalCount={filtered.length}
-        onExport={(keys, format) => {
+        onExport={async (keys, format) => {
+          const { exportVehicles } = await import("@/lib/fleetIO");
           exportVehicles(filtered.map((d) => d.vehicle), format, keys, "bestand", { processes });
           toast.success(`${format.toUpperCase()}-Export erstellt (${keys.length} Spalten).`);
         }}
-        onDownloadTemplate={(keys, format) => {
+        onDownloadTemplate={async (keys, format) => {
+          const { downloadTemplate } = await import("@/lib/fleetIO");
           downloadTemplate(format, keys);
           toast.success("Vorlage heruntergeladen.");
         }}
-      />
+          />
+        )}
+      </Suspense>
     </AppShell>
   );
 };

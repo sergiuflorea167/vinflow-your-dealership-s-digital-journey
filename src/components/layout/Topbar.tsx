@@ -16,8 +16,8 @@ export const Topbar = () => {
   const t = useT();
 
   return (
-    <header className="h-16 shrink-0 border-b border-border bg-card/40 backdrop-blur-md flex items-center gap-3 px-6">
-      <div className="flex flex-1 max-w-2xl items-center gap-2" data-tour="topbar-search">
+    <header className="min-h-16 shrink-0 border-b border-border bg-card/40 backdrop-blur-md flex flex-wrap items-center gap-2 px-3 py-2 sm:flex-nowrap sm:gap-3 sm:px-6 sm:py-0">
+      <div className="order-2 flex w-full min-w-0 flex-1 flex-col gap-2 sm:order-1 sm:max-w-2xl sm:flex-row sm:items-center" data-tour="topbar-search">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
           <Input
@@ -30,7 +30,7 @@ export const Topbar = () => {
         </div>
         {config && config.fields.length > 1 && (
           <Select value={config.field} onValueChange={config.onFieldChange}>
-            <SelectTrigger className="w-[170px] bg-background/40 border-border/60 shrink-0">
+            <SelectTrigger className="w-full shrink-0 bg-background/40 border-border/60 sm:w-[170px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -41,7 +41,7 @@ export const Topbar = () => {
           </Select>
         )}
       </div>
-      <div className="flex items-center gap-1 ml-auto">
+      <div className="order-1 flex items-center gap-1 ml-auto sm:order-2">
         <LanguageSwitcher />
         <ThemeSwitcher />
         <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground" aria-label={t("topbar.notifications")}>

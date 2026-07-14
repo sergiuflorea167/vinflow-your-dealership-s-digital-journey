@@ -10,7 +10,7 @@ import { GoalsPanel } from "@/components/dashboard/GoalsPanel";
 import { DashboardHero } from "@/components/dashboard/DashboardHero";
 import { PinnedKpiGrid } from "@/components/dashboard/PinnedKpiGrid";
 import { useProcessStore } from "@/store/processStore";
-import { PROCESS_STEPS, TodoPriority, CALENDAR_EVENT_TYPE_LABELS, CalendarEventType, Vehicle, getConfiguredProcessSteps, getLastProcessStepKey } from "@/data/process";
+import { PROCESS_STEPS, TodoPriority, CALENDAR_EVENT_TYPE_LABELS, CalendarEventType, Vehicle, getLastProcessStepKey } from "@/data/process";
 import { ArrowUpRight, Settings2, CalendarCheck2, Car, CalendarDays, Clock, MapPin } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useT } from "@/lib/i18n";
@@ -43,11 +43,8 @@ const Dashboard = () => {
   const realTodos = useProcessStore((s) => s.todos);
   const realVehicles = useProcessStore((s) => s.vehicles);
   const realEvents = useProcessStore((s) => s.calendarEvents);
-  const settings = useProcessStore((s) => s.settings);
   const toggleTodo = useProcessStore((s) => s.toggleTodo);
   const workshopActive = useWorkshopStore((s) => s.active);
-  const processSteps = useMemo(() => getConfiguredProcessSteps(settings), [settings]);
-  const lastStepKey = getLastProcessStepKey(settings.processStepKeys);
 
   // Im Workshop: ausschließlich Demo-Daten. Sonst: echte Daten aus dem Store.
   const todayISO = new Date().toISOString().slice(0, 10);
@@ -56,15 +53,18 @@ const Dashboard = () => {
     if (workshopActive) {
       return PROCESS_STEPS.map((step) => ({ step, count: DEMO_PIPELINE[step.key] ?? 0 }));
     }
-    return processSteps.map((step) => ({
+    return PROCESS_STEPS.map((step) => ({
       step,
       count: realProcesses.filter((p) => p.currentStep === step.key && p.steps[step.key].status !== "completed").length,
     }));
-  }, [processSteps, realProcesses, workshopActive]);
+  }, [realProcesses, workshopActive]);
 
   const realActive = useMemo(
-    () => realProcesses.filter((p) => p.steps?.[lastStepKey]?.status !== "completed"),
-    [realProcesses, lastStepKey],
+    () => realProcesses.filter((p) => {
+      const lastStepKey = getLastProcessStepKey(p.processStepKeys);
+      return p.steps?.[lastStepKey]?.status !== "completed";
+    }),
+    [realProcesses],
   );
   const activeCount = workshopActive ? DEMO_ACTIVE_COUNT : realActive.length;
 

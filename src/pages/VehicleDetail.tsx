@@ -15,10 +15,9 @@ import {
   formatCurrency, formatDate, OfferStatus,
   Vehicle, VehicleType, VEHICLE_TYPE_LABELS,
   FuelType, Transmission, DriveType, EmissionClass, VehicleCondition,
-  VehicleLocation, LocationKind,
 } from "@/data/process";
 import {
-  ArrowLeft, ArrowRight, Car, CheckCircle2, ChevronDown, Edit2, FileText, Mail, MapPin, Plus, Send,
+  ArrowLeft, ArrowRight, Car, CheckCircle2, ChevronDown, Edit2, FileText, Mail, Plus, Send,
   Sparkles, X, Save, History, Zap, Search, Euro,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -33,16 +32,6 @@ const STATUS_META: Record<OfferStatus, { label: string; className: string }> = {
   accepted: { label: "Angenommen",  className: "bg-success/15 text-success border-success/30" },
   rejected: { label: "Abgelehnt",   className: "bg-destructive/15 text-destructive border-destructive/30" },
   expired:  { label: "Abgelaufen",  className: "bg-muted text-muted-foreground border-border" },
-};
-
-const LOCATION_KIND_LABELS: Record<LocationKind, string> = {
-  lot: "Hofplatz",
-  showroom: "Showroom",
-  workshop: "Werkstatt",
-  detailer: "Aufbereiter",
-  transit: "Transport",
-  customer: "Beim Kunden",
-  other: "Sonstiges",
 };
 
 const FUELS: FuelType[] = ["Benzin", "Diesel", "Hybrid", "Elektro", "Plug-in-Hybrid", "Gas"];
@@ -399,7 +388,7 @@ const getMobileDeDetailedEquipmentCodes = (vehicle: Vehicle) => {
   addIf(/sportpaket|s[-\s]?line|m[-\s]?sport|amg|r[-\s]?line|fr\b/, "SPORT_PACKAGE");
   addIf(/spurhalteassistent|lane assist|lane departure|spurhalte/, "LANE_DEPARTURE_WARNING");
   addIf(/stahlfelgen|steel wheels/, "STEEL_WHEELS");
-  addIf(/start[\/\s-]?stopp|start stop/, "START_STOP_SYSTEM");
+  addIf(/start[/\s-]?stopp|start stop/, "START_STOP_SYSTEM");
   addIf(/totwinkel|blind spot|side assist/, "BLIND_SPOT_MONITOR");
   addIf(/traktionskontrolle|traction control|asr/, "TRACTION_CONTROL_SYSTEM");
   addIf(/verkehrszeichen|traffic sign/, "TRAFFIC_SIGN_RECOGNITION");
@@ -652,7 +641,6 @@ const VehicleDetail = () => {
   const customers = useProcessStore((s) => s.customers);
   const getCustomer = useProcessStore((s) => s.getCustomer);
   const process = useProcessStore((s) => s.processes.find((p) => p.vehicleId === id));
-  const locations = useProcessStore((s) => s.settings.locations);
   const getActivitiesFor = useProcessStore((s) => s.getActivitiesFor);
   const vehicleActivities = useMemo(() => getActivitiesFor({ vehicleId: id }), [getActivitiesFor, id]);
 
@@ -660,12 +648,10 @@ const VehicleDetail = () => {
   const updateOfferStatus = useProcessStore((s) => s.updateOfferStatus);
   const acceptOffer = useProcessStore((s) => s.acceptOffer);
   const updateVehicle = useProcessStore((s) => s.updateVehicle);
-  const changeVehicleLocation = useProcessStore((s) => s.changeVehicleLocation);
   const startProcessForVehicle = useProcessStore((s) => s.startProcessForVehicle);
 
   const [offerDialog, setOfferDialog] = useState(false);
   const [directDialog, setDirectDialog] = useState(false);
-  const [locationDialog, setLocationDialog] = useState(false);
   const [marketDialog, setMarketDialog] = useState(false);
   const [marketResearchStarted, setMarketResearchStarted] = useState(false);
   const [marketSearchStageIndex, setMarketSearchStageIndex] = useState(0);
@@ -728,17 +714,6 @@ const VehicleDetail = () => {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap mb-1">
                       <p className="text-xs uppercase tracking-widest text-muted-foreground">Fahrzeug {vehicle.id}</p>
-                      <span className="text-muted-foreground/40">·</span>
-                      <button
-                        type="button"
-                        onClick={() => setLocationDialog(true)}
-                        className="inline-flex items-center gap-1.5 text-xs text-info hover:text-info/80 transition-smooth group"
-                        title={`${LOCATION_KIND_LABELS[vehicle.location.kind]} · seit ${formatDate(vehicle.location.since)}${vehicle.location.note ? ` · ${vehicle.location.note}` : ""}`}
-                      >
-                        <MapPin className="size-3.5" />
-                        <span className="font-medium truncate max-w-[200px]">{vehicle.location.name}</span>
-                        <Edit2 className="size-3 opacity-0 group-hover:opacity-100 transition-smooth" />
-                      </button>
                     </div>
                     <h1 className="text-3xl font-display font-bold leading-tight">
                       {vehicle.make} {vehicle.model}
@@ -1213,21 +1188,6 @@ const VehicleDetail = () => {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={locationDialog} onOpenChange={setLocationDialog}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>Standort ändern</DialogTitle></DialogHeader>
-          <LocationForm
-            locations={locations}
-            currentName={vehicle.location.name}
-            onSubmit={(loc) => {
-              changeVehicleLocation(vehicle.id, loc);
-              toast.success(`Standort: ${loc.name}`);
-              setLocationDialog(false);
-            }}
-            onCancel={() => setLocationDialog(false)}
-          />
-        </DialogContent>
-      </Dialog>
     </AppShell>
   );
 };
@@ -1687,57 +1647,6 @@ const DirectSaleForm = ({
         <Button variant="outline" onClick={onCancel}>Abbrechen</Button>
         <Button disabled={!valid} className="bg-gradient-brand" onClick={() => onSubmit({ customerId, price })}>
           <Zap className="size-4 mr-1.5" /> Vorgang starten
-        </Button>
-      </DialogFooter>
-    </>
-  );
-};
-
-const LocationForm = ({
-  locations, currentName, onSubmit, onCancel,
-}: {
-  locations: string[];
-  currentName: string;
-  onSubmit: (loc: VehicleLocation) => void;
-  onCancel: () => void;
-}) => {
-  const [name, setName] = useState(currentName);
-  const [customName, setCustomName] = useState("");
-  const [kind, setKind] = useState<LocationKind>("lot");
-  const [note, setNote] = useState("");
-  const finalName = name === "__custom__" ? customName.trim() : name;
-  const valid = finalName.length > 0;
-
-  return (
-    <>
-      <div className="space-y-3 py-2">
-        <div className="space-y-1.5">
-          <Label className="text-xs text-muted-foreground">Stellplatz / Standort *</Label>
-          <select value={name} onChange={(e) => setName(e.target.value)} className="w-full h-10 rounded-md border border-input bg-background/40 px-3 text-sm">
-            {locations.map((l) => <option key={l} value={l}>{l}</option>)}
-            <option value="__custom__">— Eigener Standort —</option>
-          </select>
-          {name === "__custom__" && (
-            <Input value={customName} onChange={(e) => setCustomName(e.target.value)} placeholder="z. B. Werkstatt Müller" />
-          )}
-        </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs text-muted-foreground">Art</Label>
-          <select value={kind} onChange={(e) => setKind(e.target.value as LocationKind)} className="w-full h-10 rounded-md border border-input bg-background/40 px-3 text-sm">
-            {Object.entries(LOCATION_KIND_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-          </select>
-        </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs text-muted-foreground">Notiz</Label>
-          <Input value={note} onChange={(e) => setNote(e.target.value)} placeholder="Optional" />
-        </div>
-      </div>
-      <DialogFooter>
-        <Button variant="outline" onClick={onCancel}>Abbrechen</Button>
-        <Button disabled={!valid} className="bg-gradient-brand" onClick={() => onSubmit({
-          name: finalName, kind, since: new Date().toISOString(), note: note || undefined,
-        })}>
-          Standort übernehmen
         </Button>
       </DialogFooter>
     </>

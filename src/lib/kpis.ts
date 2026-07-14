@@ -67,13 +67,16 @@ const dateInRange = (value: string | undefined, from: Date, to: Date) => {
 };
 
 // Verkauf zählt am Ende der konfigurierten Vorgangskette.
-const saleInRange = (p: Process, from: Date, to: Date, saleStepKey: ProcessStepKey) => {
+const processSaleStepKey = (p: Process) => getLastProcessStepKey(p.processStepKeys);
+
+const saleInRange = (p: Process, from: Date, to: Date) => {
+  const saleStepKey = processSaleStepKey(p);
   const rec = p.steps[saleStepKey];
   return !!rec && rec.status === "completed" && dateInRange(rec.completedAt, from, to);
 };
 
-const isSaleCompleted = (p: Process, saleStepKey: ProcessStepKey) =>
-  p.steps[saleStepKey]?.status === "completed";
+const isSaleCompleted = (p: Process) =>
+  p.steps[processSaleStepKey(p)]?.status === "completed";
 
 // Rechnung gestellt im Zeitraum
 const invoicedInRange = (p: Process, from: Date, to: Date) => {
@@ -107,9 +110,8 @@ export const KPI_CATALOG: KpiDef[] = [
       "Hauptindikator für den geschäftlichen Erfolg. Ein Wert deutlich unter Vergleichszeitraum → Vertrieb / Lead-Zufluss prüfen.",
     format: "currency",
     timeMode: "range",
-    compute: ({ processes, range, processStepKeys }) => {
-      const saleStepKey = getLastProcessStepKey(processStepKeys);
-      const sold = processes.filter((p) => saleInRange(p, range.from, range.to, saleStepKey));
+    compute: ({ processes, range }) => {
+      const sold = processes.filter((p) => saleInRange(p, range.from, range.to));
       const value = sold.reduce((s, p) => s + (p.fields.finalPrice ?? 0), 0);
       return { value, display: fmt(value, "currency"), sub: `${sold.length} Übergaben · ${range.label}` };
     },
@@ -166,9 +168,8 @@ export const KPI_CATALOG: KpiDef[] = [
       "Bereits zugeflossene Liquidität, vertraglich an einen noch laufenden Vorgang gebunden.",
     format: "currency",
     timeMode: "static",
-    compute: ({ processes, processStepKeys }) => {
-      const saleStepKey = getLastProcessStepKey(processStepKeys);
-      const value = processes.filter((p) => !isSaleCompleted(p, saleStepKey)).reduce(
+    compute: ({ processes }) => {
+      const value = processes.filter((p) => !isSaleCompleted(p)).reduce(
         (s, p) => s + (p.fields.downPayment?.received ? (p.fields.downPayment.amount ?? 0) : 0),
         0
       );
@@ -184,9 +185,8 @@ export const KPI_CATALOG: KpiDef[] = [
       "Risiko-Wert: Geld, mit dem gerechnet wird, das aber noch nicht da ist. Hoher Wert → nachfassen.",
     format: "currency",
     timeMode: "static",
-    compute: ({ processes, processStepKeys }) => {
-      const saleStepKey = getLastProcessStepKey(processStepKeys);
-      const value = processes.filter((p) => !isSaleCompleted(p, saleStepKey)).reduce((s, p) => {
+    compute: ({ processes }) => {
+      const value = processes.filter((p) => !isSaleCompleted(p)).reduce((s, p) => {
         const dp = p.fields.downPayment;
         return s + (dp && !dp.received ? (dp.amount ?? 0) : 0);
       }, 0);
@@ -225,9 +225,8 @@ export const KPI_CATALOG: KpiDef[] = [
       "Echte Wertschöpfung — wichtiger als Bruttoumsatz. Sinkt bei Preisnachlässen oder hohen Aufbereitungskosten.",
     format: "currency",
     timeMode: "range",
-    compute: ({ processes, vehicles, range, processStepKeys }) => {
-      const saleStepKey = getLastProcessStepKey(processStepKeys);
-      const sold = processes.filter((p) => saleInRange(p, range.from, range.to, saleStepKey));
+    compute: ({ processes, vehicles, range }) => {
+      const sold = processes.filter((p) => saleInRange(p, range.from, range.to));
       const profits = sold.flatMap((p) => {
         const profit = profitOf(p, vehicles);
         return profit == null ? [] : [profit];
@@ -245,9 +244,8 @@ export const KPI_CATALOG: KpiDef[] = [
       'Steuerungsgröße für die Profitabilität eines „typischen" Deals. Sinkt → Einkauf oder Pricing prüfen.',
     format: "currency",
     timeMode: "range",
-    compute: ({ processes, vehicles, range, processStepKeys }) => {
-      const saleStepKey = getLastProcessStepKey(processStepKeys);
-      const sold = processes.filter((p) => saleInRange(p, range.from, range.to, saleStepKey));
+    compute: ({ processes, vehicles, range }) => {
+      const sold = processes.filter((p) => saleInRange(p, range.from, range.to));
       const profits = sold.flatMap((p) => {
         const profit = profitOf(p, vehicles);
         return profit == null ? [] : [profit];
@@ -266,9 +264,8 @@ export const KPI_CATALOG: KpiDef[] = [
       "Effizienz: Wieviel % vom VK bleibt als Roh-Gewinn? Branchenwert ~10–15%. Sinkt sie → EK oder Standzeit zu hoch.",
     format: "percent",
     timeMode: "range",
-    compute: ({ processes, vehicles, range, processStepKeys }) => {
-      const saleStepKey = getLastProcessStepKey(processStepKeys);
-      const sold = processes.filter((p) => saleInRange(p, range.from, range.to, saleStepKey));
+    compute: ({ processes, vehicles, range }) => {
+      const sold = processes.filter((p) => saleInRange(p, range.from, range.to));
       const validSales = sold.flatMap((p) => {
         const vehicle = vehicles.find((v) => v.id === p.vehicleId);
         const revenue = p.fields.finalPrice ?? 0;
@@ -360,11 +357,10 @@ export const KPI_CATALOG: KpiDef[] = [
       "Effizienz der Verkaufsabwicklung. Lang trotz Anzahlung = interne Engpässe (Aufbereitung, Termine).",
     format: "days",
     timeMode: "range",
-    compute: ({ processes, range, processStepKeys }) => {
-      const saleStepKey = getLastProcessStepKey(processStepKeys);
-      const sold = processes.filter((p) => saleInRange(p, range.from, range.to, saleStepKey));
+    compute: ({ processes, range }) => {
+      const sold = processes.filter((p) => saleInRange(p, range.from, range.to));
       const times = sold.map((p) =>
-        (new Date(p.steps[saleStepKey]!.completedAt!).getTime() - new Date(p.createdAt).getTime()) / 86400000
+        (new Date(p.steps[processSaleStepKey(p)]!.completedAt!).getTime() - new Date(p.createdAt).getTime()) / 86400000
       ).filter((days) => Number.isFinite(days) && days >= 0);
       const value = times.length ? times.reduce((s, n) => s + n, 0) / times.length : 0;
       return { value, display: fmt(value, "days"), sub: `${sold.length} Verkäufe · ${range.label}` };
@@ -427,9 +423,8 @@ export const KPI_CATALOG: KpiDef[] = [
       'Operative Arbeitslast. Hoher Wert in „in Kontrolle" = Übergaben stehen kurz bevor (gut für Cashflow).',
     format: "number",
     timeMode: "static",
-    compute: ({ processes, processStepKeys }) => {
-      const saleStepKey = getLastProcessStepKey(processStepKeys);
-      const active = processes.filter((p) => !isSaleCompleted(p, saleStepKey));
+    compute: ({ processes }) => {
+      const active = processes.filter((p) => !isSaleCompleted(p));
       const inOutbound = active.filter((p) => p.currentStep === "outbound_check").length;
       return { value: active.length, display: fmt(active.length, "number"), sub: `${inOutbound} in Kontrolle` };
     },
@@ -457,10 +452,9 @@ export const KPI_CATALOG: KpiDef[] = [
       "Erwarteter Umsatz aus aktuell laufenden Verkäufen — die Forecast-Zahl.",
     format: "currency",
     timeMode: "static",
-    compute: ({ processes, processStepKeys }) => {
-      const saleStepKey = getLastProcessStepKey(processStepKeys);
+    compute: ({ processes }) => {
       const value = processes
-        .filter((p) => !isSaleCompleted(p, saleStepKey))
+        .filter((p) => !isSaleCompleted(p))
         .reduce((s, p) => s + (p.fields.finalPrice ?? 0), 0);
       return { value, display: fmt(value, "currency"), sub: "In Arbeit" };
     },
@@ -474,9 +468,8 @@ export const KPI_CATALOG: KpiDef[] = [
       "Volumen-Indikator: Wie viele Deals wurden abgeschlossen? Ergänzt den Umsatz um die Stückzahl.",
     format: "number",
     timeMode: "range",
-    compute: ({ processes, range, processStepKeys }) => {
-      const saleStepKey = getLastProcessStepKey(processStepKeys);
-      const sold = processes.filter((p) => saleInRange(p, range.from, range.to, saleStepKey));
+    compute: ({ processes, range }) => {
+      const sold = processes.filter((p) => saleInRange(p, range.from, range.to));
       return { value: sold.length, display: fmt(sold.length, "number"), sub: range.label };
     },
   },

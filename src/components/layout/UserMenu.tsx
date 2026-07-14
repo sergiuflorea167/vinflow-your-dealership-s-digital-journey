@@ -12,13 +12,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { User, Settings as SettingsIcon, LogOut, Camera, Mail, Phone, Briefcase, Palette, Check, Building2, KeyRound, Copy, Sparkles, GraduationCap, Database, SlidersHorizontal } from "lucide-react";
+import { User, Settings as SettingsIcon, LogOut, Camera, Mail, Phone, Briefcase, Building2, KeyRound, Copy, Sparkles, GraduationCap, Database, SlidersHorizontal, ImagePlus } from "lucide-react";
 import { buildDemoSeed } from "@/data/demoSeed";
 import { flushOrgStateNow } from "@/lib/orgStateSync";
 import { useTutorialStore } from "@/store/tutorialStore";
 import { WorkshopPickerDialog } from "@/components/tutorial/WorkshopPickerDialog";
-import { PDF_THEMES } from "@/lib/pdf";
-import { cn } from "@/lib/utils";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useT } from "@/lib/i18n";
@@ -32,14 +30,17 @@ export const UserMenu = () => {
   const t = useT();
 
   const [open, setOpen] = useState(false);
-  const fileRef = useRef<HTMLInputElement>(null);
+  const avatarFileRef = useRef<HTMLInputElement>(null);
+  const logoFileRef = useRef<HTMLInputElement>(null);
 
   const [draft, setDraft] = useState(settings);
   const [workshopPickerOpen, setWorkshopPickerOpen] = useState(false);
+  const [profileTab, setProfileTab] = useState<"user" | "company">("user");
 
 
   const openDialog = () => {
     setDraft(settings);
+    setProfileTab("user");
     setOpen(true);
   };
 
@@ -48,12 +49,21 @@ export const UserMenu = () => {
     (settings.lastName ?? "").trim()[0] ?? ""
   }`.toUpperCase();
 
-  const onPickAvatar = () => fileRef.current?.click();
+  const onPickAvatar = () => avatarFileRef.current?.click();
   const onAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     const reader = new FileReader();
     reader.onload = () => setDraft((d) => ({ ...d, avatarUrl: String(reader.result) }));
+    reader.readAsDataURL(file);
+  };
+
+  const onPickCompanyLogo = () => logoFileRef.current?.click();
+  const onCompanyLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setDraft((d) => ({ ...d, companyLogoUrl: String(reader.result) }));
     reader.readAsDataURL(file);
   };
 
@@ -179,14 +189,39 @@ export const UserMenu = () => {
       </DropdownMenu>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-lg max-h-[85vh] flex flex-col p-0 gap-0">
+        <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col p-0 gap-0">
           <DialogHeader className="px-6 pt-6 pb-4 border-b border-border">
             <DialogTitle>{t("profile.title")}</DialogTitle>
             <DialogDescription>
-              {t("profile.desc")}
+              Benutzer- und Firmendaten sind getrennt, damit Belege und Profil sauber gepflegt werden.
             </DialogDescription>
           </DialogHeader>
-          <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
+          <div className="flex-1 overflow-y-auto px-6 py-4 space-y-5">
+            <div className="grid grid-cols-2 gap-2 rounded-lg bg-muted p-1">
+              <button
+                type="button"
+                onClick={() => setProfileTab("user")}
+                className={`rounded-md px-3 py-2 text-sm font-medium transition-smooth ${profileTab === "user" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                Benutzerprofil
+              </button>
+              <button
+                type="button"
+                onClick={() => setProfileTab("company")}
+                className={`rounded-md px-3 py-2 text-sm font-medium transition-smooth ${profileTab === "company" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                Firmenprofil
+              </button>
+            </div>
+
+          {profileTab === "user" && (
+          <>
+          <div>
+            <p className="text-sm font-semibold text-foreground flex items-center gap-2">
+              <User className="size-4 text-primary" /> Benutzerprofil
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">Deine persoenlichen Kontaktdaten und dein Profilbild.</p>
+          </div>
 
           <div className="flex items-center gap-4 py-2">
             <button
@@ -203,7 +238,7 @@ export const UserMenu = () => {
                 <Camera className="size-5" />
               </span>
             </button>
-            <input ref={fileRef} type="file" accept="image/*" hidden onChange={onAvatarChange} />
+            <input ref={avatarFileRef} type="file" accept="image/*" hidden onChange={onAvatarChange} />
             <div className="text-xs text-muted-foreground">
               {t("profile.uploadHint")}
             </div>
@@ -229,6 +264,50 @@ export const UserMenu = () => {
             <div className="col-span-2">
               <Label className="text-xs flex items-center gap-1.5"><Phone className="size-3" /> {t("profile.phone")}</Label>
               <Input value={draft.phone ?? ""} onChange={(e) => setDraft({ ...draft, phone: e.target.value })} />
+            </div>
+          </div>
+          </>
+          )}
+
+          {profileTab === "company" && (
+          <div className="grid grid-cols-2 gap-3">
+            <div className="col-span-2">
+              <p className="text-sm font-semibold text-foreground flex items-center gap-2">
+                <Building2 className="size-4 text-primary" /> Firmenprofil
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">Firmenlogo, Rechnungsdaten und Angaben fuer Belege.</p>
+            </div>
+            <div className="col-span-2 rounded-lg border border-border bg-muted/25 p-4">
+              <Label className="text-xs">Firmenlogo</Label>
+              <button
+                type="button"
+                onClick={onPickCompanyLogo}
+                className="mt-2 flex min-h-24 w-full items-center gap-4 rounded-lg border border-dashed border-border bg-background/70 p-4 text-left transition-smooth hover:border-primary/60"
+              >
+                <div className="grid h-16 w-28 shrink-0 place-items-center rounded-md border border-border bg-card">
+                  {draft.companyLogoUrl ? (
+                    <img src={draft.companyLogoUrl} alt="Firmenlogo" className="max-h-12 max-w-24 object-contain" />
+                  ) : (
+                    <ImagePlus className="size-6 text-muted-foreground" />
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-foreground">Logo hochladen</p>
+                  <p className="mt-1 text-xs text-muted-foreground">PNG oder JPG. Das Logo wird fuer Belege und Kundenansichten genutzt.</p>
+                </div>
+              </button>
+              <input ref={logoFileRef} type="file" accept="image/png,image/jpeg" hidden onChange={onCompanyLogoChange} />
+              {draft.companyLogoUrl && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="mt-2 h-8 px-2 text-xs"
+                  onClick={() => setDraft({ ...draft, companyLogoUrl: "" })}
+                >
+                  Logo entfernen
+                </Button>
+              )}
             </div>
             <div className="col-span-2">
               <Label className="text-xs">{t("profile.company")}</Label>
@@ -275,44 +354,31 @@ export const UserMenu = () => {
               <Label className="text-xs">Handelsregister</Label>
               <Input value={draft.companyRegistration ?? ""} onChange={(e) => setDraft({ ...draft, companyRegistration: e.target.value })} placeholder="HRB 12345, AG München" />
             </div>
-
-            <div className="col-span-2 pt-2">
-              <Label className="text-xs flex items-center gap-1.5 mb-2">
-                <Palette className="size-3" /> Beleg-Farbschema (PDF)
-              </Label>
-              <p className="text-[11px] text-muted-foreground mb-3">
-                Wähle ein Farbschema, das zu deinem Unternehmen passt. Es wird auf alle Kunden-PDFs angewendet.
+            <div className="col-span-2 pt-2 -mb-1">
+              <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold">
+                Bankdaten und Online-Angaben · werden im Footer und in Zahlungsdaten ausgegeben
               </p>
-              <div className="grid grid-cols-2 gap-2">
-                {PDF_THEMES.map((th) => {
-                  const active = (draft.pdfTheme ?? "indigo") === th.key;
-                  const rgb = (c: [number, number, number]) => `rgb(${c[0]},${c[1]},${c[2]})`;
-                  return (
-                    <button
-                      key={th.key}
-                      type="button"
-                      onClick={() => setDraft({ ...draft, pdfTheme: th.key })}
-                      className={cn(
-                        "relative text-left rounded-lg border p-3 transition-smooth hover:border-primary/60",
-                        active ? "border-primary ring-2 ring-primary/30 bg-primary/5" : "border-border bg-card"
-                      )}
-                    >
-                      <div className="flex items-center gap-1.5 mb-2">
-                        <span className="size-4 rounded-full border border-border" style={{ background: rgb(th.primaryDark) }} />
-                        <span className="size-4 rounded-full border border-border" style={{ background: rgb(th.primary) }} />
-                        <span className="size-4 rounded-full border border-border" style={{ background: rgb(th.light) }} />
-                        {active && <Check className="size-3.5 ml-auto text-primary" />}
-                      </div>
-                      <p className="text-xs font-semibold leading-tight">{th.label}</p>
-                      <p className="text-[10px] text-muted-foreground leading-snug mt-0.5">{th.description}</p>
-                    </button>
-                  );
-                })}
-              </div>
             </div>
-          </div>
-          </div>
+            <div className="col-span-2">
+              <Label className="text-xs">Website</Label>
+              <Input value={draft.companyWebsite ?? ""} onChange={(e) => setDraft({ ...draft, companyWebsite: e.target.value })} placeholder="www.firma.de" />
+            </div>
+            <div className="col-span-2">
+              <Label className="text-xs">Bank</Label>
+              <Input value={draft.companyBankName ?? ""} onChange={(e) => setDraft({ ...draft, companyBankName: e.target.value })} placeholder="z. B. Commerzbank" />
+            </div>
+            <div className="col-span-2">
+              <Label className="text-xs">IBAN</Label>
+              <Input value={draft.companyIban ?? ""} onChange={(e) => setDraft({ ...draft, companyIban: e.target.value })} placeholder="DE00 0000 0000 0000 0000 00" />
+            </div>
+            <div className="col-span-2">
+              <Label className="text-xs">BIC</Label>
+              <Input value={draft.companyBic ?? ""} onChange={(e) => setDraft({ ...draft, companyBic: e.target.value })} placeholder="COBADEFFXXX" />
+            </div>
 
+          </div>
+          )}
+          </div>
           <DialogFooter className="px-6 py-4 border-t border-border">
             <Button variant="ghost" onClick={() => setOpen(false)}>{t("profile.cancel")}</Button>
             <Button onClick={save} className="bg-gradient-brand">{t("profile.save")}</Button>
