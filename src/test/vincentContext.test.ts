@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildVincentContext } from "@/lib/vincentContext";
 import { useProcessStore } from "@/store/processStore";
+import type { Vehicle } from "@/data/process";
 
 describe("VINcent context minimization", () => {
   it("never exports customer, VIN, contact, payment or calendar free text", () => {
@@ -69,5 +70,75 @@ describe("VINcent context minimization", () => {
     } finally {
       useProcessStore.setState({ todos: previousTodos });
     }
+  });
+
+  it("supplies the full structured vehicle file when a specific vehicle is named in the question", () => {
+    const previousVehicles = useProcessStore.getState().vehicles;
+    const vehicle: Vehicle = {
+      id: "V-CONTEXT-1",
+      vin: "WAUZZZ8V8KA000001",
+      type: "limousine",
+      make: "Audi",
+      model: "A6",
+      year: 2015,
+      color: "Schwarz",
+      mileage: 120_000,
+      fuel: "Diesel",
+      transmission: "Automatik",
+      power_kw: 150,
+      power_hp: 204,
+      doors: 4,
+      seats: 5,
+      accidentFree: true,
+      serviceBookComplete: true,
+      features: ["Navigationssystem", "Sitzheizung"],
+      listPrice: 18_900,
+      purchasePrice: 14_000,
+      status: "in_stock",
+      notes: "Kunde erreichbar unter kunde@example.com bei Rückfragen.",
+      location: { name: "Hof A", kind: "lot", since: "2026-01-01" },
+      locationHistory: [],
+      costs: [{
+        id: "C-1",
+        category: "detailing",
+        description: "Aufbereitung",
+        netAmount: 200,
+        vatRate: 19,
+        date: "2026-01-05",
+        createdAt: "2026-01-05T00:00:00.000Z",
+        createdBy: "Werkstatt",
+      }],
+    };
+    useProcessStore.setState({ vehicles: [...previousVehicles, vehicle] });
+
+    try {
+      const context = buildVincentContext(
+        "Ich muss gleich einen Kunden anrufen, der Interesse an dem Audi A6 von 2015 hat. Liste mir alle Infos auf.",
+      ) as { vehicleDetails?: Array<Record<string, unknown>> };
+
+      expect(context.vehicleDetails).toHaveLength(1);
+      const detail = context.vehicleDetails![0];
+      expect(detail).toMatchObject({
+        id: "V-CONTEXT-1",
+        url: "/bestand/V-CONTEXT-1",
+        identifikation: expect.objectContaining({ marke: "Audi", modell: "A6", baujahr: 2015 }),
+        technik: expect.objectContaining({ kraftstoff: "Diesel", leistung_ps: 204 }),
+        historie: expect.objectContaining({ laufleistung_km: 120_000, unfallfrei: true }),
+        ausstattung: ["Navigationssystem", "Sitzheizung"],
+        preisUndStatus: expect.objectContaining({ listenpreis: 18_900, zusatzkostenGesamt: 238 }),
+      });
+
+      const serialized = JSON.stringify(context);
+      expect(serialized).not.toContain(vehicle.vin);
+      expect(serialized).not.toContain("kunde@example.com");
+      expect(serialized).toContain("[E-Mail entfernt]");
+    } finally {
+      useProcessStore.setState({ vehicles: previousVehicles });
+    }
+  });
+
+  it("does not attach vehicle details for unrelated questions", () => {
+    const context = buildVincentContext("Wie viele offene To-dos habe ich heute?") as Record<string, unknown>;
+    expect(context).not.toHaveProperty("vehicleDetails");
   });
 });

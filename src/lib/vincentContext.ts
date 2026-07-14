@@ -1,12 +1,126 @@
 import { useProcessStore } from "@/store/processStore";
 import { KPI_CATALOG } from "@/lib/kpis";
-import { PROCESS_STEPS, vehicleTotalCostsGross } from "@/data/process";
+import { PROCESS_STEPS, vehicleTotalCostsGross, COST_CATEGORY_LABELS, VEHICLE_TYPE_LABELS, grossFromNet, type Vehicle } from "@/data/process";
+import { redactSensitiveText } from "@/lib/vincentPrivacy";
 
 const appLink = (path: string) => path.startsWith("/") ? path : `/${path}`;
 
+const VEHICLE_STATUS_LABELS: Record<Vehicle["status"], string> = {
+  planned: "Geplant",
+  in_stock: "Im Bestand",
+  reserved: "Reserviert",
+  sold: "Verkauft",
+};
+
+const VEHICLE_YEAR_PATTERN = /\b(19[5-9]\d|20[0-4]\d)\b/;
+
+/**
+ * Findet Fahrzeuge, die in der Frage per Marke + Modell (und optional Baujahr)
+ * konkret angesprochen werden, z. B. "der Audi A6 von 2015".
+ */
+function matchVehiclesForQuestion(normalizedQuestion: string, vehicles: Vehicle[]): Vehicle[] {
+  const yearMatch = normalizedQuestion.match(VEHICLE_YEAR_PATTERN);
+  const mentionedYear = yearMatch ? Number(yearMatch[1]) : undefined;
+
+  return vehicles
+    .map((vehicle) => {
+      const make = vehicle.make.toLocaleLowerCase("de-DE");
+      const model = vehicle.model.toLocaleLowerCase("de-DE");
+      if (!make || !model) return null;
+      if (!normalizedQuestion.includes(make) || !normalizedQuestion.includes(model)) return null;
+      let score = 2;
+      if (mentionedYear) {
+        const registrationYear = vehicle.firstRegistration ? Number(vehicle.firstRegistration.slice(0, 4)) : undefined;
+        if (vehicle.year === mentionedYear || registrationYear === mentionedYear) score += 2;
+        else score -= 1;
+      }
+      return { vehicle, score };
+    })
+    .filter((entry): entry is { vehicle: Vehicle; score: number } => entry !== null)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 5)
+    .map((entry) => entry.vehicle);
+}
+
+/**
+ * Vollständige, strukturierte Fahrzeugakte für ein konkret angefragtes Fahrzeug
+ * (z. B. zur Vorbereitung eines Kundentelefonats). VIN und Kennzeichen sind
+ * eigenständige Fahrzeugidentifikatoren und verlassen den Browser bewusst nie.
+ */
+function buildVehicleDetail(vehicle: Vehicle) {
+  const costsByCategory = vehicle.costs.reduce<Record<string, number>>((acc, cost) => {
+    const label = COST_CATEGORY_LABELS[cost.category];
+    acc[label] = Math.round((acc[label] ?? 0) + grossFromNet(cost.netAmount, cost.vatRate));
+    return acc;
+  }, {});
+
+  return {
+    id: vehicle.id,
+    url: appLink(`/bestand/${encodeURIComponent(vehicle.id)}`),
+    identifikation: {
+      typ: VEHICLE_TYPE_LABELS[vehicle.type],
+      marke: vehicle.make,
+      modell: vehicle.model,
+      modellDetail: vehicle.modelDetail ?? null,
+      baujahr: vehicle.year,
+      zustand: vehicle.condition ?? null,
+      hsn: vehicle.hsn ?? null,
+      tsn: vehicle.tsn ?? null,
+      vorbesitzer: vehicle.previousOwners ?? null,
+    },
+    technik: {
+      kraftstoff: vehicle.fuel,
+      getriebe: vehicle.transmission,
+      antrieb: vehicle.drive ?? null,
+      leistung_kw: vehicle.power_kw,
+      leistung_ps: vehicle.power_hp,
+      hubraum_ccm: vehicle.displacement_ccm ?? null,
+      zylinder: vehicle.cylinders ?? null,
+      schadstoffklasse: vehicle.emissionClass ?? null,
+      co2_g_km: vehicle.co2_g_km ?? null,
+      verbrauch_l_100km: vehicle.consumption_l_100km ?? null,
+      batteriekapazitaet_kwh: vehicle.batteryCapacity_kwh ?? null,
+      reichweite_km: vehicle.range_km ?? null,
+    },
+    optikUndInnenraum: {
+      farbe: vehicle.color,
+      lackcode: vehicle.paintCode ?? null,
+      metallic: vehicle.metallic ?? null,
+      innenraumfarbe: vehicle.interiorColor ?? null,
+      innenraummaterial: vehicle.interiorMaterial ?? null,
+      tueren: vehicle.doors ?? null,
+      sitze: vehicle.seats ?? null,
+    },
+    historie: {
+      laufleistung_km: vehicle.mileage,
+      erstzulassung: vehicle.firstRegistration ?? null,
+      naechsteHu: vehicle.hu ?? null,
+      scheckheftgepflegt: vehicle.serviceBookComplete ?? null,
+      unfallfrei: vehicle.accidentFree ?? null,
+      nichtraucherfahrzeug: vehicle.nonSmoker ?? null,
+    },
+    ausstattung: vehicle.features ?? [],
+    preisUndStatus: {
+      status: VEHICLE_STATUS_LABELS[vehicle.status],
+      listenpreis: vehicle.listPrice,
+      einkaufspreis: vehicle.purchasePrice,
+      zusatzkostenGesamt: Math.round(vehicleTotalCostsGross(vehicle)),
+      zusatzkostenNachKategorie: costsByCategory,
+      inseriert: vehicle.listed ?? null,
+      eingetroffenAm: vehicle.arrivedAt ?? null,
+      verkauftAm: vehicle.soldAt ?? null,
+    },
+    standort: { name: vehicle.location.name, art: vehicle.location.kind },
+    notizen: vehicle.notes ? redactSensitiveText(vehicle.notes).text : null,
+  };
+}
+
 /**
  * Erstellt ausschließlich den für die konkrete Frage notwendigen Kontext.
- * Direkte Kundenkennungen, VIN und Kontaktdaten verlassen den Browser nicht.
+ * Direkte Kundenkennungen, VIN, Kennzeichen und Kontaktdaten verlassen den
+ * Browser nicht. Wird ein konkretes Fahrzeug (Marke + Modell, optional
+ * Baujahr) in der Frage erkannt, erhält VINcent dessen vollständige,
+ * strukturierte Fahrzeugakte (Technik, Ausstattung, Zustand, Preis, Historie).
  * Die vollständige To-Do-Liste wird transparent als Arbeitskontext übertragen.
  */
 export function buildVincentContext(question = "") {
@@ -21,6 +135,7 @@ export function buildVincentContext(question = "") {
   const wantsProcesses = /(vorgang|prozess|pipeline|auftrag|schritt|abschluss)/.test(normalizedQuestion);
   const wantsTodos = /(todo|to-do|termin|heute|priorit|aufgabe|kalender)/.test(normalizedQuestion);
   const wantsKpis = /(kpi|umsatz|marge|rendite|gewinn|quote|performance|kennzahl|kosten)/.test(normalizedQuestion);
+  const matchedVehicles = matchVehiclesForQuestion(normalizedQuestion, vehicles);
 
   const kpis = wantsKpis || (!wantsStock && !wantsProcesses && !wantsTodos)
     ? KPI_CATALOG.map((kpi) => {
@@ -145,5 +260,6 @@ export function buildVincentContext(question = "") {
     ...(processOverview ? { processes: processOverview } : {}),
     todos: todoOverview,
     ...(eventOverview ? { todayEvents: eventOverview } : {}),
+    ...(matchedVehicles.length ? { vehicleDetails: matchedVehicles.map(buildVehicleDetail) } : {}),
   };
 }
