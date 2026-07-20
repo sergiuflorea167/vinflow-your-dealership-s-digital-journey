@@ -2,6 +2,7 @@ import { useProcessStore } from "@/store/processStore";
 import { KPI_CATALOG } from "@/lib/kpis";
 import { PROCESS_STEPS, vehicleTotalCostsGross, COST_CATEGORY_LABELS, VEHICLE_TYPE_LABELS, grossFromNet, type Vehicle } from "@/data/process";
 import { redactSensitiveText } from "@/lib/vincentPrivacy";
+import { WORKSHOP_CHAPTER_LINKS } from "@/lib/workshopChapterLinks";
 
 const appLink = (path: string) => path.startsWith("/") ? path : `/${path}`;
 
@@ -257,7 +258,12 @@ export function buildVincentContext(question = "") {
       processes: appLink("/vorgaenge"),
       kpis: appLink("/kpis"),
       calendar: appLink("/kalender"),
+      workshop: appLink("/workshop"),
     },
+    // Übungskapitel der Workshop-Unterwebseite (Beispieldaten, geführte Tour je Funktion).
+    // Bei "Wie funktioniert X?"-Fragen soll VINcent kurz antworten und dann auf das
+    // passende Kapitel verweisen, damit der Nutzer es selbst ausprobieren kann.
+    workshopChapters: WORKSHOP_CHAPTER_LINKS,
     pipeline,
     ...(kpis ? { kpis } : {}),
     ...(stock ? { stock } : {}),

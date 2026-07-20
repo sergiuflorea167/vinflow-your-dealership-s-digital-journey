@@ -230,7 +230,7 @@ const STEPS: Step[] = [
     chapter: "Dein Rundgang",
     selector: '[data-tour="vincent"]',
     title: "Und genau hier findest du mich",
-    body: "Das bin übrigens ich, unten rechts auf jeder Seite. Frag mich jederzeit in normalen Worten, z. B. „Was ist der nächste Schritt bei Vorgang 12?“ oder „Wie viel Marge hatte ich letzten Monat?“. Ich kenne deine Daten und antworte sofort.",
+    body: "Das bin übrigens ich, unten rechts auf jeder Seite. Frag mich jederzeit in normalen Worten, z. B. „Was ist der nächste Schritt bei Vorgang 12?“ oder „Wie viel Marge hatte ich letzten Monat?“. Ich kenne deine Daten und antworte mit den exakt berechneten Zahlen, nicht mit einer Schätzung. Nach einer solchen Antwort schlage ich dir meist auch gleich vor, sie als Insight+ Karte zu speichern — du kannst mir aber auch direkt sagen „Erstelle mir dafür eine Insight+ Karte“, dann lege ich sie sofort an.",
     icon: Bot,
     placement: "left",
   },
@@ -238,14 +238,14 @@ const STEPS: Step[] = [
     chapter: "Dein Rundgang",
     selector: '[data-tour="user-menu"]',
     title: "Mein letzter Tipp",
-    body: "In deinem Profilmenü oben rechts findest du den Team-Einladungscode, dein Firmenlogo für Belege – und mich: Über „Einführungs-Tour starten“ hole ich dich jederzeit wieder ab.",
+    body: "Unten links in der Menüleiste findest du dein Konto-Menü: Profil, Team-Einladungscode, Firmenlogo für Belege, Sprache & Ansicht, deine Achievements – und den Workshop, eine eigene Übungsumgebung mit Beispieldaten für jedes Kapitel. Über „Einführungs-Tour starten“ hole ich dich dort auch jederzeit wieder ab.",
     icon: User,
-    placement: "bottom",
+    placement: "right",
   },
   {
     chapter: "Bereit",
     title: "Und los geht's!",
-    body: "Das war's von mir – du kennst jetzt die wichtigsten Wege durch VINflow. Am besten lernst du durchs Machen: Leg links unter „Bestand“ dein erstes Fahrzeug an. Und falls du nicht weiterweißt: Ich bin über den Button unten rechts jederzeit für dich da.",
+    body: "Das war's von mir – du kennst jetzt die wichtigsten Wege durch VINflow. Unsicher, wo du anfangen sollst? Öffne unten links dein Konto-Menü und starte den „Workshop“ – dort lernst du jeden Bereich Schritt für Schritt mit Beispieldaten, ganz ohne Risiko für deine echten Daten. Und falls du unterwegs nicht weiterweißt: Ich bin über den Button unten rechts jederzeit für dich da.",
     icon: Check,
     placement: "center",
   },
@@ -385,22 +385,22 @@ export const TutorialPilot = () => {
       {cutout ? (
         <>
           <div
-            className="absolute left-0 right-0 top-0 pointer-events-auto animate-in fade-in duration-200"
+            className="absolute left-0 right-0 top-0 pointer-events-auto"
             style={{ height: t, background: overlayBg }}
             onClick={skip}
           />
           <div
-            className="absolute left-0 bottom-0 right-0 pointer-events-auto animate-in fade-in duration-200"
+            className="absolute left-0 bottom-0 right-0 pointer-events-auto"
             style={{ top: t + h, background: overlayBg }}
             onClick={skip}
           />
           <div
-            className="absolute pointer-events-auto animate-in fade-in duration-200"
+            className="absolute pointer-events-auto"
             style={{ top: t, left: 0, width: l, height: h, background: overlayBg }}
             onClick={skip}
           />
           <div
-            className="absolute pointer-events-auto animate-in fade-in duration-200"
+            className="absolute pointer-events-auto"
             style={{ top: t, left: l + w, right: 0, height: h, background: overlayBg }}
             onClick={skip}
           />
@@ -414,7 +414,7 @@ export const TutorialPilot = () => {
         </>
       ) : (
         <div
-          className="absolute inset-0 pointer-events-auto animate-in fade-in duration-200"
+          className="absolute inset-0 pointer-events-auto"
           style={{ background: overlayBg }}
           onClick={skip}
         />
@@ -422,7 +422,7 @@ export const TutorialPilot = () => {
 
       {/* Tooltip */}
       <div
-        className="absolute pointer-events-auto rounded-2xl border border-border bg-card shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+        className="absolute pointer-events-auto rounded-2xl border border-border bg-card shadow-2xl overflow-hidden"
         style={tipStyle}
       >
         <div className="flex items-start gap-3 p-4 pb-3">

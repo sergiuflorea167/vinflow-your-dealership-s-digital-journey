@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useRef, useState, ReactNode } fro
 import type { Session, User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { startOrgStateSync, stopOrgStateSync } from "@/lib/orgStateSync";
+import { useWorkshopProgressStore } from "@/store/workshopProgressStore";
 
 interface Profile {
   id: string;
@@ -45,6 +46,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const loadProfile = async (uid: string) => {
     const requestId = ++profileRequestRef.current;
+    useWorkshopProgressStore.getState().loadFromServer(uid)
+      .catch((error) => console.error("[workshop-progress] load failed", error));
     const { data: prof, error: profileError } = await supabase
       .from("profiles")
       .select("*")
@@ -105,6 +108,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setOrganization(null);
         setRoles([]);
         stopOrgStateSync();
+        useWorkshopProgressStore.getState().reset();
       }
     });
 
@@ -125,6 +129,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const signOut = async () => {
     profileRequestRef.current++;
     stopOrgStateSync();
+    useWorkshopProgressStore.getState().reset();
     await supabase.auth.signOut();
   };
 

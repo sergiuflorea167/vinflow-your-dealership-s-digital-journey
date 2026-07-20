@@ -5,44 +5,48 @@ import {
 import type { LucideIcon } from "lucide-react";
 
 export type NavItem = { to: string; labelKey: string; icon: LucideIcon };
-export type NavGroup = { labelKey: string; items: NavItem[] };
+export type NavGroup = { labelKey: string; icon: LucideIcon; items: NavItem[] };
+export type NavEntry =
+  | { kind: "item"; item: NavItem }
+  | { kind: "group"; group: NavGroup };
 
-export const overview: NavItem[] = [
-  { to: "/", labelKey: "nav.dashboard", icon: LayoutDashboard },
-];
+const navItem = (item: NavItem): NavEntry => ({ kind: "item", item });
+const navGroup = (group: NavGroup): NavEntry => ({ kind: "group", group });
 
-export const groups: NavGroup[] = [
-  {
+/**
+ * Reihenfolge der Hauptmenüpunkte, so wie sie in der Sidebar erscheinen:
+ * Dashboard, Bestand, Tagesgeschäft (Untermenü), Auswertung (Untermenü),
+ * Kalender, Stammdaten.
+ */
+export const navEntries: NavEntry[] = [
+  navItem({ to: "/", labelKey: "nav.dashboard", icon: LayoutDashboard }),
+  navItem({ to: "/bestand", labelKey: "nav.fleet", icon: Car }),
+  navGroup({
     labelKey: "nav.group.daily",
+    icon: Workflow,
     items: [
-      { to: "/bestand",         labelKey: "nav.fleet",      icon: Car },
-      { to: "/vorgaenge",       labelKey: "nav.processes",  icon: Workflow },
       { to: "/einkaufsplanung", labelKey: "nav.purchasing", icon: ShoppingCart },
+      { to: "/vorgaenge",       labelKey: "nav.processes",  icon: Workflow },
       { to: "/todos",           labelKey: "nav.todos",      icon: ListChecks },
-      { to: "/kalender",        labelKey: "nav.calendar",   icon: CalendarDays },
     ],
-  },
-  {
+  }),
+  navGroup({
     labelKey: "nav.group.analytics",
+    icon: BarChart3,
     items: [
       { to: "/kpis",     labelKey: "nav.kpis",     icon: BarChart3 },
       { to: "/insights", labelKey: "nav.insights", icon: Sparkles },
     ],
-  },
-  {
-    labelKey: "nav.group.master",
-    items: [
-      { to: "/stammdaten", labelKey: "nav.master", icon: Database },
-    ],
-  },
+  }),
+  navItem({ to: "/kalender", labelKey: "nav.calendar", icon: CalendarDays }),
+  navItem({ to: "/stammdaten", labelKey: "nav.master", icon: Database }),
 ];
 
 export const settingsItem: NavItem = { to: "/konfiguration", labelKey: "nav.settings", icon: SettingsIcon };
 
 /** Alle Nav-Punkte in einer flachen Liste, für das mobile Menü. */
 export const allNavItems: NavItem[] = [
-  ...overview,
-  ...groups.flatMap((g) => g.items),
+  ...navEntries.flatMap((e) => (e.kind === "item" ? [e.item] : e.group.items)),
   settingsItem,
 ];
 

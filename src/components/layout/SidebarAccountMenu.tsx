@@ -1,28 +1,51 @@
-import { useState, useRef } from "react";
+import { useMemo, useRef, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { useProcessStore } from "@/store/processStore";
 import { useAuth } from "@/context/AuthContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
-  DropdownMenuSeparator, DropdownMenuTrigger,
+  DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger,
+  DropdownMenuSubContent, DropdownMenuPortal,
 } from "@/components/ui/dropdown-menu";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from "@/components/ui/dialog";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { User, Settings as SettingsIcon, LogOut, Camera, Mail, Phone, Briefcase, Building2, KeyRound, Copy, Sparkles, GraduationCap, Database, SlidersHorizontal, ImagePlus } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
+import {
+  User, Settings as SettingsIcon, LogOut, Camera, Mail, Phone, Briefcase, Building2,
+  KeyRound, Copy, Sparkles, GraduationCap, Database, SlidersHorizontal, ImagePlus,
+  ChevronsUpDown, Globe, Check, Palette, Trophy,
+} from "lucide-react";
 import { buildDemoSeed } from "@/data/demoSeed";
 import { flushOrgStateNow } from "@/lib/orgStateSync";
 import { useTutorialStore } from "@/store/tutorialStore";
-import { WorkshopPickerDialog } from "@/components/tutorial/WorkshopPickerDialog";
-import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useT } from "@/lib/i18n";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { cn } from "@/lib/utils";
+import { useLanguageStore, type Lang } from "@/store/languageStore";
+import { THEMES, useTheme } from "@/context/ThemeContext";
+import { useWorkshopProgressStore } from "@/store/workshopProgressStore";
+import { WORKSHOP_ORDER } from "@/store/workshopStore";
+import { computeAchievements } from "@/lib/workshopAchievements";
 
-export const UserMenu = () => {
+const LANGUAGE_OPTIONS: { code: Lang; label: string; flag: string }[] = [
+  { code: "de", label: "Deutsch", flag: "🇩🇪" },
+  { code: "en", label: "English", flag: "🇬🇧" },
+];
+
+/**
+ * Konto-Menü am unteren Ende der Sidebar (nach dem Vorbild von Claude):
+ * Klick auf Name/Avatar öffnet ein Menü nach oben mit Profil, Einstellungen,
+ * Workshop, Achievements sowie Sprache & Ansicht als Untermenüs. Ersetzt die
+ * alte Topbar, die diese Punkte bisher einzeln als Icons zeigte.
+ */
+export const SidebarAccountMenu = ({ collapsed }: { collapsed: boolean }) => {
   const settings = useProcessStore((s) => s.settings);
   const updateSettings = useProcessStore((s) => s.updateSettings);
   const { profile, organization, roles, signOut } = useAuth();
@@ -31,14 +54,23 @@ export const UserMenu = () => {
   const t = useT();
   const isMobile = useIsMobile();
 
+  const lang = useLanguageStore((s) => s.lang);
+  const setLang = useLanguageStore((s) => s.setLang);
+  const { theme, setTheme } = useTheme();
+
+  const progress = useWorkshopProgressStore((s) => s.progress);
+  const achievements = useMemo(() => computeAchievements(progress), [progress]);
+  const unlockedCount = achievements.filter((a) => a.unlocked).length;
+  const completedChapters = WORKSHOP_ORDER.filter((k) => progress[k]?.completed).length;
+  const overallPct = Math.round((completedChapters / WORKSHOP_ORDER.length) * 100);
+
   const [open, setOpen] = useState(false);
+  const [achievementsOpen, setAchievementsOpen] = useState(false);
   const avatarFileRef = useRef<HTMLInputElement>(null);
   const logoFileRef = useRef<HTMLInputElement>(null);
 
   const [draft, setDraft] = useState(settings);
-  const [workshopPickerOpen, setWorkshopPickerOpen] = useState(false);
   const [profileTab, setProfileTab] = useState<"user" | "company">("user");
-
 
   const openDialog = () => {
     setDraft(settings);
@@ -46,10 +78,20 @@ export const UserMenu = () => {
     setOpen(true);
   };
 
+  const selectLanguage = (code: Lang) => {
+    if (code === lang) return;
+    setLang(code);
+    toast.success(t("language.changed"));
+  };
+
   const initials = `${draft.firstName?.[0] ?? "S"}${draft.lastName?.[0] ?? "F"}`.toUpperCase();
   const liveInitials = `${(settings.firstName ?? settings.userName ?? "S").trim()[0] ?? "S"}${
     (settings.lastName ?? "").trim()[0] ?? ""
   }`.toUpperCase();
+  const displayName = profile
+    ? `${profile.first_name ?? ""} ${profile.last_name ?? ""}`.trim() || settings.userName
+    : settings.userName;
+  const subLabel = profile?.position || profile?.email || settings.email;
 
   const onPickAvatar = () => avatarFileRef.current?.click();
   const onAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -79,23 +121,54 @@ export const UserMenu = () => {
     setOpen(false);
   };
 
+  const avatarNode = (
+    <Avatar className="size-8 shrink-0">
+      {settings.avatarUrl && <AvatarImage src={settings.avatarUrl} />}
+      <AvatarFallback className="bg-gradient-brand text-primary-foreground text-xs">
+        {liveInitials || "SF"}
+      </AvatarFallback>
+    </Avatar>
+  );
+
+  const trigger = collapsed ? (
+    <button
+      type="button"
+      data-tour="user-menu"
+      className="mx-auto flex size-10 items-center justify-center rounded-lg hover:bg-sidebar-accent/50 transition-smooth"
+      aria-label="Konto-Menü öffnen"
+    >
+      {avatarNode}
+    </button>
+  ) : (
+    <button
+      type="button"
+      data-tour="user-menu"
+      className="flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left hover:bg-sidebar-accent/50 transition-smooth"
+      aria-label="Konto-Menü öffnen"
+    >
+      {avatarNode}
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-semibold text-sidebar-foreground">{displayName}</p>
+        <p className="truncate text-xs text-sidebar-foreground/60">{subLabel}</p>
+      </div>
+      <ChevronsUpDown className="size-3.5 shrink-0 text-sidebar-foreground/40" />
+    </button>
+  );
+
   return (
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <button
-            data-tour="user-menu"
-            className="ml-2 size-9 rounded-full overflow-hidden border border-border bg-secondary grid place-items-center text-sm font-semibold text-secondary-foreground hover:ring-2 hover:ring-primary/40 transition-smooth"
-            aria-label="Profilmenü öffnen"
-          >
-            {settings.avatarUrl ? (
-              <img src={settings.avatarUrl} alt={settings.userName} className="size-full object-cover" />
-            ) : (
-              <span>{liveInitials || "SF"}</span>
-            )}
-          </button>
+          {collapsed ? (
+            <Tooltip delayDuration={150}>
+              <TooltipTrigger asChild>{trigger}</TooltipTrigger>
+              <TooltipContent side="right">{displayName}</TooltipContent>
+            </Tooltip>
+          ) : (
+            trigger
+          )}
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-72">
+        <DropdownMenuContent side="top" align="start" sideOffset={10} className="w-72">
           <DropdownMenuLabel>
             <div className="flex items-center gap-3 py-1">
               <Avatar className="size-10">
@@ -105,10 +178,8 @@ export const UserMenu = () => {
                 </AvatarFallback>
               </Avatar>
               <div className="min-w-0">
-                <p className="text-sm font-semibold truncate">
-                  {profile ? `${profile.first_name ?? ""} ${profile.last_name ?? ""}`.trim() || settings.userName : settings.userName}
-                </p>
-                <p className="text-xs text-muted-foreground truncate">{profile?.position || profile?.email || settings.email}</p>
+                <p className="text-sm font-semibold truncate">{displayName}</p>
+                <p className="text-xs text-muted-foreground truncate">{subLabel}</p>
               </div>
             </div>
           </DropdownMenuLabel>
@@ -151,34 +222,96 @@ export const UserMenu = () => {
           <DropdownMenuItem asChild>
             <Link to="/konfiguration"><SlidersHorizontal className="size-4 mr-2" /> Konfiguration</Link>
           </DropdownMenuItem>
+
+          <DropdownMenuSeparator />
+          <DropdownMenuItem asChild>
+            <Link to="/workshop"><GraduationCap className="size-4 mr-2" /> Workshop</Link>
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setAchievementsOpen(true)}>
+            <Trophy className="size-4 mr-2" /> Achievements
+            {unlockedCount > 0 && (
+              <span className="ml-auto min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold grid place-items-center leading-none">
+                {unlockedCount}
+              </span>
+            )}
+          </DropdownMenuItem>
           {!isMobile && (
+            <DropdownMenuItem onClick={() => useTutorialStore.getState().reset()}>
+              <Sparkles className="size-4 mr-2" /> Einführungs-Tour starten
+            </DropdownMenuItem>
+          )}
+
+          <DropdownMenuSeparator />
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>
+              <Globe className="size-4 mr-2" /> {t("menu.language")}
+            </DropdownMenuSubTrigger>
+            <DropdownMenuPortal>
+              <DropdownMenuSubContent className="w-44">
+                {LANGUAGE_OPTIONS.map((o) => (
+                  <DropdownMenuItem key={o.code} onClick={() => selectLanguage(o.code)} className="gap-2">
+                    <span className="text-base leading-none">{o.flag}</span>
+                    <span className="flex-1">{o.label}</span>
+                    {lang === o.code && <Check className="size-3.5 text-primary" />}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuSubContent>
+            </DropdownMenuPortal>
+          </DropdownMenuSub>
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>
+              <Palette className="size-4 mr-2" /> Ansicht
+            </DropdownMenuSubTrigger>
+            <DropdownMenuPortal>
+              <DropdownMenuSubContent className="w-72">
+                {THEMES.map((th) => {
+                  const active = th.id === theme;
+                  return (
+                    <DropdownMenuItem
+                      key={th.id}
+                      onClick={() => setTheme(th.id)}
+                      className="flex items-start gap-3 py-2.5 cursor-pointer"
+                    >
+                      <div className="flex gap-0.5 mt-0.5 shrink-0 rounded-md overflow-hidden border border-border">
+                        {th.swatch.map((c, i) => (
+                          <span key={i} className="block size-4" style={{ backgroundColor: c }} />
+                        ))}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium">{th.label}</span>
+                          {active && <Check className="size-3.5 text-primary" />}
+                        </div>
+                        <p className="text-xs text-muted-foreground truncate">{th.description}</p>
+                      </div>
+                    </DropdownMenuItem>
+                  );
+                })}
+              </DropdownMenuSubContent>
+            </DropdownMenuPortal>
+          </DropdownMenuSub>
+
+          {isGF && (
             <>
-              <DropdownMenuItem onClick={() => useTutorialStore.getState().reset()}>
-                <Sparkles className="size-4 mr-2" /> Einführungs-Tour starten
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => setWorkshopPickerOpen(true)}>
-                <GraduationCap className="size-4 mr-2" /> Workshop starten
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={async () => {
+                  if (!window.confirm("Demo-Daten laden? Vorhandene Fahrzeuge, Kunden und Vorgänge werden überschrieben."))
+                    return;
+                  const seed = buildDemoSeed();
+                  useProcessStore.setState((s) => ({ ...s, ...seed }));
+                  try {
+                    await flushOrgStateNow();
+                    toast.success("Demo-Daten geladen & gespeichert");
+                  } catch (e) {
+                    console.error(e);
+                    toast.error("Demo-Daten lokal geladen, Speichern fehlgeschlagen");
+                  }
+                }}
+              >
+                <Database className="size-4 mr-2" /> Demo-Daten laden
               </DropdownMenuItem>
             </>
-          )}
-          {isGF && (
-            <DropdownMenuItem
-              onClick={async () => {
-                if (!window.confirm("Demo-Daten laden? Vorhandene Fahrzeuge, Kunden und Vorgänge werden überschrieben."))
-                  return;
-                const seed = buildDemoSeed();
-                useProcessStore.setState((s) => ({ ...s, ...seed }));
-                try {
-                  await flushOrgStateNow();
-                  toast.success("Demo-Daten geladen & gespeichert");
-                } catch (e) {
-                  console.error(e);
-                  toast.error("Demo-Daten lokal geladen, Speichern fehlgeschlagen");
-                }
-              }}
-            >
-              <Database className="size-4 mr-2" /> Demo-Daten laden
-            </DropdownMenuItem>
           )}
 
           <DropdownMenuSeparator />
@@ -392,8 +525,40 @@ export const UserMenu = () => {
         </DialogContent>
       </Dialog>
 
-      <WorkshopPickerDialog open={workshopPickerOpen} onOpenChange={setWorkshopPickerOpen} />
+      <Dialog open={achievementsOpen} onOpenChange={setAchievementsOpen}>
+        <DialogContent className="max-w-md max-h-[85vh] flex flex-col p-0 gap-0">
+          <DialogHeader className="px-6 pt-6 pb-4 border-b border-border">
+            <DialogTitle className="flex items-center gap-2"><Trophy className="size-5 text-amber-500" /> Achievements</DialogTitle>
+            <DialogDescription>Dein Fortschritt im Workshop.</DialogDescription>
+          </DialogHeader>
+          <div className="px-6 pt-4">
+            <div className="flex items-center gap-3">
+              <Progress value={overallPct} className="h-2 flex-1" />
+              <span className="text-sm font-display font-bold">{overallPct}%</span>
+            </div>
+            <p className="text-[11px] text-muted-foreground mt-1.5">
+              {completedChapters} von {WORKSHOP_ORDER.length} Kapiteln abgeschlossen · {unlockedCount} von {achievements.length} Achievements
+            </p>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4 grid grid-cols-2 gap-2">
+            {achievements.map((a) => (
+              <div
+                key={a.key}
+                className={cn(
+                  "flex flex-col items-center text-center gap-1.5 p-2.5 rounded-lg border transition-smooth",
+                  a.unlocked ? "border-primary/30 bg-primary/5" : "border-border bg-muted/20 opacity-50",
+                )}
+                title={a.desc}
+              >
+                <div className={cn("size-9 rounded-full grid place-items-center shrink-0", a.unlocked ? "bg-gradient-brand" : "bg-muted")}>
+                  <a.icon className={cn("size-4", a.unlocked ? "text-primary-foreground" : "text-muted-foreground")} />
+                </div>
+                <span className="text-[10px] font-semibold leading-tight">{a.title}</span>
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };
-

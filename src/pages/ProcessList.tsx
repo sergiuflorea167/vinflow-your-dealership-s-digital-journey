@@ -25,6 +25,7 @@ import { toast } from "sonner";
 import { useWorkshopStore } from "@/store/workshopStore";
 import { WORKSHOP_DEMO } from "@/data/workshopDemo";
 import { withWorkshopGuard } from "@/lib/workshopGuard";
+import { useWorkshopPath } from "@/hooks/useWorkshopPath";
 
 type ProcessSortKey = "updated" | "created" | "price" | "id" | "customer";
 type OfferSortKey = "validUntil" | "created" | "price" | "customer" | "id";
@@ -40,6 +41,7 @@ const STATUS_META: Record<OfferStatus, { label: string; className: string }> = {
 
 const ProcessList = () => {
   const navigate = useNavigate();
+  const wp = useWorkshopPath();
   const workshopActive = useWorkshopStore((s) => s.activeKey === "processes");
   const realProcesses = useProcessStore((s) => s.processes);
   const realOffers = useProcessStore((s) => s.offers);
@@ -366,6 +368,28 @@ const ProcessList = () => {
     downloadBelegPdf({ process: proc, vehicle: v, customer: c, stepKey, companyName, companyLogoUrl: settings.companyLogoUrl, seller, pdfTheme, pdfLayout: settings.pdfLayout });
   };
 
+  // Es gibt keine eigene Workshop-Angebotsdetailseite — im Workshop verweisen wir
+  // stattdessen mit einem Hinweis auf den geführten Vorgänge-Workshop, statt auf
+  // eine nicht existierende (oder ggf. echte) Seite zu verlinken.
+  const OfferLink = ({ id, className, children }: { id: string; className?: string; children: React.ReactNode }) => {
+    if (workshopActive) {
+      return (
+        <span
+          role="button"
+          tabIndex={0}
+          onClick={() => toast.info("Die Angebots-Detailseite lernst du im Vorgänge-Workshop direkt am Beispiel kennen.")}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") toast.info("Die Angebots-Detailseite lernst du im Vorgänge-Workshop direkt am Beispiel kennen.");
+          }}
+          className={cn(className, "cursor-pointer")}
+        >
+          {children}
+        </span>
+      );
+    }
+    return <Link to={`/angebote/${id}`} className={className}>{children}</Link>;
+  };
+
   return (
     <AppShell>
       <div className="space-y-3 animate-fade-in">
@@ -452,7 +476,7 @@ const ProcessList = () => {
                     return (
                       <tr key={p.id} className="hover:bg-surface-elevated/40 transition-smooth group">
                         <td>
-                          <Link to={`/vorgaenge/${p.id}`} className="font-display font-semibold text-foreground hover:text-primary-glow">
+                          <Link to={wp(`/vorgaenge/${p.id}`)} className="font-display font-semibold text-foreground hover:text-primary-glow">
                             {p.id}
                           </Link>
                         </td>
@@ -474,7 +498,7 @@ const ProcessList = () => {
                         </td>
                         <td className="text-muted-foreground whitespace-nowrap">{formatDate(p.updatedAt)}</td>
                         <td>
-                          <Link to={`/vorgaenge/${p.id}`}>
+                          <Link to={wp(`/vorgaenge/${p.id}`)}>
                             <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-smooth">
                               <ChevronRight className="size-4" />
                             </Button>
@@ -503,7 +527,7 @@ const ProcessList = () => {
                 return (
                   <Card
                     key={p.id}
-                    onClick={() => navigate(`/vorgaenge/${p.id}`)}
+                    onClick={() => navigate(wp(`/vorgaenge/${p.id}`))}
                     className="p-3 cursor-pointer active:bg-surface-elevated/40 transition-smooth"
                   >
                     <div className="flex items-center justify-between gap-2">
@@ -584,7 +608,7 @@ const ProcessList = () => {
                     return (
                       <tr key={p.id} className="hover:bg-surface-elevated/40 transition-smooth group">
                         <td>
-                          <Link to={`/vorgaenge/${p.id}`} className="font-display font-semibold text-foreground hover:text-primary-glow">
+                          <Link to={wp(`/vorgaenge/${p.id}`)} className="font-display font-semibold text-foreground hover:text-primary-glow">
                             {p.id}
                           </Link>
                         </td>
@@ -605,7 +629,7 @@ const ProcessList = () => {
                           </Badge>
                         </td>
                         <td>
-                          <Link to={`/vorgaenge/${p.id}`}>
+                          <Link to={wp(`/vorgaenge/${p.id}`)}>
                             <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-smooth">
                               <ChevronRight className="size-4" />
                             </Button>
@@ -633,7 +657,7 @@ const ProcessList = () => {
                 return (
                   <Card
                     key={p.id}
-                    onClick={() => navigate(`/vorgaenge/${p.id}`)}
+                    onClick={() => navigate(wp(`/vorgaenge/${p.id}`))}
                     className="p-3 cursor-pointer active:bg-surface-elevated/40 transition-smooth"
                   >
                     <div className="flex items-center justify-between gap-2">
@@ -740,13 +764,13 @@ const ProcessList = () => {
                     return (
                       <tr key={o.id} className="hover:bg-surface-elevated/40 transition-smooth group">
                         <td>
-                          <Link to={`/angebote/${o.id}`} className="font-display font-semibold text-foreground hover:text-primary-glow">
+                          <OfferLink id={o.id} className="font-display font-semibold text-foreground hover:text-primary-glow">
                             {o.id}
-                          </Link>
+                          </OfferLink>
                           <p className="text-[10px] text-muted-foreground">erstellt {formatDate(o.createdAt)}</p>
                         </td>
                         <td>
-                          <Link to={`/bestand/${vehicle!.id}`} className="hover:text-primary-glow transition-smooth">
+                          <Link to={wp(`/bestand/${vehicle!.id}`)} className="hover:text-primary-glow transition-smooth">
                             <p className="font-medium text-foreground leading-tight">{vehicle!.make} {vehicle!.model}</p>
                             <p className="font-mono text-[10px] text-muted-foreground leading-tight">{vehicle!.vin}</p>
                           </Link>
@@ -829,7 +853,7 @@ const ProcessList = () => {
                                     const proc = acceptOffer(o.id);
                                     if (proc) {
                                       toast.success(`Vorgang ${proc.id} gestartet.`);
-                                      navigate(`/vorgaenge/${proc.id}`);
+                                      navigate(wp(`/vorgaenge/${proc.id}`));
                                     }
                                   }}
                                 >
@@ -850,11 +874,11 @@ const ProcessList = () => {
                                 </Button>
                               </>
                             )}
-                            <Link to={`/angebote/${o.id}`}>
+                            <OfferLink id={o.id}>
                               <Button variant="ghost" size="icon" className="h-7 w-7">
                                 <ChevronRight className="size-4" />
                               </Button>
-                            </Link>
+                            </OfferLink>
                           </div>
                         </td>
                       </tr>
@@ -882,14 +906,14 @@ const ProcessList = () => {
                   <Card key={o.id} className="p-3">
                     <div className="flex items-start justify-between gap-2">
                       <div>
-                        <Link to={`/angebote/${o.id}`} className="font-display font-semibold text-foreground hover:text-primary-glow">
+                        <OfferLink id={o.id} className="font-display font-semibold text-foreground hover:text-primary-glow">
                           {o.id}
-                        </Link>
+                        </OfferLink>
                         <p className="text-[10px] text-muted-foreground">erstellt {formatDate(o.createdAt)}</p>
                       </div>
                       <Badge className={cn(meta.className, "text-[10px] px-1.5 py-0 shrink-0")}>{meta.label}</Badge>
                     </div>
-                    <Link to={`/bestand/${vehicle!.id}`} className="block mt-2 hover:text-primary-glow transition-smooth">
+                    <Link to={wp(`/bestand/${vehicle!.id}`)} className="block mt-2 hover:text-primary-glow transition-smooth">
                       <p className="font-medium text-foreground text-sm leading-tight">{vehicle!.make} {vehicle!.model}</p>
                       <p className="font-mono text-[10px] text-muted-foreground leading-tight">{vehicle!.vin}</p>
                     </Link>
@@ -952,7 +976,7 @@ const ProcessList = () => {
                             aria-label="Annehmen → Vorgang starten"
                             onClick={() => {
                               const proc = acceptOffer(o.id);
-                              if (proc) { toast.success(`Vorgang ${proc.id} gestartet.`); navigate(`/vorgaenge/${proc.id}`); }
+                              if (proc) { toast.success(`Vorgang ${proc.id} gestartet.`); navigate(wp(`/vorgaenge/${proc.id}`)); }
                             }}
                           >
                             <CheckCircle2 className="size-4" />
@@ -968,11 +992,11 @@ const ProcessList = () => {
                           </Button>
                         </>
                       )}
-                      <Link to={`/angebote/${o.id}`}>
+                      <OfferLink id={o.id}>
                         <Button size="icon" variant="ghost" className="h-9 w-9 shrink-0" aria-label="Öffnen">
                           <ChevronRight className="size-4" />
                         </Button>
-                      </Link>
+                      </OfferLink>
                     </div>
                   </Card>
                 );
@@ -1036,7 +1060,7 @@ const ProcessList = () => {
                         </div>
                       </td>
                       <td>
-                        <Link to={`/vorgaenge/${d.processId}`} className="font-display font-semibold text-foreground hover:text-primary-glow">
+                        <Link to={wp(`/vorgaenge/${d.processId}`)} className="font-display font-semibold text-foreground hover:text-primary-glow">
                           {d.processId}
                         </Link>
                       </td>
@@ -1084,7 +1108,7 @@ const ProcessList = () => {
                   </div>
                   <div className="mt-2.5 flex items-center justify-between border-t border-border/50 pt-2.5">
                     <div>
-                      <Link to={`/vorgaenge/${d.processId}`} className="font-display font-semibold text-foreground text-sm hover:text-primary-glow">
+                      <Link to={wp(`/vorgaenge/${d.processId}`)} className="font-display font-semibold text-foreground text-sm hover:text-primary-glow">
                         {d.processId}
                       </Link>
                       <p className="text-[10px] text-muted-foreground">{formatDate(d.completedAt)}</p>

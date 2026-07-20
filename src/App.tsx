@@ -10,6 +10,8 @@ import { KpiRangeProvider } from "./context/KpiRangeContext";
 import { AuthProvider } from "./context/AuthContext";
 import { ThemeProvider } from "./context/ThemeContext";
 import { ProtectedRoute } from "./components/auth/ProtectedRoute";
+import { WorkshopArea } from "./components/workshop/WorkshopArea";
+import { WorkshopChapterEntry } from "./components/workshop/WorkshopChapterEntry";
 
 const queryClient = new QueryClient();
 
@@ -31,6 +33,8 @@ const Konfiguration = lazy(() => import("./pages/Konfiguration.tsx"));
 const CustomerTracking = lazy(() => import("./pages/CustomerTracking.tsx"));
 const Auth = lazy(() => import("./pages/Auth.tsx"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword.tsx"));
+const Dashboard = lazy(() => import("./pages/Dashboard.tsx"));
+const WorkshopHome = lazy(() => import("./pages/WorkshopHome.tsx"));
 
 const RouteFallback = () => (
   <div className="min-h-screen grid place-items-center bg-background">
@@ -99,6 +103,24 @@ const App = () => (
               <Route path="/stammdaten" element={<Protected><Stammdaten /></Protected>} />
               <Route path="/einstellungen" element={<Navigate to="/konfiguration" replace />} />
               <Route path="/konfiguration" element={<Protected><Konfiguration /></Protected>} />
+
+              {/* Eigenständige Workshop-Unterwebseite — eigene Chrome (siehe AppShell), Beispieldaten, kein Zugriff auf echte Daten */}
+              <Route path="/workshop" element={<Protected><WorkshopArea /></Protected>}>
+                <Route index element={<WorkshopHome />} />
+                <Route path="dashboard" element={<WorkshopChapterEntry chapterKey="dashboard"><Dashboard /></WorkshopChapterEntry>} />
+                <Route path="bestand" element={<WorkshopChapterEntry chapterKey="fleet"><Fleet /></WorkshopChapterEntry>} />
+                <Route path="bestand/:id" element={<WorkshopChapterEntry chapterKey="processes" fallbackRoute="/workshop/vorgaenge"><VehicleDetail /></WorkshopChapterEntry>} />
+                <Route path="vorgaenge" element={<WorkshopChapterEntry chapterKey="processes"><ProcessList /></WorkshopChapterEntry>} />
+                <Route path="vorgaenge/:id" element={<WorkshopChapterEntry chapterKey="processes" fallbackRoute="/workshop/vorgaenge"><ProcessDetail /></WorkshopChapterEntry>} />
+                <Route path="einkaufsplanung" element={<WorkshopChapterEntry chapterKey="purchase"><PurchasePlanning /></WorkshopChapterEntry>} />
+                <Route path="todos" element={<WorkshopChapterEntry chapterKey="todos"><Todos /></WorkshopChapterEntry>} />
+                <Route path="kalender" element={<WorkshopChapterEntry chapterKey="calendar"><Calendar /></WorkshopChapterEntry>} />
+                <Route path="kpis" element={<WorkshopChapterEntry chapterKey="kpis"><KPIs /></WorkshopChapterEntry>} />
+                <Route path="insights" element={<WorkshopChapterEntry chapterKey="insights"><Insights /></WorkshopChapterEntry>} />
+                <Route path="stammdaten" element={<WorkshopChapterEntry chapterKey="master"><Stammdaten /></WorkshopChapterEntry>} />
+                <Route path="konfiguration" element={<WorkshopChapterEntry chapterKey="settings"><Konfiguration /></WorkshopChapterEntry>} />
+              </Route>
+
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>

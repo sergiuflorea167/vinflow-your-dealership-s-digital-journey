@@ -57,6 +57,10 @@ export function extractVincentLinkCandidates(context: unknown): LinkCandidate[] 
     addCandidate(candidates, kpi.label, kpi.url);
   });
 
+  asRecords(root.workshopChapters).forEach((chapter) => {
+    addCandidate(candidates, chapter.label, chapter.url);
+  });
+
   const unique = new Map<string, LinkCandidate>();
   candidates.forEach((candidate) => {
     const key = `${candidate.label.toLocaleLowerCase("de-DE")}::${candidate.url}`;

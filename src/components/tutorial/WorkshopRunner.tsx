@@ -1,10 +1,13 @@
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useWorkshopStore, WORKSHOP_ORDER } from "@/store/workshopStore";
+import { useWorkshopProgressStore } from "@/store/workshopProgressStore";
 import { WorkshopPilot } from "./WorkshopPilot";
 import { WORKSHOP_REGISTRY } from "./workshopRegistry";
 
-/** Rendert den aktuell aktiven Workshop (falls einer läuft) und verkettet bei "Kompletter Workshop"
- * automatisch zum nächsten Menüpunkt in WORKSHOP_ORDER, sobald einer fertig ist. */
+/** Rendert den aktuell aktiven Workshop (falls einer läuft), verkettet bei "Kompletter Workshop"
+ * automatisch zum nächsten Menüpunkt in WORKSHOP_ORDER, sobald einer fertig ist, und schreibt den
+ * Fortschritt (Gamification: Fortschrittsbalken + Achievements) für das jeweilige Kapitel mit. */
 export const WorkshopRunner = () => {
   const navigate = useNavigate();
   const activeKey = useWorkshopStore((s) => s.activeKey);
@@ -14,11 +17,20 @@ export const WorkshopRunner = () => {
   const prev = useWorkshopStore((s) => s.prev);
   const stop = useWorkshopStore((s) => s.stop);
   const start = useWorkshopStore((s) => s.start);
+  const recordStep = useWorkshopProgressStore((s) => s.recordStep);
+  const markCompleted = useWorkshopProgressStore((s) => s.markCompleted);
 
-  if (!activeKey) return null;
-  const def = WORKSHOP_REGISTRY[activeKey];
+  const def = activeKey ? WORKSHOP_REGISTRY[activeKey] : null;
+
+  useEffect(() => {
+    if (!activeKey || !def) return;
+    recordStep(activeKey, step, def.steps.length);
+  }, [activeKey, step, def, recordStep]);
+
+  if (!activeKey || !def) return null;
 
   const handleFinish = () => {
+    markCompleted(activeKey, def.steps.length);
     if (runAll) {
       const idx = WORKSHOP_ORDER.indexOf(activeKey);
       const nextKey = WORKSHOP_ORDER[idx + 1];

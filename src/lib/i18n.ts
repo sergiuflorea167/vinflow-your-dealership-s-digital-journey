@@ -48,7 +48,6 @@ const DE: Dict = {
   // Sidebar groups
   "nav.group.daily": "Tagesgeschäft",
   "nav.group.analytics": "Auswertung",
-  "nav.group.master": "Stammdaten",
 
   // Sidebar items
   "nav.dashboard": "Dashboard",
@@ -167,7 +166,6 @@ const EN: Dict = {
 
   "nav.group.daily": "Daily operations",
   "nav.group.analytics": "Analytics",
-  "nav.group.master": "Master data",
 
   "nav.dashboard": "Dashboard",
   "nav.fleet": "Inventory",

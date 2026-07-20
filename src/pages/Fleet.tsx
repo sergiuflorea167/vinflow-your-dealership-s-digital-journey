@@ -340,7 +340,13 @@ const Fleet = () => {
                   return (
                     <tr
                       key={vehicle.id}
-                      onClick={() => navigate(`/bestand/${vehicle.id}`)}
+                      onClick={() => {
+                        if (workshopActive) {
+                          toast.info("Eine Fahrzeug-Detailseite lernst du im Vorgänge-Workshop Schritt für Schritt kennen.");
+                          return;
+                        }
+                        navigate(`/bestand/${vehicle.id}`);
+                      }}
                       className="hover:bg-surface-elevated/40 transition-smooth cursor-pointer"
                     >
                       <td>
@@ -448,7 +454,13 @@ const Fleet = () => {
               return (
                 <Card
                   key={vehicle.id}
-                  onClick={() => navigate(`/bestand/${vehicle.id}`)}
+                  onClick={() => {
+                        if (workshopActive) {
+                          toast.info("Eine Fahrzeug-Detailseite lernst du im Vorgänge-Workshop Schritt für Schritt kennen.");
+                          return;
+                        }
+                        navigate(`/bestand/${vehicle.id}`);
+                      }}
                   className="p-3 cursor-pointer active:bg-surface-elevated/40 transition-smooth"
                 >
                   <div className="flex items-start justify-between gap-2">

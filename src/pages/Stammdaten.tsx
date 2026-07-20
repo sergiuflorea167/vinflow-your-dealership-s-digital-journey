@@ -109,9 +109,19 @@ const CustomersPanel = () => {
           />
           <span className="text-xs text-muted-foreground">{filtered.length} Kunden</span>
         </div>
-        <Button asChild className="bg-gradient-brand gap-2">
-          <RouterLink to="/kunden"><Users className="size-4" /> Vollständige Kundenverwaltung</RouterLink>
-        </Button>
+        {workshopActive ? (
+          <Button
+            className="bg-gradient-brand gap-2"
+            disabled
+            title="Die vollständige Kundenverwaltung arbeitet mit echten Daten und ist im Workshop nicht verfügbar."
+          >
+            <Users className="size-4" /> Vollständige Kundenverwaltung
+          </Button>
+        ) : (
+          <Button asChild className="bg-gradient-brand gap-2">
+            <RouterLink to="/kunden"><Users className="size-4" /> Vollständige Kundenverwaltung</RouterLink>
+          </Button>
+        )}
       </div>
 
       {filtered.length === 0 ? (

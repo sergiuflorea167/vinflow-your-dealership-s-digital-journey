@@ -7,10 +7,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
-import { Loader2, Building2, KeyRound, Mail } from "lucide-react";
+import { Loader2, Building2, KeyRound, Mail, ScanLine, FileCheck2, LayoutGrid } from "lucide-react";
+import logo from "@/assets/logo.png";
+
+const features = [
+  { icon: ScanLine, title: "VIN-basierte Vorgangskette", desc: "Jedes Fahrzeug lückenlos von Einkauf bis Übergabe." },
+  { icon: FileCheck2, title: "Digitale Kundenbelege", desc: "Automatisch erstellt, archiviert, jederzeit abrufbar." },
+  { icon: LayoutGrid, title: "Alles an einem Ort", desc: "Fahrzeuge, Termine, Team und Kennzahlen." },
+];
 
 const loginSchema = z.object({
   email: z.string().trim().email("Ungültige E-Mail").max(255),
@@ -20,6 +26,7 @@ const loginSchema = z.object({
 const signupSchema = z.object({
   email: z.string().trim().email("Ungültige E-Mail").max(255),
   password: z.string().min(8, "Mind. 8 Zeichen").max(72),
+  confirmPassword: z.string().min(1, "Pflichtfeld"),
   firstName: z.string().trim().min(1, "Pflichtfeld").max(60),
   lastName: z.string().trim().min(1, "Pflichtfeld").max(60),
   position: z.string().trim().min(1, "Pflichtfeld").max(80),
@@ -29,6 +36,9 @@ const signupSchema = z.object({
 }).refine((d) => d.orgMode === "create" ? !!d.newOrgName : !!d.inviteCode, {
   message: "Firmenname oder Einladungs-Code erforderlich",
   path: ["newOrgName"],
+}).refine((d) => d.password === d.confirmPassword, {
+  message: "Passwörter stimmen nicht überein",
+  path: ["confirmPassword"],
 });
 
 const Auth = () => {
@@ -47,6 +57,7 @@ const Auth = () => {
   // signup
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [position, setPosition] = useState("");
@@ -119,7 +130,7 @@ const Auth = () => {
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
     const parsed = signupSchema.safeParse({
-      email, password, firstName, lastName, position, orgMode, newOrgName, inviteCode,
+      email, password, confirmPassword, firstName, lastName, position, orgMode, newOrgName, inviteCode,
     });
     if (!parsed.success) {
       toast.error(parsed.error.issues[0].message);
@@ -155,32 +166,72 @@ const Auth = () => {
     toast.success("Registrierung erfolgreich! Bitte bestätige deine E-Mail.");
     setTab("login");
     setLoginEmail(parsed.data.email);
+    setPassword("");
+    setConfirmPassword("");
   };
 
   return (
-    <div className="min-h-screen grid place-items-center bg-gradient-to-br from-background via-background to-primary/5 p-4">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-2 mb-2">
-            <div className="size-10 rounded-xl bg-gradient-brand grid place-items-center">
-              <Building2 className="size-5 text-primary-foreground" />
-            </div>
-            <span className="text-2xl font-bold tracking-tight font-heading">VINflow</span>
-          </div>
-          <p className="text-sm text-muted-foreground">Fahrzeughandel intelligent organisiert</p>
+    <div className="min-h-screen grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
+      <div className="hidden lg:flex relative flex-col justify-between overflow-hidden p-12 text-white bg-[#150F2E]">
+        <div
+          aria-hidden
+          className="absolute inset-0 opacity-[0.06] [background-image:radial-gradient(circle,white_1px,transparent_1px)] [background-size:26px_26px]"
+        />
+        <div aria-hidden className="absolute -top-24 -right-24 size-96 rounded-full bg-gradient-brand opacity-25 blur-3xl" />
+        <div aria-hidden className="absolute bottom-0 -left-16 size-72 rounded-full bg-primary/30 blur-3xl" />
+
+        <div className="relative flex items-center gap-3">
+          <img src={logo} alt="VINflow" className="size-11" />
+          <span className="text-xl font-display font-bold tracking-tight">VINflow</span>
         </div>
 
-        <Card className="border-border/60 backdrop-blur-md bg-card/80">
-          <CardHeader className="pb-4">
-            <CardTitle className="text-xl">Willkommen</CardTitle>
-            <CardDescription>Melde dich an oder erstelle ein Konto.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Tabs value={tab} onValueChange={(v) => setTab(v as "login" | "signup")}>
-              <TabsList className="grid grid-cols-2 w-full mb-4">
-                <TabsTrigger value="login">Anmelden</TabsTrigger>
-                <TabsTrigger value="signup">Registrieren</TabsTrigger>
-              </TabsList>
+        <div className="relative max-w-md space-y-10">
+          <h1 className="text-3xl font-display font-bold leading-tight text-balance">
+            Vom Einkauf bis zur Übergabe – ein Vorgang, eine Wahrheit.
+          </h1>
+          <ul className="space-y-6">
+            {features.map(({ icon: Icon, title, desc }) => (
+              <li key={title} className="flex items-start gap-4">
+                <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-white/10">
+                  <Icon className="size-5" />
+                </div>
+                <div>
+                  <p className="font-medium leading-tight">{title}</p>
+                  <p className="text-sm text-white/55 leading-snug mt-0.5">{desc}</p>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <p className="relative text-xs text-white/35">© {new Date().getFullYear()} VINflow</p>
+      </div>
+
+      <div className="flex flex-col justify-center px-6 py-12 sm:px-12 md:px-20 lg:px-16 xl:px-24 bg-background">
+        <div className="w-full max-w-sm mx-auto animate-fade-in">
+          <div className="flex items-center gap-2.5 mb-10 lg:hidden">
+            <img src={logo} alt="VINflow" className="size-9" />
+            <span className="text-lg font-display font-bold tracking-tight">VINflow</span>
+          </div>
+
+          <div className="mb-7">
+            <h2 className="text-2xl font-display font-bold">
+              {forgotMode ? "Passwort zurücksetzen" : tab === "login" ? "Willkommen zurück" : "Konto erstellen"}
+            </h2>
+            <p className="text-sm text-muted-foreground mt-1.5">
+              {forgotMode
+                ? "Wir senden dir einen Link zum Zurücksetzen."
+                : tab === "login"
+                  ? "Melde dich an, um weiterzumachen."
+                  : "Leg los in wenigen Sekunden."}
+            </p>
+          </div>
+
+          <Tabs value={tab} onValueChange={(v) => { setTab(v as "login" | "signup"); setForgotMode(false); }}>
+            <TabsList className="grid grid-cols-2 w-full mb-7 h-11 rounded-full bg-muted p-1">
+              <TabsTrigger value="login" className="rounded-full data-[state=active]:shadow-sm">Anmelden</TabsTrigger>
+              <TabsTrigger value="signup" className="rounded-full data-[state=active]:shadow-sm">Registrieren</TabsTrigger>
+            </TabsList>
 
               <TabsContent value="login">
                 {forgotMode ? (
@@ -253,6 +304,10 @@ const Auth = () => {
                     <Input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} autoComplete="new-password" />
                     <p className="text-[10px] text-muted-foreground mt-1">Mind. 8 Zeichen, nicht in Daten-Leaks bekannt.</p>
                   </div>
+                  <div>
+                    <Label className="text-xs">Passwort wiederholen</Label>
+                    <Input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required minLength={8} autoComplete="new-password" />
+                  </div>
 
                   <div className="pt-2 space-y-2">
                     <Label className="text-xs">Organisation</Label>
@@ -293,12 +348,12 @@ const Auth = () => {
                   </Button>
                 </form>
               </TabsContent>
-            </Tabs>
-          </CardContent>
-        </Card>
-        <p className="text-center text-[11px] text-muted-foreground mt-4">
-          Mit der Registrierung stimmst du den Nutzungsbedingungen zu.
-        </p>
+          </Tabs>
+
+          <p className="text-center text-[11px] text-muted-foreground mt-8">
+            Mit der Registrierung stimmst du den Nutzungsbedingungen zu.
+          </p>
+        </div>
       </div>
     </div>
   );

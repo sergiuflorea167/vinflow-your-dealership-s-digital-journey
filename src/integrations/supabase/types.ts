@@ -280,6 +280,30 @@ export type Database = {
           },
         ]
       }
+      workshop_progress: {
+        Row: {
+          chapter_key: string
+          completed: boolean
+          completed_at: string | null
+          first_opened_at: string
+          steps_completed: number
+          steps_total: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          chapter_key: string
+          completed?: boolean
+          completed_at?: string | null
+          first_opened_at?: string
+          steps_completed?: number
+          steps_total?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: never
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -301,6 +325,15 @@ export type Database = {
       has_vincent_notice_acceptance: {
         Args: { _notice_version: string; _timezone: string }
         Returns: boolean
+      }
+      record_workshop_progress: {
+        Args: {
+          _chapter_key: string
+          _completed: boolean
+          _steps_completed: number
+          _steps_total: number
+        }
+        Returns: undefined
       }
     }
     Enums: {

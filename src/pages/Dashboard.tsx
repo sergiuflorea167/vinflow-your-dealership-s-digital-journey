@@ -20,6 +20,7 @@ import {
 } from "@/data/workshopDemo";
 import { DemoProcessCard } from "@/components/process/DemoProcessCard";
 import { withWorkshopGuard } from "@/lib/workshopGuard";
+import { useWorkshopPath } from "@/hooks/useWorkshopPath";
 
 const EVENT_DOT: Record<CalendarEventType, string> = {
   appointment: "bg-primary",
@@ -39,6 +40,7 @@ const PRIORITY_DOT: Record<TodoPriority, string> = {
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const wp = useWorkshopPath();
   const t = useT();
   const realProcesses = useProcessStore((s) => s.processes);
   const realTodos = useProcessStore((s) => s.todos);
@@ -131,7 +133,7 @@ const Dashboard = () => {
               </div>
             </div>
             <Button variant="ghost" size="sm" asChild>
-              <Link to="/kalender">{t("dash.toCalendar")}</Link>
+              <Link to={wp("/kalender")}>{t("dash.toCalendar")}</Link>
             </Button>
           </div>
           {todayEvents.length > 0 && (
@@ -144,7 +146,7 @@ const Dashboard = () => {
                   </span>
                   <button
                     type="button"
-                    onClick={() => navigate("/kalender")}
+                    onClick={() => navigate(wp("/kalender"))}
                     className={cn(
                       "flex-1 text-left text-sm text-foreground truncate hover:text-primary-glow transition-smooth",
                       e.done && "line-through opacity-60",
@@ -166,7 +168,7 @@ const Dashboard = () => {
               {todayEvents.length > 6 && (
                 <li className="pt-2 text-xs text-muted-foreground">
                   +{todayEvents.length - 6} {t("dash.moreOthers")} –{" "}
-                  <Link to="/kalender" className="text-primary-glow hover:underline">
+                  <Link to={wp("/kalender")} className="text-primary-glow hover:underline">
                     {t("dash.moreInCalendar")}
                   </Link>
                 </li>
@@ -195,7 +197,7 @@ const Dashboard = () => {
               </div>
             </div>
             <Button variant="ghost" size="sm" asChild>
-              <Link to="/todos">{t("dash.allTodos")}</Link>
+              <Link to={wp("/todos")}>{t("dash.allTodos")}</Link>
             </Button>
           </div>
 
@@ -213,7 +215,7 @@ const Dashboard = () => {
                     <span className={cn("size-2 rounded-full shrink-0", PRIORITY_DOT[todo.priority])} />
                     <button
                       type="button"
-                      onClick={() => navigate("/todos")}
+                      onClick={() => navigate(wp("/todos"))}
                       className="flex-1 text-left text-sm text-foreground truncate hover:text-primary-glow transition-smooth"
                     >
                       {todo.title}
@@ -221,7 +223,7 @@ const Dashboard = () => {
                     {veh && (
                       <button
                         type="button"
-                        onClick={() => navigate(`/bestand/${veh.id}`)}
+                        onClick={() => navigate(wp(`/bestand/${veh.id}`))}
                         className="hidden md:inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-primary-glow truncate max-w-[180px]"
                       >
                         <Car className="size-3 shrink-0" />
@@ -241,7 +243,7 @@ const Dashboard = () => {
               {todayTodos.length > 6 && (
                 <li className="pt-2 text-xs text-muted-foreground">
                   +{todayTodos.length - 6} {t("dash.moreOthers")} –{" "}
-                  <Link to="/todos" className="text-primary-glow hover:underline">
+                  <Link to={wp("/todos")} className="text-primary-glow hover:underline">
                     {t("dash.moreInList")}
                   </Link>
                 </li>
@@ -260,7 +262,7 @@ const Dashboard = () => {
               </p>
             </div>
             <Button variant="outline" size="sm" asChild>
-              <Link to="/kpis">
+              <Link to={wp("/kpis")}>
                 <Settings2 className="size-4 mr-1.5" /> {t("dash.manageKpis")}
               </Link>
             </Button>
@@ -299,7 +301,7 @@ const Dashboard = () => {
               <p className="text-sm text-muted-foreground mt-1">{t("dash.activeProcesses.sub")}</p>
             </div>
             <Button variant="ghost" size="sm" asChild>
-              <Link to="/vorgaenge">{t("common.showAll")}</Link>
+              <Link to={wp("/vorgaenge")}>{t("common.showAll")}</Link>
             </Button>
           </div>
           <div className="grid md:grid-cols-2 xl:grid-cols-3 gap-4">

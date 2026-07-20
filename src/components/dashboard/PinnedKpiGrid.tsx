@@ -14,6 +14,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Pin, ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useWorkshopPath } from "@/hooks/useWorkshopPath";
 
 const SortableKpi = ({ id }: { id: string }) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
@@ -35,6 +36,7 @@ const SortableKpi = ({ id }: { id: string }) => {
 };
 
 export const PinnedKpiGrid = () => {
+  const wp = useWorkshopPath();
   const pinnedKpis = useDashboardStore((s) => s.pinnedKpis);
   const reorder = useDashboardStore((s) => s.reorder);
 
@@ -58,7 +60,7 @@ export const PinnedKpiGrid = () => {
           Wähle in der KPI-Übersicht aus, welche Kennzahlen du täglich am Dashboard sehen willst.
         </p>
         <Button asChild className="bg-gradient-brand">
-          <Link to="/kpis">
+          <Link to={wp("/kpis")}>
             Zu den KPIs <ArrowRight className="size-4 ml-1.5" />
           </Link>
         </Button>

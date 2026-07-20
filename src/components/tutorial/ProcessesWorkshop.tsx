@@ -6,8 +6,8 @@ import {
   ClipboardList, PartyPopper, Zap,
 } from "lucide-react";
 
-const VEHICLE_ROUTE = `/bestand/${WORKSHOP_PROCESS_DEMO_VEHICLE_ID}`;
-const PROCESS_ROUTE = `/vorgaenge/${WORKSHOP_PROCESS_DEMO_PROCESS_ID}`;
+const VEHICLE_ROUTE = `/workshop/bestand/${WORKSHOP_PROCESS_DEMO_VEHICLE_ID}`;
+const PROCESS_ROUTE = `/workshop/vorgaenge/${WORKSHOP_PROCESS_DEMO_PROCESS_ID}`;
 
 export const PROCESSES_WORKSHOP_STEPS: WorkshopStep[] = [
   // ---------- Teil 1: Überblick über die Vorgänge-Liste ----------

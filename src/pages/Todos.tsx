@@ -40,6 +40,7 @@ import { DocumentManager } from "@/components/shared/DocumentManager";
 import { useWorkshopStore } from "@/store/workshopStore";
 import { WORKSHOP_DEMO } from "@/data/workshopDemo";
 import { withWorkshopGuard } from "@/lib/workshopGuard";
+import { useWorkshopPath } from "@/hooks/useWorkshopPath";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -77,6 +78,7 @@ const toISO = (d: Date) => {
 
 const Todos = () => {
   const navigate = useNavigate();
+  const wp = useWorkshopPath();
   const [searchParams] = useSearchParams();
   const linkedTodoId = searchParams.get("todo");
   const workshopActive = useWorkshopStore((s) => s.activeKey === "todos");
@@ -633,7 +635,7 @@ const Todos = () => {
                         {proc ? (
                           <button
                             type="button"
-                            onClick={() => navigate(`/vorgaenge/${proc.id}`)}
+                            onClick={() => navigate(wp(`/vorgaenge/${proc.id}`))}
                             className="font-mono text-primary-glow hover:underline"
                           >
                             {proc.id}
@@ -641,7 +643,7 @@ const Todos = () => {
                         ) : veh ? (
                           <button
                             type="button"
-                            onClick={() => navigate(`/bestand/${veh.id}`)}
+                            onClick={() => navigate(wp(`/bestand/${veh.id}`))}
                             className="inline-flex items-center gap-1 text-primary-glow hover:underline truncate max-w-[160px]"
                           >
                             <Car className="size-3 shrink-0" />
@@ -760,11 +762,11 @@ const Todos = () => {
                       {t.dueDate ? <><Calendar className="size-3" /> {formatDate(t.dueDate)}</> : "Kein Datum"}
                     </span>
                     {proc ? (
-                      <button type="button" onClick={() => navigate(`/vorgaenge/${proc.id}`)} className="font-mono text-primary-glow hover:underline">
+                      <button type="button" onClick={() => navigate(wp(`/vorgaenge/${proc.id}`))} className="font-mono text-primary-glow hover:underline">
                         {proc.id}
                       </button>
                     ) : veh ? (
-                      <button type="button" onClick={() => navigate(`/bestand/${veh.id}`)} className="inline-flex items-center gap-1 text-primary-glow hover:underline truncate max-w-[160px]">
+                      <button type="button" onClick={() => navigate(wp(`/bestand/${veh.id}`))} className="inline-flex items-center gap-1 text-primary-glow hover:underline truncate max-w-[160px]">
                         <Car className="size-3 shrink-0" />
                         <span className="truncate">{veh.make} {veh.model}</span>
                       </button>

@@ -7,8 +7,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useT } from "@/lib/i18n";
 import { allNavItems, tourMap } from "./navItems";
-import { LanguageSwitcher } from "./LanguageSwitcher";
-import { ThemeSwitcher } from "./ThemeSwitcher";
+import { SidebarAccountMenu } from "./SidebarAccountMenu";
 
 /**
  * Mobile Navigation als versteckbares Menü statt permanenter Menüleiste —
@@ -68,12 +67,8 @@ export const MobileNavMenu = () => {
           })}
         </nav>
 
-        <div className="mt-4 flex items-center justify-between gap-2 border-t border-border pt-4">
-          <span className="text-xs font-medium text-muted-foreground">Sprache &amp; Ansicht</span>
-          <div className="flex items-center gap-1">
-            <LanguageSwitcher />
-            <ThemeSwitcher />
-          </div>
+        <div className="mt-4 border-t border-border pt-2">
+          <SidebarAccountMenu collapsed={false} />
         </div>
       </SheetContent>
     </Sheet>

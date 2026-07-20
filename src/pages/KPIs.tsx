@@ -23,6 +23,7 @@ import { useTopbarSearch } from "@/context/TopbarSearchContext";
 import { Link } from "react-router-dom";
 import { Sparkles, ArrowRight } from "lucide-react";
 import { KpiRangePicker } from "@/components/kpi/KpiRangePicker";
+import { useWorkshopPath } from "@/hooks/useWorkshopPath";
 import { useWorkshopStore } from "@/store/workshopStore";
 import { WORKSHOP_DEMO } from "@/data/workshopDemo";
 
@@ -38,6 +39,7 @@ const TAB_ORDER: { key: KpiCategory; icon: typeof TrendingUp; short: string }[] 
 ];
 
 const KPIs = () => {
+  const wp = useWorkshopPath();
   const workshopActive = useWorkshopStore((s) => s.activeKey === "kpis");
   const realVehicles = useProcessStore((s) => s.vehicles);
   const realProcesses = useProcessStore((s) => s.processes);
@@ -305,7 +307,7 @@ const KPIs = () => {
                   </p>
                 </div>
                 <Button asChild size="sm" className="bg-gradient-brand gap-1.5">
-                  <Link to="/insights">
+                  <Link to={wp("/insights")}>
                     Öffnen <ArrowRight className="size-3.5" />
                   </Link>
                 </Button>

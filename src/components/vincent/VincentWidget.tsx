@@ -20,6 +20,12 @@ import { buildVincentContext } from "@/lib/vincentContext";
 import { linkifyVincentAnswer } from "@/lib/vincentLinks";
 import { parseVincentTodoCommand, todoQuestionForMissing, type VincentTodoDraft } from "@/lib/vincentTodoCommands";
 import {
+  parseVincentInsightCommand, formatInsightAnswer,
+  INSIGHT_CONFIRM_PATTERN, INSIGHT_DECLINE_PATTERN,
+} from "@/lib/vincentInsightCommands";
+import { computeInsight, type Measurement } from "@/lib/insightEngine";
+import { addMeasurementExternally } from "@/lib/insightMeasurementsStore";
+import {
   acknowledgeVincentNotice, deleteAllVincentConversations, deleteVincentConversation,
   listVincentConversations, loadVincentMessages, loadVincentPreference,
   renameVincentConversation, saveVincentConversation, setVincentHistoryEnabled, type VincentConversation,
@@ -109,6 +115,7 @@ export const VincentWidget = () => {
   const addTodo = useProcessStore((state) => state.addTodo);
   const vehicles = useProcessStore((state) => state.vehicles);
   const processes = useProcessStore((state) => state.processes);
+  const purchasePlans = useProcessStore((state) => state.purchasePlans);
   const [open, setOpen] = useState(false);
   const [mode, setMode] = useState<WindowMode>("normal");
   const [showHistory, setShowHistory] = useState(() => typeof window === "undefined" || window.innerWidth >= 768);
@@ -129,6 +136,7 @@ export const VincentWidget = () => {
   const [noticeChecked, setNoticeChecked] = useState(false);
   const [privacyNoticeOpen, setPrivacyNoticeOpen] = useState(false);
   const [pendingTodoDraft, setPendingTodoDraft] = useState<VincentTodoDraft | null>(null);
+  const [pendingInsightDraft, setPendingInsightDraft] = useState<{ measurement: Measurement; title: string } | null>(null);
   const [retentionDays, setRetentionDays] = useState(VINCENT_RETENTION_DAYS);
   const [listening, setListening] = useState(false);
   const [recordingState, setRecordingState] = useState<RecordingState>("idle");
@@ -330,6 +338,38 @@ export const VincentWidget = () => {
     if (!conversationId) setConversationId(nextConversationId);
     const shouldPersist = historyReady && Boolean(user);
 
+    const respondLocally = async (content: string) => {
+      const finalMessages = [...requestMessages, { ...assistantMessage, content }];
+      setMessages(finalMessages);
+      setInput("");
+      if (shouldPersist && user) {
+        try {
+          if (historyStorage === "remote") {
+            try { await setVincentHistoryEnabled(user.id, true); } catch { /* persist switches to local storage */ }
+          }
+          await persist(requestMessages, nextConversationId);
+          await persist(finalMessages, nextConversationId);
+        } catch {
+          setSaveStatus("error");
+        }
+      }
+    };
+
+    if (pendingInsightDraft) {
+      if (INSIGHT_CONFIRM_PATTERN.test(redacted.text)) {
+        addMeasurementExternally(pendingInsightDraft.measurement);
+        setPendingInsightDraft(null);
+        await respondLocally(`Fertig — ich habe „**${pendingInsightDraft.title}**“ als [Insight+ Karte](/insights) gespeichert.`);
+        return;
+      }
+      if (INSIGHT_DECLINE_PATTERN.test(redacted.text)) {
+        setPendingInsightDraft(null);
+        await respondLocally("Alles klar, ich speichere nichts. Sag einfach Bescheid, wenn du es dir doch anlegen möchtest.");
+        return;
+      }
+      setPendingInsightDraft(null);
+    }
+
     const todoCommand = parseVincentTodoCommand(redacted.text, { pending: pendingTodoDraft, vehicles, processes });
     if (todoCommand) {
       const assistantContent = (() => {
@@ -353,19 +393,22 @@ export const VincentWidget = () => {
         const priority = todo.priority === "high" ? " · hohe Priorität" : todo.priority === "low" ? " · niedrige Priorität" : "";
         return `Erledigt — ich habe das To-Do [${todo.title}](/todos?todo=${encodeURIComponent(todo.id)}) erstellt${due}${priority}.`;
       })();
-      const finalMessages = [...requestMessages, { ...assistantMessage, content: assistantContent }];
-      setMessages(finalMessages);
-      setInput("");
-      if (shouldPersist && user) {
-        try {
-          if (historyStorage === "remote") {
-            try { await setVincentHistoryEnabled(user.id, true); } catch { /* persist switches to local storage */ }
-          }
-          await persist(requestMessages, nextConversationId);
-          await persist(finalMessages, nextConversationId);
-        } catch {
-          setSaveStatus("error");
-        }
+      await respondLocally(assistantContent);
+      return;
+    }
+
+    const insightCommand = parseVincentInsightCommand(redacted.text, { vehicles });
+    if (insightCommand) {
+      if (insightCommand.type === "create") {
+        addMeasurementExternally(insightCommand.measurement);
+        setPendingInsightDraft(null);
+        await respondLocally(`Erledigt — ich habe die Auswertung [„${insightCommand.title}“](/insights) als Insight+ Karte erstellt.`);
+      } else {
+        const result = computeInsight(vehicles, processes, purchasePlans, insightCommand.measurement);
+        setPendingInsightDraft({ measurement: insightCommand.measurement, title: insightCommand.title });
+        await respondLocally(
+          `${formatInsightAnswer(insightCommand.measurement, result)}\n\nSoll ich dir dafür eine [Insight+ Karte](/insights) anlegen, damit du das öfter im Blick hast? Antworte einfach mit „ja".`,
+        );
       }
       return;
     }
@@ -465,7 +508,7 @@ export const VincentWidget = () => {
       streamingRef.current = false;
       abortRef.current = null;
     }
-  }, [addTodo, conversationId, historyReady, historyStorage, lang, pendingTodoDraft, persist, privacyReady, processes, requestPrivacyConfirmation, user, vehicles]);
+  }, [addTodo, conversationId, historyReady, historyStorage, lang, pendingInsightDraft, pendingTodoDraft, persist, privacyReady, processes, purchasePlans, requestPrivacyConfirmation, user, vehicles]);
 
   const transcribeAudio = useCallback(async (audio: Blob) => {
     const { data: { session } } = await supabase.auth.getSession();
@@ -869,6 +912,24 @@ export const VincentWidget = () => {
                   </div>
                 ))}
               </div>}
+              {pendingInsightDraft && !streaming && (
+                <div className="grid gap-2 pb-4 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={() => send("Ja, als Karte speichern")}
+                    className="min-h-11 rounded-xl border border-primary/40 bg-primary/5 px-4 py-2.5 text-left text-sm font-medium text-primary-glow transition-colors hover:bg-primary/10"
+                  >
+                    Ja, als Insight+ Karte speichern
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => send("Nein danke")}
+                    className="min-h-11 rounded-xl border bg-card px-4 py-2.5 text-left text-sm transition-colors hover:border-primary/40 hover:bg-primary/5"
+                  >
+                    Nein danke
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 

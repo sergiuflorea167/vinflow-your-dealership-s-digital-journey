@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildEmptySteps, Process, Vehicle } from "@/data/process";
-import { computeInsight, Measurement, previousRange, resolveRange } from "@/components/insights/InsightPlusBuilder";
+import { computeInsight, Measurement, previousRange, resolveRange } from "@/lib/insightEngine";
 
 const vehicle = (id: string, purchasePrice: number, firstRegistration?: string): Vehicle => ({
   id, vin: `VIN-${id}`, type: "limousine", make: "Test", model: id, year: 2020,

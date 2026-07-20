@@ -32,6 +32,7 @@ import { downloadBelegPdf } from "@/lib/pdf";
 import { CustomerPortalCard } from "@/components/process/CustomerPortalCard";
 import { DocumentManager } from "@/components/shared/DocumentManager";
 import { useWorkshopStore } from "@/store/workshopStore";
+import { useWorkshopMode } from "@/context/WorkshopModeContext";
 import {
   WORKSHOP_PROCESS_DEMO_PROCESS_ID, WORKSHOP_PROCESS_DEMO_VEHICLE, WORKSHOP_PROCESS_DEMO_CUSTOMER,
   WORKSHOP_PROCESS_DEMO_OFFER, buildWorkshopProcessDemo,
@@ -111,6 +112,7 @@ function demoCancelStep(p: Process, stepKey: ProcessStepKey): Process {
 
 const ProcessDetail = () => {
   const { id } = useParams<{ id: string }>();
+  const inWorkshop = useWorkshopMode();
 
   const workshopActive = useWorkshopStore((s) => s.activeKey === "processes") && id === WORKSHOP_PROCESS_DEMO_PROCESS_ID;
   const [demoProcess, setDemoProcess] = useState<Process>(buildWorkshopProcessDemo);
@@ -261,7 +263,7 @@ const ProcessDetail = () => {
     [selectedKey, process?.fields, checklistDone, checklistTotal]
   );
 
-  if (!process || !vehicle || !customer) return <Navigate to="/vorgaenge" replace />;
+  if (!process || !vehicle || !customer) return <Navigate to={inWorkshop ? "/workshop/vorgaenge" : "/vorgaenge"} replace />;
   const activeStepKeys = normalizeProcessStepKeys(process.processStepKeys);
   const purchasePrice = process.fields.finalPrice ?? vehicle.listPrice;
   const tradeInValue = process.fields.tradeIn?.value ?? 0;
@@ -337,7 +339,7 @@ const ProcessDetail = () => {
     <AppShell>
       <div className="space-y-6 animate-fade-in">
         <div className="flex items-center justify-between gap-4">
-          <Link to="/vorgaenge" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-smooth">
+          <Link to={inWorkshop ? "/workshop/vorgaenge" : "/vorgaenge"} className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-smooth">
             <ArrowLeft className="size-4" /> Alle Vorgänge
           </Link>
           <Badge variant="outline" className="border-primary/30 text-primary-glow">

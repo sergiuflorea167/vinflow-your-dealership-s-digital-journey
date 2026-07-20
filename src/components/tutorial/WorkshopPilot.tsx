@@ -183,7 +183,7 @@ export const WorkshopPilot = ({ active, step, steps, rootRoute, labelPrefix, nex
       )}
 
       <div
-        className="absolute pointer-events-auto rounded-2xl border-2 border-primary/40 bg-card shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200"
+        className="absolute pointer-events-auto rounded-2xl border border-border bg-card text-card-foreground shadow-2xl overflow-hidden"
         style={tipStyle}
       >
         <div className="flex items-start gap-3 p-4 pb-3">
@@ -194,7 +194,7 @@ export const WorkshopPilot = ({ active, step, steps, rootRoute, labelPrefix, nex
             <span className="text-[10px] font-mono uppercase tracking-wider text-primary">
               {labelPrefix} · Schritt {step + 1}/{steps.length}
             </span>
-            <h3 className="text-base font-semibold leading-tight font-heading mt-0.5">{current.title}</h3>
+            <h3 className="text-base font-semibold leading-tight font-heading mt-0.5 text-foreground">{current.title}</h3>
             <p className="text-xs text-muted-foreground leading-relaxed mt-1.5">{current.body}</p>
             {current.task && (
               <div className="mt-3 flex items-start gap-2 px-2.5 py-2 rounded-md bg-primary/10 border border-primary/20">
@@ -213,16 +213,30 @@ export const WorkshopPilot = ({ active, step, steps, rootRoute, labelPrefix, nex
             <X className="size-3.5" />
           </button>
         </div>
-        <div className="flex items-center justify-between px-4 py-3 bg-muted/30 border-t border-border">
-          <div className="flex gap-1">
-            {steps.map((_, i) => (
-              <span key={i} className={cn(
-                "h-1.5 rounded-full transition-all",
-                i === step ? "w-5 bg-primary" : i < step ? "w-1.5 bg-primary/60" : "w-1.5 bg-muted-foreground/30",
-              )} />
-            ))}
-          </div>
-          <div className="flex items-center gap-1.5">
+        <div className="flex items-center justify-between px-4 py-3 bg-muted/30 border-t border-border gap-3">
+          {steps.length > 12 ? (
+            // Bei vielen Schritten (z. B. der Vorgänge-Workshop) würden einzelne Punkte pro Schritt
+            // die Karte sprengen — ein Fortschrittsbalken skaliert auf jede Kapitellänge sauber.
+            <div className="flex-1 min-w-0 flex items-center gap-2">
+              <div className="flex-1 h-1.5 rounded-full bg-muted-foreground/20 overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-primary transition-[width] duration-200"
+                  style={{ width: `${((step + 1) / steps.length) * 100}%` }}
+                />
+              </div>
+              <span className="text-[10px] font-mono text-muted-foreground shrink-0">{step + 1}/{steps.length}</span>
+            </div>
+          ) : (
+            <div className="flex gap-1">
+              {steps.map((_, i) => (
+                <span key={i} className={cn(
+                  "h-1.5 rounded-full transition-all",
+                  i === step ? "w-5 bg-primary" : i < step ? "w-1.5 bg-primary/60" : "w-1.5 bg-muted-foreground/30",
+                )} />
+              ))}
+            </div>
+          )}
+          <div className="flex items-center gap-1.5 shrink-0">
             {step > 0 && (
               <Button variant="ghost" size="sm" className="h-7 px-2 text-xs" onClick={prev}>
                 <ArrowLeft className="size-3 mr-1" /> Zurück

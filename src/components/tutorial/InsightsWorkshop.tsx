@@ -1,7 +1,7 @@
 import { WorkshopStep } from "./WorkshopPilot";
 import {
   GraduationCap, Sparkles, Zap, Layers, Timer, Euro,
-  Filter, BarChart3, Copy, CalendarRange,
+  Filter, BarChart3, Copy, CalendarRange, Bot,
 } from "lucide-react";
 
 export const INSIGHTS_WORKSHOP_STEPS: WorkshopStep[] = [
@@ -91,6 +91,24 @@ export const INSIGHTS_WORKSHOP_STEPS: WorkshopStep[] = [
       "Dimension ändern (z. B. nur den Zeitraum, oder nur den Filter „Marke“). So baust du mit wenigen " +
       "Klicks ein komplettes Vergleichs-Dashboard.",
     icon: Copy, placement: "center",
+  },
+  {
+    selector: '[data-tour="vincent"]',
+    title: "Insight+ per Text — frag einfach VINcent",
+    body:
+      "Du kannst dir jede Auswertung auch direkt bei VINcent holen, statt sie hier zu bauen. Frag " +
+      "z. B. „Wie hoch ist meine Standzeit im Schnitt?“ oder „Wie hoch ist die Marge nach Marke?“ — " +
+      "VINcent antwortet mit der exakt berechneten Zahl aus deinen Daten, nicht mit einer Schätzung.",
+    icon: Bot, placement: "left",
+  },
+  {
+    title: "VINcent kann die Karte auch gleich anlegen",
+    body:
+      "Nach so einer Antwort schlägt VINcent von selbst vor, das Ergebnis als Insight+ Karte zu " +
+      "speichern — einfach mit „ja“ antworten oder den Button anklicken, dann taucht die Karte hier " +
+      "auf. Du kannst VINcent auch direkt darum bitten, z. B. „Erstelle mir eine Insight+ Karte für " +
+      "die Rabattquote nach Marke“ — dann wird sie sofort angelegt, ganz ohne Rückfrage.",
+    icon: Sparkles, placement: "center",
   },
   {
     title: "Insight+ gemeistert!",

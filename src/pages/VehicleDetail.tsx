@@ -24,6 +24,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { CustomerQuickSelect } from "@/components/shared/CustomerQuickSelect";
 import { useWorkshopStore } from "@/store/workshopStore";
+import { useWorkshopMode } from "@/context/WorkshopModeContext";
 import {
   WORKSHOP_PROCESS_DEMO_VEHICLE_ID, WORKSHOP_PROCESS_DEMO_VEHICLE, WORKSHOP_PROCESS_DEMO_PROCESS_ID,
 } from "@/data/workshopDemo";
@@ -638,6 +639,7 @@ const buildMarketSearchProfile = (vehicle: Vehicle) => {
 const VehicleDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const inWorkshop = useWorkshopMode();
 
   const workshopActive = useWorkshopStore((s) => s.activeKey === "processes") && id === WORKSHOP_PROCESS_DEMO_VEHICLE_ID;
 
@@ -663,7 +665,7 @@ const VehicleDetail = () => {
   const [marketResearchStarted, setMarketResearchStarted] = useState(false);
   const [marketSearchStageIndex, setMarketSearchStageIndex] = useState(0);
 
-  if (!vehicle) return <Navigate to="/bestand" replace />;
+  if (!vehicle) return <Navigate to={inWorkshop ? "/workshop/bestand" : "/bestand"} replace />;
 
   const acceptedOffer = offers.find((o) => o.status === "accepted");
   const canAcceptMore = !acceptedOffer && !process;
@@ -696,7 +698,7 @@ const VehicleDetail = () => {
   return (
     <AppShell>
       <div className="space-y-6 animate-fade-in">
-        <RouterLink to="/bestand" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+        <RouterLink to={inWorkshop ? "/workshop/bestand" : "/bestand"} className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
           <ArrowLeft className="size-4" /> Zurück zum Bestand
         </RouterLink>
 
@@ -805,7 +807,7 @@ const VehicleDetail = () => {
               </div>
             </div>
             <Button asChild className="bg-gradient-brand">
-              <RouterLink to={`/vorgaenge/${process.id}`}>Vorgang öffnen</RouterLink>
+              <RouterLink to={`${inWorkshop ? "/workshop" : ""}/vorgaenge/${process.id}`}>Vorgang öffnen</RouterLink>
             </Button>
           </Card>
         )}
@@ -1170,7 +1172,7 @@ const VehicleDetail = () => {
               if (workshopActive) {
                 setOfferDialog(false);
                 toast.success("Angebot erstellt (Workshop-Demo) – sobald der Kunde annimmt, startet automatisch ein Vorgang.");
-                navigate(`/vorgaenge/${WORKSHOP_PROCESS_DEMO_PROCESS_ID}`);
+                navigate(`/workshop/vorgaenge/${WORKSHOP_PROCESS_DEMO_PROCESS_ID}`);
                 return;
               }
               const created = addOffer({ ...data, vehicleId: vehicle.id, status: "draft" });
@@ -1193,7 +1195,7 @@ const VehicleDetail = () => {
               if (workshopActive) {
                 setDirectDialog(false);
                 toast.success("Vorgang gestartet (Workshop-Demo) · Angebot übersprungen – weiter geht's bei „Anzahlung\".");
-                navigate(`/vorgaenge/${WORKSHOP_PROCESS_DEMO_PROCESS_ID}`);
+                navigate(`/workshop/vorgaenge/${WORKSHOP_PROCESS_DEMO_PROCESS_ID}`);
                 return;
               }
               const proc = startProcessForVehicle({ vehicleId: vehicle.id, ...data });
