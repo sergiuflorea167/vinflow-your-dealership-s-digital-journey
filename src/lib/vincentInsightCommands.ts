@@ -17,7 +17,7 @@ export type InsightCommandResult =
   | { type: "query"; measurement: Measurement; title: string };
 
 const INSIGHT_CREATE_PATTERN =
-  /\b(insight\+?|auswertung|kpi-karte|kennzahlen-karte)\b[^.?!]{0,40}\b(erstell|anleg|hinzuf(ü|ue)g|speicher|f(ü|ue)g)|\b(erstell|leg|speicher|bau)\b[^.?!]{0,40}\b(insight\+?|auswertung)\b/i;
+  /\b(insight\+?|auswertung|kpi-karte|kennzahlen-karte)\b[^.?!]{0,40}\b(erstell|anleg|hinzuf(ü|ue)g|speicher|f(ü|ue)g)|\b(erstell|leg|speicher|bau)[^.?!]{0,40}\b(insight\+?|auswertung)/i;
 
 const QUESTION_MARKER_PATTERN = /(\?|wie hoch|wie viel|wie lange|was ist|wie ist|zeig mir|zeige mir)/i;
 

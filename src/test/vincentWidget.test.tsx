@@ -2,6 +2,7 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { TextDecoder, TextEncoder } from "node:util";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { VincentWidget } from "@/components/vincent/VincentWidget";
+import { buildEmptySteps, formatCurrency, type Process, type Vehicle } from "@/data/process";
 
 const historyMocks = vi.hoisted(() => ({
   acknowledge: vi.fn(),
@@ -23,6 +24,11 @@ const authState = vi.hoisted(() => ({
 
 const storeMocks = vi.hoisted(() => ({
   addTodo: vi.fn(),
+}));
+const storeState = vi.hoisted(() => ({
+  vehicles: [] as unknown[],
+  processes: [] as unknown[],
+  purchasePlans: [] as unknown[],
 }));
 const speechMocks = vi.hoisted(() => ({
   instances: [] as Array<{
@@ -58,11 +64,13 @@ vi.mock("@/store/processStore", () => ({
     addTodo: ReturnType<typeof vi.fn>;
     vehicles: unknown[];
     processes: unknown[];
+    purchasePlans: unknown[];
   }) => unknown) => selector({
     settings: {},
     addTodo: storeMocks.addTodo,
-    vehicles: [],
-    processes: [],
+    vehicles: storeState.vehicles,
+    processes: storeState.processes,
+    purchasePlans: storeState.purchasePlans,
   }),
 }));
 
@@ -88,6 +96,9 @@ describe("VINcent chat workspace", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
+    storeState.vehicles = [];
+    storeState.processes = [];
+    storeState.purchasePlans = [];
     historyMocks.list.mockResolvedValue([]);
     historyMocks.loadPreference.mockResolvedValue({ acknowledged: true, historyEnabled: true, retentionDays: 30 });
     historyMocks.save.mockResolvedValue(new Date(Date.now() + 30 * 86_400_000).toISOString());
@@ -125,8 +136,8 @@ describe("VINcent chat workspace", () => {
     await waitFor(() => expect(input).toBeEnabled());
     expect(screen.getByRole("button", { name: "Neuer Chat" })).toBeInTheDocument();
 
-    fireEvent.change(input, { target: { value: "Wie entwickelt sich mein Umsatz?" } });
-    expect(input).toHaveValue("Wie entwickelt sich mein Umsatz?");
+    fireEvent.change(input, { target: { value: "Was sollte ich heute zuerst angehen?" } });
+    expect(input).toHaveValue("Was sollte ich heute zuerst angehen?");
     const sendButton = screen.getByRole("button", { name: "Nachricht senden" });
     await waitFor(() => expect(sendButton).toBeEnabled());
     fireEvent.click(sendButton);
@@ -246,6 +257,89 @@ describe("VINcent chat workspace", () => {
     })));
     expect(await screen.findByRole("link", { name: "Büro prüfen" })).toHaveAttribute("href", "/todos?todo=TD-1");
     expect(fetch).not.toHaveBeenCalled();
+  });
+});
+
+describe("VINcent Insight+ commands", () => {
+  const vehicle = (id: string, make: string, model: string): Vehicle => ({
+    id, vin: `VIN-${id}`, type: "limousine", make, model, year: 2020,
+    fuel: "Benzin", transmission: "Automatik", power_kw: 100, power_hp: 136,
+    color: "Schwarz", mileage: 10_000, listPrice: 1_000, purchasePrice: 500,
+    status: "sold", location: { name: "Hof", kind: "lot", since: "2026-01-01" },
+    locationHistory: [], costs: [],
+  });
+  const process = (id: string, vehicleId: string, finalPrice: number, deliveryAt: string): Process => {
+    const steps = buildEmptySteps("delivery_confirmation");
+    steps.delivery_confirmation = { status: "completed", completedAt: deliveryAt };
+    return {
+      id, vehicleId, customerId: "customer", acceptedOfferId: "offer", createdAt: deliveryAt, updatedAt: deliveryAt,
+      currentStep: "delivery_confirmation", steps, fields: { finalPrice }, customerTodosOC: [], outboundChecklist: [],
+    };
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    localStorage.clear();
+    storeState.vehicles = [vehicle("v1", "Audi", "A6"), vehicle("v2", "BMW", "320d")];
+    storeState.processes = [
+      process("p1", "v1", 15_000, "2026-01-15T10:00:00.000Z"),
+      process("p2", "v2", 25_000, "2026-02-10T10:00:00.000Z"),
+    ];
+    storeState.purchasePlans = [];
+    historyMocks.list.mockResolvedValue([]);
+    historyMocks.loadPreference.mockResolvedValue({ acknowledged: true, historyEnabled: true, retentionDays: 30 });
+    historyMocks.save.mockResolvedValue(new Date(Date.now() + 30 * 86_400_000).toISOString());
+    historyMocks.setEnabled.mockResolvedValue(undefined);
+    Object.defineProperty(HTMLElement.prototype, "scrollTo", { configurable: true, value: vi.fn() });
+    vi.stubGlobal("fetch", vi.fn());
+  });
+
+  const readSavedMeasurements = (): Array<{ metric: string }> =>
+    JSON.parse(localStorage.getItem("vinflow.insightplus.measurements.v1") ?? "[]");
+
+  // RTL's getByText only matches an element's own direct text nodes, and normalizes
+  // whitespace — currency formatting can embed a narrow no-break space, so comparing
+  // against the fully concatenated, whitespace-normalized window text is more robust
+  // than trying to match a single markdown-rendered node.
+  const windowText = () => (screen.getByTestId("vincent-window").textContent ?? "").replace(/\s+/g, " ");
+
+  it("answers a data question with the exact computed figure and never calls the AI", async () => {
+    render(<VincentWidget />);
+    act(() => window.dispatchEvent(new CustomEvent("vincent:open")));
+
+    const input = await screen.findByPlaceholderText("Nachricht an VINcent");
+    fireEvent.change(input, { target: { value: "Wie hoch ist mein Umsatz insgesamt bei der Lieferung?" } });
+    fireEvent.click(screen.getByRole("button", { name: "Nachricht senden" }));
+
+    await waitFor(() => expect(windowText()).toContain(formatCurrency(40_000).replace(/\s+/g, " ")));
+    expect(windowText()).toContain("2 Fahrzeuge einbezogen");
+    expect(fetch).not.toHaveBeenCalled();
+    expect(readSavedMeasurements()).toHaveLength(0);
+
+    fireEvent.click(screen.getByRole("button", { name: "Ja, als Insight+ Karte speichern" }));
+
+    await waitFor(() => expect(windowText()).toContain("gespeichert"));
+    const insightLinks = screen.getAllByRole("link", { name: "Insight+ Karte" });
+    expect(insightLinks[insightLinks.length - 1]).toHaveAttribute("href", "/insights");
+    await waitFor(() => expect(readSavedMeasurements()).toHaveLength(1));
+    expect(readSavedMeasurements()[0].metric).toBe("revenue");
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("creates a card immediately when explicitly asked to, with no follow-up question", async () => {
+    render(<VincentWidget />);
+    act(() => window.dispatchEvent(new CustomEvent("vincent:open")));
+
+    const input = await screen.findByPlaceholderText("Nachricht an VINcent");
+    fireEvent.change(input, { target: { value: "Erstelle mir eine Insight+ Karte für den Umsatz bei der Lieferung, gesamt" } });
+    fireEvent.click(screen.getByRole("button", { name: "Nachricht senden" }));
+
+    await waitFor(() => expect(windowText()).toContain("Insight+ Karte erstellt"));
+    const insightsLink = screen.getAllByRole("link").find((a) => a.getAttribute("href") === "/insights");
+    expect(insightsLink).toBeTruthy();
+    expect(fetch).not.toHaveBeenCalled();
+    await waitFor(() => expect(readSavedMeasurements()).toHaveLength(1));
+    expect(readSavedMeasurements()[0].metric).toBe("revenue");
   });
 });
 

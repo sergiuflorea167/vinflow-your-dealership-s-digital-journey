@@ -14,7 +14,8 @@ const defaultMeasurements = (): Measurement[] => [
   TEMPLATES[6].build(),
 ];
 
-export const loadMeasurements = (): Measurement[] => {
+/** Liest den rohen Speicherstand, ohne die Erstnutzer-Vorlagen unterzuschieben. */
+const readStoredMeasurements = (): Measurement[] | null => {
   try {
     const raw = typeof window !== "undefined" ? window.localStorage.getItem(STORAGE_KEY) : null;
     if (raw) {
@@ -24,8 +25,10 @@ export const loadMeasurements = (): Measurement[] => {
   } catch {
     // ignore corrupted storage
   }
-  return defaultMeasurements();
+  return null;
 };
+
+export const loadMeasurements = (): Measurement[] => readStoredMeasurements() ?? defaultMeasurements();
 
 export const saveMeasurements = (list: Measurement[]): void => {
   try {
@@ -37,10 +40,13 @@ export const saveMeasurements = (list: Measurement[]): void => {
 
 /**
  * Fügt eine Auswertung außerhalb der Insight+ Seite hinzu (z. B. aus VINcent) und
- * benachrichtigt eine ggf. bereits gemountete InsightPlusBuilder-Instanz.
+ * benachrichtigt eine ggf. bereits gemountete InsightPlusBuilder-Instanz. Nutzt den
+ * rohen Speicherstand (nicht loadMeasurements()), damit VINcent nicht versehentlich
+ * die vier Erstnutzer-Vorlagen mit anlegt, nur weil die Insight+ Seite noch nie
+ * geöffnet wurde.
  */
 export const addMeasurementExternally = (measurement: Measurement): Measurement[] => {
-  const next = [...loadMeasurements(), measurement];
+  const next = [...(readStoredMeasurements() ?? []), measurement];
   saveMeasurements(next);
   window.dispatchEvent(new CustomEvent(INSIGHT_MEASUREMENTS_EVENT));
   return next;
