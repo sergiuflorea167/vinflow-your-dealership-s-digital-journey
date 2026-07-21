@@ -1,5 +1,7 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { PartyPopper } from "lucide-react";
+import { toast } from "sonner";
 import { useWorkshopStore, WORKSHOP_ORDER } from "@/store/workshopStore";
 import { useWorkshopProgressStore } from "@/store/workshopProgressStore";
 import { WorkshopPilot } from "./WorkshopPilot";
@@ -30,15 +32,26 @@ export const WorkshopRunner = () => {
   if (!activeKey || !def) return null;
 
   const handleFinish = () => {
+    const alreadyCompleted = useWorkshopProgressStore.getState().progress[activeKey]?.completed;
     markCompleted(activeKey, def.steps.length);
-    if (runAll) {
-      const idx = WORKSHOP_ORDER.indexOf(activeKey);
-      const nextKey = WORKSHOP_ORDER[idx + 1];
-      if (nextKey) {
-        navigate(WORKSHOP_REGISTRY[nextKey].route);
-        start(nextKey, { runAll: true });
-        return;
-      }
+
+    const idx = WORKSHOP_ORDER.indexOf(activeKey);
+    const nextKey = runAll ? WORKSHOP_ORDER[idx + 1] : undefined;
+
+    if (!alreadyCompleted) {
+      toast.success(`${def.title} abgeschlossen!`, {
+        description: nextKey
+          ? `Weiter geht's mit "${WORKSHOP_REGISTRY[nextKey].title}".`
+          : "Deinen Fortschritt und alle Achievements siehst du oben über die Trophäe.",
+        icon: <PartyPopper className="size-4" />,
+        duration: 5000,
+      });
+    }
+
+    if (runAll && nextKey) {
+      navigate(WORKSHOP_REGISTRY[nextKey].route);
+      start(nextKey, { runAll: true });
+      return;
     }
     stop();
   };

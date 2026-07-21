@@ -71,6 +71,7 @@ export const AchievementsBadge = () => {
                 <a.icon className={cn("size-4", a.unlocked ? "text-primary-foreground" : "text-muted-foreground")} />
               </div>
               <span className="text-[10px] font-semibold leading-tight">{a.title}</span>
+              <span className="text-[9px] text-muted-foreground leading-snug">{a.desc}</span>
             </div>
           ))}
         </div>

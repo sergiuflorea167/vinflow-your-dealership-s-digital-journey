@@ -9,6 +9,7 @@ import { VincentLauncher } from "@/components/vincent/VincentLauncher";
 import { useCalendarPanelStore } from "@/store/calendarPanelStore";
 import { useWorkshopMode } from "@/context/WorkshopModeContext";
 import { WorkshopChrome } from "@/components/workshop/WorkshopChrome";
+import { useAchievementNotifications } from "@/hooks/useAchievementNotifications";
 
 const VincentWidget = lazy(() =>
   import("@/components/vincent/VincentWidget").then((module) => ({ default: module.VincentWidget })),
@@ -29,6 +30,8 @@ export const AppShell = ({ children }: { children: ReactNode }) => {
   const isMobile = useIsMobile();
   const calendarPinned = useCalendarPanelStore((s) => s.pinned);
   const inWorkshop = useWorkshopMode();
+
+  useAchievementNotifications();
 
   useEffect(() => {
     // Tour & Workshops sind für die Desktop-Bedienung konzipiert (Coach-Marks
