@@ -21,12 +21,41 @@ const emptyProgress = (): ChapterProgress => ({
 interface WorkshopProgressState {
   loaded: boolean;
   loadedForUserId: string | null;
+  /** Für welchen Nutzer recordStep/markCompleted gerade lokal zwischenspeichern — wird sofort beim
+   * Start von loadFromServer gesetzt, nicht erst nach dessen Abschluss. */
+  currentUserId: string | null;
   progress: Partial<Record<WorkshopKey, ChapterProgress>>;
   loadFromServer: (userId: string) => Promise<void>;
   reset: () => void;
   recordStep: (chapterKey: WorkshopKey, stepIndex: number, stepsTotal: number) => void;
   markCompleted: (chapterKey: WorkshopKey, stepsTotal: number) => void;
 }
+
+const LOCAL_KEY_PREFIX = "vinflow-workshop-progress:";
+
+/**
+ * Lokaler Fallback-Cache je Nutzer: überlebt Reloads unabhängig davon, ob der Server-Sync
+ * (Supabase-Tabelle/RPC) gerade verfügbar ist. Verhindert, dass Fortschritt bei einem
+ * Backend-Fehler (z. B. Migration noch nicht angewendet, Netzwerkfehler) auf 0 zurückfällt —
+ * die Server-Persistenz bleibt die "Quelle der Wahrheit" sobald sie erreichbar ist, dies ist
+ * nur das Sicherheitsnetz dazwischen.
+ */
+const readLocalProgress = (userId: string): Partial<Record<WorkshopKey, ChapterProgress>> => {
+  try {
+    const raw = localStorage.getItem(LOCAL_KEY_PREFIX + userId);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+};
+
+const writeLocalProgress = (userId: string, progress: Partial<Record<WorkshopKey, ChapterProgress>>) => {
+  try {
+    localStorage.setItem(LOCAL_KEY_PREFIX + userId, JSON.stringify(progress));
+  } catch {
+    // Storage nicht verfügbar (z. B. privater Modus) — Fortschritt bleibt dann nur serverseitig/im Speicher.
+  }
+};
 
 /** Feuert die Server-Persistenz ab, ohne die UI je zu blockieren — Fortschritt ist nice-to-have, kein kritischer Pfad. */
 const persistProgress = (chapterKey: string, stepsCompleted: number, stepsTotal: number, completed: boolean) => {
@@ -46,24 +75,28 @@ const persistProgress = (chapterKey: string, stepsCompleted: number, stepsTotal:
 export const useWorkshopProgressStore = create<WorkshopProgressState>((set, get) => ({
   loaded: false,
   loadedForUserId: null,
+  currentUserId: null,
   progress: {},
 
   loadFromServer: async (userId) => {
+    set({ currentUserId: userId });
     if (get().loadedForUserId === userId && get().loaded) return;
+    const local = readLocalProgress(userId);
     const { data, error } = await supabase
       .from("workshop_progress")
       .select("chapter_key, steps_completed, steps_total, completed, first_opened_at, completed_at")
       .eq("user_id", userId);
     if (error) {
       console.error("[workshop-progress] load failed", error.message);
-      set({ loaded: true, loadedForUserId: userId });
+      set((s) => ({ progress: { ...local, ...s.progress }, loaded: true, loadedForUserId: userId }));
       return;
     }
-    // Merge statt Überschreiben: falls der Nutzer schon vor Abschluss dieses Ladevorgangs einen
-    // Schritt gemacht hat (optimistisches Update), darf die ältere Server-Momentaufnahme diesen
-    // frischeren lokalen Stand nicht wieder zurückdrehen.
+    // Merge-Reihenfolge: lokaler Cache < In-Memory-Stand (schon während dieses Ladevorgangs
+    // optimistisch aktualisiert) < Server-Zeilen (je Feld das Maximum/größere von beidem) —
+    // so kann weder eine ältere Server-Momentaufnahme noch ein veralteter lokaler Cache einen
+    // frischeren Stand zurückdrehen.
     set((s) => {
-      const merged: Partial<Record<WorkshopKey, ChapterProgress>> = { ...s.progress };
+      const merged: Partial<Record<WorkshopKey, ChapterProgress>> = { ...local, ...s.progress };
       (data ?? []).forEach((row) => {
         const key = row.chapter_key as WorkshopKey;
         const fromServer: ChapterProgress = {
@@ -84,11 +117,12 @@ export const useWorkshopProgressStore = create<WorkshopProgressState>((set, get)
             }
           : fromServer;
       });
+      writeLocalProgress(userId, merged);
       return { progress: merged, loaded: true, loadedForUserId: userId };
     });
   },
 
-  reset: () => set({ progress: {}, loaded: false, loadedForUserId: null }),
+  reset: () => set({ progress: {}, loaded: false, loadedForUserId: null, currentUserId: null }),
 
   recordStep: (chapterKey, stepIndex, stepsTotal) => {
     const current = get().progress[chapterKey] ?? emptyProgress();
@@ -100,7 +134,12 @@ export const useWorkshopProgressStore = create<WorkshopProgressState>((set, get)
       stepsTotal,
       firstOpenedAt: current.firstOpenedAt ?? new Date().toISOString(),
     };
-    set((s) => ({ progress: { ...s.progress, [chapterKey]: next } }));
+    const userId = get().currentUserId;
+    set((s) => {
+      const progress = { ...s.progress, [chapterKey]: next };
+      if (userId) writeLocalProgress(userId, progress);
+      return { progress };
+    });
     persistProgress(chapterKey, stepsCompleted, stepsTotal, next.completed);
   },
 
@@ -115,7 +154,12 @@ export const useWorkshopProgressStore = create<WorkshopProgressState>((set, get)
       firstOpenedAt: current.firstOpenedAt ?? new Date().toISOString(),
       completedAt: new Date().toISOString(),
     };
-    set((s) => ({ progress: { ...s.progress, [chapterKey]: next } }));
+    const userId = get().currentUserId;
+    set((s) => {
+      const progress = { ...s.progress, [chapterKey]: next };
+      if (userId) writeLocalProgress(userId, progress);
+      return { progress };
+    });
     persistProgress(chapterKey, stepsTotal, stepsTotal, true);
   },
 }));
