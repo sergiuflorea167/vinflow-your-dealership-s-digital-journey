@@ -9,14 +9,8 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
-import { Loader2, Building2, KeyRound, Mail, ScanLine, FileCheck2, LayoutGrid } from "lucide-react";
+import { Loader2, Building2, KeyRound, Mail } from "lucide-react";
 import logo from "@/assets/logo.png";
-
-const features = [
-  { icon: ScanLine, title: "VIN-basierte Vorgangskette", desc: "Jedes Fahrzeug lückenlos von Einkauf bis Übergabe." },
-  { icon: FileCheck2, title: "Digitale Kundenbelege", desc: "Automatisch erstellt, archiviert, jederzeit abrufbar." },
-  { icon: LayoutGrid, title: "Alles an einem Ort", desc: "Fahrzeuge, Termine, Team und Kennzahlen." },
-];
 
 const loginSchema = z.object({
   email: z.string().trim().email("Ungültige E-Mail").max(255),
@@ -171,67 +165,31 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-screen grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
-      <div className="hidden lg:flex relative flex-col justify-between overflow-hidden p-12 text-white bg-[#150F2E]">
-        <div
-          aria-hidden
-          className="absolute inset-0 opacity-[0.06] [background-image:radial-gradient(circle,white_1px,transparent_1px)] [background-size:26px_26px]"
-        />
-        <div aria-hidden className="absolute -top-24 -right-24 size-96 rounded-full bg-gradient-brand opacity-25 blur-3xl" />
-        <div aria-hidden className="absolute bottom-0 -left-16 size-72 rounded-full bg-primary/30 blur-3xl" />
+    <div className="min-h-screen flex flex-col bg-background">
+      <div aria-hidden className="h-[3px] bg-gradient-brand" />
 
-        <div className="relative flex items-center gap-3">
-          <img src={logo} alt="VINflow" className="size-11" />
-          <span className="text-xl font-display font-bold tracking-tight">VINflow</span>
-        </div>
-
-        <div className="relative max-w-md space-y-10">
-          <h1 className="text-3xl font-display font-bold leading-tight text-balance">
-            Vom Einkauf bis zur Übergabe – ein Vorgang, eine Wahrheit.
-          </h1>
-          <ul className="space-y-6">
-            {features.map(({ icon: Icon, title, desc }) => (
-              <li key={title} className="flex items-start gap-4">
-                <div className="grid size-10 shrink-0 place-items-center rounded-xl bg-white/10">
-                  <Icon className="size-5" />
-                </div>
-                <div>
-                  <p className="font-medium leading-tight">{title}</p>
-                  <p className="text-sm text-white/55 leading-snug mt-0.5">{desc}</p>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        <p className="relative text-xs text-white/35">© {new Date().getFullYear()} VINflow</p>
-      </div>
-
-      <div className="flex flex-col justify-center px-6 py-12 sm:px-12 md:px-20 lg:px-16 xl:px-24 bg-background">
-        <div className="w-full max-w-sm mx-auto animate-fade-in">
-          <div className="flex items-center gap-2.5 mb-10 lg:hidden">
-            <img src={logo} alt="VINflow" className="size-9" />
+      <div className="flex-1 flex flex-col items-center justify-center px-6 py-12">
+        <div className="w-full max-w-sm animate-fade-in">
+          <div className="flex items-center justify-center gap-2.5 mb-8">
+            <img src={logo} alt="VINflow" className="size-8 rounded-lg" />
             <span className="text-lg font-display font-bold tracking-tight">VINflow</span>
           </div>
 
-          <div className="mb-7">
-            <h2 className="text-2xl font-display font-bold">
-              {forgotMode ? "Passwort zurücksetzen" : tab === "login" ? "Willkommen zurück" : "Konto erstellen"}
-            </h2>
-            <p className="text-sm text-muted-foreground mt-1.5">
-              {forgotMode
-                ? "Wir senden dir einen Link zum Zurücksetzen."
-                : tab === "login"
-                  ? "Melde dich an, um weiterzumachen."
-                  : "Leg los in wenigen Sekunden."}
-            </p>
-          </div>
+          <div className="rounded-2xl border border-border bg-card p-8 shadow-sm">
+            <div className="mb-6">
+              <h1 className="text-xl font-display font-semibold">
+                {forgotMode ? "Passwort zurücksetzen" : tab === "login" ? "Anmelden" : "Registrieren"}
+              </h1>
+              {forgotMode && (
+                <p className="text-sm text-muted-foreground mt-1">Wir schicken dir einen Link an deine E-Mail-Adresse.</p>
+              )}
+            </div>
 
-          <Tabs value={tab} onValueChange={(v) => { setTab(v as "login" | "signup"); setForgotMode(false); }}>
-            <TabsList className="grid grid-cols-2 w-full mb-7 h-11 rounded-full bg-muted p-1">
-              <TabsTrigger value="login" className="rounded-full data-[state=active]:shadow-sm">Anmelden</TabsTrigger>
-              <TabsTrigger value="signup" className="rounded-full data-[state=active]:shadow-sm">Registrieren</TabsTrigger>
-            </TabsList>
+            <Tabs value={tab} onValueChange={(v) => { setTab(v as "login" | "signup"); setForgotMode(false); }}>
+              <TabsList className="grid grid-cols-2 w-full mb-7 h-11 rounded-full bg-muted p-1">
+                <TabsTrigger value="login" className="rounded-full data-[state=active]:shadow-sm">Anmelden</TabsTrigger>
+                <TabsTrigger value="signup" className="rounded-full data-[state=active]:shadow-sm">Registrieren</TabsTrigger>
+              </TabsList>
 
               <TabsContent value="login">
                 {forgotMode ? (
@@ -348,9 +306,10 @@ const Auth = () => {
                   </Button>
                 </form>
               </TabsContent>
-          </Tabs>
+            </Tabs>
+          </div>
 
-          <p className="text-center text-[11px] text-muted-foreground mt-8">
+          <p className="text-center text-[11px] text-muted-foreground mt-6">
             Mit der Registrierung stimmst du den Nutzungsbedingungen zu.
           </p>
         </div>
