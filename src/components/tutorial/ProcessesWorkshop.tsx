@@ -18,8 +18,8 @@ export const PROCESSES_WORKSHOP_STEPS: WorkshopStep[] = [
   },
   {
     selector: '[data-tour="proc-header"]',
-    title: "Vier Bereiche, ein Überblick",
-    body: "Oben siehst du, wie viele Vorgänge in jedem Bereich stecken. Ein Klick auf eine Vorgangs-Nummer öffnet jederzeit die volle Detail-Ansicht mit allen Schritten.",
+    title: "Pipeline auf einen Blick",
+    body: "Direkt unter der Überschrift siehst du, wie viele aktive Vorgänge gerade in welchem Prozess-Schritt stecken. Ein Klick auf einen Schritt filtert die Liste sofort danach.",
     icon: Workflow, placement: "bottom",
   },
   {

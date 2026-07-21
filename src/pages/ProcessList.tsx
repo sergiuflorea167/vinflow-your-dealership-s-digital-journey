@@ -119,6 +119,16 @@ const ProcessList = () => {
   const activeEnriched = useMemo(() => enriched.filter((e) => !isProcessArchived(e.p)), [enriched, isProcessArchived]);
   const archivedEnriched = useMemo(() => enriched.filter((e) => isProcessArchived(e.p)), [enriched, isProcessArchived]);
 
+  /** Überblick, wie viele aktive Vorgänge gerade in welchem Prozess-Schritt stecken —
+   * direkt unter der Überschrift sichtbar, damit man das nicht erst im Filter-Reiter suchen muss. */
+  const activeStepCounts = useMemo(
+    () =>
+      processSteps
+        .map((s) => ({ key: s.key, label: s.shortLabel, count: activeEnriched.filter((e) => e.p.currentStep === s.key).length }))
+        .filter((s) => s.count > 0),
+    [processSteps, activeEnriched],
+  );
+
   const filtered = useMemo(() => {
     const list = activeEnriched.filter(({ p, vehicle, customer }) => {
       if (filter !== "all" && p.currentStep !== filter) return false;
@@ -398,6 +408,22 @@ const ProcessList = () => {
           <p className="text-xs text-muted-foreground">
             Alle Angebote, aktiven Verkaufsvorgänge und archivierten Belege.
           </p>
+          {activeStepCounts.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5 mt-2.5">
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mr-0.5">
+                Pipeline:
+              </span>
+              {activeStepCounts.map((s) => (
+                <button
+                  key={s.key}
+                  onClick={() => { setTab("list"); setFilter(s.key); }}
+                  className="px-2 py-1 rounded-md text-[11px] font-medium bg-secondary/60 text-foreground border border-border hover:border-primary/40 hover:bg-secondary transition-smooth"
+                >
+                  {s.label} <span className="text-muted-foreground">({s.count})</span>
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         <Tabs
