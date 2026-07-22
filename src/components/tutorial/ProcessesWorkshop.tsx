@@ -13,7 +13,7 @@ export const PROCESSES_WORKSHOP_STEPS: WorkshopStep[] = [
   // ---------- Teil 1: Überblick über die Vorgänge-Liste ----------
   {
     title: "Vorgänge-Workshop",
-    body: "Ein Vorgang entsteht, sobald ein Kunde ein Fahrzeug kauft — von der ersten Anfrage bis zur Übergabe. Hier bündelst du Angebote, aktive Vorgänge, das Archiv und alle erzeugten Belege. Wir schauen uns zuerst die Übersicht an — und legen danach gemeinsam einen kompletten Vorgang an, Schritt für Schritt bis zum Abschluss.",
+    body: "Ein Vorgang entsteht, sobald ein Kunde ein Fahrzeug kauft — von der ersten Anfrage bis zur Übergabe. Hier bündelst du aktive Vorgänge, das Archiv und alle erzeugten Belege. Wir schauen uns zuerst die Übersicht an — und legen danach gemeinsam einen kompletten Vorgang an, Schritt für Schritt bis zum Abschluss.",
     icon: GraduationCap, placement: "center",
   },
   {
@@ -24,8 +24,8 @@ export const PROCESSES_WORKSHOP_STEPS: WorkshopStep[] = [
   },
   {
     selector: '[data-tour="proc-tabs"]',
-    title: "Die vier Reiter",
-    body: "„Aktive Vorgänge\" zeigt laufende Verkäufe, „Archivierte Vorgänge\" die abgeschlossenen, „Angebote\" alle versendeten Preisangebote und „Belege-Archiv\" jedes erzeugte PDF-Dokument.",
+    title: "Die drei Reiter",
+    body: "„Aktive Vorgänge\" zeigt laufende Verkäufe, „Archivierte Vorgänge\" die abgeschlossenen und „Belege-Archiv\" jedes erzeugte PDF-Dokument. Versendete Preisangebote findest du im eigenen Menüpunkt „Angebote\" in der linken Menüleiste.",
     icon: Layers, placement: "bottom",
   },
   {
@@ -49,7 +49,7 @@ export const PROCESSES_WORKSHOP_STEPS: WorkshopStep[] = [
   },
   {
     title: "Angebote verwalten",
-    body: "Im Reiter „Angebote\" siehst du Entwürfe, versendete, angenommene und abgelehnte Angebote inklusive Ablaufdatum. Ein angenommenes Angebot startet mit einem Klick automatisch einen neuen Vorgang — genau das bauen wir jetzt gemeinsam nach.",
+    body: "Unter „Angebote\" in der linken Menüleiste siehst du Entwürfe, versendete, angenommene und abgelehnte Angebote inklusive Ablaufdatum. Ein angenommenes Angebot startet mit einem Klick automatisch einen neuen Vorgang — genau das bauen wir jetzt gemeinsam nach.",
     icon: FileSignature, placement: "center",
   },
   {
@@ -68,7 +68,7 @@ export const PROCESSES_WORKSHOP_STEPS: WorkshopStep[] = [
   {
     selector: '[data-tour="veh-detail-cta"]',
     title: "Zwei Wege zum Vorgang",
-    body: "Oben rechts siehst du Preis und Marge des Fahrzeugs, darunter zwei Aktionen: „Angebot\" erstellt zunächst nur ein Preisangebot, das der Kunde noch annehmen muss (Reiter „Angebote\"). „Direkt verkaufen\" ist der Express-Weg, wenn ihr euch mündlich schon einig seid — er überspringt den Angebots-Schritt und startet den Vorgang sofort bei „Anzahlung\".",
+    body: "Oben rechts siehst du Preis und Marge des Fahrzeugs, darunter zwei Aktionen: „Angebot\" erstellt zunächst nur ein Preisangebot, das der Kunde noch annehmen muss (Menüpunkt „Angebote\"). „Direkt verkaufen\" ist der Express-Weg, wenn ihr euch mündlich schon einig seid — er überspringt den Angebots-Schritt und startet den Vorgang sofort bei „Anzahlung\".",
     icon: FileSignature, placement: "bottom",
     route: VEHICLE_ROUTE,
   },

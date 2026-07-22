@@ -1,4 +1,5 @@
-export const VINCENT_NOTICE_VERSION = "2026-07-14-vehicle-access-v1";
+export const VINCENT_NOTICE_VERSION = "2026-07-22-context-expansion-v1";
+export const VINCENT_NOTICE_INTERVAL_DAYS = 7;
 export const VINCENT_RETENTION_DAYS = 30;
 export const VINCENT_MAX_INPUT_LENGTH = 4_000;
 
@@ -14,6 +15,14 @@ export const getVincentLocalDate = (now = new Date()) => {
   }).formatToParts(now);
   const value = Object.fromEntries(parts.map((part) => [part.type, part.value]));
   return `${value.year}-${value.month}-${value.day}`;
+};
+
+/** Rechnet auf einem reinen Datumsstring (YYYY-MM-DD), unabhängig von der Client-Zeitzone. */
+export const addDaysToLocalDate = (dateString: string, days: number) => {
+  const [year, month, day] = dateString.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
 };
 
 const SPECIAL_CATEGORY_TERMS = [

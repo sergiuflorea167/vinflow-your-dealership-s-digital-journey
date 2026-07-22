@@ -37,8 +37,9 @@ import {
   renameLocalVincentConversation, saveLocalVincentConversation,
 } from "@/lib/vincentLocalHistory";
 import {
-  containsSpecialCategoryHint, conversationTitle, redactSensitiveText,
-  getVincentClientTimezone, VINCENT_MAX_INPUT_LENGTH, VINCENT_RETENTION_DAYS,
+  addDaysToLocalDate, containsSpecialCategoryHint, conversationTitle, redactSensitiveText,
+  getVincentClientTimezone, getVincentLocalDate, VINCENT_MAX_INPUT_LENGTH,
+  VINCENT_NOTICE_INTERVAL_DAYS, VINCENT_RETENTION_DAYS,
 } from "@/lib/vincentPrivacy";
 import { useLang } from "@/lib/i18n";
 import { useProcessStore } from "@/store/processStore";
@@ -133,6 +134,7 @@ export const VincentWidget = () => {
   const [historyReady, setHistoryReady] = useState(false);
   const [historyStorage, setHistoryStorage] = useState<HistoryStorage>("remote");
   const [acknowledged, setAcknowledged] = useState(false);
+  const [noticeValidUntil, setNoticeValidUntil] = useState<string | null>(null);
   const [noticeChecked, setNoticeChecked] = useState(false);
   const [privacyNoticeOpen, setPrivacyNoticeOpen] = useState(false);
   const [pendingTodoDraft, setPendingTodoDraft] = useState<VincentTodoDraft | null>(null);
@@ -200,6 +202,7 @@ export const VincentWidget = () => {
         const preference = await loadVincentPreference(user.id);
         if (!active) return;
         setAcknowledged(preference.acknowledged);
+        setNoticeValidUntil(preference.noticeValidUntil ?? null);
         if (!preference.acknowledged) setOpen(true);
         setRetentionDays(preference.retentionDays);
         setPrivacyReady(true);
@@ -228,21 +231,23 @@ export const VincentWidget = () => {
   }, [user, profile?.organization_id]);
 
   useEffect(() => {
-    let timer: ReturnType<typeof setTimeout>;
-    const scheduleMidnightReset = () => {
-      const nextMidnight = new Date();
-      nextMidnight.setHours(24, 0, 0, 0);
-      timer = setTimeout(() => {
-        setAcknowledged(false);
-        setNoticeChecked(false);
-        setOpen(true);
-        setMode("normal");
-        scheduleMidnightReset();
-      }, Math.max(1_000, nextMidnight.getTime() - Date.now()));
+    if (!acknowledged || !noticeValidUntil) return;
+    const [year, month, day] = noticeValidUntil.split("-").map(Number);
+    const expiresAt = new Date(year, month - 1, day, 0, 0, 0, 0);
+    const expireNotice = () => {
+      setAcknowledged(false);
+      setNoticeChecked(false);
+      setOpen(true);
+      setMode("normal");
     };
-    scheduleMidnightReset();
+    const delay = expiresAt.getTime() - Date.now();
+    if (delay <= 0) {
+      expireNotice();
+      return;
+    }
+    const timer = setTimeout(expireNotice, delay);
     return () => clearTimeout(timer);
-  }, []);
+  }, [acknowledged, noticeValidUntil]);
 
   const close = useCallback(() => {
     abortRef.current?.abort();
@@ -307,7 +312,7 @@ export const VincentWidget = () => {
       title: "Datenschutzhinweis erforderlich",
       description: privacyLoading
         ? "VINcent prüft die Freigabe noch. Bitte kurz warten."
-        : "Bitte bestätige den heutigen Hinweis, danach kannst du VINcent nutzen.",
+        : "Bitte bestätige den wöchentlichen Hinweis, danach kannst du VINcent nutzen.",
     });
   }, [privacyLoading]);
 
@@ -704,6 +709,7 @@ export const VincentWidget = () => {
     try {
       await acknowledgeVincentNotice();
       setAcknowledged(true);
+      setNoticeValidUntil(addDaysToLocalDate(getVincentLocalDate(), VINCENT_NOTICE_INTERVAL_DAYS));
       setNoticeChecked(false);
       setPrivacyNoticeOpen(false);
     } catch {
@@ -711,7 +717,7 @@ export const VincentWidget = () => {
       toast({
         variant: "destructive",
         title: "Bestätigung nicht gespeichert",
-        description: "VINcent bleibt gesperrt, bis die tägliche Bestätigung im Backend protokolliert werden konnte.",
+        description: "VINcent bleibt gesperrt, bis die wöchentliche Bestätigung im Backend protokolliert werden konnte.",
       });
     }
   };
@@ -899,7 +905,7 @@ export const VincentWidget = () => {
                   <h2 className="mt-4 text-center font-display text-xl font-semibold">Wobei kann ich dir helfen?</h2>
                   <p className="mx-auto mt-2 max-w-md text-center text-sm text-muted-foreground">Ich analysiere nur die für deine Frage nötigen, minimierten VINflow-Daten.</p>
                   {!historyReady && <div className="mx-auto mt-5 max-w-lg rounded-xl border border-amber-500/25 bg-amber-500/5 px-4 py-3 text-center text-xs text-muted-foreground"><span className="font-medium text-foreground">Temporärer Chat:</span> Die Ablage ist noch nicht bereit; beim Schließen geht dieser Chat verloren.</div>}
-                  {!acknowledged && <div className="mx-auto mt-5 max-w-lg rounded-xl border border-primary/25 bg-primary/5 px-4 py-3 text-center text-sm"><p className="font-medium">Vor der Nutzung ist der heutige Datenschutzhinweis erforderlich.</p><Button className="mt-3 w-full sm:w-auto" onClick={requestPrivacyConfirmation}>Hinweis oeffnen</Button></div>}
+                  {!acknowledged && <div className="mx-auto mt-5 max-w-lg rounded-xl border border-primary/25 bg-primary/5 px-4 py-3 text-center text-sm"><p className="font-medium">Vor der Nutzung ist der wöchentliche Datenschutzhinweis erforderlich.</p><Button className="mt-3 w-full sm:w-auto" onClick={requestPrivacyConfirmation}>Hinweis oeffnen</Button></div>}
                   <div className="mt-7 grid gap-2 sm:grid-cols-2">
                     {suggestions.map((suggestion) => <button key={suggestion} onClick={() => send(suggestion)} className="min-h-12 rounded-xl border bg-card px-4 py-3 text-left text-sm transition-colors hover:border-primary/40 hover:bg-primary/5">{suggestion}</button>)}
                   </div>
@@ -961,7 +967,7 @@ export const VincentWidget = () => {
         <DialogContent className="max-w-xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2"><ShieldCheck className="size-5 text-primary" />Datenschutzhinweis zu VINcent</DialogTitle>
-            <DialogDescription>Bitte vor der heutigen Nutzung lesen und bestätigen. Dies ist eine Information und keine pauschale Einwilligung in unnötige Verarbeitung.</DialogDescription>
+            <DialogDescription>Bitte vor der Nutzung lesen und bestätigen; die Bestätigung gilt danach 7 Tage. Dies ist eine Information und keine pauschale Einwilligung in unnötige Verarbeitung. Über das Schild-Symbol im Chat kannst du diesen Hinweis jederzeit erneut nachlesen.</DialogDescription>
           </DialogHeader>
           <div className="max-h-[55vh] space-y-3 overflow-y-auto text-sm text-muted-foreground">
             <p><strong className="text-foreground">Verantwortlich:</strong> {company}, Kontakt: {contact}.</p>
@@ -973,14 +979,18 @@ export const VincentWidget = () => {
               <p className="font-semibold">Welche Fahrzeugdaten VINcent erhält</p>
               <p className="mt-1 text-muted-foreground">Nennst du in deiner Frage ein konkretes Fahrzeug (z. B. Marke, Modell, optional Baujahr), erhält VINcent dessen vollständige technische Fahrzeugakte: Typ, Baujahr, Zustand, Technik (Kraftstoff, Getriebe, Leistung, Verbrauch), Ausstattung, Farbe/Innenraum, Laufleistung, Historie (HU, Scheckheft, Unfallfreiheit), Preis- und Kostendaten, Standort sowie hinterlegte Notizen (automatisch von E-Mail, IBAN und Telefonnummern bereinigt). <strong className="text-foreground">Fahrgestellnummer (VIN) und Kennzeichen werden bewusst nie übermittelt</strong>, da sie in Verbindung mit euren eigenen Kunden- und Vorgangsdaten eine Person identifizierbar machen können; diese Angaben bleiben ausschließlich in VINflow und sind direkt in der Fahrzeugakte einsehbar.</p>
             </div>
+            <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-foreground">
+              <p className="font-semibold">Welche Kennzahlen- und Betriebsübersichten VINcent erhält</p>
+              <p className="mt-1 text-muted-foreground">Je nachdem, worauf sich deine Frage bezieht, erhält VINcent zusätzlich: betriebliche Kennzahlen (z. B. Umsatz, Marge, Rendite, Kosten- und Performance-Kennzahlen aus den KPIs), eine Bestandsübersicht (bis zu 20 Fahrzeuge im Bestand/reserviert mit Marke, Modell, Baujahr, Laufleistung, Status, Einkaufs-/Listenpreis, Zusatzkosten und Eingangsdatum – ohne VIN und Kennzeichen), eine Vorgangs-/Pipeline-Übersicht (bis zu 20 Vorgänge mit Bearbeitungsschritt, verknüpftem Fahrzeug, Verkaufspreis und Erstellungsdatum) sowie eine Kalenderübersicht (nur Anzahl der heutigen Termine je Typ, keine Titel oder Teilnehmer). Zusätzlich werden bei jeder Anfrage aggregierte Gesamtzahlen (Anzahl Fahrzeuge, Vorgänge, Angebote, Kunden, offene To-Dos) zur Einordnung übermittelt.</p>
+            </div>
             <p>Zusätzlich werden deine Eingabe und die für deine Frage passenden weiteren Betriebsdaten über die serverseitig konfigurierte KI-Schnittstelle verarbeitet. Direkte Kundennamen, Kontakt- und Zahlungsdaten aus anderen VINflow-Bereichen werden nicht automatisch in den Kontext aufgenommen. <strong className="text-foreground">Stehen solche Angaben jedoch in einem To-Do-Titel, einer To-Do-Beschreibung oder einer Fahrzeugnotiz, können sie mitübermittelt werden.</strong> E-Mail-Adressen, IBAN, VIN und Telefonnummern werden nach technischen Mustern entfernt; Namen und sonstiger Freitext lassen sich nicht zuverlässig automatisch erkennen.</p>
             <p>Nutze VINcent nur für betriebliche Analysen. Gib keine personenbezogenen Kundendaten, Beschäftigtendaten, Passwörter oder besonders geschützten Daten (z. B. Gesundheits- oder Religionsangaben) ein. VINcent darf keine automatisierten Entscheidungen über Kunden oder Beschäftigte treffen; Ergebnisse müssen durch einen Menschen geprüft werden.</p>
             <p>{historyStorage === "local" ? "Unterhaltungen werden automatisch in diesem Browser gespeichert und nach der eingestellten Frist entfernt. Sie stehen auf anderen Geräten nicht zur Verfügung und können jederzeit exportiert, umbenannt oder gelöscht werden." : `Unterhaltungen werden automatisch zugriffsgeschützt deinem Benutzerkonto zugeordnet und nach ${retentionDays} Tagen gelöscht. Du kannst sie jederzeit exportieren, umbenennen oder sofort löschen.`}</p>
-            <p><strong className="text-foreground">Tägliche Bestätigung:</strong> Dieser Hinweis muss jeden Kalendertag ab 00:00 Uhr erneut bestätigt werden. Die Bestätigung wird mit Benutzer, Organisation, Hinweisversion, lokalem Datum, Zeitzone und serverseitigem Zeitstempel im Backend protokolliert. Ohne erfolgreiche Protokollierung bleibt VINcent gesperrt.</p>
+            <p><strong className="text-foreground">Wöchentliche Bestätigung:</strong> Dieser Hinweis muss einmal alle 7 Tage erneut bestätigt werden, um VINcent weiter nutzen zu können. Zwischendurch kannst du ihn jederzeit über das Schild-Symbol im Chat erneut aufrufen und nachlesen, ohne ihn neu bestätigen zu müssen. Die Bestätigung wird mit Benutzer, Organisation, Hinweisversion, lokalem Datum, Zeitzone und serverseitigem Zeitstempel im Backend protokolliert. Ohne erfolgreiche Protokollierung bleibt VINcent gesperrt.</p>
             <p>Je nach Modellanbieter kann eine Verarbeitung außerhalb der EU/des EWR auf Basis geeigneter Garantien stattfinden. Maßgeblich sind außerdem eure Datenschutzerklärung, der Auftragsverarbeitungsvertrag und die Anbieterbedingungen.</p>
             {!acknowledged && <label className="flex cursor-pointer items-start gap-3 rounded-lg border p-3 text-foreground">
               <Checkbox checked={noticeChecked} onCheckedChange={(value) => setNoticeChecked(value === true)} className="mt-0.5" />
-              <span>Ich habe verstanden, dass meine vollständige To-Do-Liste sowie – bei Fragen zu einem konkreten Fahrzeug – dessen vollständige Fahrzeugdaten (ohne VIN und Kennzeichen) bei jeder Anfrage an den KI-Anbieter übermittelt werden und darin enthaltene personenbezogene Angaben mitübertragen werden können. Ich werde keine besonders geschützten Daten in VINcent, To-Dos oder Fahrzeugnotizen eingeben.</span>
+              <span>Ich habe verstanden, dass meine vollständige To-Do-Liste, betriebliche Kennzahlen sowie – je nach Frage – Bestands-, Vorgangs- und Kalenderübersichten und ggf. die vollständigen Fahrzeugdaten (ohne VIN und Kennzeichen) eines konkret genannten Fahrzeugs bei jeder Anfrage an den KI-Anbieter übermittelt werden und darin enthaltene personenbezogene Angaben mitübertragen werden können. Ich werde keine besonders geschützten Daten in VINcent, To-Dos oder Fahrzeugnotizen eingeben.</span>
             </label>}
           </div>
           <DialogFooter>{acknowledged

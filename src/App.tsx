@@ -26,6 +26,7 @@ const Customers = lazy(() => import("./pages/Customers.tsx"));
 const KPIs = lazy(() => import("./pages/KPIs.tsx"));
 const Insights = lazy(() => import("./pages/Insights.tsx"));
 const OfferDetail = lazy(() => import("./pages/OfferDetail.tsx"));
+const Offers = lazy(() => import("./pages/Offers.tsx"));
 const Todos = lazy(() => import("./pages/Todos.tsx"));
 const Calendar = lazy(() => import("./pages/Calendar.tsx"));
 const Stammdaten = lazy(() => import("./pages/Stammdaten.tsx"));
@@ -94,6 +95,7 @@ const App = () => (
               <Route path="/flotte/:id" element={<RedirectVehicle />} />
               <Route path="/vorgaenge" element={<Protected><ProcessList /></Protected>} />
               <Route path="/vorgaenge/:id" element={<Protected><ProcessDetail /></Protected>} />
+              <Route path="/angebote" element={<Protected><Offers /></Protected>} />
               <Route path="/angebote/:id" element={<Protected><OfferDetail /></Protected>} />
               <Route path="/kunden" element={<Protected><Customers /></Protected>} />
               <Route path="/kpis" element={<Protected><KPIs /></Protected>} />

@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import {
-  getVincentClientTimezone, getVincentLocalDate, VINCENT_NOTICE_VERSION, VINCENT_RETENTION_DAYS,
+  addDaysToLocalDate, getVincentClientTimezone, getVincentLocalDate,
+  VINCENT_NOTICE_INTERVAL_DAYS, VINCENT_NOTICE_VERSION, VINCENT_RETENTION_DAYS,
 } from "@/lib/vincentPrivacy";
 
 export type VincentRole = "user" | "assistant";
@@ -23,11 +24,14 @@ export interface VincentPreference {
   acknowledged: boolean;
   historyEnabled: boolean;
   retentionDays: number;
+  /** Lokales Datum, ab dem der Hinweis erneut bestätigt werden muss (7 Tage nach der letzten Bestätigung). */
+  noticeValidUntil: string | null;
 }
 
 const expiryFromNow = (days: number) => new Date(Date.now() + days * 86_400_000).toISOString();
 
 export const loadVincentPreference = async (userId: string): Promise<VincentPreference> => {
+  const windowStart = addDaysToLocalDate(getVincentLocalDate(), -(VINCENT_NOTICE_INTERVAL_DAYS - 1));
   const [{ data, error }, { data: acceptance, error: acceptanceError }] = await Promise.all([
     supabase
     .from("vincent_preferences")
@@ -39,24 +43,30 @@ export const loadVincentPreference = async (userId: string): Promise<VincentPref
       .select("accepted_local_date")
       .eq("user_id", userId)
       .eq("notice_version", VINCENT_NOTICE_VERSION)
-      .eq("accepted_local_date", getVincentLocalDate())
+      .gte("accepted_local_date", windowStart)
+      .order("accepted_local_date", { ascending: false })
+      .limit(1)
       .maybeSingle(),
   ]);
   if (error) throw error;
   if (acceptanceError) throw acceptanceError;
   return {
-    acknowledged: acceptance?.accepted_local_date === getVincentLocalDate(),
+    acknowledged: Boolean(acceptance?.accepted_local_date),
     historyEnabled: data?.history_enabled ?? false,
     retentionDays: data?.retention_days ?? VINCENT_RETENTION_DAYS,
+    noticeValidUntil: acceptance?.accepted_local_date
+      ? addDaysToLocalDate(acceptance.accepted_local_date, VINCENT_NOTICE_INTERVAL_DAYS)
+      : null,
   };
 };
 
 export const acknowledgeVincentNotice = async () => {
-  const { error } = await supabase.rpc("acknowledge_vincent_notice", {
+  const { data, error } = await supabase.rpc("acknowledge_vincent_notice", {
     _notice_version: VINCENT_NOTICE_VERSION,
     _timezone: getVincentClientTimezone(),
   });
   if (error) throw error;
+  if (data !== true) throw new Error("Bestätigung wurde vom Backend abgelehnt.");
 };
 
 export const setVincentHistoryEnabled = async (userId: string, enabled: boolean) => {

@@ -158,16 +158,16 @@ export const SidebarAccountMenu = ({ collapsed }: { collapsed: boolean }) => {
   return (
     <>
       <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          {collapsed ? (
-            <Tooltip delayDuration={150}>
-              <TooltipTrigger asChild>{trigger}</TooltipTrigger>
-              <TooltipContent side="right">{displayName}</TooltipContent>
-            </Tooltip>
-          ) : (
-            trigger
-          )}
-        </DropdownMenuTrigger>
+        {collapsed ? (
+          <Tooltip delayDuration={150}>
+            <TooltipTrigger asChild>
+              <DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
+            </TooltipTrigger>
+            <TooltipContent side="right">{displayName}</TooltipContent>
+          </Tooltip>
+        ) : (
+          <DropdownMenuTrigger asChild>{trigger}</DropdownMenuTrigger>
+        )}
         <DropdownMenuContent side="top" align="start" sideOffset={10} className="w-72">
           <DropdownMenuLabel>
             <div className="flex items-center gap-3 py-1">

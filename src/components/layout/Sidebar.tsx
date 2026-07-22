@@ -95,7 +95,10 @@ const SidebarGroup = ({ group, collapsed }: { group: NavGroup; collapsed: boolea
   const label = t(group.labelKey);
   const active = group.items.some((item) => isPathActive(location.pathname, item.to));
   const showInline = !collapsed && active;
-  const showFlyout = !showInline && (active || hoverOpen);
+  // Im eingeklappten Zustand darf "active" das Flyout nicht dauerhaft offen
+  // erzwingen — sonst lässt es sich nie mehr schließen (hoverOpen ist dann
+  // die einzige Instanz, die es wieder zumacht).
+  const showFlyout = !showInline && hoverOpen;
 
   useEffect(() => {
     setHoverOpen(false);

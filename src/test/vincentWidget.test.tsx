@@ -154,7 +154,7 @@ describe("VINcent chat workspace", () => {
     expect(screen.getByText("Automatisch gespeichert")).toHaveClass("text-emerald-600");
   });
 
-  it("keeps the chat locked when daily acceptance cannot be verified by the backend", async () => {
+  it("keeps the chat locked when weekly acceptance cannot be verified by the backend", async () => {
     historyMocks.loadPreference.mockRejectedValue(new Error("table unavailable"));
     historyMocks.list.mockRejectedValue(new Error("table unavailable"));
     render(<VincentWidget />);
@@ -167,7 +167,7 @@ describe("VINcent chat workspace", () => {
     expect(historyMocks.save).not.toHaveBeenCalled();
   });
 
-  it("falls back to this browser after daily acceptance was verified", async () => {
+  it("falls back to this browser after weekly acceptance was verified", async () => {
     historyMocks.list.mockRejectedValue(new Error("table unavailable"));
     render(<VincentWidget />);
     act(() => window.dispatchEvent(new CustomEvent("vincent:open")));
@@ -191,7 +191,7 @@ describe("VINcent chat workspace", () => {
     expect(screen.getByRole("button", { name: "Temporäre Frage" })).toBeInTheDocument();
   });
 
-  it("records and requires the daily data notice before enabling VINcent", async () => {
+  it("records and requires the weekly data notice before enabling VINcent", async () => {
     historyMocks.loadPreference.mockResolvedValue({ acknowledged: false, historyEnabled: true, retentionDays: 30 });
     historyMocks.acknowledge.mockResolvedValue(undefined);
 

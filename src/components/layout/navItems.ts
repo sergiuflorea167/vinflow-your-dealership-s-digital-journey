@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, Workflow, Car, ShoppingCart, ListChecks,
-  BarChart3, Settings as SettingsIcon, Database, Sparkles, CalendarDays,
+  BarChart3, Settings as SettingsIcon, Database, Sparkles, CalendarDays, FileSignature,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -26,6 +26,7 @@ export const navEntries: NavEntry[] = [
     icon: Workflow,
     items: [
       { to: "/einkaufsplanung", labelKey: "nav.purchasing", icon: ShoppingCart },
+      { to: "/angebote",        labelKey: "nav.offers",     icon: FileSignature },
       { to: "/vorgaenge",       labelKey: "nav.processes",  icon: Workflow },
       { to: "/todos",           labelKey: "nav.todos",      icon: ListChecks },
     ],
@@ -54,6 +55,7 @@ export const tourMap: Record<string, string> = {
   "/": "nav-dashboard",
   "/bestand": "nav-fleet",
   "/vorgaenge": "nav-processes",
+  "/angebote": "nav-offers",
   "/einkaufsplanung": "nav-purchasing",
   "/todos": "nav-todos",
   "/kalender": "nav-calendar",

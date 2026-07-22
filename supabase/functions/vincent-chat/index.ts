@@ -9,7 +9,7 @@ const securityHeaders = {
   "X-Content-Type-Options": "nosniff",
   "Referrer-Policy": "no-referrer",
 };
-const NOTICE_VERSION = "2026-07-14-vehicle-access-v1";
+const NOTICE_VERSION = "2026-07-22-context-expansion-v1";
 
 const jsonResponse = (body: unknown, status: number) => new Response(JSON.stringify(body), {
   status,
@@ -114,8 +114,8 @@ Deno.serve(async (req) => {
       _notice_version: NOTICE_VERSION,
       _timezone: timezone,
     });
-    if (noticeError) return jsonResponse({ error: "Tägliche Datenschutzbestätigung konnte nicht geprüft werden" }, 503);
-    if (!noticeAccepted) return jsonResponse({ error: "Bitte bestätige zuerst den heutigen Datenschutzhinweis zu VINcent" }, 403);
+    if (noticeError) return jsonResponse({ error: "Datenschutzbestätigung konnte nicht geprüft werden" }, 503);
+    if (!noticeAccepted) return jsonResponse({ error: "Bitte bestätige zuerst den Datenschutzhinweis zu VINcent" }, 403);
 
     const { data: rateAllowed, error: rateError } = await authClient.rpc("check_vincent_rate_limit");
     if (rateError) return jsonResponse({ error: "Sicherheitsprüfung derzeit nicht verfügbar" }, 503);
